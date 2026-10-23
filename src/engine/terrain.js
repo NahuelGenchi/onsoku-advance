@@ -100,6 +100,18 @@ export function scan(terrain, p0, p1, layer, step, probe) {
   return { d: fwd ? -17 - r : r - 24, rot: b2.rot };
 }
 
+/**
+ * The one-tile floor probe (sub_801F100 and sub_801F07C, scanning down): the distance from (x, y) to the
+ * floor within the tile holding y, ≤ 0 at or inside it. An empty tile sends it on to the next tile down and a
+ * full one up into the tile above, so whatever uses it moves at most 8 px a frame.
+ */
+export function tileFloor(terrain, x, y, layer) {
+  const v = terrain.columnHeight(x, y, layer), r = y & 7;
+  if (v === 0) return 8 - r;
+  if (v === 8) return -1 - r;
+  return v > 0 ? v - 1 - r : v + r;
+}
+
 /** True when the pixel (px, py) is inside the solid part of its column, by the floor heights. */
 export function solidPixel(terrain, px, py, layer) {
   const v = terrain.columnHeight(px, py, layer), row = py & 7;

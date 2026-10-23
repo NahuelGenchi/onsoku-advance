@@ -26,6 +26,8 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 | Start positions | `0x4A6DEC` | Right after the collision table's 18 entries |
 | Rings | `0x0B7F4C` | The table just before the interactables |
 | Interactables | `0x0B7F94` | Four tables of 18 RL-compressed lists follow each other (rings, interactables, item boxes, enemies); act 1's lists are grids of 51 × 6 regions |
+| Item boxes | `0x0B7FDC` | The table after the interactables |
+| Enemies | `0x0B8024` | The table after the item boxes |
 | Spin dash speeds | `0x4A7084` | Nine 8.8 fixed-point values from 6.0 to 9.0 in steps of 0.375 |
 | UI graphics | `0x680A38` | 28-byte entries of two ROM pointers and five words; the first is the 8 × 16 font `{2, 0, 2, 1, 2}` and the sixth the HUD ring `{16, 2, 0, 4, 4}` |
 | Music players and songs | `0x6D767C`, `0x6D76AC` | Four music player entries (two EWRAM pointers, a track count of 1–16, a zero byte, a 16-bit field), followed at once by song entries of a ROM pointer and the player's number twice |
@@ -76,9 +78,15 @@ Each level's interactables are RL-compressed with the GBA BIOS format (header by
 
 Kinds 17 and 18 are the layer toggles: while Sonic's centre is inside the rectangle `d2 × d3` tiles from `(x, y)`, edges included, they put him on the front or back layer. Act 1 has 11 front and 20 back toggles at the loops, and three grind rails (kinds 19 and 20), which also swap layers and aren't supported yet.
 
+The enemies use the same 7-byte records, with the enemy's kind in place of the interactable's. The item boxes have 3-byte records `x, y, kind`. Act 1 has 27 enemies and 13 item boxes.
+
 ### Objects
 
-Objects run like the original's entities manager. An object exists while its origin is within 128 px of the screen on every side (from 128 px left of the screen to 128 px past its right edge, and likewise vertically), and it is removed as soon as it leaves that range. Objects run before Sonic each frame, so they test where he was at the end of the previous frame. They are drawn over the back layer and behind Sonic, who shares their sprite priority but comes earlier in the sprite list.
+**The task list.** The original runs everything as tasks in one list, sorted by priority, and the engine does the same with the same priorities. In act 1 a frame runs the camera (`0xF00`), then at `0x2000` the ring manager, the entities manager, two palette animations and every object, enemy and effect in the order they were made, then the scattered rings (`0x2001`), the HUD (`0x2180`), Sonic (`0x3000`), the GamiGami shots, the music manager (`0x4000`), the Buzzer shots (`0x9000`) and the stage's clock (`0xFF00`). A new task goes after the last task of its priority. The list fetches the next task before it runs the current one, so a task made by the one just before its place only runs from the next frame.
+
+**The entities manager** spawns objects, item boxes and enemies by their spawn point, from a range 128 px around the screen: from 128 px left of it to 128 px past its right edge (`x − 128` to `x + 368`), and from 128 px above it to 128 px below its bottom edge (`y − 128` to `y + 288`), edges included and kept inside the act. On its first frame, and after the camera jumps more than 248 px across or 208 px down, it spawns everything in the range. Otherwise it scans only the strip the camera's move uncovered sideways, the range's full height, then the strip it uncovered up or down, the range's full width. It scans the regions that start before the strip's far edge, so a spawn point exactly at a region's first pixel is found a frame late. In each region it spawns the interactables, then the item boxes, then the enemies. A spawned entity isn't spawned again while its task runs. Most tasks end when their spawn point leaves the range, which lets it spawn again later. A defeated enemy stays gone until the act starts over.
+
+Objects run before Sonic each frame, so they test where he was at the end of the previous frame. They are drawn over the back layer and behind Sonic, who shares their sprite priority but comes earlier in the sprite list.
 
 Sonic meets an object's hitbox through two rectangles around his centre: his body (±6 wide, ±`spriteOffsetY` tall) and a side probe 5 px wider and 1 px shorter at each end. Edges that only touch count. A solid object puts him on its top, pushes him out below it, or pushes him out of its nearer side (to the far side when the terrain is in the way). While he stands on it, his ground sensors rest and the object holds him up each frame, until he walks or jumps off it.
 
@@ -112,6 +120,48 @@ Rings are drawn from the regions the screen's top-left corner and the screen cov
 Each ring adds 1 to the count, and passing a multiple of 100 gives a life. It also leaves a sparkle (animation `708`, four frames of 8 ticks, then gone), but only while fewer than 8 are showing; beyond that, a ring still counts but makes no sparkle and no sound. Sparkles run after the objects from the frame they appear, and are drawn in front of Sonic.
 
 **How it was checked.** mGBA 0.10.5 recorded two runs through act 1 with Sonic's position and the original's ring list dumped after every frame. Replaying the recorded positions, the port collects the same rings on the same frames in both (14 and 23 rings), and none the original didn't. On each of those frames, the sound engine port loaded with the dumped state and given the two ring sound calls ends up identical to the original's. The region-search quirks are taken from the code; neither run hit them.
+
+### Spikes
+
+The spikes are animation `454` in sprite palette 35: variant 2 points up, variant 3 sideways, flipped to point left. Act 1 has four that point up (kind 1) and five that point left (kind 3). They are solid like any platform. The up spikes hurt Sonic when he lands on them, and the left-pointing ones when he touches their left face. Touching a left-pointing spike's back face puts him out past its left face, as the code reads; in act 1 their backs are against walls. A hit by spikes plays song 171.
+
+### Enemies
+
+Act 1 has five kinds of enemy. Each works out its position from its spawn point every frame. It goes when both its spawn point and its current position are outside the range around the camera.
+
+| Kind | Enemy | Count | Animations | What it does |
+| ---: | :--- | ---: | :--- | :--- |
+| 0 | Kiki | 4 | `401`, coconut `408`, its pieces `402` | Climbs up and down its tree at 1 px a frame and throws a coconut on every second visit to the top. The coconut flies toward where Sonic is, at up to 1.5 px a frame, bounces once, rests for 96 frames and bursts. Its pieces hurt for the 15 frames they show. |
+| 1 | Buzzer | 10 | `403`, shot `409` | Flies back and forth at 1 px a frame. Once per leg it stops to shoot when Sonic is in a wedge below it on the side it faces. The shot flies straight at where he was, about 1.68 px a frame. |
+| 2 | GamiGami | 3 | `404`, shot `410` | Walks along the ground at 0.625 px a frame. At each end it raises its claws for 19 frames and fires two shots on the 15th, thrown up and falling through everything. |
+| 3 | Rhinotank | 3 | `405` | Drives at 0.625 px a frame and slides round at each end. It charges at 3 px a frame when Sonic is within 80 px in front of it. |
+| 4 | KeroKero | 7 | `406` | Jumps toward Sonic, 1 px a frame, when he is within 80 px on the side it faces, at any height, and croaks now and then |
+
+Each enemy's sprite carries its hitbox in its script. Sonic's sprite has two boxes of its own: slot 0 is his body, and slot 1 is an attack box, which only the scripts of his attacking moves set. When his attack box touches an enemy's box, the enemy is destroyed and Sonic, if he was falling, bounces back up at the same speed. Otherwise his body on it hurts him. Shots only hurt. Nothing hurts him while he is dead.
+
+**Defeating an enemy** leaves, in this order:
+
+1. A dust cloud (`407`) that plays once where the enemy was.
+2. A freed animal. Neo Green Hill's are the otter (`445`), the koala (`450`) and the kangaroo (`449`), in turn. It hops up at 4 px a frame and lands on the ground; the otter and the koala then sit, and the kangaroo hops away to the left at 2 px a frame.
+3. The points (`709`): 100, 200, 400, 800, then 1000 for each enemy after that, counted since Sonic last touched the ground. They rise 1 px a frame for 60 frames, stay for 30 more and go. Every 50,000 points give a life.
+
+The defeat plays song 138.
+
+### Getting hurt
+
+A hit with rings throws Sonic up at 3.0 and away at 1.5 px a frame, against the way he was moving (or facing, when still). It doesn't matter where the hazard was. Knocked back, he has no control, no moves and no air drag until he lands. He then blinks for 120 frames (hidden 2 frames out of 4, in step with the stage clock), which only start counting once he has landed. Nothing hurts him while he blinks, and he can't collect rings until he lands. He drops all his rings, the count goes to 0 and song 118 plays.
+
+**The scattered rings.** Up to 48 rings leave his centre, with speeds going round three circles in mirrored pairs. Each ring moves, then falls at 18/256 px a frame per frame. While falling it bounces off the floor of its tile at a quarter of its speed, and it goes through walls and ceilings. A ring can be picked up after 32 frames and disappears after 256. In its last 32 frames it shows only while the stage clock's bit 1 is clear. All of them share one ring sprite, spinning twice as fast as the act's rings, and they are drawn where each ring was before its bounce. Their task runs after the objects, so rings dropped by a hazard move once on the frame they are dropped.
+
+### Dying and the restart
+
+Sonic dies when a hit finds him without rings (thrown up at 3.0) or when he falls out of the bottom of the act (thrown up at a jump's speed). On that frame the camera's target and the stage clock stop, song 119 plays and the music plays on. His blink timer is set to 2, counts down once and stays at 1. He then falls through everything, in front of the front layer, until his centre is 240 px below the top of the screen. He disappears there, and 61 frames later he loses a life.
+
+Losing a life destroys every task, so nothing after Sonic runs on that frame. The original then spends the whole next frame loading the act again, and nothing runs. On the frame after, the act starts over with its rings, enemies and objects back: the ring count goes to 0, the score and the stage clock carry on, and the music starts from its beginning. The new camera starts with Sonic centred, not yet kept inside the act (x = −16 at act 1's start). Its task's first frame only sets it going, so it starts moving on the second frame.
+
+**How it was checked.**
+- *Enemies:* mGBA 0.10.5 recorded every task of the act's enemies, shots and effects after each frame, with Sonic's position and hitboxes, in 13 runs: each enemy kind on its own, both ways round and from different sides, and five runs where Sonic destroys enemies in a row. Fed Sonic's recorded position, the engine's enemies, shots, dust clouds, animals and points match the original's position, animation and hitbox on every frame of all 13 runs, and the score matches too.
+- *Damage:* nine more recordings dumped Sonic, the camera, the rings, the lives, the stage clock and the scattered rings after each frame. They cover a hit by spikes with 12 rings, a hit with 60 rings (48 scatter), knockbacks to either side and facing left, two hits from the left, a death on spikes and a fall out of the bottom of the act, both through the restart. Run from the recorded start, the whole game matches every one of them on every frame: Sonic's position, speed, blinking and death, the rings and lives, the camera, the stage clock, the scattered rings drawn and the sounds played. A tenth run matches until Sonic walks into an item box, which isn't built yet.
 
 ### HUD
 
@@ -192,7 +242,7 @@ Sonic's sensors follow SA1's player code. His position is his centre; the sensor
 - **Walls and ceilings** drop him below 1.875 px per frame and lock his controls for 30 grounded frames.
 - **In the air** the direction he moves picks which sensors run. Landing turns his speed into ground speed by the landing angle, and of the two steep ceiling slopes only `0x41`–`0x5F` catches him.
 - **Jump-through ledges** are solid on the ground. In the air the floor sensors ignore them while he rises, and the walls and ceiling while his downward speed is under 3.
-- **Bounds:** the camera stops at the act's edges, and falling out of the bottom ends the run; for now the engine puts Sonic back at the start.
+- **Bounds:** the camera stops at the act's edges, and falling out of the bottom kills Sonic (see [Dying and the restart](#dying-and-the-restart)).
 
 The walk and run frames turn with the angle through the rotation hardware.
 
@@ -215,7 +265,7 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 
 | Sound | Song | Player | When |
 | :--- | ---: | ---: | :--- |
-| Neo Green Hill Zone act 1 | 12 | 0 | The act starts (and starts again after falling out) |
+| Neo Green Hill Zone act 1 | 12 | 0 | The act starts, and starts over after a life is lost |
 | Jump | 116 | 2 | A jump from the ground, and the combo's backflip |
 | Spin | 109 | 3 | Spin dash start, rolling, the combo's first hit. Each spin dash rev plays it again, raised by the decayed charge (`charge & ~0x7F` in 1/256 semitones). |
 | Spin dash release | 110 | 2 | Letting go of down |
@@ -227,6 +277,10 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Spring | 170 | 2 | Every launch |
 | Timer warning | 139 | 2 | Every second from 9:40 to 10:00 |
 | 1-up | 307 | 0 | Every hundredth ring, in place of the music; the music then starts over with a fade-in |
+| Rings lost | 118 | 3 | Sonic is hurt and drops his rings |
+| Life lost | 119 | 2 | Sonic dies |
+| Enemy destroyed | 138 | 2 | |
+| Spikes | 171 | 2 | Sonic is hurt by spikes |
 | Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |
 
 Sounds on the same player cut each other off, as in the original. There is no landing sound in SA1.

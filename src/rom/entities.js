@@ -4,8 +4,8 @@
 //
 // Each level's list is RL-compressed. Decompressed, it is a grid of 256 × 256 px regions: a size word,
 // the grid's width and height, one offset per region (0 when empty), then each region's records ending
-// with 0xFF: 7 bytes { x, y, kind, d0..d3 } for interactables, 2 bytes { x, y } for rings. x and y are in
-// tiles inside the region.
+// with 0xFF: 7 bytes { x, y, kind, d0..d3 } for interactables and enemies, 3 bytes { x, y, kind } for item boxes,
+// 2 bytes { x, y } for rings. x and y are in tiles inside the region.
 
 const TOGGLE_FRONT = 17, TOGGLE_BACK = 18;   // interactable kinds of the layer toggles
 const REGION = 256;
@@ -52,18 +52,36 @@ export function readRings(rom, tableAt, level) {
   return { regionsX, regionsY, regions };
 }
 
-/** Every interactable of `level`: { kind, x, y, d: [d0, d1, d2, d3] } with x and y in pixels. */
-export function readInteractables(rom, tableAt, level) {
-  const { data, view, regionsX, regionsY } = readGrid(rom, tableAt, level, 'interactables');
+/**
+ * Every interactable (or, from the enemy table, every enemy) of `level`, region by region in the list's order:
+ * { kind, x, y, d: [d0, d1, d2, d3], rx, ry } with x and y in pixels and rx, ry its region.
+ */
+export function readInteractables(rom, tableAt, level, what = 'interactables') {
+  return readEntities(rom, tableAt, level, what, 7);
+}
+
+/** The item boxes of `level`, the same way: { kind, x, y, d: [], rx, ry }, `kind` being what the box holds. */
+export function readItemBoxes(rom, tableAt, level) {
+  return readEntities(rom, tableAt, level, 'item boxes', 3);
+}
+
+/** The size of `level`'s entity grids in regions: { x, y }. */
+export function entityRegions(rom, tableAt, level) {
+  const { regionsX, regionsY } = readGrid(rom, tableAt, level, 'interactables');
+  return { x: regionsX, y: regionsY };
+}
+
+function readEntities(rom, tableAt, level, what, size) {
+  const { data, view, regionsX, regionsY } = readGrid(rom, tableAt, level, what);
   const list = [];
   for (let r = 0; r < regionsX * regionsY; r++) {
     const offset = view.getUint32(12 + r * 4, true);
     if (!offset) continue;
-    for (let at = 4 + offset; data[at] !== 0xFF; at += 7) {
+    const rx = r % regionsX, ry = Math.floor(r / regionsX);
+    for (let at = 4 + offset; data[at] !== 0xFF; at += size) {
       list.push({
-        kind: data[at + 2],
-        x: data[at] * 8 + (r % regionsX) * REGION, y: data[at + 1] * 8 + Math.floor(r / regionsX) * REGION,
-        d: [data[at + 3], data[at + 4], data[at + 5], data[at + 6]],
+        kind: data[at + 2], x: data[at] * 8 + rx * REGION, y: data[at + 1] * 8 + ry * REGION,
+        d: Array.from(data.subarray(at + 3, at + size)), rx, ry,
       });
     }
   }

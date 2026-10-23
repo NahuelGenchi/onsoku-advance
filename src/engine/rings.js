@@ -33,11 +33,12 @@ export function createRings(layout, anims) {
     },
 
     /**
-     * Steps the spin and collects what Sonic touches. Returns the rings taken this frame, in the
-     * original's order: by region row, then column, then the region's list.
+     * Steps the spin and collects what Sonic touches (nothing when `player` is null). Returns the rings
+     * taken this frame, in the original's order: by region row, then column, then the region's list.
      */
     update(player) {
       tickAnim(anim, anims);
+      if (!player) return [];
       const px = Math.floor(player.x), py = Math.floor(player.y), oy = player.offsetY;
       const taken = [];
       // the search's bottom and right edges come in by a ring's height and half its width, so a ring just

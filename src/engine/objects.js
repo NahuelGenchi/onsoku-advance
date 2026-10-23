@@ -1,19 +1,45 @@
-// The act's objects, spawned and removed around the camera like the original's entities manager (SAT-R
-// decompilation, src/game/shared/stage/entities_manager.c). They run before Sonic each frame, so they see
-// where he was at the end of the last one.
+// The original's task list and its entities manager (SAT-R decompilation, src/task.c and
+// src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
+// enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that every task
+// keeps its place in the list.
+//
+// A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
+// order, and the tasks of a priority in the order they were made. The original fetches the next task before
+// it runs the current one and puts a new task after the last one of its priority, so a task made by the one
+// just before its place in the list (the last of its priority, say) only runs from the next frame.
 
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { createSpring } from './springs.js';
+import { createSpikes } from './spikes.js';
+import { ENEMIES } from './enemies.js';
 
-// objects live while their origin is within this range of the screen's top-left corner; the original's
-// entities manager spawns them in the same window, scanning the strips the camera uncovers
-const RANGE = { left: -128, right: 240 + 128, top: -128, bottom: 160 + 128 };
-const inRange = (o, cx, cy) => {
-  const sx = o.x - cx, sy = o.y - cy;
-  return sx >= RANGE.left && sx <= RANGE.right && sy >= RANGE.top && sy <= RANGE.bottom;
-};
+export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
-const FACTORIES = [createSpring];
+/**
+ * The task list: add(task, priority, permanent), run(ctx), stop(), which ends this frame's run after the
+ * task running now, and reset(), which keeps the permanent tasks.
+ */
+export function createTasks() {
+  let list = [], next = null;
+  return {
+    add(task, priority = OBJECTS, permanent = false) {
+      task.priority = priority; task.permanent = permanent;
+      const at = list.findIndex(t => t.priority > priority);
+      list.splice(at < 0 ? list.length : at, 0, task);
+    },
+    run(ctx) {
+      for (let t = list[0]; t; t = next) {
+        next = list[list.indexOf(t) + 1] ?? null;
+        if (!t.run(ctx)) list.splice(list.indexOf(t), 1);
+      }
+    },
+    stop() { next = null; },
+    reset() { list = list.filter(t => t.permanent); next = null; },
+  };
+}
+
+// IS_OUT_OF_CAM_RANGE on the screen position of an entity's spawn point: x in -128..368, y in -128..288
+const offCam = (x, y, cam) => ((x - cam.x + 128) & 0xFFFF) > 496 || y - cam.y + 128 < 0 || y - cam.y > 288;
 
 // a hitbox under the sprite's flips, as the sprite system applies them when the box is set
 function flipBox(box, flipX, flipY) {
@@ -24,58 +50,173 @@ function flipBox(box, flipX, flipY) {
   return [l, t, r, b];
 }
 
-export function createObjects(entities, anims) {
-  // one slot per entity that the engine knows how to run
-  const slots = [];
-  for (const e of entities) {
-    for (const make of FACTORIES) {
-      const def = make(e);
-      if (def) { slots.push({ def, live: null }); break; }
-    }
-  }
+/** A sprite that keeps the hitboxes its script sets. `order` is its OAM order, `prio` its BG priority. */
+export function makeSprite(name, { flipX = false, flipY = false, order = 18, prio = 2 } = {}) {
+  const s = { anim: makeAnimator(), shown: -1, frame: -1, boxes: [null, null], flipX, flipY, order, prio };
+  setAnim(s.anim, name);
+  return s;
+}
 
-  // steps the object's animation; the hitboxes set before a frame take effect when it appears, and the
-  // sprite keeps its last frame until the next animation shows its first
-  function animate(o) {
-    const ended = tickAnim(o.anim, anims);
-    if (o.anim.i !== o.shown) {
-      o.shown = o.anim.i;
-      const boxes = anims[o.anim.name].frames[o.anim.i][2];
-      if (boxes) for (const [slot, box] of Object.entries(boxes)) o.boxes[slot] = flipBox(box, o.flipX, o.flipY);
-      o.frame = frameOf(o.anim, anims);
-    }
-    return ended;
-  }
-  function start(o, name, restart = false) { setAnim(o.anim, name, restart); o.shown = -1; }
+/** Switches the sprite's animation; the same one carries on unless `restart` (the original's prevVariant = -1). */
+export function startAnim(s, name, restart = false) {
+  if (s.anim.name === name && !restart) return;
+  setAnim(s.anim, name, true); s.shown = -1;
+}
 
-  function spawn(def) {
-    const o = { ...def, anim: makeAnimator(), shown: -1, frame: -1, boxes: [null, null], launching: false };
-    start(o, o.idle); animate(o);
-    return o;
+/**
+ * Steps the sprite's animation (UpdateSpriteAnimation). The hitboxes set before a frame take effect when it
+ * appears, and the sprite keeps its last frame until the next animation shows its first. Returns true on
+ * the tick a one-shot animation ends.
+ */
+export function animate(s, anims) {
+  const ended = tickAnim(s.anim, anims);
+  if (s.anim.i !== s.shown) {
+    s.shown = s.anim.i;
+    const boxes = anims[s.anim.name].frames[s.anim.i][2];
+    if (boxes) for (const [slot, box] of Object.entries(boxes)) if (slot < 2) s.boxes[slot] = flipBox(box, s.flipX, s.flipY);
+    s.frame = frameOf(s.anim, anims);
+  }
+  return ended;
+}
+
+// a spring or spike: it runs its collision, plays its animation and goes when its spawn point leaves the
+// range around the camera
+function objectTask(def, slot, anims) {
+  const o = { ...def, ...makeSprite(def.idle, { flipX: def.flipX, flipY: def.flipY, order: def.order ?? 18 }), launching: false };
+  animate(o, anims);
+  return {
+    run(ctx) {
+      const hit = o.collide(o, ctx.player, ctx.world);
+      if (hit && o.sound) ctx.world.playSound(o.sound);
+      if (offCam(o.x, o.y, ctx.cam)) { slot.live = null; return false; }
+      if (o.launching) {
+        // a hit during the launch restarts it, except on the diagonal springs
+        if (hit && o.restarts) startAnim(o, o.launch, true);
+        if (animate(o, anims)) { o.launching = false; startAnim(o, o.idle); animate(o, anims); }
+      } else if (hit) {
+        o.launching = true;
+        startAnim(o, o.launch);   // its first frame shows on the next one
+      }
+      ctx.draw(o, o.x, o.y);
+      return true;
+    },
+  };
+}
+
+// layer toggles (toggle_player_layer.c): while Sonic's centre is inside one, the front one puts him on the
+// front layer and the back one on the back layer; it sees where he was at the end of the last frame
+const TOGGLE_FRONT = 17, TOGGLE_BACK = 18;
+function toggle(e, slot) {
+  const w = e.d[2] * 8, h = e.d[3] * 8;
+  return {
+    run(ctx) {
+      const p = ctx.player, x = Math.floor(p.x), y = Math.floor(p.y);
+      if (x >= e.x && x <= e.x + w && y >= e.y && y <= e.y + h) p.layer = e.kind === TOGGLE_FRONT ? 0 : 1;
+      if (offCam(e.x, e.y, ctx.cam)) { slot.live = null; return false; }
+      return true;
+    },
+  };
+}
+
+// The act 1 kinds not built yet (and the item boxes), as tasks that do nothing but leave when their spawn point does, at the
+// original's priority (0x2000 unless given here) and range. The stage goal makes no task while its d1 is 0.
+const STAND_IN_PRIORITY = { 20: 0x900, 21: 0x2010 };   // the grind rail's end, the thin platform
+const STAND_IN_RANGE = {
+  // the half-pipe's start and end look further back and further ahead
+  28: (e, cam) => e.x > cam.x + 368 || e.x < cam.x - 800 || e.y > cam.y + 288 || e.y < cam.y - 128,
+  29: (e, cam) => e.x > cam.x + 1040 || e.x < cam.x - 128 || e.y > cam.y + 288 || e.y < cam.y - 128,
+};
+const STAGE_GOAL = 0, FORCED_SLIDE = 46;
+function standIn(e, slot, kind = e.kind) {
+  if (kind === STAGE_GOAL && e.d[1] === 0) return null;
+  const out = STAND_IN_RANGE[kind] ?? ((e, cam) => offCam(e.x, e.y, cam));
+  const priority = kind === FORCED_SLIDE ? ((e.d[1] << 24) >> 24) + 0x1000 : STAND_IN_PRIORITY[kind] ?? OBJECTS;
+  return {
+    priority,
+    run(ctx) {
+      if (out(e, ctx.cam)) { slot.live = null; return false; }
+      return true;
+    },
+  };
+}
+
+// what an interactable spawns as
+function interactable(e, slot, anims) {
+  if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
+  const def = createSpring(e) ?? createSpikes(e);
+  return def ? objectTask(def, slot, anims) : standIn(e, slot);
+}
+
+/**
+ * The entities manager (Task_8008DCC): each frame it spawns the entities whose spawn point the camera's
+ * move brought into the range of 128 px around the screen, scanning the strip it uncovered sideways, then
+ * the one it uncovered up or down, region by region and, in each region, its interactables, then its item
+ * boxes, then its enemies. On its first frame, and after a jump of more than 248 px across or 208 down, it
+ * spawns everything in range (SpawnMapEntities). A task that leaves sets its slot's `live` back to null, so
+ * it can spawn again when its point is uncovered again; a defeated enemy's slot is `gone` until the act
+ * starts over.
+ *
+ * `stage` has interactables, itemBoxes, enemies and entityRegions; `tasks` is the list it adds to.
+ */
+export function createEntities(stage, anims, tasks) {
+  const { x: regionsX, y: regionsY } = stage.entityRegions;
+  const regions = Array.from({ length: regionsX * regionsY }, () => []);
+  const slot = (e, spawn) => ({ e, live: null, gone: false, spawn });
+  // item boxes are not built yet: they hold their place as stand-ins
+  for (const [list, spawn] of [
+    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx)],
+    [stage.itemBoxes, s => standIn(s.e, s, -1)],
+    [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s, -1)],
+  ]) {
+    // each region keeps its interactables, then its item boxes, then its enemies
+    for (const e of list) regions[e.rx + e.ry * regionsX].push(slot(e, spawn));
+  }
+  const width = regionsX * 256, height = regionsY * 256;
+  let prev = null;   // the camera the last scan saw; null spawns everything in range
+
+  // CamCoord clamps of the original: below 0 to 0, past the grid to its last pixel
+  const clampX = v => Math.min(Math.max(v, 0), width - 1), clampY = v => Math.min(Math.max(v, 0), height - 1);
+  // spawns what lies in the range: the regions scanned are those that start below its far edges
+  function scan(ctx, x0, x1, y0, y1) {
+    for (let ry = y0 >> 8; ry * 256 < y1 && ry < regionsY; ry++) {
+      for (let rx = x0 >> 8; rx * 256 < x1 && rx < regionsX; rx++) {
+        for (const s of regions[rx + ry * regionsX]) {
+          const { x, y } = s.e;
+          if (s.live || s.gone || x < x0 || x > x1 || y < y0 || y > y1) continue;
+          const task = s.spawn(s, ctx);
+          if (!task) continue;
+          s.live = task;
+          tasks.add(task, task.priority ?? OBJECTS);
+        }
+      }
+    }
   }
 
   return {
-    /** Spawns, runs and removes objects for this frame. `world` provides terrain and playSound(song). */
-    update(player, cam, world) {
-      const cx = Math.floor(cam.x), cy = Math.floor(cam.y);
-      for (const s of slots) {
-        if (!s.live && inRange(s.def, cx, cy)) s.live = spawn(s.def);
-        const o = s.live;
-        if (!o) continue;
-        const hit = o.collide(o, player, world.terrain);
-        if (hit && o.sound) world.playSound(o.sound);
-        if (!inRange(o, cx, cy)) { s.live = null; continue; }
-        if (o.launching) {
-          // a hit during the launch restarts it, except on the diagonal springs
-          if (hit && o.restarts) start(o, o.launch, true);
-          if (animate(o)) { o.launching = false; start(o, o.idle); animate(o); }
-        } else if (hit) {
-          o.launching = true;
-          start(o, o.launch);   // its first frame shows on the next one
+    manager: {
+      run(ctx) {
+        const cam = ctx.cam;
+        if (!prev || Math.abs(cam.x - prev.x) > 248 || Math.abs(cam.y - prev.y) > 208) {
+          scan(ctx, clampX(cam.x - 128), clampX(cam.x + 368), clampY(cam.y - 128), clampY(cam.y + 288));
+          prev = { ...cam };
+          return true;
         }
-      }
+        // the strip uncovered sideways, the full height of the range, then the one uncovered up or down,
+        // its full width
+        const [ax0, ax1] = cam.x > prev.x ? [prev.x + 368, cam.x + 368] : [cam.x - 128, prev.x - 128];
+        const [by0, by1] = cam.y > prev.y ? [prev.y + 288, cam.y + 288] : [cam.y - 128, prev.y - 128];
+        const a = [clampX(ax0), clampX(ax1), clampY(cam.y - 128), clampY(cam.y + 288)];
+        const b = [clampX(cam.x - 128), clampX(cam.x + 368), clampY(by0), clampY(by1)];
+        if (cam.x !== prev.x && a[0] !== a[1] && a[2] !== a[3]) scan(ctx, ...a);
+        if (cam.y !== prev.y && b[2] !== b[3] && b[0] !== b[1]) scan(ctx, ...b);
+        prev = { ...cam };
+        return true;
+      },
     },
-    /** The live objects, in the order they run; each has x, y, frame (an atlas index), flipX and flipY. */
-    live() { return slots.filter(s => s.live).map(s => s.live); },
+    /** Everything leaves and the next scan spawns what is in range, as when the act starts over. */
+    reset() {
+      prev = null;
+      for (const r of regions) for (const s of r) { s.live = null; s.gone = false; }
+    },
   };
 }

@@ -53,19 +53,41 @@ export function createRings(layout, anims) {
       return taken;
     },
 
+    /** The atlas frame every ring shows. */
+    frame: () => frameOf(anim, anims),
+
     /** The atlas frame every ring shows, and the rings on screen as the original picks them. */
     visible(cam) {
-      const cx = Math.floor(cam.x), cy = Math.floor(cam.y), list = [];
-      for (let ry = cy >> 8; ry * REGION < cy + SCREEN_H && ry < regionsY; ry++) {
-        for (let rx = cx >> 8; rx * REGION < cx + SCREEN_W && rx < regionsX; rx++) {
-          for (const ring of regions[rx + ry * regionsX]) {
-            const sx = ring.x - cx, sy = ring.y - cy;
-            if (ring.taken || sx < -TILE || sx + TILE > SCREEN_W + 2 * TILE || sy < 0 || sy - 2 * TILE > SCREEN_H) continue;
-            list.push(ring);
-          }
-        }
-      }
-      return { frame: frameOf(anim, anims), list };
+      return { frame: frameOf(anim, anims), list: onScreen(cam) };
+    },
+
+    /**
+     * The magnetic shield's pull, done where the original draws the rings: each ring on screen within 64 px
+     * of Sonic's centre across, 72 above it or 56 below, leaves the act and is returned, to fly at him.
+     */
+    attract(player, cam) {
+      const px = Math.floor(player.x), py = Math.floor(player.y);
+      return onScreen(cam).filter(ring => {
+        if (ring.x - 64 > px || ring.x + 64 < px || ring.y - 72 > py || ring.y + 56 < py) return false;
+        ring.taken = true;
+        return true;
+      });
     },
   };
+
+  // the rings the original draws: region by region from the camera's, those not taken whose point is on
+  // screen, give or take a ring
+  function onScreen(cam) {
+    const cx = Math.floor(cam.x), cy = Math.floor(cam.y), list = [];
+    for (let ry = cy >> 8; ry * REGION < cy + SCREEN_H && ry < regionsY; ry++) {
+      for (let rx = cx >> 8; rx * REGION < cx + SCREEN_W && rx < regionsX; rx++) {
+        for (const ring of regions[rx + ry * regionsX]) {
+          const sx = ring.x - cx, sy = ring.y - cy;
+          if (ring.taken || sx < -TILE || sx + TILE > SCREEN_W + 2 * TILE || sy < 0 || sy - 2 * TILE > SCREEN_H) continue;
+          list.push(ring);
+        }
+      }
+    }
+    return list;
+  }
 }

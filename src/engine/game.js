@@ -14,13 +14,21 @@ import { attackTest, projectileTest, defeatEffects } from './defeat.js';
 import { createRings } from './rings.js';
 import { createScatter } from './scatter.js';
 import { createHud, updateHud } from './hud.js';
+import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
+import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { SONG } from '../sound/songs.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
 const START_LIVES = 3;
+const ITEM_TIME = 1200;   // invincibility and speed shoes last 20 seconds
+const RANDOM_RING_PRIZES = [1, 5, 10, 20, 30, 40];   // ItemBox_RingAmountTable
+const SPEED_UP_TEMPO = 0x200, NORMAL_TEMPO = 0x100;
 
-const SILENT = { play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stopAll() {} };
+const SILENT = {
+  play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, tempo() {}, invincibility() {},
+  playerState() {}, stopAll() {},
+};
 
 export function createGame(canvas, assets, input, sound = SILENT) {
   const { anims } = assets.sprites;
@@ -33,9 +41,11 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     tick: 0, player, terrain, tasks, rings, scatter, cam: createCamera(player, terrain), effects: [], sprites: [],
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
     animal: 0,   // gTrappedAnimalVariant: the next defeat's animal
+    seed: 0,     // gPseudoRandom: the game's random numbers, one sequence for the whole game, from 0
   };
   const sparkles = new Set();   // the ring sparkles still running their animation
-  let extraLife = false, restart = false, loading = false, startMusic = false;
+  let extraLife = false, restart = false, loading = false, startMusic = false, starMusic = false;
+  const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
   const render = createRenderer(canvas, assets);
 
   function spawn(kind, name, x, y, flipX, flipY = false) {
@@ -51,11 +61,15 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     get tick() { return state.tick; },
     get cameraY() { return Math.floor(state.cam.y); },
     terrain,
-    // a hazard touched Sonic (Coll_DamagePlayer): with rings he drops them all, up to 48 of them scattering,
-    // and without any he dies; returns false while he is still blinking from the last hit
+    // a hazard touched Sonic (Coll_DamagePlayer): a shield takes the hit, or with rings he drops them all, up
+    // to 48 of them scattering, and without any he dies; returns false while he is invincible or still
+    // blinking from the last hit
     damage() {
       if (!hurt(player)) return false;
-      if (state.ringCount > 0) {
+      if (player.shield) {
+        sound.play(SONG.LIFE_LOST);
+        player.shield = null;
+      } else if (state.ringCount > 0) {
         scatter.launch(Math.floor(player.x), Math.floor(player.y), state.ringCount, player.layer);
         sound.play(SONG.RINGS_LOST);
         state.ringCount = 0;
@@ -72,12 +86,38 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // Sonic's attack box destroyed an enemy at (x, y)
     defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
     playSound: song => sound.play(song),
+    random,
+    // an item box's prize (Task_Itembox2)
+    prize(kind) {
+      switch (kind) {
+        case ONE_UP: state.lives = (state.lives + 1) & 0xFF; extraLife = true; break;
+        case SHIELD: case MAGNETIC_SHIELD: {
+          const shield = kind === SHIELD ? 'normal' : 'magnetic';
+          player.shield = shield;
+          tasks.add(shieldTask(shield), ITEM_TASKS);
+          sound.play(SONG.SHIELD);
+          break;
+        }
+        case INVINCIBILITY:
+          if (!player.invincible) { tasks.add(starsTask(), ITEM_TASKS); starMusic = true; }
+          player.invincible = ITEM_TIME;
+          break;
+        case SPEED_UP: player.speedUp = ITEM_TIME; sound.tempo(SPEED_UP_TEMPO); break;
+        case RANDOM_RINGS: case RINGS_5: case RINGS_10:
+          addRings(kind === RINGS_5 ? 5 : kind === RINGS_10 ? 10 : RANDOM_RING_PRIZES[random() % RANDOM_RING_PRIZES.length]);
+          sound.play(SONG.RING);
+          break;
+      }
+    },
+    speedUpOver() { sound.tempo(NORMAL_TEMPO); },
+    invincibilityOver() { sound.stop(SONG.INVINCIBILITY); },
     playSoundPitched: (song, pitch) => sound.playPitched(song, pitch),
     freezeCamera() { state.cam.freeze = CAMERA.spinDashFreeze; },
-    // brake dust stays where it appeared, flipped at random
+    // brake dust stays where it appeared, flipped by the game's random numbers
     spawnBrakeDust() {
       if (state.effects.filter(e => e.kind === 'brake').length >= MAX_BRAKE_DUST) return;
-      spawn('brake', 'brakeDust', player.x, feetY(), Math.random() < 0.5, Math.random() < 0.5);
+      const r = random();
+      spawn('brake', 'brakeDust', player.x, feetY(), (r & 0x400) !== 0, (r & 0x800) !== 0);
     },
     // spin dash dust follows Sonic's feet while he charges, bigger while the charge is above 2.0
     spawnDashDust() { spawn('dash', 'dashDust', player.x, feetY(), player.facing > 0); },
@@ -113,13 +153,17 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     return true;
   }
 
-  // INCREMENT_RINGS and CreateCollectRingEffect: each ring counts, gives a life on every hundredth, and
-  // leaves a sparkle with the ring sound, alternating sides with the count's parity: odd ones on the
-  // second sound effect player to the left, even ones on the first to the right, at half volume
-  function addRing(ring) {
+  // INCREMENT_RINGS: passing a hundred gives a life
+  function addRings(n) {
     const before = state.ringCount;
-    state.ringCount = (before + 1) & 0xFFFF;
+    state.ringCount = (before + n) & 0xFFFF;
     if (Math.floor(state.ringCount / 100) !== Math.floor(before / 100)) { state.lives = (state.lives + 1) & 0xFF; extraLife = true; }
+  }
+  // a ring taken, with CreateCollectRingEffect: it leaves a sparkle with the ring sound, alternating sides with
+  // the count's parity: odd ones on the second sound effect player to the left, even ones on the first to
+  // the right, at half volume
+  function addRing(ring) {
+    addRings(1);
     if (sparkles.size >= MAX_RING_SPARKLES) return;
     const odd = state.ringCount & 1;
     sound.playOn(odd ? 2 : 1, SONG.RING, 128, odd ? -64 : 64);
@@ -142,10 +186,15 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       },
     };
   }
-  // the act's rings can't be taken while Sonic is knocked back and blinking, or dead
-  function collectRings() {
-    if (player.dead || (player.state === 'hurt' && player.invulnerable)) { rings.update(null); return; }
-    for (const ring of rings.update(player)) addRing(ring);
+  // the act's rings can't be taken while Sonic is knocked back and blinking, or dead; with the magnetic
+  // shield, those near him on screen fly at him
+  function collectRings(ctx) {
+    if (player.dead || (player.state === 'hurt' && player.invulnerable)) rings.update(null);
+    else for (const ring of rings.update(player)) addRing(ring);
+    if (player.shield !== 'magnetic') return;
+    for (const r of rings.attract(player, ctx.cam)) {
+      tasks.add(magneticRing(r.x, r.y, (x, y) => addRing({ x, y }), rings.frame));
+    }
   }
   // Sonic's sprite (OAM order 16): the walk and run frames go through the rotation hardware and follow the
   // slope; facing left, the original shifts the other frames 1px right. Dying puts him in front of the front
@@ -166,7 +215,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     state.cam = createCamera(player, terrain);
     tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear();
     state.ringCount = 0; state.effects = []; state.sprites = []; state.courseTime = 0; state.clockStopped = false; state.animal = 0;
-    loading = true; startMusic = true;
+    loading = true; startMusic = true; starMusic = false;
   }
 
   // the stage's own tasks, made in the original's order: the rings manager and the entities manager first
@@ -174,7 +223,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // hold their place, which lets what the entities manager spawns run in the same frame), the scattered rings
   // just after them, the HUD, Sonic (with his effects), the music and, last, the stage's clocks
   const STAGE_TASKS = [
-    [0x2000, () => collectRings()],
+    [0x2000, ctx => collectRings(ctx)],
     [0x2000, ctx => entities.manager.run(ctx)],
     [0x2000, () => {}], [0x2000, () => {}],
     // a sparkle the scattered rings leave first runs on the next frame
@@ -191,9 +240,12 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       state.effects = state.effects.filter(updateEffect);
       for (const e of state.effects) draw({ frame: frameOf(e.anim, anims), flipX: e.flipX, flipY: e.flipY, order: 8, prio: 2 }, e.x, e.y);
     }],
-    // the music manager: the act's music after a restart, and an extra life's 1-up jingle in place of it
+    // the music manager: the act's music after a restart, invincibility's song and an extra life's 1-up jingle
+    // in place of it (synth.js runs it, with what it reads of Sonic)
     [0x4000, () => {
+      sound.playerState(player.invincible > 0, player.speedUp > 0, !player.dead);
       if (startMusic) { startMusic = false; sound.playStageMusic(SONG.NEO_GREEN_HILL_1); }
+      if (starMusic) { starMusic = false; sound.invincibility(); }
       if (extraLife) { extraLife = false; sound.oneUp(); }
     }],
     [0xFF00, () => { if (!state.clockStopped) state.courseTime++; state.tick++; }],

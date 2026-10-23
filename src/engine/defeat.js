@@ -18,7 +18,8 @@ const at = p => [Math.floor(p.x), Math.floor(p.y)];
 
 /**
  * Coll_Player_Enemy_Attack: Sonic's attack box on the enemy's box defeats it, bouncing him back up if he was
- * falling; otherwise his body on it hurts him. Returns true when the enemy is defeated.
+ * falling; otherwise his body on it hurts him, or defeats it while he is invincible, without the bounce.
+ * Returns true when the enemy is defeated.
  */
 export function attackTest(s, x, y, ctx) {
   const p = ctx.player, hb = s.boxes[0];
@@ -29,7 +30,10 @@ export function attackTest(s, x, y, ctx) {
     ctx.world.defeat(x, y);
     return true;
   }
-  if (p.boxes[0] && overlap(x, y, hb, px, py, p.boxes[0])) ctx.world.damage();
+  if (p.boxes[0] && overlap(x, y, hb, px, py, p.boxes[0])) {
+    if (p.invincible > 0) { ctx.world.defeat(x, y); return true; }
+    ctx.world.damage();
+  }
   return false;
 }
 
@@ -43,8 +47,8 @@ export function projectileTest(s, x, y, ctx) {
   return true;
 }
 
-// the dust cloud where an enemy was: it runs its animation once and stays where it appeared
-function dustCloud(x, y) {
+/** The dust cloud where an enemy or an item box was (CreateDustCloud): it runs its animation once and stays where it appeared. */
+export function dustCloud(x, y) {
   const s = makeSprite('dustCloud', { order: 15 });
   return {
     run(ctx) {

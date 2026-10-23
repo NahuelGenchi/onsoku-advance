@@ -50,6 +50,14 @@ export function createSound() {
       call('playerStart', player, song); call('immInit', player);
       call('volumeControl', player, 0xFFFF, volume); call('panpotControl', player, 0xFFFF, pan);
     },
+    /** m4aSongNumStop */
+    stop(song) { call('songStop', song); },
+    /** m4aMPlayTempoControl on the music (0x100 is normal speed) */
+    tempo(tempo) { call('tempoControl', 0, tempo); },
+    /** The music manager's invincibility: its song in place of the music */
+    invincibility() { call('invincibility'); },
+    /** What the music manager reads of Sonic each frame */
+    playerState(invincible, speedUp, alive) { call('playerState', invincible, speedUp, alive); },
     stopAll() { call('allStop'); },
 
     get muted() { return muted; },

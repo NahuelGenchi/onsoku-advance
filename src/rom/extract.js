@@ -49,6 +49,14 @@ export const ENEMY_ANIMATIONS = {
   709: { score0: 0, score1: 1, score2: 2, score3: 3, score4: 4 },
   445: { animalOtter: 0 }, 450: { animalKoala: 0 }, 449: { animalKangaroo: 0 },
 };
+// the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
+// characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their
+// sparkles (752)
+export const ITEM_ANIMATIONS = {
+  705: { itemBox: 0 },
+  706: { icon0: 0, icon4: 4, icon5: 5, icon6: 6, icon7: 7, icon8: 8, icon9: 9, icon10: 10 },
+  750: { shield: 0 }, 751: { magneticShield: 0 }, 752: { stars: 0, starSparkle: 1 },
+};
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -101,7 +109,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries(ENEMY_ANIMATIONS).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

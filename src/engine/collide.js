@@ -1,7 +1,7 @@
 // Sonic against an object's hitbox, as SA1 does it (SAT-R decompilation, src/game/shared/stage/collision_1.c
-// Coll_Player_Platform, collision_2.c sub_800C934 and sub_800CBBC, collision_3.c Coll_Player_Spring_Sideways).
-// Hitboxes are [left, top, right, bottom] around the object's origin, edges included. Sonic is tested
-// with plain rectangles around his centre, never with his sprite's own hitboxes.
+// Coll_Player_Platform, collision_2.c sub_800C934 and sub_800CBBC, collision_3.c Coll_Player_Spring_Sideways
+// and Coll_Player_Itembox). Hitboxes are [left, top, right, bottom] around the object's origin, edges included.
+// Sonic is tested with plain rectangles around his centre; only an item box also looks at his attack box.
 
 import { scan, PROBE_WALL } from './terrain.js';
 import { land, standUp } from './player.js';
@@ -87,6 +87,38 @@ export function platform(o, hb, p, terrain) {
     || sideways(o, hb, p, terrain, res) || vertical(o, hb, p, body(p), stoodHere, res);
   if (!done && stoodHere && !p.onObject) p.air = true;   // walked or jumped off
   return res.flags;
+}
+
+/**
+ * An item box (Coll_Player_Itembox): Sonic's attack box on it breaks it (PUSHING), bouncing him back up if
+ * he was falling. In the air his body on its upper half, falling or level, breaks it too (LANDED) and bounces
+ * him; rising into its lower half stops him under it (FROM_BELOW); beside it, it stops him moving into it.
+ * On the ground nothing but the attack box counts.
+ */
+export function itemBox(o, hb, p) {
+  let flags = 0;
+  if (!hb || p.dead) return 0;
+  const [px, py] = at(p);
+  if (p.boxes[1] && overlap(o.x, o.y, hb, px, py, p.boxes[1])) {
+    flags |= PUSHING;
+    if (p.air && p.ysp > 0) p.ysp = -p.ysp;
+  }
+  if (!p.air) return flags;
+  const b = body(p), a = flank(p);
+  if (overlap(o.x, o.y, hb, px, py, b)) {
+    if (py <= o.y + ((hb[1] + hb[3]) >> 1)) {
+      if (p.ysp >= 0) { flags |= LANDED; if (p.ysp > 0) p.ysp = -p.ysp; }
+    } else if (p.ysp < 0) {
+      p.ysp = 0;
+      p.y = o.y + hb[3] - b[1] + (p.y - py);
+      flags |= FROM_BELOW;
+    }
+  } else if (overlap(o.x, o.y, hb, px, py, a)) {
+    if (px <= o.x + ((hb[0] + hb[2]) >> 1)) {
+      if (p.xsp > 0) { p.xsp = 0; p.x = o.x + hb[0] - a[2]; }
+    } else if (p.xsp < 0) { p.xsp = 0; p.x = o.x + hb[2] - a[0] + 1; }
+  }
+  return flags;
 }
 
 /**

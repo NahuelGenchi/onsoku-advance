@@ -8,7 +8,7 @@ import { createApu, CPU_HZ, TICK } from './apu.js';
 const FRAME_CYCLES = 280896, SAMPLE_CYCLES = FRAME_CYCLES / SOUND.SAMPLES;   // 1596 cycles per DirectSound sample
 const FULL_SCALE = 512;   // the 10-bit DAC swings ±512 around the bias
 const DC_POLE = 0.9995;   // the output's coupling capacitor, as a one-pole high-pass
-const BGM = 0, ONE_UP = 307;
+const BGM = 0, INVINCIBILITY = 28, ONE_UP = 307;
 const PAUSE = 0x80000000;
 
 /**
@@ -71,29 +71,41 @@ export function createSynth(rom, layout, rate) {
 }
 
 // The stage's music manager (SAT-R decompilation, src/game/shared/stage/music_manager.c), reduced to what
-// the game uses so far. It runs after the game's other calls each frame. An extra life replaces the music
-// with the 1-up jingle on the same player; on any later frame where that player has stopped, the stage
-// music starts over from its beginning, fading in from 1/64 (MusManager_UpdateBgmParams). It watches the
-// player as SoundMain left it at the start of the frame, and leaves it alone the frame the music starts.
+// the game uses so far. It runs after the game's other calls each frame, and does nothing while Sonic is
+// dead. Invincibility's song takes the music player while he is invincible and stops when he is not; an
+// extra life replaces the music with the 1-up jingle. On any frame where the music player has stopped, the
+// stage music starts over from its beginning, fading in from 1/64 and at double tempo while Sonic has speed
+// shoes (MusManager_UpdateBgmParams). It leaves the player alone the frame the stage music starts.
 export function createMusicManager(engine) {
-  let stageSong = null, oneUp = false, starting = false;
+  let stageSong = null, oneUp = false, star = false, starting = false;
+  let invincible = false, speedUp = false, alive = true;
   const own = {
     stageMusic(song) { stageSong = song; starting = true; engine.songStart(song); },
     oneUp() { oneUp = true; },
+    /** an item box's invincibility (gMusicManagerState.unk2) */
+    invincibility() { star = true; },
+    /** what the manager reads of Sonic each frame */
+    playerState(isInvincible, hasSpeedUp, isAlive) { invincible = isInvincible; speedUp = hasSpeedUp; alive = isAlive; },
     allStop() { stageSong = null; engine.allStop(); },
   };
+  function bgmParams() {
+    engine.immInit(BGM); engine.volumeControl(BGM, 0xFF, 4); engine.fadeIn(BGM, 4);
+    if (speedUp) engine.tempoControl(BGM, 0x200);
+  }
   return {
     /** Runs one frame's queued calls ([name, args] pairs), then the manager itself. */
     frame(calls) {
-      const { status } = engine.players[BGM];
-      const stopped = (status & 0xFFFF) === 0 || (status & PAUSE) !== 0;
       for (const [name, args] of calls) (own[name] ?? engine[name])(...args);
       if (stageSong === null || starting) { starting = false; return; }
-      if (oneUp) { oneUp = false; engine.songStart(ONE_UP); }
-      else if (stopped) {
-        engine.songStart(stageSong); engine.immInit(BGM);
-        engine.volumeControl(BGM, 0xFF, 4); engine.fadeIn(BGM, 4);
-      }
+      if (!alive) return;
+      const { status, songHeader } = engine.players[BGM];
+      const playing = (status & 0xFFFF) !== 0 && (status & PAUSE) === 0;
+      const is = n => songHeader === engine.songHeader(n);
+      if (is(INVINCIBILITY) && playing && !invincible) engine.songStop(INVINCIBILITY);
+      else if (!is(ONE_UP) && !is(INVINCIBILITY) && invincible && !star) { engine.songStart(INVINCIBILITY); bgmParams(); }
+      else if (star) { star = false; engine.songStart(INVINCIBILITY); }
+      else if (oneUp) { oneUp = false; engine.songStart(ONE_UP); }
+      else if (!playing) { engine.songStart(stageSong); bgmParams(); }
     },
   };
 }

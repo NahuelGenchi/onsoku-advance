@@ -147,6 +147,58 @@ Each enemy's sprite carries its hitbox in its script. Sonic's sprite has two box
 
 The defeat plays song 138.
 
+### Item boxes
+
+Item boxes have their own grid, like the rings', with 3-byte records `x, y, kind` (tiles inside the region). Act 1 has 13:
+
+| Kind | Prize | Act 1 |
+| ---: | :--- | ---: |
+| 0 | 1-up | 1 |
+| 1 | Shield | 3 |
+| 2 | Magnetic shield | 1 |
+| 3 | Invincibility | 1 |
+| 4 | Speed shoes | 2 |
+| 5 | Random rings | 3 |
+| 6 | 5 rings | 2 |
+| 7 | 10 rings | 0 |
+
+The box is animation `705`, one frame with the hitbox (−13, −24, 13, 4). Its screen shows the prize's icon, animation `706` in variant 0 (Sonic's face, the 1-up), then 4 to 10 for kinds 1 to 7, drawn behind the box.
+
+How Sonic meets a box depends on his attack box (hitbox slot 1). The decompiled C reads his body box (slot 0) here, but the ROM reads slot 1:
+
+- **Without an attack box, or standing on the box,** it is a solid platform. He can stand on it and push against it, but not break it.
+- **With an attack box** (curled up, or in an attacking move), touching the box with it breaks it, and so does landing on its upper half with his body while falling. If he was falling, he bounces back up at the same speed. In the air, his side probe on the box stops him moving into it.
+- **From below,** rising into its lower half either way, he stops under it and the box hops: it rises 1 px a frame, slowing by 40/256 px a frame per frame, until it lands on the floor again. A hop wins over a break.
+
+**A broken box** plays song 167 and leaves a dust cloud (`407`), and draws nothing on that frame. From then on only the icon is drawn. It rises 1 px a frame, and on the 60th frame the prize is given. The icon stays 30 frames more, then goes. A broken box doesn't come back until the act starts over, and gives no points. A box goes like the other objects when its spawn point leaves the range around the camera, except that the hop's offset is counted twice in the test.
+
+### Prizes
+
+The prize comes on the 60th frame after the break, from the box's task:
+
+| Prize | What it does |
+| :--- | :--- |
+| 1-up | A life, and the 1-up jingle (song 307) in place of the music |
+| Shield | Song 168 and the shield (`750`), which replaces a magnetic shield |
+| Magnetic shield | Song 168 and the magnetic shield (`751`), which replaces a shield |
+| Invincibility | 1200 frames, with the stars (`752`) and its music (song 28). Taking it again only resets the timer. |
+| Speed shoes | 1200 frames, and the music at twice its tempo |
+| Rings | 5, 10, or a random 1, 5, 10, 20, 30 or 40, with song 117. Passing a multiple of 100 gives a life. |
+
+**The shields and the stars** are tasks after the music manager (`0x4001`) and follow Sonic's centre. They take turns on screen by the stage clock: a shield on the frames with its bit 1 set, the stars on the others. A shield is hidden while Sonic is invincible, and is drawn over him, hiding him on its frames. Every 8th frame of the stage clock the stars leave a sparkle (`752` variant 1) up to 15 px from Sonic, in a direction and at a distance from two draws of the game's random numbers. The sparkle stays where it appeared and plays once.
+
+**A shield takes a hit.** Sonic is knocked back as usual and the shield goes, but he keeps his rings. The hit's song 119 is cut off by the hazard's own sound when it has one (song 171 for spikes).
+
+**Invincibility.** Nothing hurts Sonic, and touching an enemy with his body destroys it, without the bounce. When the time runs out, song 28 stops and the music manager starts the act's music again.
+
+**Speed shoes** double his top speed (to 9.0), acceleration and deceleration on the ground and in the air, roll friction and the mid-air dash. Friction, the brake, the turn kick and the roll's deceleration stay the same. When they run out, the music's tempo goes back to normal.
+
+**The magnetic shield.** While Sonic has it, the ring manager takes every act ring on screen within 64 px of his centre across, 72 px above it or 56 px below it, and turns it into a flying ring at the objects' priority. It turns toward him every frame and speeds up by 0.25 px a frame per frame, with no limit, until it touches his body box and counts. It doesn't check whether he still has the shield or is blinking. Scattered rings are not pulled in.
+
+**The music manager** (`0x4000`) runs while Sonic is alive and picks one thing a frame: it stops song 28 if it is playing while he isn't invincible, starts it if he is and neither it nor the jingle is playing, starts song 28 or the jingle when a prize asks for it, and otherwise starts the act's music again when nothing is playing. That last case uses a fade-in, and twice the tempo with speed shoes.
+
+**The game's random numbers** (`gPseudoRandom`, `0x03004C58` on the USA ROM) are one sequence for the whole game: `seed × 0x196225 + 0x3C6EF35F`, from 0 at power-on, never reseeded. In act 1 only the sparkles, the random-ring boxes and the brake dust use them (the dust's flips are bits `0x400` and `0x800`).
+
 ### Getting hurt
 
 A hit with rings throws Sonic up at 3.0 and away at 1.5 px a frame, against the way he was moving (or facing, when still). It doesn't matter where the hazard was. Knocked back, he has no control, no moves and no air drag until he lands. He then blinks for 120 frames (hidden 2 frames out of 4, in step with the stage clock), which only start counting once he has landed. Nothing hurts him while he blinks, and he can't collect rings until he lands. He drops all his rings, the count goes to 0 and song 118 plays.
@@ -161,7 +213,8 @@ Losing a life destroys every task, so nothing after Sonic runs on that frame. Th
 
 **How it was checked.**
 - *Enemies:* mGBA 0.10.5 recorded every task of the act's enemies, shots and effects after each frame, with Sonic's position and hitboxes, in 13 runs: each enemy kind on its own, both ways round and from different sides, and five runs where Sonic destroys enemies in a row. Fed Sonic's recorded position, the engine's enemies, shots, dust clouds, animals and points match the original's position, animation and hitbox on every frame of all 13 runs, and the score matches too.
-- *Damage:* nine more recordings dumped Sonic, the camera, the rings, the lives, the stage clock and the scattered rings after each frame. They cover a hit by spikes with 12 rings, a hit with 60 rings (48 scatter), knockbacks to either side and facing left, two hits from the left, a death on spikes and a fall out of the bottom of the act, both through the restart. Run from the recorded start, the whole game matches every one of them on every frame: Sonic's position, speed, blinking and death, the rings and lives, the camera, the stage clock, the scattered rings drawn and the sounds played. A tenth run matches until Sonic walks into an item box, which isn't built yet.
+- *Damage:* nine more recordings dumped Sonic, the camera, the rings, the lives, the stage clock and the scattered rings after each frame. They cover a hit by spikes with 12 rings, a hit with 60 rings (48 scatter), knockbacks to either side and facing left, two hits from the left, a death on spikes and a fall out of the bottom of the act, both through the restart. Run from the recorded start, the whole game matches every one of them on every frame: Sonic's position, speed, blinking and death, the rings and lives, the camera, the stage clock, the scattered rings drawn and the sounds played. A tenth run, where Sonic runs into an item box and pushes against it, matches too.
+- *Item boxes:* 21 more recordings dumped the whole of IWRAM and the music players after every frame, from before the act starts. Sonic falls curled onto each kind of box, then waits, walks or meets a hazard: the shield and a spike hit with it, the magnetic shield pulling rings in, invincibility to its end, speed shoes to their end while running both ways, the 1-up, 5 rings, random rings, a hundredth ring from a box, a hop from below, a roll into a box, a push against its side in the air, and invincible Sonic against spikes and three kinds of enemy. Run from the act's first frame with only the recordings' inputs and pokes, the whole game matches every one of them on every frame: Sonic, the rings and lives, the camera, the stage clock, his item timers and shield, the random numbers, and where every box, icon, dust cloud, shield, star, sparkle and flying ring is drawn. The music changes on the same frames as the original's.
 
 ### HUD
 
@@ -276,12 +329,16 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Slide kick | 111 | 3 | |
 | Spring | 170 | 2 | Every launch |
 | Timer warning | 139 | 2 | Every second from 9:40 to 10:00 |
-| 1-up | 307 | 0 | Every hundredth ring, in place of the music; the music then starts over with a fade-in |
+| 1-up | 307 | 0 | Every hundredth ring and the 1-up box, in place of the music; the music then starts over with a fade-in |
+| Invincibility | 28 | 0 | In place of the act's music until it runs out; the music then starts over with a fade-in. Speed shoes play the music player at twice the tempo. |
 | Rings lost | 118 | 3 | Sonic is hurt and drops his rings |
 | Life lost | 119 | 2 | Sonic dies |
 | Enemy destroyed | 138 | 2 | |
 | Spikes | 171 | 2 | Sonic is hurt by spikes |
+| Item box | 167 | 2 | A box breaks |
+| Shield | 168 | 2 | Either shield is given |
 | Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |
+| Rings from a box | 117 | 3 | The ring prizes, once for the lot |
 
 Sounds on the same player cut each other off, as in the original. There is no landing sound in SA1.
 

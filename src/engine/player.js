@@ -37,6 +37,9 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     animRestart: false, // an object asked for his animation to start over
     boxes: [null, null], // his sprite's hitboxes: 0 his body, 1 the attack box of the moves that destroy enemies
     invulnerable: 0,   // frames of blinking after a hit (timerInvulnerability)
+    shield: null,      // 'normal' or 'magnetic' (the itemEffect shield bits)
+    invincible: 0,     // frames of invincibility left (timerInvincibility)
+    speedUp: 0,        // frames of speed shoes left (timerSpeedup)
     hidden: false,     // left out of this frame's drawing: blinking, or gone below the screen after dying
     dead: false,       // MOVESTATE_DEAD
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
@@ -161,19 +164,24 @@ function trySpinDash(p, c, world) {
   return true;
 }
 
+// speed shoes double the top speed, the acceleration and the deceleration, which the other speeds are not
+// derived from (the speed up block after sub_80232D0's water checks)
+const pace = p => (p.speedUp > 0 ? 2 : 1);
+
 function walk(p, dir, world) {
+  const acc = K.acceleration * pace(p), max = K.maxRunSpeed * pace(p);
   if (p.gsp * dir >= 0) {
     if (p.facing !== dir) p.state = 'turn';
     p.facing = dir;
-    let g = p.gsp + K.acceleration * dir;
-    if (g * dir > K.maxRunSpeed) {
-      g -= K.acceleration * dir;
-      if (g * dir < K.maxRunSpeed) g = K.maxRunSpeed * dir;
+    let g = p.gsp + acc * dir;
+    if (g * dir > max) {
+      g -= acc * dir;
+      if (g * dir < max) g = max * dir;
     }
     p.gsp = g;
     if (p.state !== 'turn') p.state = 'walk';
   } else {
-    let g = p.gsp + K.deceleration * dir;
+    let g = p.gsp + K.deceleration * pace(p) * dir;
     if (g * dir > 0) g = K.reverseKick * dir;
     p.gsp = g;
     // the skid sound restarts on every frame Sonic is still this fast
@@ -220,7 +228,7 @@ function rollStep(p, c, world) {
       if (p.gsp * c.dir > 0) p.gsp = K.reverseKick * c.dir;
     }
   }
-  p.gsp = toward0(p.gsp, K.rollFriction);
+  p.gsp = toward0(p.gsp, K.rollFriction * pace(p));
   if (p.gsp === 0) { uncurl(p); p.state = c.down ? 'crouch' : 'walk'; }
   alongSurface(p);
   // a wall to the side stops the roll and stands him up
@@ -299,7 +307,7 @@ function airStep(p, c, world) {
   // double-tap dash, only while curled up (sub_8047714)
   if (p.curled && p.jumped && p.midAir === 0) {
     const tap = doubleTap(p);
-    if (tap) { p.midAir = 2; p.state = 'airDash'; p.xsp += K.airDashBoost * tap; p.ysp = 0; world.playSound(SONG.AIR_DASH); }
+    if (tap) { p.midAir = 2; p.state = 'airDash'; p.xsp += K.airDashBoost * pace(p) * tap; p.ysp = 0; world.playSound(SONG.AIR_DASH); }
   }
 
   // jump cap, or the insta-shield once the rise has slowed (Player_8044670)
@@ -314,12 +322,12 @@ function airStep(p, c, world) {
 
   // air control and drag (Player_AirInputControls)
   if (!p.airLock && c.dir) {
-    const dir = c.dir;
+    const dir = c.dir, acc = K.airAcceleration * pace(p), max = K.maxRunSpeed * pace(p);
     p.facing = dir;
-    let v = p.xsp + K.airAcceleration * dir;
-    if (v * dir > K.maxRunSpeed) {
-      v -= K.airAcceleration * dir;
-      if (v * dir < K.maxRunSpeed) v = K.maxRunSpeed * dir;
+    let v = p.xsp + acc * dir;
+    if (v * dir > max) {
+      v -= acc * dir;
+      if (v * dir < max) v = max * dir;
     }
     p.xsp = v;
   }
@@ -349,12 +357,12 @@ export function land(p) {
 }
 
 /**
- * Hurts Sonic, unless he is still blinking from the last hit (Coll_DamagePlayer, without the rings, which the
- * caller handles): knocked up and away from the way he was moving, or facing when standing still, wherever
+ * Hurts Sonic, unless he is invincible or still blinking from the last hit (Coll_DamagePlayer, without the
+ * rings and the shield, which the caller handles): knocked up and away from the way he was moving, or facing when standing still, wherever
  * the hazard is. Returns false when he is protected.
  */
 export function hurt(p) {
-  if (p.invulnerable > 0) return false;
+  if (p.invulnerable > 0 || p.invincible > 0) return false;
   p.invulnerable = K.invulnerable;
   p.xsp = p.xsp < 0 || (p.xsp === 0 && p.facing < 0) ? K.hurtSpeedX : -K.hurtSpeedX;
   p.ysp = -K.hurtSpeedY;
@@ -477,7 +485,7 @@ function stepAnim(p, anims) {
 /**
  * Picks and steps Sonic's animation after his frame of movement, like the original sprite update, then
  * decides whether he is drawn: after a hit he blinks, 2 frames hidden and 2 shown in step with the stage
- * clock, and the blink timer runs down once he has landed.
+ * clock, and the blink timer runs down once he has landed. Then the speed shoes and invincibility count down.
  */
 export function animatePlayer(p, input, anims, world) {
   if (p.death === 'gone') return;
@@ -492,6 +500,10 @@ export function animatePlayer(p, input, anims, world) {
     choose(p, chooseAnimation(p, input));
   }
   p.hidden = !p.dead && p.invulnerable > 0 && (world.tick & 2) !== 0;
-  // dead, it counts down only on the frame he dies: the tasks that take over from then on leave it at 1
-  if (p.state !== 'hurt' && p.invulnerable > 0 && !(p.dead && p.invulnerable === 1)) p.invulnerable--;
+  // dead, the timers count down only on the frame he dies: the tasks that take over from then on leave them
+  if (p.dead && p.invulnerable === 1) return;
+  if (p.state !== 'hurt' && p.invulnerable > 0) p.invulnerable--;
+  // the speed shoes and invincibility run out
+  if (p.speedUp > 0 && --p.speedUp === 0) world.speedUpOver();
+  if (p.invincible > 0 && --p.invincible === 0) world.invincibilityOver();
 }

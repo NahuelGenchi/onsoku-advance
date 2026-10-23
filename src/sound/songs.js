@@ -3,6 +3,7 @@
 // the music manager's, in synth.js.
 export const SONG = {
   NEO_GREEN_HILL_1: 12,
+  INVINCIBILITY: 28,       // MUS_INVINCIBILITY
   SPIN: 109,               // SE_SPIN_ATTACK: spin dash start and revs, rolling, the combo's first hit
   SPIN_DASH_RELEASE: 110,
   SLIDE: 111,              // SE_SONIC_SKID_ATTACK
@@ -16,6 +17,8 @@ export const SONG = {
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
   ENEMY_DEFEAT: 138,       // SE_ITEM_BOX: an enemy is defeated
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
+  ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
+  SHIELD: 168,             // SE_ACTIVATE_SHIELD
   SPRING: 170,
   SPIKES: 171,             // SE_171: hurt by spikes
 };

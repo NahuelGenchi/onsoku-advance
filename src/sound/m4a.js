@@ -736,6 +736,8 @@ export function createM4A(rom, layout, io) {
     },
 
     songStart(n) { const s = song(n); mplayStart(s.player, s.header); },
+    /** song n's header address, to compare with a player's songHeader */
+    songHeader(n) { return song(n).header; },
     /** MPlayStart with song n's header on player p instead of the song's own */
     playerStart(p, n) { mplayStart(players[p], song(n).header); },
     songStop(n) { const s = song(n); if (s.player.songHeader === s.header) mplayStop(s.player); },

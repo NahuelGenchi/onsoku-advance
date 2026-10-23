@@ -1,7 +1,7 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
-// enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that every task
-// keeps its place in the list.
+// item boxes, enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that
+// every task keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
 // order, and the tasks of a priority in the order they were made. The original fetches the next task before
@@ -12,6 +12,7 @@ import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { createSpring } from './springs.js';
 import { createSpikes } from './spikes.js';
 import { ENEMIES } from './enemies.js';
+import { createItemBox } from './itembox.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -118,7 +119,7 @@ function toggle(e, slot) {
   };
 }
 
-// The act 1 kinds not built yet (and the item boxes), as tasks that do nothing but leave when their spawn point does, at the
+// The act 1 kinds not built yet, as tasks that do nothing but leave when their spawn point does, at the
 // original's priority (0x2000 unless given here) and range. The stage goal makes no task while its d1 is 0.
 const STAND_IN_PRIORITY = { 20: 0x900, 21: 0x2010 };   // the grind rail's end, the thin platform
 const STAND_IN_RANGE = {
@@ -162,10 +163,9 @@ export function createEntities(stage, anims, tasks) {
   const { x: regionsX, y: regionsY } = stage.entityRegions;
   const regions = Array.from({ length: regionsX * regionsY }, () => []);
   const slot = (e, spawn) => ({ e, live: null, gone: false, spawn });
-  // item boxes are not built yet: they hold their place as stand-ins
   for (const [list, spawn] of [
     [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx)],
-    [stage.itemBoxes, s => standIn(s.e, s, -1)],
+    [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
     [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s, -1)],
   ]) {
     // each region keeps its interactables, then its item boxes, then its enemies

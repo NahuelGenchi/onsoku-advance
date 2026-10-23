@@ -65,16 +65,16 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 ## Status
 
 > [!NOTE]
-> **Pre-alpha: the first playable prototype is in.** Sonic runs through the whole of Neo Green Hill Zone act 1, read from your ROM with its collision: slopes, walls, ceilings, jump-through ledges and loops, with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, his insta-shield, mid-air dash and B-button ground combo, and the original camera. The act's springs, spikes, rings and enemies work as in the original: enemies can be destroyed for points and freed animals, and a hit scatters Sonic's rings or, without any, costs a life and starts the act over. The original HUD shows the ring count, score, timer and lives, with an extra life and its jingle every 100 rings. The act's music and its sounds play through a port of the game's own sound engine. There are no item boxes, checkpoints or end of the act yet, no title card or game over, and the grind rails don't work.
+> **Pre-alpha: the first playable prototype is in.** Sonic runs through the whole of Neo Green Hill Zone act 1, read from your ROM with its collision: slopes, walls, ceilings, jump-through ledges and loops, with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, his insta-shield, mid-air dash and B-button ground combo, and the original camera. The act's springs, spikes, rings, enemies and item boxes work as in the original: enemies can be destroyed for points and freed animals, a hit scatters Sonic's rings or, without any, costs a life and starts the act over, and the boxes give extra lives, rings, both shields, invincibility and speed shoes. The original HUD shows the ring count, score, timer and lives, with an extra life and its jingle every 100 rings. The act's music and its sounds play through a port of the game's own sound engine. There are no checkpoints or end of the act yet, no title card or game over, and the grind rails don't work.
 
 | Area | State | Tracked in |
 | :--- | :--- | :--- |
 | ROM extractor: sprites, palettes, tiles | 🟢 Done, see the [asset viewer](#getting-started) | [#4](https://github.com/NahuelGenchi/onsoku-advance/issues/4) |
 | Movement, animations and camera | 🟢 Done | [#5](https://github.com/NahuelGenchi/onsoku-advance/issues/5) |
 | Stage maps and collision | 🟡 Neo Green Hill act 1, without grind rails | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
-| Rings, objects and enemies | 🟡 Springs, spikes, rings and act 1's enemies, with damage and death; no item boxes yet | [#24](https://github.com/NahuelGenchi/onsoku-advance/issues/24) |
+| Rings, objects and enemies | 🟡 Springs, spikes, rings, act 1's enemies and item boxes, with damage and death | [#26](https://github.com/NahuelGenchi/onsoku-advance/issues/26) |
 | HUD | 🟢 Rings, score, timer and lives | [#22](https://github.com/NahuelGenchi/onsoku-advance/issues/22) |
-| Sound and music | 🟡 Act 1 music, the 1-up jingle, and the sounds of Sonic, the springs, the spikes, the rings and the enemies | [#20](https://github.com/NahuelGenchi/onsoku-advance/issues/20) |
+| Sound and music | 🟡 Act 1 music, the 1-up jingle, the invincibility music, and the sounds of Sonic, the springs, the spikes, the rings, the enemies and the item boxes | [#20](https://github.com/NahuelGenchi/onsoku-advance/issues/20) |
 | Hosted build | 🟢 Live on [GitHub Pages](https://nahuelgenchi.github.io/onsoku-advance/) | [#12](https://github.com/NahuelGenchi/onsoku-advance/issues/12) |
 | Versioned releases | ⚪ Planned | [M3](https://github.com/NahuelGenchi/onsoku-advance/milestone/4) |
 

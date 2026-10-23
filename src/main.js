@@ -49,6 +49,8 @@ document.getElementById('change-rom').addEventListener('click', () => {
 
 addEventListener('keydown', e => {
   if (e.code === 'KeyH' && !stage.hidden && !e.repeat) help.hidden = !help.hidden;
+  // C shows the terrain collision over the stage, for checking it against the art
+  if (e.code === 'KeyC' && game && !stage.hidden && !e.repeat) game.state.showCollision = !game.state.showCollision;
 });
 
 function showStats() {

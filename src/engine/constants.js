@@ -30,6 +30,8 @@ export const PHYSICS = {
   // B button on the ground: spin, then somersault kick, then slide kick or backflip
   spinAttackSpeed: 2, somersaultSpeed: 3, slideSpeed: 4,
   attackFriction: 8 / 256, slideFriction: 32 / 256,
+  wallMinSpeed: 1.875,         // slower than this on a wall or ceiling, Sonic drops off
+  slipLock: 30,                // grounded frames without control after dropping off
 };
 
 export const ANIMATION = {
@@ -51,6 +53,6 @@ export const CAMERA = {
   spinDashFreeze: 10,          // frames the camera target stays put after a spin dash release
 };
 
-// spriteOffsetY: the distance from Sonic's position (his centre) to his lowest pixel, standing and
-// curled up. The ground is the row below it, and the camera eases toward spriteOffsetY - 4.
+// spriteOffsetY: the distance from Sonic's position (his centre) to the ground sensors, standing and
+// curled up. The surface starts on the row below, and the camera eases toward spriteOffsetY - 4.
 export const SPRITE_OFFSET_Y = 14, BALL_SPRITE_OFFSET_Y = 9;

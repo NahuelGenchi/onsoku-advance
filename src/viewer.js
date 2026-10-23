@@ -2,6 +2,8 @@
 
 import { createRomPicker } from './ui/rom-picker.js';
 import { extractAssets } from './rom/extract.js';
+import { drawLayer, collisionImage } from './engine/stage.js';
+import { createTerrain } from './engine/terrain.js';
 
 const picker = document.getElementById('picker');
 const viewer = document.getElementById('viewer');
@@ -27,16 +29,47 @@ function show(assets, fileName) {
     'SHA-1': info.sha1 ?? 'Unavailable (open this page from localhost or https)',
     'Sprite tables': hex(info.offsets.spriteTables),
     'Tilemap table': hex(info.offsets.tilemaps),
+    'Collision table': hex(info.offsets.collision),
+    'Start positions': `${hex(info.offsets.spawns)} → act 1 starts at (${stage.spawn.x}, ${stage.spawn.y})`,
+    Interactables: `${hex(info.offsets.interactables)} → ${stage.layerToggles.length} layer toggles in act 1`,
     'Spin dash speeds': `${hex(info.offsets.spinDashSpeeds)} → ${physics.spinDashSpeeds.slice(0, 9).join(', ')}; overcharged: ${physics.spinDashSpeeds.slice(9).join(', ')}`,
   };
   document.getElementById('facts').innerHTML = Object.entries(facts).map(([k, v]) => `<dt>${k}</dt><dd></dd>`).join('');
   [...document.querySelectorAll('#facts dd')].forEach((dd, i) => { dd.textContent = Object.values(facts)[i]; });
 
   document.getElementById('atlas').append(scaled(sprites.atlas, 2));
-  document.getElementById('platform').append(scaled(stage.platform, 1));
   document.getElementById('background').append(scaled(stage.background, 2));
-  document.getElementById('ground').textContent = `Ground line found at y = ${stage.groundY} px in a ${stage.platform.width} × ${stage.platform.height} strip.`;
+  showMap(stage);
   previewAnimations(sprites);
+}
+
+// the whole act at full size: back layer, front layer, and the collision on top when asked
+function showMap(stage) {
+  const map = document.createElement('canvas');
+  map.width = stage.width; map.height = stage.height;
+  const g = map.getContext('2d');
+  const draw = () => {
+    g.clearRect(0, 0, map.width, map.height);
+    drawLayer(g, stage, 'back', 0, 0, map.width, map.height);
+    drawLayer(g, stage, 'front', 0, 0, map.width, map.height);
+  };
+  draw();
+  document.getElementById('map').append(map);
+  document.getElementById('act').textContent =
+    `${stage.levelX} × ${stage.levelY} metatiles, ${stage.width} × ${stage.height} px, ${stage.collision.angles.length} collision tiles.`;
+
+  let overlay = null;
+  document.getElementById('show-collision').addEventListener('change', e => {
+    draw();
+    if (!e.target.checked) return;
+    if (!overlay) {
+      const terrain = createTerrain(stage.collision);
+      overlay = document.createElement('canvas');
+      overlay.width = map.width; overlay.height = map.height;
+      overlay.getContext('2d').putImageData(collisionImage(terrain, 0, 0, map.width, map.height), 0, 0);
+    }
+    g.drawImage(overlay, 0, 0);
+  });
 }
 
 function scaled(source, scale) {

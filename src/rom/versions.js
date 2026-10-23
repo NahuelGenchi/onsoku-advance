@@ -10,6 +10,9 @@ export const KNOWN_VERSIONS = [
     offsets: {
       spriteTables: 0x0D868C,
       tilemaps: 0x4A6C40,
+      collision: 0x4A6DA4,
+      spawns: 0x4A6DEC,
+      interactables: 0x0B7F94,
       spinDashSpeeds: 0x4A7084,
     },
   },

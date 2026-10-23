@@ -1,11 +1,13 @@
 // Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects,
-// a Neo Green Hill platform strip and the zone's background. Runs entirely in the browser.
+// Neo Green Hill Zone act 1 with its collision, and the zone's background. Runs entirely in the browser.
 
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame } from './sprites.js';
-import { tilemapHeader, drawStageRegion, renderPlainMap } from './tilemaps.js';
+import { tilemapHeader, renderMetatileAtlas, renderPlainMap } from './tilemaps.js';
+import { readCollision, readSpawn } from './collision.js';
+import { readInteractables, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
@@ -19,14 +21,14 @@ export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
 };
 
-// Neo Green Hill Zone act 1 in the tilemap table: front decorations, terrain, background
-const NGH = { decorations: 0, terrain: 1, background: 2 };
-// the flat grass-and-checker end zone (metatile columns 127–135, rows 9–13) wraps seamlessly
-const PLATFORM = { column: 127, columns: 9, row: 9, rows: 5 };
+// Neo Green Hill Zone act 1: level 0. Its tilemap entries are the front layer (drawn over Sonic), the back
+// layer (behind him) and the background.
+const LEVEL = 0;
+const NGH = { front: 0, back: 1, background: 2 };
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims }, stage: { platform, groundY, background }, physics }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims }, stage: { width, height, layers, atlas, collision, spawn, layerToggles, background }, physics }
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
@@ -38,7 +40,7 @@ export async function extractAssets(buffer, onProgress = () => {}) {
   onProgress('Decoding Sonic…');
   const sprites = extractSprites(rom, spriteTables(rom, offsets.spriteTables));
   onProgress('Decoding Neo Green Hill…');
-  const stage = extractStage(rom, offsets.tilemaps);
+  const stage = extractStage(rom, offsets);
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
   // indexes into those in the original, so both are read
   const spinDashSpeeds = Array.from({ length: 18 }, (_, i) => rom.s16(offsets.spinDashSpeeds + i * 2) / 256);
@@ -87,34 +89,29 @@ function packAtlas(images, width = 512) {
   return { canvas, rects };
 }
 
-function extractStage(rom, tilemapsAt) {
-  const decorations = tilemapHeader(rom, tilemapsAt, NGH.decorations);
-  const terrain = tilemapHeader(rom, tilemapsAt, NGH.terrain);
-  const background = tilemapHeader(rom, tilemapsAt, NGH.background);
-  if (terrain.xTiles !== 12 || terrain.metatileMap === null || decorations.palette === null) {
+function extractStage(rom, offsets) {
+  const front = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.front);
+  const back = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.back);
+  const background = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.background);
+  if (front.xTiles !== 12 || front.metatileMap === null || front.palette === null) {
     throw new Error('Neo Green Hill Zone data is not where this version keeps it.');
   }
-  const palette = readColors(rom, decorations.palette, 256);
-
-  const w = PLATFORM.columns * terrain.xTiles * 8, h = PLATFORM.rows * terrain.yTiles * 8;
-  const back = drawStageRegion(new ImageData(w, h), rom, decorations, palette, PLATFORM.column, PLATFORM.row, PLATFORM.columns, PLATFORM.rows);
-  const front = drawStageRegion(new ImageData(w, h), rom, terrain, palette, PLATFORM.column, PLATFORM.row, PLATFORM.columns, PLATFORM.rows);
-  const platform = document.createElement('canvas');
-  platform.width = w; platform.height = h;
-  const g = platform.getContext('2d');
-  g.drawImage(toCanvas(back), 0, 0); g.drawImage(toCanvas(front), 0, 0);
-
-  return { platform, groundY: groundLine(front), background: toCanvas(renderPlainMap(rom, background, palette)) };
-}
-
-// the walkable surface: the first row where at least 90% of the strip is solid (grass tips stick up above it)
-function groundLine(img) {
-  for (let y = 0; y < img.height; y++) {
-    let solid = 0;
-    for (let x = 0; x < img.width; x++) if (img.data[(y * img.width + x) * 4 + 3]) solid++;
-    if (solid >= img.width * 0.9) return y;
+  const collision = readCollision(rom, offsets.collision, LEVEL);
+  if (collision.layers[0].length !== front.mapWidth * front.mapHeight || collision.levelX !== back.mapWidth) {
+    throw new Error('Neo Green Hill Zone collision does not match its map.');
   }
-  throw new Error('Could not find the ground in the Neo Green Hill platform.');
+  const palette = readColors(rom, front.palette, 256);
+  // the two layers share one tileset and its animated tiles, so one atlas serves both
+  const atlas = renderMetatileAtlas(rom, front, palette, collision.metatiles.length / 144);
+
+  return {
+    width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
+    layers: { front: collision.layers[0], back: collision.layers[1] },
+    atlas, animDelay: front.animDelay, collision,
+    spawn: readSpawn(rom, offsets.spawns, LEVEL),
+    layerToggles: layerToggles(readInteractables(rom, offsets.interactables, LEVEL)),
+    background: toCanvas(renderPlainMap(rom, background, palette)),
+  };
 }
 
 function toCanvas(img) {

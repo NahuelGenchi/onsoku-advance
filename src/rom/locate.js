@@ -4,6 +4,7 @@ import { RomError } from './identify.js';
 import { ROM_BASE } from './rom.js';
 import { rlDecompress } from './entities.js';
 import { findMusicPlayers } from './sound.js';
+import { findUiGraphics } from './hud.js';
 
 const MIN_CMD = -12;   // animation commands are -1 … -12
 const LEVEL_COUNT = 18;   // 14 single-player stages, then four multiplayer stages
@@ -101,14 +102,17 @@ export function findSpinDashSpeeds(rom) {
 /** Offsets for this ROM: the known ones when the checksum matches, otherwise a search. */
 export function locateTables(rom, known) {
   if (known) return { ...known.offsets, searched: false };
-  const tilemaps = findTilemaps(rom), collision = findCollision(rom, tilemaps);
+  const tilemaps = findTilemaps(rom), collision = findCollision(rom, tilemaps), interactables = findInteractables(rom);
   const offsets = {
     spriteTables: findSpriteTables(rom),
     tilemaps, collision,
     spawns: collision === null ? null : collision + LEVEL_COUNT * 4,
-    interactables: findInteractables(rom),
+    // the ring lists are the table just before the interactables
+    rings: interactables === null ? null : interactables - LEVEL_COUNT * 4,
+    interactables,
     spinDashSpeeds: findSpinDashSpeeds(rom),
     musicPlayers: findMusicPlayers(rom),
+    uiGraphics: findUiGraphics(rom),
   };
   const missing = Object.entries(offsets).filter(([, v]) => v === null).map(([k]) => k);
   if (missing.length) {

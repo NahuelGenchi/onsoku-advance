@@ -736,6 +736,8 @@ export function createM4A(rom, layout, io) {
     },
 
     songStart(n) { const s = song(n); mplayStart(s.player, s.header); },
+    /** MPlayStart with song n's header on player p instead of the song's own */
+    playerStart(p, n) { mplayStart(players[p], song(n).header); },
     songStop(n) { const s = song(n); if (s.player.songHeader === s.header) mplayStop(s.player); },
     /** m4aSongNumStartOrChange: restarts only a different song, or the same one once it has ended */
     songStartOrChange(n) {
@@ -751,6 +753,9 @@ export function createM4A(rom, layout, io) {
     },
     volumeControl(p, bits, volume) {
       eachTrack(players[p], bits, T => { T.volPublic = u8(volume >> 2); T.flags |= VOLCHG; });
+    },
+    panpotControl(p, bits, pan) {
+      eachTrack(players[p], bits, T => { T.panPublic = s8(pan); T.flags |= VOLCHG; });
     },
     fadeIn(p, speed) {
       const P = players[p];

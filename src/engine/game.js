@@ -1,4 +1,4 @@
-// Ties the player, camera, objects, effects, renderer and sound together with a fixed 60 Hz step.
+// Ties the player, camera, rings, objects, effects, HUD, renderer and sound together with a fixed 60 Hz step.
 
 import { TICK_MS, CAMERA, PHYSICS } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
@@ -7,18 +7,28 @@ import { createCamera, updateCamera } from './camera.js';
 import { createRenderer } from './renderer.js';
 import { createTerrain } from './terrain.js';
 import { createObjects } from './objects.js';
+import { createRings } from './rings.js';
+import { createHud, updateHud } from './hud.js';
 import { SONG } from '../sound/songs.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
+const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
+const START_LIVES = 3;
 
-const SILENT = { play() {}, playPitched() {}, stopAll() {} };
+const SILENT = { play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stopAll() {} };
 
 export function createGame(canvas, assets, input, sound = SILENT) {
   const { anims } = assets.sprites;
   const terrain = createTerrain(assets.stage.collision);
   const player = createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds });
   const objects = createObjects(assets.stage.interactables, anims);
-  const state = { tick: 0, player, terrain, objects, cam: createCamera(player, terrain), effects: [], showCollision: false };
+  const rings = createRings(assets.stage.rings, anims);
+  rings.reset();
+  const state = {
+    tick: 0, player, terrain, objects, rings, cam: createCamera(player, terrain), effects: [], sparkles: [],
+    ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, hud: createHud(), showCollision: false,
+  };
+  let extraLife = false;
   const render = createRenderer(canvas, assets);
 
   function spawn(kind, name, x, y, flipX, flipY = false) {
@@ -39,7 +49,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     respawn() {
       Object.assign(player, createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds }));
       state.cam = createCamera(player, terrain);
-      sound.play(SONG.NEO_GREEN_HILL_1);
+      rings.reset(); state.ringCount = 0; state.sparkles = []; state.courseTime = 0;
+      sound.playStageMusic(SONG.NEO_GREEN_HILL_1);
     },
     playSound: song => sound.play(song),
     playSoundPitched: (song, pitch) => sound.playPitched(song, pitch),
@@ -69,6 +80,33 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     return true;
   }
 
+  // INCREMENT_RINGS and CreateCollectRingEffect: each ring counts, gives a life on every hundredth, and
+  // leaves a sparkle with the ring sound, alternating sides with the count's parity: odd ones on the
+  // second sound effect player to the left, even ones on the first to the right, at half volume
+  function collectRings() {
+    for (const ring of rings.update(player)) {
+      const before = state.ringCount;
+      state.ringCount = (before + 1) & 0xFFFF;
+      if (Math.floor(state.ringCount / 100) !== Math.floor(before / 100)) { state.lives = (state.lives + 1) & 0xFF; extraLife = true; }
+      if (state.sparkles.filter(s => !s.anim.done).length >= MAX_RING_SPARKLES) continue;
+      const odd = state.ringCount & 1;
+      sound.playOn(odd ? 2 : 1, SONG.RING, 128, odd ? -64 : 64);
+      const e = { anim: makeAnimator(), x: ring.x, y: ring.y };
+      setAnim(e.anim, 'ringSparkle');
+      state.sparkles.push(e);
+    }
+  }
+  // the sparkles run after the objects, from the frame they appear; each one's script starts the ring song
+  // again on its first frame, centred on the song's own player, and it shows its last frame as it ends
+  function updateSparkles() {
+    state.sparkles = state.sparkles.filter(e => {
+      if (e.anim.done) return false;
+      if (e.anim.i < 0) sound.play(SONG.RING);
+      tickAnim(e.anim, anims);
+      return true;
+    });
+  }
+
   // layer toggles: while Sonic's centre is inside one, it puts him on its layer. They run before him, so
   // they see where he was at the end of the last frame.
   function toggleLayers() {
@@ -76,15 +114,22 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     for (const z of toggles) if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) player.layer = z.layer;
   }
 
-  // the original runs the camera, then the objects, then Sonic; the camera update at the end of a step is
-  // the one the next step starts from
+  // the original runs the camera, then the rings, the objects and the ring sparkles, then Sonic; the camera
+  // update at the end of a step is the one the next step starts from
   function step() {
     toggleLayers();
+    collectRings();
     objects.update(player, state.cam, world);
+    updateSparkles();
+    if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER);
     stepPlayer(player, input, world);
     animatePlayer(player, input, anims, world);
     state.effects = state.effects.filter(updateEffect);
+    // the music manager runs after Sonic: an extra life plays the 1-up jingle in place of the music
+    if (extraLife) { extraLife = false; sound.oneUp(); }
     updateCamera(state.cam, player);
+    // the stage's own task comes last and moves the clocks on
+    state.courseTime++;
     state.tick++;
   }
 
@@ -103,7 +148,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // the act's music starts with the act, as the stage's init does (StageInit_Zone1Act1)
     start() {
       input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);
-      sound.play(SONG.NEO_GREEN_HILL_1);
+      sound.playStageMusic(SONG.NEO_GREEN_HILL_1);
     },
     stop() { input.enabled = false; input.release(); cancelAnimationFrame(frame); sound.stopAll(); },
   };

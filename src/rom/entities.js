@@ -1,9 +1,11 @@
-// Reads an act's interactable objects. Format as documented by the SAT-R decompilation
-// (src/game/shared/stage/entities_manager.c, src/game/sa1/stage/interactables/toggle_player_layer.c).
+// Reads an act's interactable objects and rings. Format as documented by the SAT-R decompilation
+// (src/game/shared/stage/entities_manager.c, rings_manager.c, src/game/sa1/stage/interactables/
+// toggle_player_layer.c).
 //
 // Each level's list is RL-compressed. Decompressed, it is a grid of 256 × 256 px regions: a size word,
-// the grid's width and height, one offset per region (0 when empty), then each region's 7-byte records
-// { x, y, kind, d0..d3 } ending with 0xFF. x and y are in tiles inside the region.
+// the grid's width and height, one offset per region (0 when empty), then each region's records ending
+// with 0xFF: 7 bytes { x, y, kind, d0..d3 } for interactables, 2 bytes { x, y } for rings. x and y are in
+// tiles inside the region.
 
 const TOGGLE_FRONT = 17, TOGGLE_BACK = 18;   // interactable kinds of the layer toggles
 const REGION = 256;
@@ -22,11 +24,37 @@ export function rlDecompress(rom, at) {
   return out;
 }
 
+// one level's list, decompressed, with its grid's width and height
+function readGrid(rom, tableAt, level, what) {
+  const data = rlDecompress(rom, rom.requirePtr(tableAt + level * 4, `${what} of level ${level}`));
+  const view = new DataView(data.buffer);
+  return { data, view, regionsX: view.getUint32(4, true), regionsY: view.getUint32(8, true) };
+}
+
+/**
+ * The rings of `level`, kept in their 256 × 256 px regions because the ring manager searches them by region:
+ * { regionsX, regionsY, regions }, where regions[x + y * regionsX] lists { x, y } in pixels. The ring
+ * lists use the same grid with 2-byte records { x, y }; the original draws a ring with its bottom centre
+ * at that point.
+ */
+export function readRings(rom, tableAt, level) {
+  const { data, view, regionsX, regionsY } = readGrid(rom, tableAt, level, 'rings');
+  const regions = [];
+  for (let r = 0; r < regionsX * regionsY; r++) {
+    const offset = view.getUint32(12 + r * 4, true), list = [];
+    if (offset) {
+      for (let at = 4 + offset; data[at] !== 0xFF; at += 2) {
+        list.push({ x: data[at] * 8 + (r % regionsX) * REGION, y: data[at + 1] * 8 + Math.floor(r / regionsX) * REGION });
+      }
+    }
+    regions.push(list);
+  }
+  return { regionsX, regionsY, regions };
+}
+
 /** Every interactable of `level`: { kind, x, y, d: [d0, d1, d2, d3] } with x and y in pixels. */
 export function readInteractables(rom, tableAt, level) {
-  const data = rlDecompress(rom, rom.requirePtr(tableAt + level * 4, `interactables of level ${level}`));
-  const view = new DataView(data.buffer);
-  const regionsX = view.getUint32(4, true), regionsY = view.getUint32(8, true);
+  const { data, view, regionsX, regionsY } = readGrid(rom, tableAt, level, 'interactables');
   const list = [];
   for (let r = 0; r < regionsX * regionsY; r++) {
     const offset = view.getUint32(12 + r * 4, true);

@@ -1,6 +1,6 @@
 // Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects, the
-// springs, Neo Green Hill Zone act 1 with its collision and objects, and the zone's background. Runs
-// entirely in the browser.
+// springs, the rings, the HUD, Neo Green Hill Zone act 1 with its collision, objects and rings, and the
+// zone's background. Runs entirely in the browser.
 
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
@@ -8,9 +8,10 @@ import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame } from './sprites.js';
 import { tilemapHeader, renderMetatileAtlas, renderPlainMap } from './tilemaps.js';
 import { readCollision, readSpawn } from './collision.js';
-import { readInteractables, layerToggles } from './entities.js';
+import { readInteractables, readRings, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
 import { soundLayout } from './sound.js';
+import { hudGraphics } from './hud.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -31,6 +32,9 @@ export const OBJECT_ANIMATIONS = {
   springUp: [SPRING_ANIM, 0], springUpLaunch: [SPRING_ANIM, 1], springSide: [SPRING_ANIM, 2], springSideLaunch: [SPRING_ANIM, 3],
   springBig: [SPRING_ANIM, 4], springBigLaunch: [SPRING_ANIM, 5], springSmall: [SPRING_ANIM, 6], springSmallLaunch: [SPRING_ANIM, 7],
 };
+// the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
+// script starts song 117 itself, which the game plays (src/engine/game.js)
+export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // the weaker up springs are yellow: they skip the animation's red palette (33) and draw with sprite
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
@@ -42,7 +46,7 @@ const NGH = { front: 0, back: 1, background: 2 };
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, background }, physics, sound }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims }, hud: { sheet, glyphs, ring, face }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, background }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
@@ -62,6 +66,7 @@ export async function extractAssets(buffer, onProgress = () => {}) {
   return {
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },
     sprites, stage, physics: { spinDashSpeeds },
+    hud: extractHud(rom, offsets.uiGraphics),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
   };
@@ -77,6 +82,7 @@ function extractSprites(rom, tables) {
     { list: { ...SONIC_ANIMATIONS, ...EFFECT_ANIMATIONS }, palette: sonicPalette },
     { list: OBJECT_ANIMATIONS, palette: springPalette },
     { list: yellow, palette: yellowPalette, skipPalette: true },
+    { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
   ];
 
   const images = [], byKey = new Map(), anims = {};
@@ -140,8 +146,14 @@ function extractStage(rom, offsets) {
     atlas, animDelay: front.animDelay, collision,
     spawn: readSpawn(rom, offsets.spawns, LEVEL),
     interactables, layerToggles: layerToggles(interactables),
+    rings: readRings(rom, offsets.rings, LEVEL),
     background: toCanvas(renderPlainMap(rom, background, palette)),
   };
+}
+
+function extractHud(rom, tableAt) {
+  const { image, ...rects } = hudGraphics(rom, tableAt);
+  return { sheet: toCanvas(image), ...rects };
 }
 
 function toCanvas(img) {

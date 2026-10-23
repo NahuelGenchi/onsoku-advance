@@ -1,5 +1,6 @@
 // Song numbers in the ROM's song table, for what the game plays so far (SAT-R decompilation,
-// include/constants/sa1/songs.h; where each is played is listed in docs/ROM.md).
+// include/constants/sa1/songs.h; where each is played is listed in docs/ROM.md). The 1-up jingle, 307, is
+// the music manager's, in synth.js.
 export const SONG = {
   NEO_GREEN_HILL_1: 12,
   SPIN: 109,               // SE_SPIN_ATTACK: spin dash start and revs, rolling, the combo's first hit
@@ -9,6 +10,8 @@ export const SONG = {
   INSTA_SHIELD: 113,
   BRAKE: 115,
   JUMP: 116,               // also the combo's backflip
+  RING: 117,               // SE_RING_COPY: what the ring manager and the ring sparkle play
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
+  TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
   SPRING: 170,
 };

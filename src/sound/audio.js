@@ -35,10 +35,20 @@ export function createSound() {
 
     /** m4aSongNumStart */
     play(song) { call('songStart', song); },
+    /** Starts the stage's music and the music manager that brings it back after the 1-up jingle */
+    playStageMusic(song) { call('stageMusic', song); },
+    /** The music manager's extra life: the 1-up jingle in place of the music */
+    oneUp() { call('oneUp'); },
     /** m4aSongNumStart, then m4aMPlayImmInit and m4aMPlayPitchControl on its player (pitch in 1/256 semitones) */
     playPitched(song, pitch) {
       const p = songPlayers?.[song] ?? 0;
       call('songStart', song); call('immInit', p); call('pitchControl', p, 0xFFFF, pitch);
+    },
+    /** MPlayStart with the song on music player `player`, then m4aMPlayImmInit and the volume and pan controls
+     *  on all its tracks (volume 256 is full; pan −64 is left, +63 right) */
+    playOn(player, song, volume, pan) {
+      call('playerStart', player, song); call('immInit', player);
+      call('volumeControl', player, 0xFFFF, volume); call('panpotControl', player, 0xFFFF, pan);
     },
     stopAll() { call('allStop'); },
 

@@ -1,0 +1,5 @@
+# Normalize line endings so Windows, macOS and Linux checkouts produce identical commits.
+* text=auto eol=lf
+*.png binary
+*.gif binary
+*.webp binary

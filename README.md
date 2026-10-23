@@ -120,12 +120,12 @@ On touch screens, on-screen buttons appear instead.
 
 ## Roadmap
 
-| Milestone | Outcome | Progress |
+| Milestone | Outcome | Issues closed |
 | :--- | :--- | :--- |
-| [M0 — Project foundation](https://github.com/NahuelGenchi/onsoku-advance/milestone/1) | Repository, documentation, tracking and presentation | ![M0 progress](https://img.shields.io/github/milestones/progress-percent/NahuelGenchi/onsoku-advance/1?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
-| [M1 — Playable prototype](https://github.com/NahuelGenchi/onsoku-advance/milestone/2) | Sonic on a Neo Green Hill platform, assets from your own ROM | ![M1 progress](https://img.shields.io/github/milestones/progress-percent/NahuelGenchi/onsoku-advance/2?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
-| [M2 — Stages and gameplay](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) | Full stages with collision, rings, objects, enemies, sound and music | ![M2 progress](https://img.shields.io/github/milestones/progress-percent/NahuelGenchi/onsoku-advance/3?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
-| [M3 — Release](https://github.com/NahuelGenchi/onsoku-advance/milestone/4) | A hosted build and versioned releases, with no game files | ![M3 progress](https://img.shields.io/github/milestones/progress-percent/NahuelGenchi/onsoku-advance/4?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
+| [M0 — Project foundation](https://github.com/NahuelGenchi/onsoku-advance/milestone/1) | Repository, documentation, tracking and presentation | ![M0 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/onsoku-advance/1?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
+| [M1 — Playable prototype](https://github.com/NahuelGenchi/onsoku-advance/milestone/2) | Sonic on a Neo Green Hill platform, assets from your own ROM | ![M1 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/onsoku-advance/2?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
+| [M2 — Stages and gameplay](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) | Full stages with collision, rings, objects, enemies, sound and music | ![M2 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/onsoku-advance/3?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
+| [M3 — Release](https://github.com/NahuelGenchi/onsoku-advance/milestone/4) | A hosted build and versioned releases, with no game files | ![M3 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/onsoku-advance/4?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
 
 ## Contributing
 

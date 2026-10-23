@@ -12,15 +12,17 @@ export function setAnim(a, name, restart = false) {
   a.name = name; a.i = -1; a.q = 0; a.done = false;
 }
 
+/** Advances one tick. Returns true on the tick a one-shot animation reaches its end command. */
 export function tickAnim(a, anims) {
-  if (a.done) return;
-  if (a.q > 0) { a.q -= a.speed * 16; return; }
+  if (a.done) return false;
+  if (a.q > 0) { a.q -= a.speed * 16; return false; }
   const def = anims[a.name];
   if (++a.i >= def.frames.length) {
-    if (def.loop === null) { a.i = def.frames.length - 1; a.done = true; return; }   // one-shot: hold the last frame
+    if (def.loop === null) { a.i = def.frames.length - 1; a.done = true; return true; }   // one-shot: hold the last frame
     a.i = def.loop;
   }
   a.q += def.frames[a.i][1] * 256 - a.speed * 16;
+  return false;
 }
 
 /** Index into the atlas of the frame on screen, or -1 for none. */

@@ -13,12 +13,14 @@
   <section class="picker" id="picker" aria-label="Choose a ROM"></section>
 
   <section class="stage" id="stage" hidden>
-    <canvas id="screen" tabindex="0" aria-label="Sonic on a Neo Green Hill platform. Use the arrow keys to run, Z or Space to jump."></canvas>
+    <canvas id="screen" tabindex="0" aria-label="Sonic on a Neo Green Hill platform. Use the arrow keys to run, Z or Space to jump, X to attack."></canvas>
 
     <aside class="help" id="help">
       <dl>
         <dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Run</dd>
-        <dt><kbd>Z</kbd> <kbd>Space</kbd></dt><dd>Jump</dd>
+        <dt><kbd>Z</kbd> <kbd>Space</kbd></dt><dd>Jump · again in the air: insta-shield</dd>
+        <dt><kbd>←</kbd><kbd>←</kbd> <kbd>→</kbd><kbd>→</kbd></dt><dd>In a jump: mid-air dash</dd>
+        <dt><kbd>X</kbd></dt><dd>Spin attack · again: kick, then <kbd>X</kbd> slide or <kbd>Z</kbd> backflip</dd>
         <dt><kbd>↓</kbd></dt><dd>Crouch · roll while moving</dd>
         <dt><kbd>↓</kbd>+<kbd>Z</kbd></dt><dd>Spin dash</dd>
         <dt><kbd>↑</kbd></dt><dd>Look up</dd>
@@ -35,7 +37,10 @@
         <button type="button" data-button="up">▲</button>
         <button type="button" data-button="right">▶</button>
       </div>
-      <button type="button" class="jump" data-button="jump">A</button>
+      <div class="buttons">
+        <button type="button" class="attack" data-button="attack">B</button>
+        <button type="button" class="jump" data-button="jump">A</button>
+      </div>
     </div>
   </section>
 </main>

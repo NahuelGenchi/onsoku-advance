@@ -59,11 +59,11 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 ## Status
 
 > [!NOTE]
-> **Pre-alpha: there is nothing to play in this repository yet.** A working movement prototype exists and moves in with [M1 — Playable prototype](https://github.com/NahuelGenchi/onsoku-advance/milestone/2): Sonic on a Neo Green Hill platform with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, and the original camera.
+> **Pre-alpha: the ROM extractor is in; there is nothing to play yet.** A working movement prototype moves in next with [M1 — Playable prototype](https://github.com/NahuelGenchi/onsoku-advance/milestone/2): Sonic on a Neo Green Hill platform with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, and the original camera.
 
 | Area | State | Tracked in |
 | :--- | :--- | :--- |
-| ROM extractor: sprites, palettes, tiles | 🟡 Prototype, moving in | [#4](https://github.com/NahuelGenchi/onsoku-advance/issues/4) |
+| ROM extractor: sprites, palettes, tiles | 🟢 Done, see the [asset viewer](#getting-started) | [#4](https://github.com/NahuelGenchi/onsoku-advance/issues/4) |
 | Movement, animations and camera | 🟡 Prototype, moving in | [#5](https://github.com/NahuelGenchi/onsoku-advance/issues/5) |
 | Stage maps and collision | ⚪ Planned | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
 | Rings, objects and enemies | ⚪ Planned | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
@@ -95,9 +95,17 @@ flowchart LR
 Playable builds arrive with [M1 — Playable prototype](https://github.com/NahuelGenchi/onsoku-advance/milestone/2). You will need:
 
 - A current desktop browser
-- Your own Sonic Advance ROM, dumped from a cartridge you own
+- Your own Sonic Advance ROM, dumped from a cartridge you own. Tested versions are listed in [docs/ROM.md](docs/ROM.md).
 
-Supported ROM versions will be listed here, identified by checksum.
+There is no build step. The pages use JavaScript modules, which browsers only load over HTTP, so serve the repository folder with any static file server and open it on `localhost`:
+
+```sh
+git clone https://github.com/NahuelGenchi/onsoku-advance.git
+cd onsoku-advance
+python -m http.server 8000
+```
+
+Then open <http://localhost:8000/viewer.html> and choose your ROM to see everything the extractor decodes from it: Sonic's animations playing with their original timing, the sprite atlas, and the Neo Green Hill platform and background.
 
 <details>
 <summary><b>Controls in the prototype</b></summary>

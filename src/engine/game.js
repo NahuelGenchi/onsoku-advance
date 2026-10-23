@@ -1,10 +1,12 @@
 // Ties the player, camera, effects and renderer together with a fixed 60 Hz step.
 
-import { TICK_MS, CAMERA } from './constants.js';
+import { TICK_MS, CAMERA, PHYSICS } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
-import { createPlayer, stepPlayer } from './player.js';
+import { createPlayer, stepPlayer, animatePlayer } from './player.js';
 import { createCamera, updateCamera } from './camera.js';
 import { createRenderer } from './renderer.js';
+
+const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 
 export function createGame(canvas, assets, input) {
   const { anims } = assets.sprites;
@@ -12,29 +14,47 @@ export function createGame(canvas, assets, input) {
   const state = { tick: 0, player, cam: createCamera(player), effects: [] };
   const render = createRenderer(canvas, assets);
 
+  function spawn(kind, name, x, y, flipX, flipY = false) {
+    const e = { kind, anim: makeAnimator(), x, y, flipX, flipY };
+    setAnim(e.anim, name);   // first ticked by updateEffect() in the same step
+    state.effects.push(e);
+    return e;
+  }
+  const feetY = () => player.y - 1;                      // spriteOffsetY below Sonic's centre
+  const centreY = () => player.y - (player.offsetY + 1);
+
   const world = {
     get tick() { return state.tick; },
     freezeCamera() { state.cam.freeze = CAMERA.spinDashFreeze; },
-    // a one-shot effect at a point, or one that follows Sonic while he stays in state `follow`
-    spawnEffect(name, x, y, facing, follow = null) {
-      const e = { anim: makeAnimator(), x, y, facing, follow };
-      setAnim(e.anim, name); tickAnim(e.anim, anims);
-      state.effects.push(e);
+    // brake dust stays where it appeared, flipped at random
+    spawnBrakeDust() {
+      if (state.effects.filter(e => e.kind === 'brake').length >= MAX_BRAKE_DUST) return;
+      spawn('brake', 'brakeDust', player.x, feetY(), Math.random() < 0.5, Math.random() < 0.5);
     },
+    // spin dash dust follows Sonic's feet while he charges, bigger while the charge is above 2.0
+    spawnDashDust() { spawn('dash', 'dashDust', player.x, feetY(), player.facing > 0); },
+    // the insta-shield's flash follows Sonic, facing the way he faced when it started
+    spawnInstaShield() { spawn('shield', 'instaShieldFlash', player.x, centreY(), player.facing > 0); },
   };
+
+  function updateEffect(e) {
+    if (e.kind === 'dash') {
+      if (!player.spinDashing) return false;
+      setAnim(e.anim, player.dashAccel > PHYSICS.dashDustBigAbove ? 'dashDustBig' : 'dashDust');
+      e.x = player.x; e.y = feetY(); e.flipX = player.facing > 0;
+      tickAnim(e.anim, anims);
+      return true;
+    }
+    if (e.anim.done) return false;
+    if (e.kind === 'shield') { e.x = player.x; e.y = centreY(); }
+    tickAnim(e.anim, anims);
+    return true;
+  }
 
   function step() {
     stepPlayer(player, input, world);
-    tickAnim(player.anim, anims);
-    const { effects } = state;
-    for (const e of effects) tickAnim(e.anim, anims);
-    for (let i = effects.length - 1; i >= 0; i--) {
-      const e = effects[i];
-      if (e.follow) {
-        if (player.state !== e.follow) { effects.splice(i, 1); continue; }
-        e.x = player.x; e.y = player.y; e.facing = player.facing;
-      } else if (e.anim.done) effects.splice(i, 1);
-    }
+    animatePlayer(player, input, anims, world);
+    state.effects = state.effects.filter(updateEffect);
     updateCamera(state.cam, player);
     state.tick++;
   }

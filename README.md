@@ -65,7 +65,7 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 ## Status
 
 > [!NOTE]
-> **Pre-alpha: the first playable prototype is in.** Sonic runs on an endless Neo Green Hill platform with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, and the original camera. There are no stages, objects or sound yet.
+> **Pre-alpha: the first playable prototype is in.** Sonic runs on an endless Neo Green Hill platform with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, his insta-shield, mid-air dash and B-button ground combo, and the original camera. There are no stages, objects or sound yet.
 
 | Area | State | Tracked in |
 | :--- | :--- | :--- |
@@ -125,7 +125,10 @@ To see everything the extractor decodes, open <http://localhost:8000/viewer.html
 | Action | Keyboard |
 | :--- | :--- |
 | Run | <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> |
-| Jump | <kbd>Z</kbd> or <kbd>Space</kbd> |
+| Jump (A) | <kbd>Z</kbd> or <kbd>Space</kbd> |
+| Insta-shield | <kbd>Z</kbd> again in a jump, once the rise slows |
+| Mid-air dash | Tap <kbd>←</kbd> <kbd>←</kbd> or <kbd>→</kbd> <kbd>→</kbd> in a jump |
+| Attack (B): spin, then kick, then slide or backflip | <kbd>X</kbd>, <kbd>X</kbd>, then <kbd>X</kbd> or <kbd>Z</kbd> |
 | Crouch, or roll while moving | <kbd>↓</kbd> |
 | Spin dash | <kbd>↓</kbd> + <kbd>Z</kbd> |
 | Look up | <kbd>↑</kbd> |

@@ -80,7 +80,9 @@ kbd {
   width: 56px; height: 56px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .45); background: rgba(8, 20, 60, .55);
   color: #fff; font: 700 18px var(--font); pointer-events: auto; touch-action: none; -webkit-user-select: none; user-select: none;
 }
+.touch .buttons { display: flex; gap: 12px; align-items: end; }
 .touch .jump { width: 76px; height: 76px; background: rgba(200, 40, 40, .6); }
+.touch .attack { width: 64px; height: 64px; margin-bottom: 36px; background: rgba(40, 90, 200, .6); }
 @media (pointer: coarse) { .touch { display: flex; } .help dl { display: none; } }
 
 /* asset viewer */

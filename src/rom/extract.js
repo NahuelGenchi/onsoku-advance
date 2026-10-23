@@ -8,12 +8,16 @@ import { spriteTables, animationFrames, animationPalette, renderFrame } from './
 import { tilemapHeader, drawStageRegion, renderPlainMap } from './tilemaps.js';
 import { readColors } from './colors.js';
 
-// [animation id, variant] in the sprite tables
+// [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
-  idle: [0, 0], bored: [1, 0], lookUp: [2, 0], crouch: [3, 0], walk: [4, 0], run: [5, 0],
-  turn: [6, 0], brakeTurn: [7, 0], spin: [8, 0], brake: [9, 0], spinDash: [18, 0], spinDashRev: [18, 1],
+  idle: [0, 0], bored: [1, 0], lookUp: [2, 0], lookUpEnd: [2, 1], crouch: [3, 0], crouchEnd: [3, 1],
+  walk: [4, 0], run: [5, 0], turn: [6, 0], brakeTurn: [7, 0], spin: [8, 0], brake: [9, 0],
+  spinDash: [18, 0], spinDashRev: [18, 1], airDash: [49, 0], instaShield: [50, 0],
+  spinAttack: [51, 0], somersault: [52, 0], slide: [53, 0], slideEnd: [53, 1], backflip: [55, 0],
 };
-export const EFFECT_ANIMATIONS = { brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0] };
+export const EFFECT_ANIMATIONS = {
+  brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
+};
 
 // Neo Green Hill Zone act 1 in the tilemap table: front decorations, terrain, background
 const NGH = { decorations: 0, terrain: 1, background: 2 };
@@ -35,7 +39,9 @@ export async function extractAssets(buffer, onProgress = () => {}) {
   const sprites = extractSprites(rom, spriteTables(rom, offsets.spriteTables));
   onProgress('Decoding Neo Green Hill…');
   const stage = extractStage(rom, offsets.tilemaps);
-  const spinDashSpeeds = Array.from({ length: 9 }, (_, i) => rom.s16(offsets.spinDashSpeeds + i * 2) / 256);
+  // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
+  // indexes into those in the original, so both are read
+  const spinDashSpeeds = Array.from({ length: 18 }, (_, i) => rom.s16(offsets.spinDashSpeeds + i * 2) / 256);
 
   return {
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },

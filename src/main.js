@@ -53,7 +53,7 @@ addEventListener('keydown', e => {
 
 function showStats() {
   const { player } = game.state;
-  const speed = Math.abs(player.ground ? player.gsp : player.xsp);
+  const speed = Math.abs(player.air ? player.xsp : player.gsp);
   stats.textContent = `speed ${speed.toFixed(2)} · ${player.state} · ${player.anim.name}`;
 }
 

@@ -1,19 +1,23 @@
-// Keyboard and touch input folded into one set of held buttons plus a jump-press edge.
+// Keyboard and touch input folded into one set of held buttons plus press edges for A (jump) and B (attack).
 
 const KEYS = {
   ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up',
-  ArrowDown: 'down', KeyS: 'down', Space: 'jump', KeyZ: 'jump', KeyX: 'jump', KeyJ: 'jump', KeyK: 'jump',
+  ArrowDown: 'down', KeyS: 'down', Space: 'jump', KeyZ: 'jump', KeyJ: 'jump', KeyX: 'attack', KeyK: 'attack',
 };
-const BUTTONS = ['left', 'right', 'up', 'down', 'jump'];
+const BUTTONS = ['left', 'right', 'up', 'down', 'jump', 'attack'];
 
 export function createInput() {
-  const input = { left: false, right: false, up: false, down: false, jump: false, jumpPressed: false, enabled: false };
+  const input = {
+    left: false, right: false, up: false, down: false, jump: false, attack: false,
+    jumpPressed: false, attackPressed: false, enabled: false,
+  };
 
   input.press = (button, down) => {
     if (button === 'jump' && down && !input.jump) input.jumpPressed = true;
+    if (button === 'attack' && down && !input.attack) input.attackPressed = true;
     input[button] = down;
   };
-  input.release = () => { for (const b of BUTTONS) input[b] = false; input.jumpPressed = false; };
+  input.release = () => { for (const b of BUTTONS) input[b] = false; input.jumpPressed = input.attackPressed = false; };
 
   addEventListener('keydown', e => {
     const button = KEYS[e.code];
@@ -30,7 +34,7 @@ export function createInput() {
   addEventListener('blur', input.release);
   document.addEventListener('visibilitychange', () => { if (document.hidden) input.release(); });
 
-  /** On-screen buttons: any element with data-button="left|right|up|down|jump". */
+  /** On-screen buttons: any element with data-button="left|right|up|down|jump|attack". */
   input.bindTouch = root => {
     for (const el of root.querySelectorAll('[data-button]')) {
       const button = el.dataset.button;

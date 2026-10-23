@@ -27,7 +27,7 @@ function show(assets, fileName) {
     'SHA-1': info.sha1 ?? 'Unavailable (open this page from localhost or https)',
     'Sprite tables': hex(info.offsets.spriteTables),
     'Tilemap table': hex(info.offsets.tilemaps),
-    'Spin dash speeds': `${hex(info.offsets.spinDashSpeeds)} → ${physics.spinDashSpeeds.join(', ')}`,
+    'Spin dash speeds': `${hex(info.offsets.spinDashSpeeds)} → ${physics.spinDashSpeeds.slice(0, 9).join(', ')}; overcharged: ${physics.spinDashSpeeds.slice(9).join(', ')}`,
   };
   document.getElementById('facts').innerHTML = Object.entries(facts).map(([k, v]) => `<dt>${k}</dt><dd></dd>`).join('');
   [...document.querySelectorAll('#facts dd')].forEach((dd, i) => { dd.textContent = Object.values(facts)[i]; });

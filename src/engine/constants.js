@@ -1,6 +1,6 @@
 // Game rules, in pixels and 1/60 s frames. Values follow the original game as documented by the
-// SAT-R decompilation (src/game/shared/stage/player.c, src/game/shared/stage/camera.c,
-// include/game/shared/parameters/characters.h).
+// SAT-R decompilation (src/game/shared/stage/player.c, src/game/sa1/stage/player_sonic.c,
+// src/game/shared/stage/camera.c) and were checked against the USA ROM's code (see docs/ROM.md).
 
 export const SCREEN_W = 240, SCREEN_H = 160;   // Game Boy Advance screen
 export const TICK_MS = 1000 / 60;
@@ -12,15 +12,24 @@ export const PHYSICS = {
   maxRunSpeed: 4.5,            // walking can't accelerate past this (faster speeds are kept)
   brakeMinSpeed: 3,            // still this fast after decelerating: skid
   reverseKick: 96 / 256,       // speed in the new direction after crossing zero
-  airAcceleration: 16 / 256,
+  airAcceleration: 16 / 256,   // twice the ground acceleration, same 4.5 cap
+  airDragShift: 5,             // while rising, X speed loses 1/32 of itself every frame
   gravity: 42 / 256,
   jumpSpeed: 4.875,
   jumpReleaseCap: 3,           // letting go of jump while rising faster than this caps the rise
-  maxFallSpeed: 15,
-  rollMinSpeed: 1,             // not in the decompiled code yet; chosen to match play
-  rollFriction: 4 / 256,
+  riseCap: 11.8125,            // rising without having jumped never goes faster than this
+  rollFriction: 4 / 256,       // half the acceleration
   rollDeceleration: 24 / 256,
   boredDelay: 360,             // 6 seconds without input
+  // spin dash charge, in 1/256 units: each rev adds 2.0 and raises it to at least 8.0, and it decays by
+  // 1/32 per frame. The release speed is read from the ROM's tables by the charge's integer part.
+  dashRev: 0x200, dashRevMin: 0x800, dashDustBigAbove: 0x200,
+  airDashBoost: 4.5 / 4,       // a quarter of the top speed, added by the mid-air dash
+  airDashWindow: 10,           // the double tap's first press must lie 5–10 frames back
+  airDashMinGap: 5,
+  // B button on the ground: spin, then somersault kick, then slide kick or backflip
+  spinAttackSpeed: 2, somersaultSpeed: 3, slideSpeed: 4,
+  attackFriction: 8 / 256, slideFriction: 32 / 256,
 };
 
 export const ANIMATION = {
@@ -42,7 +51,6 @@ export const CAMERA = {
   spinDashFreeze: 10,          // frames the camera target stays put after a spin dash release
 };
 
-// distance from the sprite anchor to the ground for standing and curled frames,
-// and the matching spriteOffsetY the camera eases toward
-export const FEET = 15, BALL_FEET = 10;
+// spriteOffsetY: the distance from Sonic's position (his centre) to his lowest pixel, standing and
+// curled up. The ground is the row below it, and the camera eases toward spriteOffsetY - 4.
 export const SPRITE_OFFSET_Y = 14, BALL_SPRITE_OFFSET_Y = 9;

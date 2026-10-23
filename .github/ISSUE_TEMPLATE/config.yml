@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Contribution and tracking rules
+    url: https://github.com/NahuelGenchi/onsoku-advance/blob/main/CONTRIBUTING.md
+    about: Read the issue → branch → milestone → PR workflow before opening work.

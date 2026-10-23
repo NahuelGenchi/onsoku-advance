@@ -15,6 +15,12 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 
 <br>
 
+### [▶ Play in your browser](https://nahuelgenchi.github.io/onsoku-advance/)
+
+<sub>Bring your own Sonic Advance ROM: it is read on your device and never uploaded.</sub>
+
+<br>
+
 [Overview](#overview) &nbsp;·&nbsp; [Status](#status) &nbsp;·&nbsp; [How it works](#how-it-works) &nbsp;·&nbsp; [Getting started](#getting-started) &nbsp;·&nbsp; [Roadmap](#roadmap) &nbsp;·&nbsp; [Contributing](#contributing) &nbsp;·&nbsp; [Legal](#legal)
 
 </div>
@@ -68,7 +74,8 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 | Stage maps and collision | ⚪ Planned | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
 | Rings, objects and enemies | ⚪ Planned | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
 | Sound and music | ⚪ Planned | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
-| Hosted build and releases | ⚪ Planned | [M3](https://github.com/NahuelGenchi/onsoku-advance/milestone/4) |
+| Hosted build | 🟢 Live on [GitHub Pages](https://nahuelgenchi.github.io/onsoku-advance/) | [#12](https://github.com/NahuelGenchi/onsoku-advance/issues/12) |
+| Versioned releases | ⚪ Planned | [M3](https://github.com/NahuelGenchi/onsoku-advance/milestone/4) |
 
 ## How it works
 
@@ -97,7 +104,9 @@ You will need:
 - A current desktop browser
 - Your own Sonic Advance ROM, dumped from a cartridge you own. Tested versions are listed in [docs/ROM.md](docs/ROM.md).
 
-There is no build step. The pages use JavaScript modules, which browsers only load over HTTP, so serve the repository folder with any static file server and open it on `localhost`:
+**Play online:** open <https://nahuelgenchi.github.io/onsoku-advance/> and choose your ROM. The page only reads it in your browser. The [asset viewer](https://nahuelgenchi.github.io/onsoku-advance/viewer.html) is there too.
+
+**Run it locally:** there is no build step. The pages use JavaScript modules, which browsers only load over HTTP, so serve the repository folder with any static file server and open it on `localhost`:
 
 ```sh
 git clone https://github.com/NahuelGenchi/onsoku-advance.git

@@ -11,7 +11,11 @@ export const SONG = {
   BRAKE: 115,
   JUMP: 116,               // also the combo's backflip
   RING: 117,               // SE_RING_COPY: what the ring manager and the ring sparkle play
+  RINGS_LOST: 118,         // SE_RINGS_LOST: the rings scatter
+  LIFE_LOST: 119,          // SE_LIFE_LOST: Sonic dies
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
+  ENEMY_DEFEAT: 138,       // SE_ITEM_BOX: an enemy is defeated
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
   SPRING: 170,
+  SPIKES: 171,             // SE_171: hurt by spikes
 };

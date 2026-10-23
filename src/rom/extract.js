@@ -1,6 +1,6 @@
 // Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects, the
-// springs, the rings, the HUD, Neo Green Hill Zone act 1 with its collision, objects and rings, and the
-// zone's background. Runs entirely in the browser.
+// springs, the spikes, the enemies, the rings, the HUD, Neo Green Hill Zone act 1 with its collision, objects,
+// enemies and rings, and the zone's background. Runs entirely in the browser.
 
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
@@ -8,7 +8,7 @@ import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame } from './sprites.js';
 import { tilemapHeader, renderMetatileAtlas, renderPlainMap } from './tilemaps.js';
 import { readCollision, readSpawn } from './collision.js';
-import { readInteractables, readRings, layerToggles } from './entities.js';
+import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
 import { soundLayout } from './sound.js';
 import { hudGraphics } from './hud.js';
@@ -21,6 +21,8 @@ export const SONIC_ANIMATIONS = {
   spinAttack: [51, 0], somersault: [52, 0], slide: [53, 0], slideEnd: [53, 1], backflip: [55, 0],
   // launched by a spring: the somersault (charState 17), or rising, topping out and falling (21, 18, 19)
   spring: [11, 0], springRise: [10, 0], springPeak: [10, 1], springFall: [10, 2],
+  // knocked back (charState 15) and dying (1)
+  hurt: [19, 0], dead: [21, 0],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -31,6 +33,21 @@ export const SPRING_ANIM = 455;
 export const OBJECT_ANIMATIONS = {
   springUp: [SPRING_ANIM, 0], springUpLaunch: [SPRING_ANIM, 1], springSide: [SPRING_ANIM, 2], springSideLaunch: [SPRING_ANIM, 3],
   springBig: [SPRING_ANIM, 4], springBigLaunch: [SPRING_ANIM, 5], springSmall: [SPRING_ANIM, 6], springSmallLaunch: [SPRING_ANIM, 7],
+};
+// the spikes (animation 454, palette 35): pointing up, and sideways (flipped to point left)
+export const SPIKES_ANIM = 454;
+export const SPIKE_ANIMATIONS = { spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3] };
+// act 1's enemies and their shots, the dust and points a defeat leaves and the freed animals, by animation;
+// each loads its own palette
+export const ENEMY_ANIMATIONS = {
+  401: { kikiBob: 1, kikiThrow: 2 }, 408: { coconut: 0 }, 402: { coconutPiece: 0 },
+  403: { buzzerFly: 0, buzzerShoot: 1, buzzerTurn: 2 }, 409: { buzzerShot: 0 },
+  404: { gamiWalk: 0, gamiClaws: 1 }, 410: { gamiShot: 0 },
+  405: { rhinoDrive: 0, rhinoRev: 1, rhinoTurn: 2 },
+  406: { keroJump: 0, keroCroak: 1 },
+  407: { dustCloud: 0 },
+  709: { score0: 0, score1: 1, score2: 2, score3: 3, score4: 4 },
+  445: { animalOtter: 0 }, 450: { animalKoala: 0 }, 449: { animalKangaroo: 0 },
 };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
@@ -46,7 +63,7 @@ const NGH = { front: 0, back: 1, background: 2 };
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims }, hud: { sheet, glyphs, ring, face }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, background }, physics, sound }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims }, hud: { sheet, glyphs, ring, face }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, background }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
@@ -83,6 +100,11 @@ function extractSprites(rom, tables) {
     { list: OBJECT_ANIMATIONS, palette: springPalette },
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
+    { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
+    ...Object.entries(ENEMY_ANIMATIONS).map(([anim, variants]) => ({
+      list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
+      palette: animationPalette(rom, tables, Number(anim)),
+    })),
   ];
 
   const images = [], byKey = new Map(), anims = {};
@@ -147,6 +169,9 @@ function extractStage(rom, offsets) {
     spawn: readSpawn(rom, offsets.spawns, LEVEL),
     interactables, layerToggles: layerToggles(interactables),
     rings: readRings(rom, offsets.rings, LEVEL),
+    itemBoxes: readItemBoxes(rom, offsets.itemBoxes, LEVEL),
+    enemies: readInteractables(rom, offsets.enemies, LEVEL, 'enemies'),
+    entityRegions: entityRegions(rom, offsets.interactables, LEVEL),
     background: toCanvas(renderPlainMap(rom, background, palette)),
   };
 }

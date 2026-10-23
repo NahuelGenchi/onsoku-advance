@@ -34,6 +34,11 @@ export const PHYSICS = {
   slipLock: 30,                // grounded frames without control after dropping off
   springSpeeds: [7.5, 9, 10.5, 12], // a spring's launch speed, picked by its d0 (sData0Accel)
   springPeakSpeed: 1.5,        // rising slower than this off a spring, Sonic tops out (charState 21 to 18)
+  // getting hurt (Coll_DamagePlayer) and dying (Task_PlayerDied, Task_PlayerHandleDeath)
+  invulnerable: 120,           // frames of blinking after a hit, counted once he has landed
+  hurtSpeedX: 1.5, hurtSpeedY: 3,
+  deadBelowScreen: 240,        // gone once his centre is this far below the top of the screen
+  deadRestart: 60,             // then the act restarts on the 61st frame
 };
 
 export const ANIMATION = {

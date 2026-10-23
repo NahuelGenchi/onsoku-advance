@@ -110,6 +110,9 @@ export function locateTables(rom, known) {
     // the ring lists are the table just before the interactables
     rings: interactables === null ? null : interactables - LEVEL_COUNT * 4,
     interactables,
+    // then the item boxes' and the enemies' lists
+    itemBoxes: interactables === null ? null : interactables + LEVEL_COUNT * 4,
+    enemies: interactables === null ? null : interactables + 2 * LEVEL_COUNT * 4,
     spinDashSpeeds: findSpinDashSpeeds(rom),
     musicPlayers: findMusicPlayers(rom),
     uiGraphics: findUiGraphics(rom),

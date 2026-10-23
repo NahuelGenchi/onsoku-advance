@@ -16,7 +16,7 @@ const HISTORY = 16;
 
 // states: idle | walk | turn | brake | crouch | crouchEnd | lookUp | lookUpEnd | spinDash | spinDashRev |
 //         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip |
-//         spring (somersault off a spring) | springRise | springPeak | springFall
+//         spring (somersault off a spring) | springRise | springPeak | springFall | hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -35,6 +35,13 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     attack: 0, attackNext: 0,   // step of the B-button combo, and the move queued after the somersault
     idleT: K.boredDelay, anim: makeAnimator(), spinDashSpeeds,
     animRestart: false, // an object asked for his animation to start over
+    boxes: [null, null], // his sprite's hitboxes: 0 his body, 1 the attack box of the moves that destroy enemies
+    invulnerable: 0,   // frames of blinking after a hit (timerInvulnerability)
+    hidden: false,     // left out of this frame's drawing: blinking, or gone below the screen after dying
+    dead: false,       // MOVESTATE_DEAD
+    death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
+    countdown: 0,
+    chain: 0,          // enemies defeated since he last touched the ground (defeatScoreIndex)
     held: new Array(HISTORY).fill(0), pressed: new Array(HISTORY).fill(0),
   };
 }
@@ -78,11 +85,11 @@ function alongSurface(p) {
   p.ysp = ((g * sin8(p.rotation)) >> 8) / 256;
 }
 
-// the act's edges (sub_80232D0): Sonic stops at the sides, and falling out of the bottom ends the run,
-// which restarts him at the act's start for now
+// the act's edges (sub_80232D0): Sonic stops at the sides, and falling out of the bottom kills him, thrown
+// up as high as a jump
 function bounds(p, world) {
   const t = world.terrain, maxX = t.width - 1 / 256, maxY = t.height - 1 / 256;
-  if (p.y >= maxY) { world.respawn(); return; }
+  if (p.y >= maxY && !p.dead) { p.dead = true; p.ysp = -K.jumpSpeed; p.y = maxY; }
   if (p.x < 0 || p.x > maxX) { p.x = Math.min(Math.max(p.x, 0), maxX); p.xsp = 0; p.gsp = 0; }
   if (p.y < 0) { p.y = 0; p.ysp = 0; p.gsp = 0; }
 }
@@ -280,6 +287,15 @@ function groundStep(p, c, world) {
 }
 
 function airStep(p, c, world) {
+  // knocked back, he flies on as he was thrown: no moves, no control and no drag (Player_AirInputControls)
+  if (p.state === 'hurt') {
+    bounds(p, world);
+    p.x += p.xsp; p.y += p.ysp;
+    p.ysp += K.gravity;
+    airCollision(p, world.terrain, () => land(p));
+    return;
+  }
+
   // double-tap dash, only while curled up (sub_8047714)
   if (p.curled && p.jumped && p.midAir === 0) {
     const tap = doubleTap(p);
@@ -328,11 +344,51 @@ export function land(p) {
   if (p.curled) uncurl(p);
   p.offsetY = SPRITE_OFFSET_Y;   // set outright, even when something uncurled him without moving him
   p.airLock = false;
+  p.chain = 0;
   endAttack(p);
 }
 
 /**
- * Advances the player one frame. `world` provides tick, terrain, respawn(), spawnDashDust(),
+ * Hurts Sonic, unless he is still blinking from the last hit (Coll_DamagePlayer, without the rings, which the
+ * caller handles): knocked up and away from the way he was moving, or facing when standing still, wherever
+ * the hazard is. Returns false when he is protected.
+ */
+export function hurt(p) {
+  if (p.invulnerable > 0) return false;
+  p.invulnerable = K.invulnerable;
+  p.xsp = p.xsp < 0 || (p.xsp === 0 && p.facing < 0) ? K.hurtSpeedX : -K.hurtSpeedX;
+  p.ysp = -K.hurtSpeedY;
+  p.onObject = null; p.air = true;
+  endAttack(p);
+  p.airLock = false;
+  p.state = 'hurt';
+  uncurl(p);   // the feet stay put
+  return true;
+}
+
+// dead (Task_PlayerMain's death block, then Task_PlayerDied and Task_PlayerHandleDeath): on the first frame he
+// stops moving sideways and the camera and clock stop; then he falls through everything until he is 80 px
+// below the screen, and the act restarts 61 frames later
+function deadStep(p, world) {
+  if (!p.death) {
+    p.death = 'falling'; p.state = 'dead';
+    p.xsp = 0; p.gsp = 0; p.invulnerable = 2; p.onObject = null;
+    endAttack(p);
+    world.died();
+    return;
+  }
+  if (p.death === 'falling') {
+    if (p.y >= world.cameraY + K.deadBelowScreen - 1 / 256) { p.death = 'gone'; p.countdown = K.deadRestart; p.hidden = true; return; }
+    p.y += p.ysp;
+    p.ysp += K.gravity;
+    return;
+  }
+  if (p.countdown !== 0) p.countdown--;
+  else world.lifeLost();
+}
+
+/**
+ * Advances the player one frame. `world` provides tick, cameraY, terrain, died(), lifeLost(), spawnDashDust(),
  * spawnInstaShield(), freezeCamera(), playSound(song) and playSoundPitched(song, pitch).
  */
 export function stepPlayer(p, input, world) {
@@ -349,7 +405,8 @@ export function stepPlayer(p, input, world) {
   };
   input.jumpPressed = false; input.attackPressed = false;
 
-  if (p.air) airStep(p, c, world);
+  if (p.dead) deadStep(p, world);
+  else if (p.air) airStep(p, c, world);
   else groundStep(p, c, world);
 }
 
@@ -399,16 +456,42 @@ function afterAnimation(p, world) {
   }
 }
 
-/** Picks and steps Sonic's animation after his frame of movement, like the original sprite update. */
+// a hitbox under his facing, as the sprite system applies it when the box is set
+const flipBox = (box, flip) => (box && flip ? [-box[2], box[1], -box[0], box[3]] : box);
+
+// a new animation clears both his hitboxes until its script sets them (sub_802486C)
+function choose(p, name, restart = false) {
+  if (p.anim.name !== name) p.boxes = [null, null];
+  setAnim(p.anim, name, restart);
+}
+
+// steps his animation; the hitboxes set before a frame take effect when it appears, and stay until the
+// script sets them again
+function stepAnim(p, anims) {
+  const i = p.anim.i, ended = tickAnim(p.anim, anims);
+  const boxes = p.anim.i !== i && anims[p.anim.name].frames[p.anim.i][2];
+  if (boxes) for (const [slot, box] of Object.entries(boxes)) if (slot < 2) p.boxes[slot] = flipBox(box, p.facing > 0);
+  return ended;
+}
+
+/**
+ * Picks and steps Sonic's animation after his frame of movement, like the original sprite update, then
+ * decides whether he is drawn: after a hit he blinks, 2 frames hidden and 2 shown in step with the stage
+ * clock, and the blink timer runs down once he has landed.
+ */
 export function animatePlayer(p, input, anims, world) {
-  setAnim(p.anim, chooseAnimation(p, input), p.animRestart);
+  if (p.death === 'gone') return;
+  choose(p, chooseAnimation(p, input), p.animRestart);
   p.animRestart = false;
   if (p.state === 'brake' && world.tick % 4 === 0) world.spawnBrakeDust();
   for (let guard = 0; guard < 4; guard++) {
-    if (!tickAnim(p.anim, anims)) return;
+    if (!stepAnim(p, anims)) break;
     const before = p.state;
     afterAnimation(p, world);
-    if (p.state === before) return;
-    setAnim(p.anim, chooseAnimation(p, input));
+    if (p.state === before) break;
+    choose(p, chooseAnimation(p, input));
   }
+  p.hidden = !p.dead && p.invulnerable > 0 && (world.tick & 2) !== 0;
+  // dead, it counts down only on the frame he dies: the tasks that take over from then on leave it at 1
+  if (p.state !== 'hurt' && p.invulnerable > 0 && !(p.dead && p.invulnerable === 1)) p.invulnerable--;
 }

@@ -1,8 +1,9 @@
 // Draws one 240 × 160 frame: the zone background with its per-line scrolling, the act's back layer, the
-// rings, objects, Sonic, ring sparkles and effects, then the front layer over them, and the HUD on top.
+// sprites behind the front layer, the front layer, the sprites in front of it, and the HUD on top. The
+// sprites are the act's rings and the step's list, stacked as the GBA stacks OAM entries: a lower OAM order
+// in front, and within an order the one put in first.
 
 import { SCREEN_W, SCREEN_H } from './constants.js';
-import { frameOf } from './animator.js';
 import { drawLayer, stageAnimFrame, collisionImage } from './stage.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
@@ -20,7 +21,7 @@ function backgroundOffset(line, tick, cameraX) {
 export function createRenderer(canvas, assets) {
   canvas.width = SCREEN_W; canvas.height = SCREEN_H;
   const ctx = canvas.getContext('2d', { alpha: false });
-  const { atlas, frames, anims } = assets.sprites, hud = assets.hud;
+  const { atlas, frames } = assets.sprites, hud = assets.hud;
   const stage = assets.stage, { background } = stage;
   const bgW = background.width;
 
@@ -54,9 +55,16 @@ export function createRenderer(canvas, assets) {
     }
   }
 
-  return function render({ tick, cam, player, rings, objects, sparkles, effects, terrain, hud: hudState, showCollision }) {
+  // back to front: higher orders first, and the later entries of an order before the earlier ones
+  function stack(list) {
+    return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
+  }
+
+  return function render({ tick, cam, rings, sprites, terrain, hud: hudState, showCollision }) {
     ctx.imageSmoothingEnabled = false;
-    const cx = Math.floor(cam.x), cy = Math.floor(cam.y);
+    // on the act's first frame the camera isn't kept inside the act yet: the original's title card covers
+    // that frame, and until this game has one the view is kept inside
+    const cx = Math.min(Math.max(Math.floor(cam.x), 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y), 0), cam.maxY);
     for (let line = 0; line < SCREEN_H; line++) {
       const off = mod(backgroundOffset(line, tick, cx), bgW);
       ctx.drawImage(background, off, line, bgW - off, 1, 0, line, bgW - off, 1);
@@ -64,20 +72,15 @@ export function createRenderer(canvas, assets) {
     }
     const frame = stageAnimFrame(stage, tick);
     drawLayer(ctx, stage, 'back', cx, cy, SCREEN_W, SCREEN_H, frame);
-    // rings, objects, Sonic and the sparkles share a priority; the sprite list orders them back to front
-    // (OAM orders 20, 18, 16 and 15), and the dust and shield effects come in front of them all
+    // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
     const shown = rings.visible(cam);
-    for (const r of shown.list) drawSprite(shown.frame, r.x - cx, r.y - cy, false);
-    for (const o of objects.live()) drawSprite(o.frame, o.x - cx, o.y - cy, o.flipX, o.flipY);
-
-    // the walk and run frames go through the rotation hardware and follow the slope; facing left, the
-    // original shifts the other frames 1px right
-    const turning = player.state === 'walk';
-    const nudge = player.facing < 0 && !turning ? 1 : 0;
-    drawSprite(frameOf(player.anim, anims), player.x - cx + nudge, player.y - cy, player.facing > 0, false, turning ? player.rotation : 0);
-    for (const s of sparkles) drawSprite(frameOf(s.anim, anims), s.x - cx, s.y - cy, false);
-    for (const e of effects) drawSprite(frameOf(e.anim, anims), e.x - cx, e.y - cy, e.flipX, e.flipY);
+    const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
+    const drawAll = behind => {
+      for (const s of list) if ((s.prio >= 2) === behind) drawSprite(s.frame, s.x - cx, s.y - cy, s.flipX, s.flipY, s.angle);
+    };
+    drawAll(true);
     drawLayer(ctx, stage, 'front', cx, cy, SCREEN_W, SCREEN_H, frame);
+    drawAll(false);
     if (showCollision) drawCollision(terrain, cx, cy);
     drawHud(hudState.sprites);
   };

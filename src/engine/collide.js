@@ -75,11 +75,12 @@ function sideways(o, hb, p, terrain, res) {
 
 /**
  * A solid object (Coll_Player_Platform): Sonic lands on it, bumps it from below or is pushed out of its
- * sides. An airborne Sonic, or one standing on it, is tested from above and below first.
+ * sides. An airborne Sonic, or one standing on it, is tested from above and below first. A dead one falls
+ * through.
  */
 export function platform(o, hb, p, terrain) {
   const res = { flags: 0 };
-  if (!hb) return 0;
+  if (!hb || p.dead) return 0;
   const stoodHere = p.onObject === o;
   if (stoodHere) p.onObject = null;
   const done = ((p.air || stoodHere) && vertical(o, hb, p, body(p), stoodHere, res))
@@ -95,7 +96,7 @@ export function platform(o, hb, p, terrain) {
  */
 export function springSide(o, hb, p) {
   const res = { flags: 0 };
-  if (!hb) return 0;
+  if (!hb || p.dead) return 0;
   let inAir = p.air, stoodHere = false;
   if (p.onObject === o) { p.onObject = null; inAir = true; stoodHere = true; }
   const a = flank(p), b = body(p);

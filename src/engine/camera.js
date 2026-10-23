@@ -1,19 +1,19 @@
 // The original camera: a target derived from Sonic's position, approached with dead zones and speed caps,
-// a look up / look down pan, and a short freeze after a spin dash release. It never shows past the act's edges.
+// a look up / look down pan, a short freeze after a spin dash release, and a still target once Sonic dies. It never shows past the act's edges.
 
 import { SCREEN_W, SCREEN_H, CAMERA as C } from './constants.js';
 
 const centreY = p => Math.floor(p.y);
 
+// starts with Sonic centred horizontally and his body 84px from the top, not yet kept inside the act
+// (InitCamera); its task's first frame only sets it going (Task_CallUpdateCamera), so it moves from the second
 export function createCamera(p, terrain) {
-  // starts with Sonic centred horizontally and his body 84px from the top
   const cam = {
     x: Math.floor(p.x) - SCREEN_W / 2, y: centreY(p) - (SCREEN_H / 2 + 4),
-    targetX: 0, targetY: 0, freeze: 0, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
-    maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H,
+    targetX: 0, targetY: 0, freeze: 0, locked: false, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
+    maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false,
   };
   cam.targetX = cam.x; cam.targetY = cam.y;
-  clamp(cam);
   return cam;
 }
 
@@ -34,9 +34,11 @@ function updateLook(cam, p) {
 }
 
 export function updateCamera(cam, p) {
+  if (!cam.started) { cam.started = true; return; }
   updateLook(cam, p);
+  // a dead Sonic leaves the target where it was (unk50 bits 0–1); the view still eases onto it
   if (cam.freeze > 0) cam.freeze--;
-  else {
+  else if (!cam.locked) {
     cam.targetX = Math.floor(p.x) - SCREEN_W / 2;
     // eases toward spriteOffsetY - 4 so curling up (offset 14 -> 9) doesn't jolt the view
     const want = p.offsetY - 4;

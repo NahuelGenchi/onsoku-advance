@@ -41,7 +41,7 @@ function throwUp(p, o) {
 }
 
 // up (sub_8022640): landing on it launches him straight up, keeping his X speed
-function up(o, p, t) {
+function up(o, p, { terrain: t }) {
   if (!(platform(o, o.boxes[0], p, t) & LANDED)) return false;
   land(p);
   p.ysp = -o.speed;
@@ -50,7 +50,7 @@ function up(o, p, t) {
 }
 
 // down (sub_8022804): bumping it from below throws him down as he is; standing on it counts as ground
-function down(o, p, t) {
+function down(o, p, { terrain: t }) {
   const r = platform(o, o.boxes[0], p, t);
   if (r & FROM_BELOW) {
     p.air = true; p.jumped = false; p.midAir = 0;
@@ -82,7 +82,7 @@ function side(o, p) {
 
 // diagonal (sub_8022AB4 big, sub_8022E14 small): its second hitbox is the trigger, but only once Sonic's
 // centre is more than 20 px out on the side it points to; otherwise it is solid
-function diagonal(o, p, t) {
+function diagonal(o, p, { terrain: t }) {
   const probe = [-12, -(p.offsetY + 1), 12, p.offsetY + 1];
   if (!overlap(o.x, o.y, o.boxes[1], Math.floor(p.x), Math.floor(p.y), probe)) { platform(o, o.boxes[0], p, t); return false; }
   p.curled = false; p.airLock = false;   // even without a launch, and without standing him up

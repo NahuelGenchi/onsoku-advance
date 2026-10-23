@@ -14,6 +14,8 @@ export const KNOWN_VERSIONS = [
       spawns: 0x4A6DEC,
       rings: 0x0B7F4C,
       interactables: 0x0B7F94,
+      itemBoxes: 0x0B7FDC,
+      enemies: 0x0B8024,
       spinDashSpeeds: 0x4A7084,
       musicPlayers: 0x6D767C,
       uiGraphics: 0x680A38,

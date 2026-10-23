@@ -1,0 +1,33 @@
+# Game files never belong in this repository: bring your own ROM, keep it local.
+*.gba
+*.GBA
+*.agb
+*.bin
+*.zip
+*.7z
+*.sav
+*.srm
+*.sa1
+*.ss[0-9]
+roms/
+saves/
+
+# Assets extracted from a ROM stay on the machine that extracted them.
+extracted/
+assets-extracted/
+*.extracted.*
+
+# Build output and dependencies
+dist/
+build/
+node_modules/
+.cache/
+
+# Editors and operating systems
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

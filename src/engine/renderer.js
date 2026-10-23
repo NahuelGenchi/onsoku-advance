@@ -1,5 +1,5 @@
-// Draws one 240 × 160 frame: the zone background with its per-line scrolling, the act's back layer, Sonic and
-// effects, then the front layer over them.
+// Draws one 240 × 160 frame: the zone background with its per-line scrolling, the act's back layer, the
+// objects, Sonic and effects, then the front layer over them.
 
 import { SCREEN_W, SCREEN_H } from './constants.js';
 import { frameOf } from './animator.js';
@@ -46,7 +46,7 @@ export function createRenderer(canvas, assets) {
     ctx.drawImage(overlay, 0, 0);
   }
 
-  return function render({ tick, cam, player, effects, terrain, showCollision }) {
+  return function render({ tick, cam, player, objects, effects, terrain, showCollision }) {
     ctx.imageSmoothingEnabled = false;
     const cx = Math.floor(cam.x), cy = Math.floor(cam.y);
     for (let line = 0; line < SCREEN_H; line++) {
@@ -56,6 +56,8 @@ export function createRenderer(canvas, assets) {
     }
     const frame = stageAnimFrame(stage, tick);
     drawLayer(ctx, stage, 'back', cx, cy, SCREEN_W, SCREEN_H, frame);
+    // objects share Sonic's priority but come later in the sprite list, so they go behind him
+    for (const o of objects.live()) drawSprite(o.frame, o.x - cx, o.y - cy, o.flipX, o.flipY);
 
     // the walk and run frames go through the rotation hardware and follow the slope; facing left, the
     // original shifts the other frames 1px right

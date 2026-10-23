@@ -73,6 +73,28 @@ Each level's interactables are RL-compressed with the GBA BIOS format (header by
 
 Kinds 17 and 18 are the layer toggles: while Sonic's centre is inside the rectangle `d2 × d3` tiles from `(x, y)`, edges included, they put him on the front or back layer. Act 1 has 11 front and 20 back toggles at the loops, and three grind rails (kinds 19 and 20), which also swap layers and aren't supported yet.
 
+### Objects
+
+Objects run like the original's entities manager. An object exists while its origin is within 128 px of the screen on every side (from 128 px left of the screen to 128 px past its right edge, and likewise vertically), and it is removed as soon as it leaves that range. Objects run before Sonic each frame, so they test where he was at the end of the previous frame. They are drawn over the back layer and behind Sonic, who shares their sprite priority but comes earlier in the sprite list.
+
+Sonic meets an object's hitbox through two rectangles around his centre: his body (±6 wide, ±`spriteOffsetY` tall) and a side probe 5 px wider and 1 px shorter at each end. Edges that only touch count. A solid object puts him on its top, pushes him out below it, or pushes him out of its nearer side (to the far side when the terrain is in the way). While he stands on it, his ground sensors rest and the object holds him up each frame, until he walks or jumps off it.
+
+Animation scripts carry the hitboxes: command `-6` is three words, `-6`, a slot number and the box as four signed bytes (left, top, right, bottom), all zero for none. A box takes effect when the frame after it appears, mirrored when the sprite is flipped, and stays until another command replaces it.
+
+### Springs
+
+The spring is animation `455`. Its variants come in pairs, idle and launch: 0–1 up (down is the same, flipped vertically), 2–3 sideways, 4–5 big diagonal, 6–7 small diagonal. The left-facing kinds are flipped horizontally. The launch variants run 12 frames (11 for the small diagonal) and then end, and the spring goes back to idle. Every spring loads sprite palette 33 (red), except the up springs whose `d0` bit 1 is clear: they skip it and use palette 36 (yellow).
+
+| Kind | Spring | How it launches Sonic |
+| ---: | :--- | :--- |
+| 8 | Up | Landing on it: straight up, keeping his X speed |
+| 9 | Down | Bumping it from below: straight down |
+| 10, 11 | Left, right | Touching its face, even standing still: ground and X speed away from it, running (or still rolling). Its back is a wall. |
+| 12, 13 | Big diagonal, up-left and up-right | Its second hitbox is the trigger, once his centre is more than 20 px out on the side it points to: the same speed up and sideways. Elsewhere it is solid. |
+| 14, 15 | Small diagonal, up-left and up-right | Like the big ones |
+
+The speed is `7.5, 9.0, 10.5` or `12.0` by `d0 & 3`, or `d1 × 16` (in 1/256 px) when `d0` is above 3. Rising off a spring never goes faster than 11.8125, and the jump moves are off until he lands. An up or diagonal spring plays the somersault (character state 17), or when `d0` bit 0 is set, the rise, top and fall animations (states 21, 18, 19). Act 1 has 12 springs: four up, three right, two big up-right, two small up-left and one small up-right.
+
 ### Start positions
 
 A pair of 16-bit values (x, y) per level, in pixels, right after the collision table. Neo Green Hill Zone act 1 starts at (104, 444). The four multiplayer stages are (0, 0): they use a separate table of per-player positions.
@@ -93,7 +115,9 @@ Sonic's character state picks his animation through a table of 94 `(animation, v
 | Run | 5 | B: somersault kick | 52 |
 | Turn | 6 | B: slide kick | 53 |
 | Turn after braking | 7 | B: getting up from the slide | 53, variant 1 |
-| | | B: backflip | 55 |
+| Spring: somersault | 11 | B: backflip | 55 |
+| Spring: rising | 10 | Spring: topping out | 10, variant 1 |
+| Spring: falling | 10, variant 2 | | |
 
 Effects: spin dash dust `746` (above a charge of 2.0: `747`), brake dust `748`, insta-shield flash `50` variant 1.
 

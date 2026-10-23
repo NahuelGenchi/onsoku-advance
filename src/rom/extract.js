@@ -1,5 +1,6 @@
-// Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects,
-// Neo Green Hill Zone act 1 with its collision, and the zone's background. Runs entirely in the browser.
+// Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects, the
+// springs, Neo Green Hill Zone act 1 with its collision and objects, and the zone's background. Runs
+// entirely in the browser.
 
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
@@ -16,10 +17,22 @@ export const SONIC_ANIMATIONS = {
   walk: [4, 0], run: [5, 0], turn: [6, 0], brakeTurn: [7, 0], spin: [8, 0], brake: [9, 0],
   spinDash: [18, 0], spinDashRev: [18, 1], airDash: [49, 0], instaShield: [50, 0],
   spinAttack: [51, 0], somersault: [52, 0], slide: [53, 0], slideEnd: [53, 1], backflip: [55, 0],
+  // launched by a spring: the somersault (charState 17), or rising, topping out and falling (21, 18, 19)
+  spring: [11, 0], springRise: [10, 0], springPeak: [10, 1], springFall: [10, 2],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
 };
+
+// the spring (animation 455): each kind's idle and launch variants
+export const SPRING_ANIM = 455;
+export const OBJECT_ANIMATIONS = {
+  springUp: [SPRING_ANIM, 0], springUpLaunch: [SPRING_ANIM, 1], springSide: [SPRING_ANIM, 2], springSideLaunch: [SPRING_ANIM, 3],
+  springBig: [SPRING_ANIM, 4], springBigLaunch: [SPRING_ANIM, 5], springSmall: [SPRING_ANIM, 6], springSmallLaunch: [SPRING_ANIM, 7],
+};
+// the weaker up springs are yellow: they skip the animation's red palette (33) and draw with sprite
+// palette 36 in the next OBJ palette slot
+const YELLOW_SPRING_PALETTE = 36;
 
 // Neo Green Hill Zone act 1: level 0. Its tilemap entries are the front layer (drawn over Sonic), the back
 // layer (behind him) and the background.
@@ -28,7 +41,7 @@ const NGH = { front: 0, back: 1, background: 2 };
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims }, stage: { width, height, layers, atlas, collision, spawn, layerToggles, background }, physics }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, background }, physics }
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
@@ -52,22 +65,35 @@ export async function extractAssets(buffer, onProgress = () => {}) {
 }
 
 function extractSprites(rom, tables) {
-  const basePalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
+  const sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
+  const springPalette = animationPalette(rom, tables, SPRING_ANIM);
+  const yellowPalette = springPalette.slice();
+  readColors(rom, tables.palettes + YELLOW_SPRING_PALETTE * 32, 16).forEach((c, i) => { yellowPalette[112 + i] = c; });
+  const yellow = { springUpYellow: OBJECT_ANIMATIONS.springUp, springUpYellowLaunch: OBJECT_ANIMATIONS.springUpLaunch };
+  const groups = [
+    { list: { ...SONIC_ANIMATIONS, ...EFFECT_ANIMATIONS }, palette: sonicPalette },
+    { list: OBJECT_ANIMATIONS, palette: springPalette },
+    { list: yellow, palette: yellowPalette, skipPalette: true },
+  ];
+
   const images = [], byKey = new Map(), anims = {};
-  for (const [name, [anim, variant]] of Object.entries({ ...SONIC_ANIMATIONS, ...EFFECT_ANIMATIONS })) {
-    const script = animationFrames(rom, tables, anim, variant, basePalette);
-    const frames = script.frames.map(f => {
-      if (f.frame < 0) return [-1, f.delay];
-      // identical frames (same layout, tiles and palette) share one atlas entry
-      const key = `${anim}:${f.frame}:${f.tilesAt}:${f.palette.slice(64, 80).join()}`;
-      if (!byKey.has(key)) {
-        const { img, layout } = renderFrame(rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp);
-        byKey.set(key, images.length);
-        images.push({ img, anchorX: layout.anchorX, anchorY: layout.anchorY });
-      }
-      return [byKey.get(key), f.delay];
-    });
-    anims[name] = { frames, loop: script.loop };
+  for (const { list, palette, skipPalette } of groups) {
+    for (const [name, [anim, variant]] of Object.entries(list)) {
+      const script = animationFrames(rom, tables, anim, variant, palette, { skipPalette });
+      const frames = script.frames.map(f => {
+        if (f.frame < 0) return [-1, f.delay];
+        // identical frames (same layout, tiles and palette) share one atlas entry
+        const key = `${anim}:${f.frame}:${f.tilesAt}:${f.palette.join()}`;
+        if (!byKey.has(key)) {
+          const { img, layout } = renderFrame(rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp);
+          byKey.set(key, images.length);
+          images.push({ img, anchorX: layout.anchorX, anchorY: layout.anchorY });
+        }
+        // the hitboxes set just before a frame come with it
+        return f.boxes ? [byKey.get(key), f.delay, f.boxes] : [byKey.get(key), f.delay];
+      });
+      anims[name] = { frames, loop: script.loop };
+    }
   }
   const { canvas, rects } = packAtlas(images);
   return { atlas: canvas, frames: rects, anims };
@@ -101,6 +127,7 @@ function extractStage(rom, offsets) {
     throw new Error('Neo Green Hill Zone collision does not match its map.');
   }
   const palette = readColors(rom, front.palette, 256);
+  const interactables = readInteractables(rom, offsets.interactables, LEVEL);
   // the two layers share one tileset and its animated tiles, so one atlas serves both
   const atlas = renderMetatileAtlas(rom, front, palette, collision.metatiles.length / 144);
 
@@ -109,7 +136,7 @@ function extractStage(rom, offsets) {
     layers: { front: collision.layers[0], back: collision.layers[1] },
     atlas, animDelay: front.animDelay, collision,
     spawn: readSpawn(rom, offsets.spawns, LEVEL),
-    layerToggles: layerToggles(readInteractables(rom, offsets.interactables, LEVEL)),
+    interactables, layerToggles: layerToggles(interactables),
     background: toCanvas(renderPlainMap(rom, background, palette)),
   };
 }

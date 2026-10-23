@@ -31,7 +31,7 @@ function show(assets, fileName) {
     'Tilemap table': hex(info.offsets.tilemaps),
     'Collision table': hex(info.offsets.collision),
     'Start positions': `${hex(info.offsets.spawns)} → act 1 starts at (${stage.spawn.x}, ${stage.spawn.y})`,
-    Interactables: `${hex(info.offsets.interactables)} → ${stage.layerToggles.length} layer toggles in act 1`,
+    Interactables: `${hex(info.offsets.interactables)} → ${stage.layerToggles.length} layer toggles and ${stage.interactables.filter(e => e.kind >= 8 && e.kind <= 15).length} springs in act 1`,
     'Spin dash speeds': `${hex(info.offsets.spinDashSpeeds)} → ${physics.spinDashSpeeds.slice(0, 9).join(', ')}; overcharged: ${physics.spinDashSpeeds.slice(9).join(', ')}`,
   };
   document.getElementById('facts').innerHTML = Object.entries(facts).map(([k, v]) => `<dt>${k}</dt><dd></dd>`).join('');

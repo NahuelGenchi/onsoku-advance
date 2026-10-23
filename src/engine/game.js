@@ -1,4 +1,4 @@
-// Ties the player, camera, effects and renderer together with a fixed 60 Hz step.
+// Ties the player, camera, objects, effects and renderer together with a fixed 60 Hz step.
 
 import { TICK_MS, CAMERA, PHYSICS } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
@@ -6,6 +6,7 @@ import { createPlayer, stepPlayer, animatePlayer } from './player.js';
 import { createCamera, updateCamera } from './camera.js';
 import { createRenderer } from './renderer.js';
 import { createTerrain } from './terrain.js';
+import { createObjects } from './objects.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 
@@ -13,7 +14,8 @@ export function createGame(canvas, assets, input) {
   const { anims } = assets.sprites;
   const terrain = createTerrain(assets.stage.collision);
   const player = createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds });
-  const state = { tick: 0, player, terrain, cam: createCamera(player, terrain), effects: [], showCollision: false };
+  const objects = createObjects(assets.stage.interactables, anims);
+  const state = { tick: 0, player, terrain, objects, cam: createCamera(player, terrain), effects: [], showCollision: false };
   const render = createRenderer(canvas, assets);
 
   function spawn(kind, name, x, y, flipX, flipY = false) {
@@ -67,8 +69,11 @@ export function createGame(canvas, assets, input) {
     for (const z of toggles) if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) player.layer = z.layer;
   }
 
+  // the original runs the camera, then the objects, then Sonic; the camera update at the end of a step is
+  // the one the next step starts from
   function step() {
     toggleLayers();
+    objects.update(player, state.cam, world);
     stepPlayer(player, input, world);
     animatePlayer(player, input, anims, world);
     state.effects = state.effects.filter(updateEffect);

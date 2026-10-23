@@ -1,9 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/banner.svg" alt="Onsoku Advance — Sonic Advance, rebuilt for the browser" width="100%">
-
-<br>
-<br>
+# Onsoku Advance
 
 **A from-scratch front-end port of Sonic Advance for the Game Boy Advance.**<br>
 No emulator and no game files in this repository: your own ROM, read on your machine, brought to life in the browser.

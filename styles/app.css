@@ -97,6 +97,7 @@ kbd {
 .facts dd { margin: 0; font-family: var(--mono); font-size: 14px; overflow-wrap: anywhere; }
 .sheet { max-width: 100%; overflow-x: auto; padding: 12px; border-radius: 12px; background: #6aa384; border: 1px solid var(--line); }
 .sheet canvas { display: block; image-rendering: pixelated; }
+.toggle { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; }
 .anims { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .anim { padding: 10px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); text-align: center; }
 .anim canvas { display: block; margin: 0 auto 6px; image-rendering: pixelated; background: #6aa384; border-radius: 8px; }

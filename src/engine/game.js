@@ -5,13 +5,15 @@ import { makeAnimator, setAnim, tickAnim } from './animator.js';
 import { createPlayer, stepPlayer, animatePlayer } from './player.js';
 import { createCamera, updateCamera } from './camera.js';
 import { createRenderer } from './renderer.js';
+import { createTerrain } from './terrain.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 
 export function createGame(canvas, assets, input) {
   const { anims } = assets.sprites;
-  const player = createPlayer({ x: 160, groundY: assets.stage.groundY, spinDashSpeeds: assets.physics.spinDashSpeeds });
-  const state = { tick: 0, player, cam: createCamera(player), effects: [] };
+  const terrain = createTerrain(assets.stage.collision);
+  const player = createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds });
+  const state = { tick: 0, player, terrain, cam: createCamera(player, terrain), effects: [], showCollision: false };
   const render = createRenderer(canvas, assets);
 
   function spawn(kind, name, x, y, flipX, flipY = false) {
@@ -20,11 +22,18 @@ export function createGame(canvas, assets, input) {
     state.effects.push(e);
     return e;
   }
-  const feetY = () => player.y - 1;                      // spriteOffsetY below Sonic's centre
-  const centreY = () => player.y - (player.offsetY + 1);
+  const feetY = () => player.y + player.offsetY;
+  const centreY = () => player.y;
+  const toggles = assets.stage.layerToggles;
 
   const world = {
     get tick() { return state.tick; },
+    terrain,
+    // falling out of the act: back to the start until there are lives and checkpoints
+    respawn() {
+      Object.assign(player, createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds }));
+      state.cam = createCamera(player, terrain);
+    },
     freezeCamera() { state.cam.freeze = CAMERA.spinDashFreeze; },
     // brake dust stays where it appeared, flipped at random
     spawnBrakeDust() {
@@ -51,7 +60,15 @@ export function createGame(canvas, assets, input) {
     return true;
   }
 
+  // layer toggles: while Sonic's centre is inside one, it puts him on its layer. They run before him, so
+  // they see where he was at the end of the last frame.
+  function toggleLayers() {
+    const x = Math.floor(player.x), y = Math.floor(player.y);
+    for (const z of toggles) if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) player.layer = z.layer;
+  }
+
   function step() {
+    toggleLayers();
     stepPlayer(player, input, world);
     animatePlayer(player, input, anims, world);
     state.effects = state.effects.filter(updateEffect);

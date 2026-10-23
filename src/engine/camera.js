@@ -1,19 +1,25 @@
 // The original camera: a target derived from Sonic's position, approached with dead zones and speed caps,
-// a look up / look down pan, and a short freeze after a spin dash release.
+// a look up / look down pan, and a short freeze after a spin dash release. It never shows past the act's edges.
 
 import { SCREEN_W, SCREEN_H, CAMERA as C } from './constants.js';
 
-// Sonic's position in the original is his centre: spriteOffsetY + 1 above the ground
-const centreY = p => Math.floor(p.y) - (p.offsetY + 1);
+const centreY = p => Math.floor(p.y);
 
-export function createCamera(p) {
+export function createCamera(p, terrain) {
   // starts with Sonic centred horizontally and his body 84px from the top
   const cam = {
     x: Math.floor(p.x) - SCREEN_W / 2, y: centreY(p) - (SCREEN_H / 2 + 4),
     targetX: 0, targetY: 0, freeze: 0, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
+    maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H,
   };
   cam.targetX = cam.x; cam.targetY = cam.y;
+  clamp(cam);
   return cam;
+}
+
+function clamp(cam) {
+  cam.x = Math.min(Math.max(cam.x, 0), cam.maxX);
+  cam.y = Math.min(Math.max(cam.y, 0), cam.maxY);
 }
 
 // hold up or down while standing still for 120 frames, then pan 2px per frame; ease back otherwise
@@ -46,4 +52,5 @@ export function updateCamera(cam, p) {
   const dy = cam.targetY - cam.y;
   if (dy > cam.deadY) cam.y += Math.min(C.maxSpeedY, dy - cam.deadY);
   else if (dy < -cam.deadY) cam.y += Math.max(-C.maxSpeedY, dy + cam.deadY);
+  clamp(cam);
 }

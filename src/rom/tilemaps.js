@@ -8,6 +8,7 @@ export function tilemapHeader(rom, tableAt, index) {
   const at = rom.requirePtr(tableAt + index * 4, `tilemap ${index}`);
   return {
     xTiles: rom.u16(at), yTiles: rom.u16(at + 2),
+    animTileSize: rom.u16(at + 4), animFrameCount: rom.u8(at + 6), animDelay: rom.u8(at + 7),
     tiles: rom.requirePtr(at + 8, `tiles of tilemap ${index}`), tilesSize: rom.u32(at + 12),
     palette: rom.ptr(at + 16), paletteOffset: rom.u16(at + 20), paletteLength: rom.u16(at + 22),
     map: rom.requirePtr(at + 24, `map of tilemap ${index}`),
@@ -31,28 +32,48 @@ function drawTile(img, rom, tileAt, palette, bank, x0, y0, hflip, vflip, opaqueZ
 }
 
 // tile entry: bits 0–9 tile, 10 x-flip, 11 y-flip, 12–15 palette bank
-function drawEntry(img, rom, header, palette, entry, x, y, opaqueZero) {
-  drawTile(img, rom, header.tiles + (entry & 0x3FF) * TILE_BYTES, palette, entry >> 12, x, y, (entry >> 10) & 1, (entry >> 11) & 1, opaqueZero);
+function drawEntry(img, rom, header, palette, entry, x, y, opaqueZero, animFrame = 0) {
+  drawTile(img, rom, tileAddress(header, entry & 0x3FF, animFrame), palette, entry >> 12, x, y, (entry >> 10) & 1, (entry >> 11) & 1, opaqueZero);
+}
+
+// Animated tiles are the first animTileSize bytes of the tileset. Frame 0 is the tileset itself; frame k
+// is copied over them from the k-th block stored after the tileset (src/background.c, UpdateBgAnimationTiles).
+function tileAddress(header, index, animFrame) {
+  const offset = index * TILE_BYTES;
+  if (animFrame === 0 || offset >= header.animTileSize) return header.tiles + offset;
+  return header.tiles + header.tilesSize + (animFrame - 1) * header.animTileSize + offset;
 }
 
 /**
- * Renders a rectangle of a stage layer, measured in metatiles, into `img` (transparent where empty).
- * Sonic Advance stores one byte per metatile in the map.
+ * Renders metatiles 0 … count-1 of a stage layer into one atlas, 16 per row, plus a copy of every metatile
+ * that uses animated tiles for each further animation frame.
+ * @returns {{ canvas: HTMLCanvasElement, size: number, slots: Int16Array[] }} slots[frame][id] is the atlas slot
  */
-export function drawStageRegion(img, rom, header, palette, mx0, my0, mw, mh) {
-  const mtW = header.xTiles * 8, mtH = header.yTiles * 8, perMetatile = header.xTiles * header.yTiles;
-  for (let my = 0; my < mh; my++) {
-    for (let mx = 0; mx < mw; mx++) {
-      const id = rom.u8(header.metatileMap + (my0 + my) * header.mapWidth + (mx0 + mx));
-      for (let ty = 0; ty < header.yTiles; ty++) {
-        for (let tx = 0; tx < header.xTiles; tx++) {
-          const entry = rom.u16(header.map + (id * perMetatile + ty * header.xTiles + tx) * 2);
-          drawEntry(img, rom, header, palette, entry, mx * mtW + tx * 8, my * mtH + ty * 8, false);
-        }
-      }
+export function renderMetatileAtlas(rom, header, palette, count) {
+  const size = header.xTiles * 8, perMetatile = header.xTiles * header.yTiles;
+  const animTiles = header.animTileSize / TILE_BYTES, frames = Math.max(1, header.animFrameCount);
+  const entry = (id, i) => rom.u16(header.map + (id * perMetatile + i) * 2);
+  const animated = id => { for (let i = 0; i < perMetatile; i++) if ((entry(id, i) & 0x3FF) < animTiles) return true; return false; };
+
+  const slots = Array.from({ length: frames }, () => new Int16Array(count));
+  const jobs = [];
+  for (let id = 0; id < count; id++) { slots[0][id] = jobs.length; jobs.push([id, 0]); }
+  for (let f = 1; f < frames; f++) {
+    for (let id = 0; id < count; id++) {
+      if (animated(id)) { slots[f][id] = jobs.length; jobs.push([id, f]); } else slots[f][id] = slots[0][id];
     }
   }
-  return img;
+  const img = new ImageData(16 * size, Math.ceil(jobs.length / 16) * size);
+  jobs.forEach(([id, f], slot) => {
+    const x0 = (slot % 16) * size, y0 = Math.floor(slot / 16) * size;
+    for (let i = 0; i < perMetatile; i++) {
+      drawEntry(img, rom, header, palette, entry(id, i), x0 + (i % header.xTiles) * 8, y0 + Math.floor(i / header.xTiles) * 8, false, f);
+    }
+  });
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width; canvas.height = img.height;
+  canvas.getContext('2d').putImageData(img, 0, 0);
+  return { canvas, size, slots };
 }
 
 /** Renders a plain (non-metatile) background map, with colour 0 opaque like the GBA backdrop. */

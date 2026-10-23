@@ -1,4 +1,4 @@
-// Ties the player, camera, objects, effects and renderer together with a fixed 60 Hz step.
+// Ties the player, camera, objects, effects, renderer and sound together with a fixed 60 Hz step.
 
 import { TICK_MS, CAMERA, PHYSICS } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
@@ -7,10 +7,13 @@ import { createCamera, updateCamera } from './camera.js';
 import { createRenderer } from './renderer.js';
 import { createTerrain } from './terrain.js';
 import { createObjects } from './objects.js';
+import { SONG } from '../sound/songs.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 
-export function createGame(canvas, assets, input) {
+const SILENT = { play() {}, playPitched() {}, stopAll() {} };
+
+export function createGame(canvas, assets, input, sound = SILENT) {
   const { anims } = assets.sprites;
   const terrain = createTerrain(assets.stage.collision);
   const player = createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds });
@@ -31,11 +34,15 @@ export function createGame(canvas, assets, input) {
   const world = {
     get tick() { return state.tick; },
     terrain,
-    // falling out of the act: back to the start until there are lives and checkpoints
+    // falling out of the act: back to the start until there are lives and checkpoints; the act starts over,
+    // and so does its music
     respawn() {
       Object.assign(player, createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds }));
       state.cam = createCamera(player, terrain);
+      sound.play(SONG.NEO_GREEN_HILL_1);
     },
+    playSound: song => sound.play(song),
+    playSoundPitched: (song, pitch) => sound.playPitched(song, pitch),
     freezeCamera() { state.cam.freeze = CAMERA.spinDashFreeze; },
     // brake dust stays where it appeared, flipped at random
     spawnBrakeDust() {
@@ -93,7 +100,11 @@ export function createGame(canvas, assets, input) {
   return {
     state, step,
     draw: () => render(state),
-    start() { input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop); },
-    stop() { input.enabled = false; input.release(); cancelAnimationFrame(frame); },
+    // the act's music starts with the act, as the stage's init does (StageInit_Zone1Act1)
+    start() {
+      input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);
+      sound.play(SONG.NEO_GREEN_HILL_1);
+    },
+    stop() { input.enabled = false; input.release(); cancelAnimationFrame(frame); sound.stopAll(); },
   };
 }

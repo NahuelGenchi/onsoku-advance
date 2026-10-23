@@ -29,7 +29,7 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 
 ## Overview
 
-*Onsoku* (音速) is Japanese for **"speed of sound"**. Onsoku Advance rebuilds Sonic Advance as a modern web app: the game logic is written from scratch in JavaScript and drawn on a canvas, while the graphics, palettes and level data come from the ROM you own, decoded on your machine.
+*Onsoku* (音速) is Japanese for **"speed of sound"**. Onsoku Advance rebuilds Sonic Advance as a modern web app: the game logic is written from scratch in JavaScript and drawn on a canvas, while the graphics, palettes, level data, music and sounds come from the ROM you own, decoded on your machine.
 
 <table>
 <tr>
@@ -42,7 +42,7 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 <td width="50%" valign="top">
 
 **🎮 Bring your own ROM**<br>
-<sub>Nothing from the game is stored here. Sprites, palettes and tiles are extracted from your own copy, in your browser, and never uploaded.</sub>
+<sub>Nothing from the game is stored here. Sprites, palettes, tiles, songs and samples are read from your own copy, in your browser, and never uploaded.</sub>
 
 </td>
 </tr>
@@ -50,7 +50,7 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 <td width="50%" valign="top">
 
 **🎯 Faithful by design**<br>
-<sub>Physics constants, animation timing and camera rules follow the original game, as documented by the community decompilation.</sub>
+<sub>Physics constants, animation timing and camera rules follow the original game, as documented by the community decompilation. The sound engine is a port of the original's, checked byte for byte against an emulator.</sub>
 
 </td>
 <td width="50%" valign="top">
@@ -65,7 +65,7 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 ## Status
 
 > [!NOTE]
-> **Pre-alpha: the first playable prototype is in.** Sonic runs through the whole of Neo Green Hill Zone act 1, read from your ROM with its collision: slopes, walls, ceilings, jump-through ledges and loops, with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, his insta-shield, mid-air dash and B-button ground combo, and the original camera. The act's springs work as in the original. There are no rings, enemies, other objects or sound yet, and the grind rails don't work.
+> **Pre-alpha: the first playable prototype is in.** Sonic runs through the whole of Neo Green Hill Zone act 1, read from your ROM with its collision: slopes, walls, ceilings, jump-through ledges and loops, with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, his insta-shield, mid-air dash and B-button ground combo, and the original camera. The act's springs work as in the original. The act's music and the sounds of Sonic's moves and the springs play through a port of the game's own sound engine. There are no rings, enemies or other objects yet, and the grind rails don't work.
 
 | Area | State | Tracked in |
 | :--- | :--- | :--- |
@@ -73,7 +73,7 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 | Movement, animations and camera | 🟢 Done | [#5](https://github.com/NahuelGenchi/onsoku-advance/issues/5) |
 | Stage maps and collision | 🟡 Neo Green Hill act 1, without grind rails | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
 | Rings, objects and enemies | 🟡 Springs | [#18](https://github.com/NahuelGenchi/onsoku-advance/issues/18) |
-| Sound and music | ⚪ Planned | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
+| Sound and music | 🟡 Act 1 music, Sonic's and the springs' sounds | [#20](https://github.com/NahuelGenchi/onsoku-advance/issues/20) |
 | Hosted build | 🟢 Live on [GitHub Pages](https://nahuelgenchi.github.io/onsoku-advance/) | [#12](https://github.com/NahuelGenchi/onsoku-advance/issues/12) |
 | Versioned releases | ⚪ Planned | [M3](https://github.com/NahuelGenchi/onsoku-advance/milestone/4) |
 
@@ -88,7 +88,10 @@ flowchart LR
         data[("Sprites · palettes<br/>tiles · animations")]
         engine["Onsoku engine<br/>physics · animation · camera"]
         screen["240 × 160 canvas"]
+        sound["Sound engine<br/>songs · samples · PSG"]
+        speakers["Audio output"]
         ext --> data --> engine --> screen
+        engine --> sound --> speakers
     end
     rom --> ext
 ```
@@ -96,6 +99,7 @@ flowchart LR
 1. **Extract.** You pick your ROM. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory. It is designed to run entirely in the browser: the ROM is read locally and nothing is uploaded.
 2. **Simulate.** The engine steps 60 times per second with the original game's rules: acceleration, braking, gravity, jump height, roll friction, spin dash speeds and the camera's dead zones.
 3. **Draw.** Sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds.
+4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)).
 
 ## Getting started
 
@@ -134,6 +138,7 @@ To see everything the extractor decodes, open <http://localhost:8000/viewer.html
 | Look up | <kbd>↑</kbd> |
 | Show or hide the help panel | <kbd>H</kbd> |
 | Show or hide the collision | <kbd>C</kbd> |
+| Sound on or off | <kbd>M</kbd> |
 
 On touch screens, on-screen buttons appear instead.
 

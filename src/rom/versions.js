@@ -14,6 +14,7 @@ export const KNOWN_VERSIONS = [
       spawns: 0x4A6DEC,
       interactables: 0x0B7F94,
       spinDashSpeeds: 0x4A7084,
+      musicPlayers: 0x6D767C,
     },
   },
 ];

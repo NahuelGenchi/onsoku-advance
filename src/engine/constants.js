@@ -1,0 +1,48 @@
+// Game rules, in pixels and 1/60 s frames. Values follow the original game as documented by the
+// SAT-R decompilation (src/game/shared/stage/player.c, src/game/shared/stage/camera.c,
+// include/game/shared/parameters/characters.h).
+
+export const SCREEN_W = 240, SCREEN_H = 160;   // Game Boy Advance screen
+export const TICK_MS = 1000 / 60;
+
+export const PHYSICS = {
+  acceleration: 8 / 256,
+  deceleration: 96 / 256,      // pressing against the direction of motion
+  friction: 8 / 256,           // no direction held
+  maxRunSpeed: 4.5,            // walking can't accelerate past this (faster speeds are kept)
+  brakeMinSpeed: 3,            // still this fast after decelerating: skid
+  reverseKick: 96 / 256,       // speed in the new direction after crossing zero
+  airAcceleration: 16 / 256,
+  gravity: 42 / 256,
+  jumpSpeed: 4.875,
+  jumpReleaseCap: 3,           // letting go of jump while rising faster than this caps the rise
+  maxFallSpeed: 15,
+  rollMinSpeed: 1,             // not in the decompiled code yet; chosen to match play
+  rollFriction: 4 / 256,
+  rollDeceleration: 24 / 256,
+  boredDelay: 360,             // 6 seconds without input
+};
+
+export const ANIMATION = {
+  runSpeed: 4.5,               // walk animation below, figure-8 run at or above
+  brakeTurnSpeed: 1.5,         // skid turns into the turn-after-braking animation below this
+  normalSpeed: 0x10,           // animSpeed 0x10 = 1.0×
+  minWalkSpeed: 0x08,          // walk animation never slower than 0.5×
+};
+
+export const CAMERA = {
+  deadZoneX: 8,
+  maxSpeedX: 16,
+  maxSpeedY: 12,
+  airDeadZoneY: 24,            // opens 4px per frame while airborne, closes 4px per frame on the ground
+  lookDelay: 120,              // hold up/down this long before the view pans
+  lookStep: 2,
+  lookUp: 72,
+  lookDown: 60,
+  spinDashFreeze: 10,          // frames the camera target stays put after a spin dash release
+};
+
+// distance from the sprite anchor to the ground for standing and curled frames,
+// and the matching spriteOffsetY the camera eases toward
+export const FEET = 15, BALL_FEET = 10;
+export const SPRITE_OFFSET_Y = 14, BALL_SPRITE_OFFSET_Y = 9;

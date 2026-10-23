@@ -59,12 +59,12 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 ## Status
 
 > [!NOTE]
-> **Pre-alpha: the ROM extractor is in; there is nothing to play yet.** A working movement prototype moves in next with [M1 — Playable prototype](https://github.com/NahuelGenchi/onsoku-advance/milestone/2): Sonic on a Neo Green Hill platform with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, and the original camera.
+> **Pre-alpha: the first playable prototype is in.** Sonic runs on an endless Neo Green Hill platform with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, and the original camera. There are no stages, objects or sound yet.
 
 | Area | State | Tracked in |
 | :--- | :--- | :--- |
 | ROM extractor: sprites, palettes, tiles | 🟢 Done, see the [asset viewer](#getting-started) | [#4](https://github.com/NahuelGenchi/onsoku-advance/issues/4) |
-| Movement, animations and camera | 🟡 Prototype, moving in | [#5](https://github.com/NahuelGenchi/onsoku-advance/issues/5) |
+| Movement, animations and camera | 🟢 Done, on a flat platform | [#5](https://github.com/NahuelGenchi/onsoku-advance/issues/5) |
 | Stage maps and collision | ⚪ Planned | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
 | Rings, objects and enemies | ⚪ Planned | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
 | Sound and music | ⚪ Planned | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
@@ -92,7 +92,7 @@ flowchart LR
 
 ## Getting started
 
-Playable builds arrive with [M1 — Playable prototype](https://github.com/NahuelGenchi/onsoku-advance/milestone/2). You will need:
+You will need:
 
 - A current desktop browser
 - Your own Sonic Advance ROM, dumped from a cartridge you own. Tested versions are listed in [docs/ROM.md](docs/ROM.md).
@@ -105,10 +105,12 @@ cd onsoku-advance
 python -m http.server 8000
 ```
 
-Then open <http://localhost:8000/viewer.html> and choose your ROM to see everything the extractor decodes from it: Sonic's animations playing with their original timing, the sprite atlas, and the Neo Green Hill platform and background.
+Then open <http://localhost:8000> and choose your ROM to play. Tick *Remember this ROM on this device* to skip that step next time.
 
-<details>
-<summary><b>Controls in the prototype</b></summary>
+To see everything the extractor decodes, open <http://localhost:8000/viewer.html>: Sonic's animations playing with their original timing, the sprite atlas, and the Neo Green Hill platform and background.
+
+<details open>
+<summary><b>Controls</b></summary>
 <br>
 
 | Action | Keyboard |
@@ -118,6 +120,7 @@ Then open <http://localhost:8000/viewer.html> and choose your ROM to see everyth
 | Crouch, or roll while moving | <kbd>↓</kbd> |
 | Spin dash | <kbd>↓</kbd> + <kbd>Z</kbd> |
 | Look up | <kbd>↑</kbd> |
+| Show or hide the help panel | <kbd>H</kbd> |
 
 On touch screens, on-screen buttons appear instead.
 

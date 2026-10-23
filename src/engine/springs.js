@@ -5,6 +5,7 @@
 import { PHYSICS as K } from './constants.js';
 import { platform, springSide, overlap, LANDED, FROM_BELOW, LEFT_FACE, RIGHT_FACE, PUSHING } from './collide.js';
 import { land, standUp, endAttack } from './player.js';
+import { SONG } from '../sound/songs.js';
 
 // interactable kinds
 export const SPRING_UP = 8, SPRING_DOWN = 9, SPRING_LEFT = 10, SPRING_RIGHT = 11;
@@ -110,5 +111,6 @@ export function createSpring(e) {
     // the diagonal kinds only restart their launch animation when it isn't already playing
     restarts: e.kind <= SPRING_RIGHT,
     collide: COLLIDE[e.kind],
+    sound: SONG.SPRING,   // every launch plays it
   };
 }

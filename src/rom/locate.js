@@ -3,6 +3,7 @@
 import { RomError } from './identify.js';
 import { ROM_BASE } from './rom.js';
 import { rlDecompress } from './entities.js';
+import { findMusicPlayers } from './sound.js';
 
 const MIN_CMD = -12;   // animation commands are -1 … -12
 const LEVEL_COUNT = 18;   // 14 single-player stages, then four multiplayer stages
@@ -107,6 +108,7 @@ export function locateTables(rom, known) {
     spawns: collision === null ? null : collision + LEVEL_COUNT * 4,
     interactables: findInteractables(rom),
     spinDashSpeeds: findSpinDashSpeeds(rom),
+    musicPlayers: findMusicPlayers(rom),
   };
   const missing = Object.entries(offsets).filter(([, v]) => v === null).map(([k]) => k);
   if (missing.length) {

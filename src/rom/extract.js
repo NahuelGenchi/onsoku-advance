@@ -10,6 +10,7 @@ import { tilemapHeader, renderMetatileAtlas, renderPlainMap } from './tilemaps.j
 import { readCollision, readSpawn } from './collision.js';
 import { readInteractables, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
+import { soundLayout } from './sound.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -41,7 +42,7 @@ const NGH = { front: 0, back: 1, background: 2 };
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, background }, physics }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, background }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
@@ -61,6 +62,8 @@ export async function extractAssets(buffer, onProgress = () => {}) {
   return {
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },
     sprites, stage, physics: { spinDashSpeeds },
+    // where the songs are; the sound engine reads them from the ROM itself
+    sound: soundLayout(rom, offsets.musicPlayers),
   };
 }
 

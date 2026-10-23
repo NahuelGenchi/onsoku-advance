@@ -26,6 +26,7 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 | Start positions | `0x4A6DEC` | Right after the collision table's 18 entries |
 | Interactables | `0x0B7F94` | Four tables of 18 RL-compressed lists follow each other (rings, interactables, item boxes, enemies); act 1's lists are grids of 51 × 6 regions |
 | Spin dash speeds | `0x4A7084` | Nine 8.8 fixed-point values from 6.0 to 9.0 in steps of 0.375 |
+| Music players and songs | `0x6D767C`, `0x6D76AC` | Four music player entries (two EWRAM pointers, a track count of 1–16, a zero byte, a 16-bit field), followed at once by song entries of a ROM pointer and the player's number twice |
 
 ### Sprites
 
@@ -151,3 +152,44 @@ Sonic's sensors follow SA1's player code. His position is his centre; the sensor
 - **Bounds:** the camera stops at the act's edges, and falling out of the bottom ends the run; for now the engine puts Sonic back at the start.
 
 The walk and run frames turn with the angle through the rotation hardware.
+
+### Sound
+
+SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "Sappy"). [`src/sound/m4a.js`](../src/sound/m4a.js) is a port of it that reads the songs, voices and samples from the ROM as the original does, and runs on an AudioWorklet in the browser.
+
+**Configuration.** The game sets the engine up with 5 DirectSound channels, master volume 15, no reverb (every SA1 song turns it off, except the credits) and a mixing rate of 10512 Hz. That is exactly 176 samples per GBA frame (280896 CPU cycles at 2^24 Hz, 59.7275 frames per second). The four music players are the BGM player and three for sound effects, each with 16 tracks. Track and channel structures keep their EWRAM addresses, because the engine breaks priority ties by comparing them.
+
+**Data.**
+
+- **Song table:** 308 entries of 8 bytes: a song header pointer and the player number (twice).
+- **Song header:** track count, block count, priority (0 for music, 20 for sound effects), reverb, a voice group pointer, then one pointer per track to its command bytes.
+- **Voice:** 12 bytes: type, base key, length, pan or sweep, a pointer, then attack, decay, sustain and release. Types `0x00` and `0x08` are DirectSound samples; `0x08` plays at a fixed rate. `0x01`–`0x04` (plus `0x08` for "fixed") are the Game Boy channels: square 1, square 2, wave and noise. `0x40` is a key split and `0x80` a drum kit; both point at further voices.
+- **Sample:** a 16-byte header (loop flag, rate × 1024 at key 60, loop start, size), then `size + 1` signed bytes. The extra byte is what the interpolation reads past the end.
+
+**Each frame** the four players step their tracks (BGM first), then the Game Boy channels get their register writes, then the mixer writes the 176 samples per side that play during the *next* frame. A song the game starts during a frame is first sequenced on the next one. The mixer has no clipping: channel contributions are added with 8-bit wrap-around, as on the hardware. The PSG channels are real hardware: the engine only writes their registers, and [`src/sound/apu.js`](../src/sound/apu.js) emulates them (duty, sweep, envelope, length, noise LFSR and the GBA's two rotating wave RAM banks), then mixes them with the two DirectSound FIFOs at 65536 Hz like the GBA's output stage.
+
+**What the game plays so far** (song numbers):
+
+| Sound | Song | Player | When |
+| :--- | ---: | ---: | :--- |
+| Neo Green Hill Zone act 1 | 12 | 0 | The act starts (and starts again after falling out) |
+| Jump | 116 | 2 | A jump from the ground, and the combo's backflip |
+| Spin | 109 | 3 | Spin dash start, rolling, the combo's first hit. Each spin dash rev plays it again, raised by the decayed charge (`charge & ~0x7F` in 1/256 semitones). |
+| Spin dash release | 110 | 2 | Letting go of down |
+| Skid | 115 | 2 | Restarted on every frame Sonic is still at 3.0 or faster after braking |
+| Insta-shield | 113 | 2 | |
+| Mid-air dash | 112 | 3 | |
+| Somersault kick | 121 | 3 | The combo's second hit |
+| Slide kick | 111 | 3 | |
+| Spring | 170 | 2 | Every launch |
+
+Sounds on the same player cut each other off, as in the original. There is no landing sound in SA1.
+
+**How it was checked.** The reference is mGBA 0.10.5, recording the tested ROM headlessly and dumping the engine's whole EWRAM state, the sound registers and the mixing buffer after every frame, through the act's first minute of music and a run of every move above:
+
+- *One frame at a time:* the port loads the dumped state, runs one frame and is compared field by field: every track, channel, player, register and mixed byte. 3657 of 3659 music frames and 899 of 919 sound-effect frames match exactly. The others are the frames where the game itself starts a song or changes its pitch or volume, which happens outside the engine.
+- *Free running:* loaded once and then left alone, the port stays identical for all 3593 frames of the act's music.
+- *Clean start:* a fresh engine that only calls the song start where the game did stays identical too, which is how the browser starts the act.
+- *The final output:* the DirectSound part of the port's audio lines up with mGBA's recorded output. The PSG part matches mGBA's in pitch, level and envelope (median spectrum correlation 0.98), but not sample for sample: a Game Boy channel's waveform phase depends on the exact CPU cycle the engine writes its registers, which the port does not model.
+
+The port mixes at the GBA's 65536 Hz, averages that down to the browser's output rate, removes the DC offset the unipolar PSG channels add, and plays at half of the GBA's full scale. The game itself still steps at 60 Hz while the sound engine keeps the GBA's 59.7275 frames per second, so a sound starts within one frame of the move that plays it.

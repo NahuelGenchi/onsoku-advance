@@ -4,6 +4,7 @@ import { createRomPicker } from './ui/rom-picker.js';
 import { extractAssets } from './rom/extract.js';
 import { createInput } from './engine/input.js';
 import { createGame } from './engine/game.js';
+import { createSound } from './sound/audio.js';
 import { SCREEN_W, SCREEN_H } from './engine/constants.js';
 
 const picker = document.getElementById('picker');
@@ -15,6 +16,7 @@ const debug = new URLSearchParams(location.search).has('debug');
 
 const input = createInput();
 input.bindTouch(document.getElementById('touch'));
+const sound = createSound();
 let game = null, statsTimer = 0;
 
 createRomPicker(picker, {
@@ -23,13 +25,14 @@ createRomPicker(picker, {
   async onRom(buffer, name, setStatus) {
     const assets = await extractAssets(buffer, setStatus);
     setStatus('');
+    sound.load(buffer, assets.sound).catch(err => console.warn('No sound:', err));
     start(assets);
   },
 });
 
 function start(assets) {
   game?.stop();
-  game = createGame(screen, assets, input);
+  game = createGame(screen, assets, input, sound);
   picker.hidden = true;
   stage.hidden = false;
   fitScreen();
@@ -37,7 +40,7 @@ function start(assets) {
   screen.focus();
   clearInterval(statsTimer);
   statsTimer = setInterval(showStats, 100);
-  if (debug) globalThis.onsoku = { game, assets, input };
+  if (debug) globalThis.onsoku = { game, assets, input, sound };
 }
 
 document.getElementById('change-rom').addEventListener('click', () => {
@@ -51,6 +54,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyH' && !stage.hidden && !e.repeat) help.hidden = !help.hidden;
   // C shows the terrain collision over the stage, for checking it against the art
   if (e.code === 'KeyC' && game && !stage.hidden && !e.repeat) game.state.showCollision = !game.state.showCollision;
+  if (e.code === 'KeyM' && !stage.hidden && !e.repeat) sound.muted = !sound.muted;
 });
 
 function showStats() {

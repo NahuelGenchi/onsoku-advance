@@ -55,7 +55,7 @@ export function createObjects(entities, anims) {
   }
 
   return {
-    /** Spawns, runs and removes objects for this frame. `world` provides terrain. */
+    /** Spawns, runs and removes objects for this frame. `world` provides terrain and playSound(song). */
     update(player, cam, world) {
       const cx = Math.floor(cam.x), cy = Math.floor(cam.y);
       for (const s of slots) {
@@ -63,6 +63,7 @@ export function createObjects(entities, anims) {
         const o = s.live;
         if (!o) continue;
         const hit = o.collide(o, player, world.terrain);
+        if (hit && o.sound) world.playSound(o.sound);
         if (!inRange(o, cx, cy)) { s.live = null; continue; }
         if (o.launching) {
           // a hit during the launch restarts it, except on the diagonal springs

@@ -8,6 +8,7 @@ import { makeAnimator, setAnim, tickAnim } from './animator.js';
 import { groundSensors, wallPush, airCollision, clearance, setOffsetY } from './sensors.js';
 import { LAYER_BACK } from './terrain.js';
 import { sin8, cos8, s8 } from './trig.js';
+import { SONG } from '../sound/songs.js';
 
 // d-pad bits for the input history the mid-air dash reads
 const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
@@ -117,6 +118,7 @@ function tryJump(p, c, world) {
   p.ysp = (q8(p.ysp) + ((jump * sin8(a)) >> 8)) / 256;
   if (p.curled) p.airLock = true;   // jumping out of a roll keeps the roll's momentum
   else curl(p);
+  world.playSound(SONG.JUMP);
   return true;
 }
 
@@ -126,6 +128,7 @@ function trySpinDash(p, c, world) {
     if (p.state !== 'crouch' || !c.jumpPressed) return false;
     p.state = 'spinDash'; p.spinDashing = true; p.dashAccel = 0;
     setOffsetY(p, BALL_SPRITE_OFFSET_Y);
+    world.playSound(SONG.SPIN);
     world.spawnDashDust();
     return true;
   }
@@ -135,18 +138,23 @@ function trySpinDash(p, c, world) {
     const i = Math.min(p.spinDashSpeeds.length - 1, p.dashAccel >> 8);
     p.gsp = p.spinDashSpeeds[i] * sign(p);
     p.curled = true; p.state = 'spin';
+    world.playSound(SONG.SPIN_DASH_RELEASE);
     world.freezeCamera();
     return true;   // the release frame doesn't move
   }
   let a = p.dashAccel;
   if (a !== 0) { a -= (a << 3) >> 8; if (a <= 0) a = 0; }
   if (p.state !== 'spinDashRev') p.state = 'spinDash';
-  if (c.jumpPressed) { p.state = 'spinDashRev'; a = Math.max(a + K.dashRev, K.dashRevMin); }
+  if (c.jumpPressed) {
+    // each rev replays the spin sound, raised by the decayed charge in semitones
+    world.playSoundPitched(SONG.SPIN, a & ~0x7F);
+    p.state = 'spinDashRev'; a = Math.max(a + K.dashRev, K.dashRevMin);
+  }
   p.dashAccel = a;
   return true;
 }
 
-function walk(p, dir) {
+function walk(p, dir, world) {
   if (p.gsp * dir >= 0) {
     if (p.facing !== dir) p.state = 'turn';
     p.facing = dir;
@@ -161,20 +169,21 @@ function walk(p, dir) {
     let g = p.gsp + K.deceleration * dir;
     if (g * dir > 0) g = K.reverseKick * dir;
     p.gsp = g;
-    if (g * dir <= -K.brakeMinSpeed) p.state = 'brake';
+    // the skid sound restarts on every frame Sonic is still this fast
+    if (g * dir <= -K.brakeMinSpeed) { world.playSound(SONG.BRAKE); p.state = 'brake'; }
   }
 }
 
 // standing or running, not curled up (Player_8044F7C); the control lock skips the d-pad
 function walkStep(p, c, world) {
-  if (!p.lock) walkInput(p, c);
+  if (!p.lock) walkInput(p, c, world);
   if (!c.sideways) p.gsp = toward0(p.gsp, K.friction);
   alongSurface(p);
   wallPush(p, world.terrain);
 }
 
-function walkInput(p, c) {
-  if (c.dir) walk(p, c.dir);
+function walkInput(p, c, world) {
+  if (c.dir) walk(p, c.dir, world);
   else if (!c.sideways) {
     if (p.gsp !== 0) {
       if (p.state === 'brake' || p.state === 'idle') p.state = 'walk';
@@ -188,7 +197,7 @@ function walkInput(p, c) {
   if (c.up && !c.down) { if (p.gsp === 0) p.state = 'lookUp'; }
   else if (c.down && !c.up) {
     p.state = 'crouch';
-    if (p.gsp !== 0) { curl(p); p.state = 'spin'; }
+    if (p.gsp !== 0) { curl(p); p.state = 'spin'; world.playSound(SONG.SPIN); }
   } else if (!c.up && !c.down) {
     if (p.state === 'crouch') p.state = 'crouchEnd';
     else if (p.state === 'lookUp') p.state = 'lookUpEnd';
@@ -212,17 +221,21 @@ function rollStep(p, c, world) {
 }
 
 // the B-button combo on the ground (sub_8047668): returns true while it owns the frame
-function attackStep(p, c) {
+function attackStep(p, c, world) {
   switch (p.attack) {
     case 0:
       if (p.spinDashing || !c.attackPressed) return false;
       p.gsp = K.spinAttackSpeed * sign(p); p.xsp = 0;
       p.attack = 1; p.state = 'spinAttack';
+      world.playSound(SONG.SPIN);
       return true;
     case 1:
       p.gsp = toward0(p.gsp, K.attackFriction);
       if (p.gsp === 0) { p.state = 'idle'; p.attack = 0; }
-      if (c.attackPressed) { p.gsp = K.somersaultSpeed * sign(p); p.attack++; p.attackNext = 0; p.state = 'somersault'; }
+      if (c.attackPressed) {
+        p.gsp = K.somersaultSpeed * sign(p); p.attack++; p.attackNext = 0; p.state = 'somersault';
+        world.playSound(SONG.SOMERSAULT);
+      }
       break;
     case 2:
       p.gsp = toward0(p.gsp, K.attackFriction);
@@ -250,11 +263,11 @@ function groundStep(p, c, world) {
     rollStep(p, c, world);
   } else if (p.attack !== 0) {
     slope(p);
-    attackStep(p, c);
+    attackStep(p, c, world);
     alongSurface(p);
     wallPush(p, t);
   } else {
-    if (attackStep(p, c)) return;
+    if (attackStep(p, c, world)) return;
     if (trySpinDash(p, c, world)) { bounds(p, world); followGround(p, t); return; }
     if (tryJump(p, c, world)) return;
     slope(p);
@@ -270,7 +283,7 @@ function airStep(p, c, world) {
   // double-tap dash, only while curled up (sub_8047714)
   if (p.curled && p.jumped && p.midAir === 0) {
     const tap = doubleTap(p);
-    if (tap) { p.midAir = 2; p.state = 'airDash'; p.xsp += K.airDashBoost * tap; p.ysp = 0; }
+    if (tap) { p.midAir = 2; p.state = 'airDash'; p.xsp += K.airDashBoost * tap; p.ysp = 0; world.playSound(SONG.AIR_DASH); }
   }
 
   // jump cap, or the insta-shield once the rise has slowed (Player_8044670)
@@ -278,6 +291,7 @@ function airStep(p, c, world) {
     if (p.ysp < -K.jumpReleaseCap) { if (!c.jump) p.ysp = -K.jumpReleaseCap; }
     else if (p.midAir === 0 && c.jumpPressed) {
       p.airLock = false; p.midAir = 1; p.state = 'instaShield';
+      world.playSound(SONG.INSTA_SHIELD);
       world.spawnInstaShield();
     }
   } else if (p.ysp < -K.riseCap) p.ysp = -K.riseCap;
@@ -319,7 +333,7 @@ export function land(p) {
 
 /**
  * Advances the player one frame. `world` provides tick, terrain, respawn(), spawnDashDust(),
- * spawnInstaShield() and freezeCamera().
+ * spawnInstaShield(), freezeCamera(), playSound(song) and playSoundPitched(song, pitch).
  */
 export function stepPlayer(p, input, world) {
   const left = input.left, right = input.right, sideways = left || right;
@@ -374,10 +388,12 @@ function afterAnimation(p, world) {
     case 'somersault':
       if (p.attackNext === 1) {
         p.gsp = K.slideSpeed * sign(p); p.attack++; p.attackNext = 0; p.state = 'slide';
+        world.playSound(SONG.SLIDE);
       } else if (p.attackNext === 2) {
         endAttack(p);
         p.xsp = -p.xsp; p.ysp = -K.jumpSpeed;   // flips backwards, away from the way he was going
         p.air = true; curl(p); p.state = 'backflip';
+        world.playSound(SONG.JUMP);
       } else { endAttack(p); p.state = 'idle'; p.gsp = 0; }
       break;
   }

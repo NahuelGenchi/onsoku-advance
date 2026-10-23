@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asset viewer · Onsoku Advance</title>
+<meta name="description" content="See what Onsoku Advance extracts from your own Sonic Advance ROM.">
+<link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+<main>
+  <section class="picker" id="picker" aria-label="Choose a ROM"></section>
+  <section class="viewer" id="viewer" hidden>
+    <header>
+      <h1>Extracted assets</h1>
+      <span class="note">Decoded in this browser from your ROM. Nothing here is stored in the repository.</span>
+    </header>
+    <dl class="facts" id="facts"></dl>
+    <h2>Sonic's animations</h2>
+    <div class="anims" id="anims"></div>
+    <h2>Sprite atlas</h2>
+    <div class="sheet" id="atlas"></div>
+    <h2>Neo Green Hill platform</h2>
+    <p class="note" id="ground"></p>
+    <div class="sheet" id="platform"></div>
+    <h2>Neo Green Hill background</h2>
+    <div class="sheet" id="background"></div>
+  </section>
+</main>
+<script type="module" src="src/viewer.js"></script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+// Decodes the sprite tables: animation scripts, frame layouts (OAM pieces) and 4bpp/8bpp tiles.
+// Formats as documented by the SAT-R decompilation (include/core.h, src/sprite.c).
+
+import { readColors } from './colors.js';
+
+// GBA object sizes indexed by shape * 4 + size
+const OAM_SIZES = [[8, 8], [16, 16], [32, 32], [64, 64], [16, 8], [32, 8], [32, 16], [64, 32], [8, 16], [8, 32], [16, 32], [32, 64]];
+// length in 32-bit words of each animation command, by command id
+const CMD_WORDS = { [-1]: 3, [-2]: 3, [-3]: 2, [-4]: 1, [-5]: 2, [-6]: 3, [-7]: 2, [-8]: 3, [-9]: 2, [-10]: 4, [-11]: 2, [-12]: 2 };
+const MAX_SCRIPT_WORDS = 600;
+
+export function spriteTables(rom, at) {
+  return {
+    anims: rom.requirePtr(at, 'animation table'),
+    dims: rom.requirePtr(at + 4, 'frame size table'),
+    oam: rom.requirePtr(at + 8, 'OAM table'),
+    palettes: rom.requirePtr(at + 12, 'sprite palettes'),
+    tiles4: rom.requirePtr(at + 16, '4bpp tiles'),
+    tiles8: rom.requirePtr(at + 20, '8bpp tiles'),
+  };
+}
+
+/** Decodes animation `anim`, variant `variant` into a list of steps. */
+export function parseScript(rom, tables, anim, variant = 0) {
+  const variants = rom.requirePtr(tables.anims + anim * 4, `animation ${anim}`);
+  const script = rom.requirePtr(variants + variant * 4, `animation ${anim} variant ${variant}`);
+  const steps = [];
+  for (let cur = 0, guard = 0; guard < MAX_SCRIPT_WORDS; guard++) {
+    const at = script + cur * 4, id = rom.s32(at);
+    if (id >= 0) { steps.push({ op: 'show', delay: id, frame: rom.s32(at + 4), at: cur }); cur += 2; continue; }
+    const words = CMD_WORDS[id];
+    if (!words) throw new Error(`Unknown animation command ${id} in animation ${anim}.`);
+    if (id === -1) steps.push({ op: 'tiles', tileIndex: rom.s32(at + 4), count: rom.u32(at + 8), at: cur });
+    else if (id === -2) steps.push({ op: 'palette', palId: rom.s32(at + 4), count: rom.u16(at + 8), insert: rom.u16(at + 10), at: cur });
+    else if (id === -3) { steps.push({ op: 'jump', to: cur - rom.s32(at + 4), at: cur }); break; }
+    else if (id === -4) { steps.push({ op: 'end', at: cur }); break; }
+    else if (id === -9) { steps.push({ op: 'goto', anim: rom.u16(at + 4), variant: rom.u16(at + 6), at: cur }); break; }
+    cur += words;
+  }
+  return steps;
+}
+
+/** Frame layout: 12 bytes per frame, indexed by animation. */
+export function frameLayout(rom, tables, anim, frame) {
+  const at = rom.requirePtr(tables.dims + anim * 4, `frame sizes of animation ${anim}`) + frame * 12;
+  return {
+    flip: rom.u8(at), oamIndex: rom.u8(at + 1), pieces: rom.u16(at + 2),
+    width: rom.u16(at + 4), height: rom.u16(at + 6), anchorX: rom.s16(at + 8), anchorY: rom.s16(at + 10),
+  };
+}
+
+/**
+ * Draws one frame the way the game places its OAM pieces, facing the game's default direction (left).
+ * `tilesAt` is the ROM offset of the tiles loaded by the frame's last GetTiles command.
+ */
+export function renderFrame(rom, tables, anim, frame, tilesAt, palette, eightBpp) {
+  const f = frameLayout(rom, tables, anim, frame);
+  const img = new ImageData(Math.max(1, f.width), Math.max(1, f.height));
+  const oamBase = rom.requirePtr(tables.oam + anim * 4, `OAM data of animation ${anim}`);
+  for (let i = 0; i < f.pieces; i++) {
+    const o = oamBase + (f.oamIndex + i) * 6;
+    const a0 = rom.u16(o), a1 = rom.u16(o + 2), a2 = rom.u16(o + 4);
+    const [w, h] = OAM_SIZES[((a0 >> 14) & 3) * 4 + ((a1 >> 14) & 3)];
+    let x = a1 & 0x1FF, y = a0 & 0xFF, hflip = (a1 >> 12) & 1, vflip = (a1 >> 13) & 1;
+    if (f.flip & 2) { vflip ^= 1; y = f.height - h - y; }
+    if (f.flip & 1) { hflip ^= 1; x = f.width - w - x; }
+    const bpp8 = eightBpp || ((a0 >> 13) & 1) === 1;
+    const tile0 = a2 & 0x3FF, bank = (a2 >> 12) & 15, tilesWide = w / 8;
+    for (let py = 0; py < h; py++) {
+      for (let px = 0; px < w; px++) {
+        const tx = px >> 3, ty = py >> 3, ix = px & 7, iy = py & 7;
+        let c;
+        if (bpp8) {
+          c = rom.u8(tilesAt + tile0 * 32 + (ty * tilesWide + tx) * 64 + iy * 8 + ix);
+        } else {
+          const b = rom.u8(tilesAt + (tile0 + ty * tilesWide + tx) * 32 + iy * 4 + (ix >> 1));
+          c = ix & 1 ? b >> 4 : b & 15;
+          if (c) c += bank * 16;
+        }
+        if (!c) continue;
+        const dx = x + (hflip ? w - 1 - px : px), dy = y + (vflip ? h - 1 - py : py);
+        if (dx < 0 || dy < 0 || dx >= f.width || dy >= f.height) continue;
+        const rgb = palette[c] ?? [255, 0, 255], k = (dy * f.width + dx) * 4;
+        img.data[k] = rgb[0]; img.data[k + 1] = rgb[1]; img.data[k + 2] = rgb[2]; img.data[k + 3] = 255;
+      }
+    }
+  }
+  return { img, layout: f };
+}
+
+/**
+ * Runs an animation script and returns the frames it shows, each with the tiles and palette
+ * active at that moment, plus where the script loops.
+ */
+export function animationFrames(rom, tables, anim, variant, basePalette) {
+  const steps = parseScript(rom, tables, anim, variant);
+  const palette = basePalette.slice();
+  let tilesAt = null, eightBpp = false;
+  const frames = [];
+  for (const s of steps) {
+    if (s.op === 'tiles') {
+      eightBpp = s.tileIndex < 0;
+      tilesAt = eightBpp ? tables.tiles8 + (s.tileIndex & 0x7FFFFFFF) * 64 : tables.tiles4 + s.tileIndex * 32;
+    } else if (s.op === 'palette') {
+      readColors(rom, tables.palettes + s.palId * 32, s.count).forEach((c, i) => { palette[s.insert + i] = c; });
+    } else if (s.op === 'show') {
+      frames.push(s.frame < 0 || tilesAt === null
+        ? { delay: s.delay, frame: -1, at: s.at }
+        : { delay: s.delay, frame: s.frame, tilesAt, eightBpp, palette: palette.slice(), at: s.at });
+    }
+  }
+  const last = steps[steps.length - 1];
+  let loop = null;
+  if (last?.op === 'jump') {
+    loop = frames.findIndex(f => f.at >= last.to);
+    if (loop < 0) loop = 0;
+  }
+  return { frames, loop, end: last?.op ?? null };
+}
+
+/** The palette an animation loads with its first GetPalette command. */
+export function animationPalette(rom, tables, anim) {
+  const palette = new Array(256).fill(null).map(() => [255, 0, 255]);
+  const load = parseScript(rom, tables, anim, 0).find(s => s.op === 'palette');
+  if (load) readColors(rom, tables.palettes + load.palId * 32, load.count).forEach((c, i) => { palette[load.insert + i] = c; });
+  return palette;
+}

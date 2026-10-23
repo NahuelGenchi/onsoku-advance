@@ -24,8 +24,10 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 | Tilemap table | `0x4A6C40` | Act 2 reuses act 1's background in zones 1–5, so entries 2/5, 8/11, 14/17, 20/23 and 26/29 match |
 | Collision table | `0x4A6DA4` | Act 1's header points at the same metatiles and layer maps as tilemap entries 0 and 1 |
 | Start positions | `0x4A6DEC` | Right after the collision table's 18 entries |
+| Rings | `0x0B7F4C` | The table just before the interactables |
 | Interactables | `0x0B7F94` | Four tables of 18 RL-compressed lists follow each other (rings, interactables, item boxes, enemies); act 1's lists are grids of 51 × 6 regions |
 | Spin dash speeds | `0x4A7084` | Nine 8.8 fixed-point values from 6.0 to 9.0 in steps of 0.375 |
+| UI graphics | `0x680A38` | 28-byte entries of two ROM pointers and five words; the first is the 8 × 16 font `{2, 0, 2, 1, 2}` and the sixth the HUD ring `{16, 2, 0, 4, 4}` |
 | Music players and songs | `0x6D767C`, `0x6D76AC` | Four music player entries (two EWRAM pointers, a track count of 1–16, a zero byte, a 16-bit field), followed at once by song entries of a ROM pointer and the player's number twice |
 
 ### Sprites
@@ -95,6 +97,47 @@ The spring is animation `455`. Its variants come in pairs, idle and launch: 0–
 | 14, 15 | Small diagonal, up-left and up-right | Like the big ones |
 
 The speed is `7.5, 9.0, 10.5` or `12.0` by `d0 & 3`, or `d1 × 16` (in 1/256 px) when `d0` is above 3. Rising off a spring never goes faster than 11.8125, and the jump moves are off until he lands. An up or diagonal spring plays the somersault (character state 17), or when `d0` bit 0 is set, the rise, top and fall animations (states 21, 18, 19). Act 1 has 12 springs: four up, three right, two big up-right, two small up-left and one small up-right.
+
+### Rings
+
+Rings use the interactables' grid, with 2-byte records `x, y` (tiles inside the region) ending with `0xFF`. Act 1 has 291. A ring is a 16 × 16 px sprite with its bottom centre on that point: animation `707`, four frames of 8 ticks each, in sprite palette 68. Every ring shares one sprite, so they all spin together.
+
+The ring manager runs after the camera and before the objects and Sonic, so it tests where he was at the end of the previous frame. It doesn't spawn rings: each frame it searches the regions under Sonic's box (±6 px wide, ±`spriteOffsetY` tall around his centre) and collects every ring whose 16 × 16 box it touches, edges included. A collected ring is marked in the list and never comes back until the act starts over. Two quirks come from its region search:
+
+- The search stops 16 px short of the box's bottom and 8 px short of its right side, so a ring just inside the next region down or to the right can be missed for a frame.
+- Region numbers are 16-bit, so a box reaching above or left of the map searches nothing.
+
+Rings are drawn from the regions the screen's top-left corner and the screen cover, while a ring is no more than 8 px off the screen's left or right side, its bottom isn't above the screen's top edge, and its top is no more than 16 px past the bottom edge. In the sprite list they come behind the objects and Sonic.
+
+Each ring adds 1 to the count, and passing a multiple of 100 gives a life. It also leaves a sparkle (animation `708`, four frames of 8 ticks, then gone), but only while fewer than 8 are showing; beyond that, a ring still counts but makes no sparkle and no sound. Sparkles run after the objects from the frame they appear, and are drawn in front of Sonic.
+
+**How it was checked.** mGBA 0.10.5 recorded two runs through act 1 with Sonic's position and the original's ring list dumped after every frame. Replaying the recorded positions, the port collects the same rings on the same frames in both (14 and 23 rings), and none the original didn't. On each of those frames, the sound engine port loaded with the dumped state and given the two ring sound calls ends up identical to the original's. The region-search quirks are taken from the code; neither run hit them.
+
+### HUD
+
+The HUD is twelve sprites at priority 0, in front of every layer and sprite. It comes from the UI graphics table, whose entries are a tiles pointer, a palette pointer, then the tiles per glyph, the sprite size and shape, and the width and height in tiles. Tiles are 4bpp with the low nibble on the left. The HUD uses three entries:
+
+- **Entry 0, the 8 × 16 font.** Its `0`–`9` and `:` (tiles 32–53) are the white glyphs. The same characters at tiles 224–245 are red.
+- **Entry 5, the 32 × 32 ring icon.** It shares the font's palette, which the HUD loads into sprite palette 6.
+- **Entry 1, Sonic's 16 × 16 face.** It uses his own palette.
+
+| Element | Position | What it shows |
+| :--- | :--- | :--- |
+| Ring icon | (−2, −1) | |
+| Ring count | y 5, from x 9, 5 or 1 for one, two or three digits | No leading zeros, 999 at most (the count itself goes on). At 0 it flashes: a counter that only moves while the count is 0, and is never reset, picks white, red, red, white for 8 frames each. |
+| Score | y −2, last digit at x 73 | Nine digits at most; 0 until something scores |
+| Timer | (25, 12), seven glyphs | `M:SS:CC`, where CC is hundredths: the frame count × 100 / 60, rounded. After 9:00 it turns red for 16 frames out of every 32; from 9:40 the warning beep (song 139) plays every second; from 10:00 it reads `9:59:99`. |
+| Face | (2, 144) | |
+| Lives | (22, 143) | One less than the lives (a new game has 3), 9 at most |
+
+The HUD runs after the rings and objects and before Sonic, so it shows the ring count from the same frame. The timer moves on at the end of the frame, so it shows the count from before that frame.
+
+**Extra lives.** Every time the ring count passes a multiple of 100, Sonic gets a life, and the stage's music manager plays the 1-up jingle (song 307) on the music's own player. That cuts the music off at once. On the first later frame where that player has stopped, the music starts again from its beginning, fading in from 1/64 over 64 frames. The manager runs after Sonic, and looks at the music player as the engine left it at the start of the frame.
+
+**How it was checked.**
+- *Screenshots:* mGBA screenshots were taken at 0 rings (both colours of the flash), at 1 to 12 rings, at 1000 rings (shown as 999), with a score of 123450, with 12 lives (shown as 9), and on both phases of the red timer. The port's HUD, drawn from the recorded state of the frame before each screenshot, matches 256 of 257 of them pixel for pixel. The other one is a frame where the recorder had just changed those values in memory.
+- *Jingle:* the sound engine port with the music manager stays identical to mGBA's engine for 368 frames, from just before the 100th ring through the jingle, the music's restart and the end of its fade-in.
+- *Read in the code only:* the 10:00 reading. The stage doesn't end at 10:00 yet (the original's time over).
 
 ### Start positions
 
@@ -182,6 +225,9 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Somersault kick | 121 | 3 | The combo's second hit |
 | Slide kick | 111 | 3 | |
 | Spring | 170 | 2 | Every launch |
+| Timer warning | 139 | 2 | Every second from 9:40 to 10:00 |
+| 1-up | 307 | 0 | Every hundredth ring, in place of the music; the music then starts over with a fade-in |
+| Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |
 
 Sounds on the same player cut each other off, as in the original. There is no landing sound in SA1.
 

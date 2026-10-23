@@ -65,14 +65,14 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 ## Status
 
 > [!NOTE]
-> **Pre-alpha: the first playable prototype is in.** Sonic runs through the whole of Neo Green Hill Zone act 1, read from your ROM with its collision: slopes, walls, ceilings, jump-through ledges and loops, with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, his insta-shield, mid-air dash and B-button ground combo, and the original camera. There are no rings, objects, enemies or sound yet, and the grind rails don't work.
+> **Pre-alpha: the first playable prototype is in.** Sonic runs through the whole of Neo Green Hill Zone act 1, read from your ROM with its collision: slopes, walls, ceilings, jump-through ledges and loops, with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, his insta-shield, mid-air dash and B-button ground combo, and the original camera. The act's springs work as in the original. There are no rings, enemies, other objects or sound yet, and the grind rails don't work.
 
 | Area | State | Tracked in |
 | :--- | :--- | :--- |
 | ROM extractor: sprites, palettes, tiles | 🟢 Done, see the [asset viewer](#getting-started) | [#4](https://github.com/NahuelGenchi/onsoku-advance/issues/4) |
 | Movement, animations and camera | 🟢 Done | [#5](https://github.com/NahuelGenchi/onsoku-advance/issues/5) |
 | Stage maps and collision | 🟡 Neo Green Hill act 1, without grind rails | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
-| Rings, objects and enemies | ⚪ Planned | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
+| Rings, objects and enemies | 🟡 Springs | [#18](https://github.com/NahuelGenchi/onsoku-advance/issues/18) |
 | Sound and music | ⚪ Planned | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
 | Hosted build | 🟢 Live on [GitHub Pages](https://nahuelgenchi.github.io/onsoku-advance/) | [#12](https://github.com/NahuelGenchi/onsoku-advance/issues/12) |
 | Versioned releases | ⚪ Planned | [M3](https://github.com/NahuelGenchi/onsoku-advance/milestone/4) |
@@ -116,7 +116,7 @@ python -m http.server 8000
 
 Then open <http://localhost:8000> and choose your ROM to play. Tick *Remember this ROM on this device* to skip that step next time.
 
-To see everything the extractor decodes, open <http://localhost:8000/viewer.html>: Sonic's animations playing with their original timing, the sprite atlas, Neo Green Hill Zone act 1 with its collision, and the zone's background.
+To see everything the extractor decodes, open <http://localhost:8000/viewer.html>: Sonic's and the springs' animations playing with their original timing, the sprite atlas, Neo Green Hill Zone act 1 with its collision, and the zone's background.
 
 <details open>
 <summary><b>Controls</b></summary>

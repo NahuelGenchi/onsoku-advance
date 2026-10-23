@@ -32,6 +32,8 @@ export const PHYSICS = {
   attackFriction: 8 / 256, slideFriction: 32 / 256,
   wallMinSpeed: 1.875,         // slower than this on a wall or ceiling, Sonic drops off
   slipLock: 30,                // grounded frames without control after dropping off
+  springSpeeds: [7.5, 9, 10.5, 12], // a spring's launch speed, picked by its d0 (sData0Accel)
+  springPeakSpeed: 1.5,        // rising slower than this off a spring, Sonic tops out (charState 21 to 18)
 };
 
 export const ANIMATION = {

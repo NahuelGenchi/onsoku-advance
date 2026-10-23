@@ -14,7 +14,8 @@ const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
 const HISTORY = 16;
 
 // states: idle | walk | turn | brake | crouch | crouchEnd | lookUp | lookUpEnd | spinDash | spinDashRev |
-//         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip
+//         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip |
+//         spring (somersault off a spring) | springRise | springPeak | springFall
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -23,6 +24,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     layer: LAYER_BACK, // which of the act's two collision layers he touches
     lock: 0,           // frames of control lock left after slipping off a wall (unk2A)
     air: false,        // MOVESTATE_IN_AIR
+    onObject: null,    // the object he stands on (MOVESTATE_STOOD_ON_OBJ and stoodObj)
     curled: false,     // MOVESTATE_SPIN_ATTACK: rolling or jumping as a ball
     jumped: false,     // left the ground with the jump button (allows the jump cap and mid-air moves)
     airLock: false,    // jumped out of a roll: no air control until the insta-shield
@@ -31,6 +33,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     midAir: 0,         // mid-air move used this jump: 1 insta-shield, 2 dash
     attack: 0, attackNext: 0,   // step of the B-button combo, and the move queued after the somersault
     idleT: K.boredDelay, anim: makeAnimator(), spinDashSpeeds,
+    animRestart: false, // an object asked for his animation to start over
     held: new Array(HISTORY).fill(0), pressed: new Array(HISTORY).fill(0),
   };
 }
@@ -41,6 +44,15 @@ const toward0 = (v, step) => v > 0 ? Math.max(0, v - step) : v < 0 ? Math.min(0,
 // curling up lowers the centre toward the surface so the feet stay put
 function curl(p) { p.curled = true; setOffsetY(p, BALL_SPRITE_OFFSET_Y); }
 function uncurl(p) { p.curled = false; setOffsetY(p, SPRITE_OFFSET_Y); }
+
+/** Stands Sonic up out of a ball, keeping his feet in place (PLAYERFN_CHANGE_SHIFT_OFFSETS). */
+export function standUp(p) { uncurl(p); }
+
+// standing on an object, the object holds him up and the ground sensors rest (sub_8022D6C)
+function followGround(p, t) {
+  if (p.onObject) { p.rotA = p.rotB = 0; return; }
+  groundSensors(p, t);
+}
 
 // fixed-point helpers: speeds are multiples of 1/256, and the original does this arithmetic on 8.8 integers
 const q8 = v => Math.round(v * 256);
@@ -225,7 +237,8 @@ function attackStep(p, c) {
   return true;
 }
 
-function endAttack(p) { p.attack = 0; p.attackNext = 0; p.midAir = 0; p.jumped = false; p.spinDashing = false; }
+/** Ends the combo, the mid-air moves and the spin dash (also Player_TransitionCancelFlyingAndBoost). */
+export function endAttack(p) { p.attack = 0; p.attackNext = 0; p.midAir = 0; p.jumped = false; p.spinDashing = false; }
 
 // on the frame a jump or a B move starts nothing else runs; while revving a spin dash Sonic stays put but
 // still follows the ground (Player_Sonic_80473AC)
@@ -242,14 +255,14 @@ function groundStep(p, c, world) {
     wallPush(p, t);
   } else {
     if (attackStep(p, c)) return;
-    if (trySpinDash(p, c, world)) { bounds(p, world); groundSensors(p, t); return; }
+    if (trySpinDash(p, c, world)) { bounds(p, world); followGround(p, t); return; }
     if (tryJump(p, c, world)) return;
     slope(p);
     walkStep(p, c, world);
   }
   bounds(p, world);
   p.x += p.xsp; p.y += p.ysp;
-  groundSensors(p, t);
+  followGround(p, t);
   fallOff(p);
 }
 
@@ -294,11 +307,12 @@ function airStep(p, c, world) {
   airCollision(p, world.terrain, () => land(p));
 }
 
-// touching down (sub_8021BE0); the caller sets the ground speed from the landing angle
-function land(p) {
+/** Touching down on the ground or an object (sub_8021BE0); the caller sets the ground speed. */
+export function land(p) {
   p.air = false;
   p.state = 'walk';
   if (p.curled) uncurl(p);
+  p.offsetY = SPRITE_OFFSET_Y;   // set outright, even when something uncurled him without moving him
   p.airLock = false;
   endAttack(p);
 }
@@ -340,6 +354,9 @@ function chooseAnimation(p, input) {
       a.speed = Math.max(ANIMATION.minWalkSpeed, Math.min(ANIMATION.normalSpeed, Math.floor(speed * 256) >> 4));
       return 'walk';
     case 'brake': return speed < ANIMATION.brakeTurnSpeed ? 'brakeTurn' : 'brake';
+    case 'springRise':
+      if (p.ysp >= -K.springPeakSpeed) p.state = 'springPeak';
+      return p.state;
     default: return p.state;
   }
 }
@@ -351,6 +368,7 @@ function afterAnimation(p, world) {
     case 'crouchEnd': p.state = p.gsp !== 0 ? 'walk' : 'idle'; break;
     case 'lookUpEnd': p.state = 'idle'; break;
     case 'turn': p.state = 'walk'; break;
+    case 'spring': case 'springPeak': p.state = 'springFall'; break;
     case 'spinAttack': case 'slideEnd':
       endAttack(p); p.state = p.gsp !== 0 ? 'walk' : 'idle'; break;
     case 'somersault':
@@ -367,7 +385,8 @@ function afterAnimation(p, world) {
 
 /** Picks and steps Sonic's animation after his frame of movement, like the original sprite update. */
 export function animatePlayer(p, input, anims, world) {
-  setAnim(p.anim, chooseAnimation(p, input));
+  setAnim(p.anim, chooseAnimation(p, input), p.animRestart);
+  p.animRestart = false;
   if (p.state === 'brake' && world.tick % 4 === 0) world.spawnBrakeDust();
   for (let guard = 0; guard < 4; guard++) {
     if (!tickAnim(p.anim, anims)) return;

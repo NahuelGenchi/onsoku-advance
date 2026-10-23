@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Onsoku Advance</title>
+<meta name="description" content="Sonic Advance, rebuilt for the browser. Bring your own ROM; it never leaves your device.">
+<meta name="theme-color" content="#050a24">
+<link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+<main>
+  <section class="picker" id="picker" aria-label="Choose a ROM"></section>
+
+  <section class="stage" id="stage" hidden>
+    <canvas id="screen" tabindex="0" aria-label="Sonic on a Neo Green Hill platform. Use the arrow keys to run, Z or Space to jump."></canvas>
+
+    <aside class="help" id="help">
+      <dl>
+        <dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Run</dd>
+        <dt><kbd>Z</kbd> <kbd>Space</kbd></dt><dd>Jump</dd>
+        <dt><kbd>↓</kbd></dt><dd>Crouch · roll while moving</dd>
+        <dt><kbd>↓</kbd>+<kbd>Z</kbd></dt><dd>Spin dash</dd>
+        <dt><kbd>↑</kbd></dt><dd>Look up</dd>
+        <dt><kbd>H</kbd></dt><dd>Hide this panel</dd>
+      </dl>
+      <p class="stats" id="stats" aria-live="off"></p>
+      <p class="actions"><button type="button" class="link" id="change-rom">Change ROM</button> · <a href="viewer.html">Asset viewer</a></p>
+    </aside>
+
+    <div class="touch" id="touch" aria-hidden="true">
+      <div class="pad">
+        <button type="button" data-button="left">◀</button>
+        <button type="button" data-button="down">▼</button>
+        <button type="button" data-button="up">▲</button>
+        <button type="button" data-button="right">▶</button>
+      </div>
+      <button type="button" class="jump" data-button="jump">A</button>
+    </div>
+  </section>
+</main>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

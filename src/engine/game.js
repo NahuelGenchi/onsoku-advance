@@ -30,9 +30,11 @@ const MAX_COURSE_TIME = 10 * 3600;
 const CARD_SKIP_FROM = 35, CARD_SKIP_TO = 215, CARD_FRAMES = 225;
 // what Sonic reads while the title card holds him: the jump and attack buttons InitializePlayer leaves held, never pressed
 const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, jumpPressed: false, attackPressed: false };
+// and while an object holds his controls (the forced slide): nothing, as it clears his input
+const NO_INPUT = { left: false, right: false, up: false, down: false, jump: false, attack: false, jumpPressed: false, attackPressed: false };
 
 const SILENT = {
-  play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, tempo() {}, invincibility() {},
+  play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
   playerState() {}, stopAll() {},
 };
 
@@ -127,6 +129,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     speedUpOver() { sound.tempo(NORMAL_TEMPO); },
     invincibilityOver() { sound.stop(SONG.INVINCIBILITY); },
     stopSound: song => sound.stop(song),
+    fadeOut: (player, speed) => sound.fadeOut(player, speed),
     playSoundPitched: (song, pitch) => sound.playPitched(song, pitch),
     freezeCamera() { state.cam.freeze = CAMERA.spinDashFreeze; },
     // brake dust stays where it appeared, flipped by the game's random numbers
@@ -279,7 +282,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     }],
     [0x2180, () => { if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER); }],
     [0x3000, () => {
-      const held = state.card === null ? input : CARD_INPUT;
+      const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? NO_INPUT : input;
       stepPlayer(player, held, world);
       animatePlayer(player, held, anims, world);
       drawSonic();

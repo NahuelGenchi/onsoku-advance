@@ -19,7 +19,8 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip |
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
-//         pole) | hurt | dead
+//         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
+//         before its end) | hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -48,6 +49,8 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     hidden: false,     // left out of this frame's drawing: blinking, or gone below the screen after dying
     dead: false,       // MOVESTATE_DEAD
     carried: false,    // MOVESTATE_IA_OVERRIDE: an object moves him, and his own movement doesn't run
+    grinding: false,   // MOVESTATE_1000000: on a grind rail, on the layer it put him on
+    front: false,      // drawn in front of the front layer (his sprite's priority 1), as on a grind rail
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,
     chain: 0,          // enemies defeated since he last touched the ground (defeatScoreIndex)
@@ -128,7 +131,7 @@ function doubleTap(p) {
 // jumps away from the surface, if there are at least 4 px of room that way
 function tryJump(p, c, world) {
   if (!c.jumpPressed || clearance(p, world.terrain, p.rotation + 0x80) < 4) return false;
-  p.air = true; p.jumped = true; p.pushing = false; p.state = 'spin';
+  p.air = true; p.jumped = true; p.pushing = false; p.grinding = false; p.state = 'spin';
   const a = (p.rotation - 0x40) & 0xFF, jump = q8(K.jumpSpeed);
   p.xsp = (q8(p.xsp) + ((jump * cos8(a)) >> 8)) / 256;
   p.ysp = (q8(p.ysp) + ((jump * sin8(a)) >> 8)) / 256;
@@ -195,9 +198,10 @@ function walk(p, dir, world) {
   }
 }
 
-// standing or running, not curled up (Player_8044F7C); the control lock skips the d-pad
+// standing or running, not curled up (Player_8044F7C); the control lock skips left and right, not up and down
 function walkStep(p, c, world) {
   if (!p.lock) walkInput(p, c, world);
+  lookInput(p, c, world);
   if (!c.sideways) p.gsp = toward0(p.gsp, K.friction);
   alongSurface(p);
   wallPush(p, world.terrain);
@@ -219,8 +223,12 @@ function walkInput(p, c, world) {
     if (p.onObject) balanceOnObject(p);
     else balanceOnTerrain(p, world.terrain);
   }
+}
 
-  // up and down only count while no direction is held, and cancel each other out
+// up and down (sub_80448D0): they only count while no direction is held, cancel each other out, and do
+// nothing while he balances at an edge
+function lookInput(p, c, world) {
+  if (p.state === 'balanceForward' || p.state === 'balanceBack') return;
   if (c.up && !c.down) { if (p.gsp === 0) p.state = 'lookUp'; }
   else if (c.down && !c.up) {
     p.state = 'crouch';
@@ -310,14 +318,48 @@ function attackStep(p, c, world) {
 /** Ends the combo, the mid-air moves and the spin dash (also Player_TransitionCancelFlyingAndBoost). */
 export function endAttack(p) { p.attack = 0; p.attackNext = 0; p.midAir = 0; p.jumped = false; p.spinDashing = false; }
 
+// jumping off a grind rail (sub_8044434), if there are at least 4 px of room that way on the layer he came
+// from, back on which he lands: straight up from the rail as fast as a jump, keeping his X speed
+function tryRailJump(p, c, world) {
+  if (!c.jumpPressed) return false;
+  p.layer ^= 1;
+  if (clearance(p, world.terrain, p.rotation + 0x80) < 4) { p.layer ^= 1; return false; }
+  world.stopSound(SONG.GRINDING);
+  p.air = true; p.jumped = true; p.pushing = false; p.grinding = false; p.state = 'spin';
+  p.ysp = ((q8(K.jumpSpeed) * sin8((p.rotation - 0x40) & 0xFF)) >> 8) / 256;
+  world.playSound(SONG.JUMP);
+  p.front = false;
+  curl(p);
+  return true;
+}
+
+// grinding down a rail (sub_80449D8): down or right (even with left) pulls him down its slope at 5/32 of
+// the slope's sine, more than a walk, left brakes, and he always slows down, but never below 0.75 px a frame
+function grindStep(p, c, input) {
+  if ((c.down || input.right) && ((p.rotation + 0x60) & 0xFF) < 0xC0) p.gsp = (q8(p.gsp) + ((sin8(p.rotation) * 5) >> 5)) / 256;
+  let g = q8(p.gsp);
+  if (input.left) g = Math.max(g - 8, 0xC0);
+  p.gsp = Math.max(g - 8, 0xC0) / 256;
+  p.state = 'grind';
+  alongSurface(p);
+}
+
 // on the frame a jump or a B move starts nothing else runs; while revving a spin dash Sonic stays put but
 // still follows the ground (Player_Sonic_80473AC)
-function groundStep(p, c, world) {
+function groundStep(p, c, world, input) {
   const t = world.terrain;
   if (p.curled) {
     if (tryJump(p, c, world)) return;
     rollSlope(p);
     rollStep(p, c, world);
+  } else if (p.grinding) {
+    // on a rail he can't slip off it, and the control lock doesn't count down (sub_80472B8)
+    if (tryRailJump(p, c, world)) return;
+    grindStep(p, c, input);
+    bounds(p, world);
+    p.x += p.xsp; p.y += p.ysp;
+    followGround(p, t);
+    return;
   } else if (p.attack !== 0) {
     slope(p);
     attackStep(p, c, world);
@@ -402,9 +444,10 @@ export function land(p) {
 /**
  * Hurts Sonic, unless he is invincible or still blinking from the last hit (Coll_DamagePlayer, without the
  * rings and the shield, which the caller handles): knocked up and away from the way he was moving, or facing when standing still, wherever
- * the hazard is. Returns false when he is protected.
+ * the hazard is. On a grind rail he leaves it for the layer he came from, unless that has less than 4 px of
+ * room above him. Returns false when he is protected.
  */
-export function hurt(p) {
+export function hurt(p, terrain) {
   if (p.invulnerable > 0 || p.invincible > 0) return false;
   p.invulnerable = K.invulnerable;
   p.xsp = p.xsp < 0 || (p.xsp === 0 && p.facing < 0) ? K.hurtSpeedX : -K.hurtSpeedX;
@@ -414,6 +457,11 @@ export function hurt(p) {
   p.airLock = false;
   p.state = 'hurt';
   uncurl(p);   // the feet stay put
+  if (p.grinding) {
+    p.layer ^= 1;
+    if (clearance(p, terrain, p.rotation + 0x80) < 4) p.layer ^= 1;
+    else { p.grinding = false; p.front = false; }
+  }
   return true;
 }
 
@@ -459,7 +507,7 @@ export function stepPlayer(p, input, world) {
   if (p.dead) deadStep(p, world);
   else if (p.carried) return;
   else if (p.air) airStep(p, c, world);
-  else groundStep(p, c, world);
+  else groundStep(p, c, world, input);
 }
 
 // state -> animation, with the walk cycle's speed and the idle timer (sub_802486C)
@@ -478,6 +526,11 @@ function chooseAnimation(p, input) {
       a.speed = Math.max(ANIMATION.minWalkSpeed, Math.min(ANIMATION.normalSpeed, Math.floor(speed * 256) >> 4));
       return 'walk';
     case 'brake': return speed < ANIMATION.brakeTurnSpeed ? 'brakeTurn' : 'brake';
+    // on a steep part of a rail he always faces down it, to the right
+    case 'grind':
+      if (!((p.rotation + 0x20) & 0xC0)) return 'grind';
+      p.facing = 1;
+      return 'grindSteep';
     case 'springRise':
       // the animation was picked before the state changes, so the top-out one starts on the next frame
       if (p.ysp >= -K.springPeakSpeed) p.state = 'springPeak';

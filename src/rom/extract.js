@@ -31,9 +31,12 @@ export const SONIC_ANIMATIONS = {
   hurt: [19, 0], dead: [21, 0],
   // hanging from a wall pole (charState 31)
   pole: [38, 0],
+  // grinding (charState 16; variant 1 on a rail's steep parts) and jumping off a rail before its end (20)
+  grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
+  grindSparks: [749, 0],
 };
 
 // the spring (animation 455): each kind's idle and launch variants

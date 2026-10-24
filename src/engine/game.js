@@ -77,7 +77,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // to 48 of them scattering, and without any he dies; returns false while he is invincible or still
     // blinking from the last hit
     damage() {
-      if (!hurt(player)) return false;
+      if (!hurt(player, terrain)) return false;
       if (player.shield) {
         sound.play(SONG.LIFE_LOST);
         player.shield = null;
@@ -126,6 +126,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     },
     speedUpOver() { sound.tempo(NORMAL_TEMPO); },
     invincibilityOver() { sound.stop(SONG.INVINCIBILITY); },
+    stopSound: song => sound.stop(song),
     playSoundPitched: (song, pitch) => sound.playPitched(song, pitch),
     freezeCamera() { state.cam.freeze = CAMERA.spinDashFreeze; },
     // brake dust stays where it appeared, flipped by the game's random numbers
@@ -148,7 +149,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
-    player, world, anims, tiles: assets.sprites.tiles, cam: { x: 0, y: 0 }, draw,
+    player, world, anims, tiles: assets.sprites.tiles, cam: { x: 0, y: 0 }, draw, input,
     attack: (s, x, y) => attackTest(s, x, y, ctx),
     projectile: (s, x, y) => projectileTest(s, x, y, ctx),
     add: (task, priority) => tasks.add(task, priority),
@@ -212,12 +213,12 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     }
   }
   // Sonic's sprite (OAM order 16): the walk and run frames go through the rotation hardware and follow the
-  // slope; facing left, the original shifts the other frames 1px right. Dying puts him in front of the front
-  // layer.
+  // slope; facing left, the original shifts the other frames 1px right. Dying or grinding puts him in front of
+  // the front layer.
   function drawSonic() {
     if (player.hidden) return;
     const turning = player.state === 'walk' || player.state === 'bounce', nudge = player.facing < 0 && !turning ? 1 : 0;
-    const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio: player.death ? 1 : 2 };
+    const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio: player.death || player.front ? 1 : 2 };
     draw(s, player.x + nudge, player.y, turning ? player.rotation : 0);
   }
 
@@ -250,6 +251,12 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // spawns run in the same frame), the scattered rings just after them, the HUD, Sonic (with his effects),
   // the music and, last, the stage's clocks
   const STAGE_TASKS = [
+    // the camera follows where Sonic was at the end of the last frame, and this frame is drawn with it; the
+    // grind rails' ends (0x900) run before it and see the last frame's
+    [0x0F00, () => {
+      updateCamera(state.cam, player);
+      ctx.cam = { x: Math.floor(state.cam.x), y: Math.floor(state.cam.y) };
+    }],
     [0x2000, ctx => collectRings(ctx)],
     [0x2000, ctx => entities.manager.run(ctx)],
     ...palettes.map(a => [0x2000, () => { a.run(); state.palettes = palettes.map(b => b.shown); }]),
@@ -291,13 +298,9 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   for (const [priority, run] of STAGE_TASKS) tasks.add({ run: ctx => { run(ctx); return true; } }, priority, true);
   startCard();
 
-  // the camera's task (0x0F00) comes before all of them: it follows where Sonic was at the end of the last
-  // frame, and this frame is drawn with it
   function step() {
     if (loading) { loading = false; return; }
     state.sprites = [];
-    updateCamera(state.cam, player);
-    ctx.cam = { x: Math.floor(state.cam.x), y: Math.floor(state.cam.y) };
     tasks.run(ctx);
     if (restart) { restart = false; restartAct(); }
   }

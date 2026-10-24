@@ -14,6 +14,7 @@ import { attackTest, projectileTest, defeatEffects } from './defeat.js';
 import { createRings } from './rings.js';
 import { createScatter } from './scatter.js';
 import { createHud, updateHud } from './hud.js';
+import { createTitleCard, runTitleCard } from './titlecard.js';
 import { createPaletteAnimation } from './palettes.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
@@ -26,8 +27,6 @@ const ITEM_TIME = 1200;   // invincibility and speed shoes last 20 seconds
 const RANDOM_RING_PRIZES = [1, 5, 10, 20, 30, 40];   // ItemBox_RingAmountTable
 const SPEED_UP_TEMPO = 0x200, NORMAL_TEMPO = 0x100;
 const MAX_COURSE_TIME = 10 * 3600;
-// the title card's frames: a press from its 36th to its 214th skips it to its 215th, and it ends after its 225th
-const CARD_SKIP_FROM = 35, CARD_SKIP_TO = 215, CARD_FRAMES = 225;
 // what Sonic reads while the title card holds him: the jump and attack buttons InitializePlayer leaves held, never pressed
 const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, jumpPressed: false, attackPressed: false };
 // and while an object holds his controls (the forced slide): nothing, as it clears his input
@@ -54,7 +53,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     palettes: palettes.map(a => a.shown),   // the frame each palette animation has loaded (palettes.js)
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
-    card: null,           // the title card's frame count while it holds Sonic and the clock
+    card: null,           // the title card (titlecard.js) while it holds Sonic and the clock
   };
   const sparkles = new Set();   // the ring sparkles still running their animation
   let cardPad = [];   // the pad directions held on the title card's last frame
@@ -229,9 +228,10 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     } else draw(s, player.x + (player.facing < 0 ? 1 : 0), player.y);
   }
 
-  // the title card (sub_80550F8): not drawn yet, but it holds Sonic and the clock while it runs, as the
-  // original's does from the act's first frame and after each restart
-  function startCard() { state.card = 0; state.clockStopped = true; }
+  // the title card (sub_80550F8) plays from the act's first frame and after each restart, holding Sonic and
+  // the clock while it runs; the HUD's task is made only as it ends
+  function startCard() { state.card = createTitleCard(assets.titleCard); state.clockStopped = true; state.hud.sprites = []; }
+  const hudTask = { run() { if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER); return true; } };
 
   // HandleLifeLost: a life less, and the act starts over with everything in it, keeping the score, the stage
   // clock and the last checkpoint passed. Sonic starts at that checkpoint, or at the act's start without one,
@@ -273,18 +273,20 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       const dropped = scatter.visible();
       for (const r of dropped.list) draw({ frame: dropped.frame, flipX: false, flipY: false, order: 20, prio: 2 }, r.x, r.y);
     }],
-    // the title card: from its 226th frame, or ten frames after A, B or the pad is pressed from its 36th to
-    // its 214th, Sonic takes the controls and the clock starts; the buttons he held when it ends aren't presses
+    // the title card and its pieces (0x2100 and 0x2120): on its 226th frame, or ten frames after A, B or the
+    // pad is pressed from its 36th to its 214th, Sonic takes the controls and the clock starts; the buttons he
+    // held when it ends aren't presses. The HUD's task (0x2180) it makes then first runs on the next frame.
     [0x2100, () => {
       if (state.card === null) return;
       const pad = ['left', 'right', 'up', 'down'].filter(k => input[k]);
       const pressed = input.jumpPressed || input.attackPressed || pad.some(k => !cardPad.includes(k));
       cardPad = pad;
       input.jumpPressed = false; input.attackPressed = false;
-      if (pressed && state.card > CARD_SKIP_FROM && state.card < CARD_SKIP_TO) state.card = CARD_SKIP_TO;
-      if (++state.card > CARD_FRAMES) { state.card = null; state.clockStopped = false; }
+      if (runTitleCard(state.card, pressed)) return;
+      state.card = null; state.clockStopped = false;
+      state.hud = createHud();
+      tasks.add(hudTask, 0x2180);
     }],
-    [0x2180, () => { if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER); }],
     [0x3000, () => {
       const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? NO_INPUT : input;
       stepPlayer(player, held, world);

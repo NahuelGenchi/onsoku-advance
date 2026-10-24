@@ -10,7 +10,10 @@ const GLYPH_W = 8;
 
 const digits = n => String(n).split('').map(Number);
 
-/** `flash` is the zero-ring flash counter; the HUD never sets it, and the boot path leaves 1 there. */
+/**
+ * `flash` is the zero-ring flash counter (unk48). The HUD's task never sets it: its data takes the place of the
+ * title card's pieces', and the counter starts with what the card leaves there, its fade's done flag, 1.
+ */
 export function createHud() {
   return { flash: 1, sprites: [] };
 }

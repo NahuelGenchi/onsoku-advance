@@ -151,6 +151,20 @@ While Sonic's centre is in the area, edges included, his vertical speed grows by
 
 Recordings of Sonic pushing each way, jumping on a boulder, breaking it with the spin attack, spin dashing into one, and breaking the second one all match the engine on every frame, including where every piece is drawn.
 
+### Boosters
+
+Act 1 has five speed boosters: four flat ones, kind 31, at (4384, 1272), (5928, 1272), (8456, 936) and (9912, 984), and one on a slight slope up to the right, kind 33, at (7096, 1248). All are animation `471`, three frames of 2 frames each on a loop: variant 0 for kind 31, with the box (−15, −6, 7, 0), and variant 1 for kind 33, with (−15, −9, 6, 2). Variant 2 is kind 32, the slope up to the left, which act 1 doesn't have. A booster is drawn at its spawn point in OAM order 18 and BG priority 2, so behind the front layer and behind Sonic. When `d1` is set it is flipped and points left; none of act 1's is. Its task (`0x08076C91`) runs at priority `0x2000` and goes when its spawn point leaves the range.
+
+Each frame, before it steps its animation, the task tests the box its last frame set against Sonic's side probe (see *Objects*), where he was at the end of the previous frame. A booster has no box on its first frame. While he touches it on the ground, not dead, on every such frame it:
+
+- ends his attacks, mid-air moves, spin dash charge and push (`Player_TransitionCancelFlyingAndBoost`),
+- plays song 172,
+- puts him in the walk (character state 4) unless he is rolling or jumping as a ball (5) or charging a spin dash (6 or 7),
+- faces him its way, and
+- if his ground speed is under 9 px a frame its way, sets his ground and X speeds to 12 px a frame its way.
+
+The booster runs before Sonic, so his own step then works on that speed in the same frame: running on with right held he keeps 3072/256, standing with nothing held he slows by the friction at once, on the slope it turns with the angle, and holding the other way he brakes on the same frame (the skid's song 115 then takes the booster's place on player 2). In the air, jumping or hopping over it, he isn't touched.
+
 ### Rings
 
 Rings use the interactables' grid, with 2-byte records `x, y` (tiles inside the region) ending with `0xFF`. Act 1 has 291. A ring is a 16 × 16 px sprite with its bottom centre on that point: animation `707`, four frames of 8 ticks each, in sprite palette 68. Every ring shares one sprite, so they all spin together.
@@ -263,6 +277,7 @@ Losing a life destroys every task, so nothing after Sonic runs on that frame. Th
 - *Platforms:* 14 more recordings, made the same way, drop Sonic onto every kind of platform, still or walking off it, and jump from them. They cover a swinging platform carrying him and one he jumps up through, both falling platforms dropping him, the trampoline, a bounce block both ways, the cluster of bounce blocks with right held, and both crumbling platforms, one walked off as it goes. Run from the act's first frame, the whole game matches all of them on every frame: Sonic and his animation, the rings, the camera, the stage clock, the sounds, and where each platform and crumbling tile is drawn.
 - *Boulders and pushing:* seven more recordings, with Sonic kept from getting hurt, push against a wall and against the first boulder from each side, jump on it, break it with the spin attack, spin dash into it, and break the second one. The whole game matches all of them on every frame, run from the act's first frame: Sonic and his push animation, the boulders, and where each piece is drawn, read from the original's sprite list.
 - *Waterfalls and balancing:* 16 more recordings walk through a waterfall, fall through two, and stand on the third boulder inside one and jump. They also stand Sonic at a ledge each way and turn him round, walk him up to one, and stand him on both sides of the first boulder and of a crumbling platform each way round, at the edge and a pixel inside it. The whole game matches all of them on every frame, including his balancing animations and where the splash is drawn.
+- *Boosters:* 14 more recordings walk Sonic over the first, third and fourth boosters and the sloped one, drop him standing onto the first, hop over it at three timings, run into it with the combo's first B attack and with its somersault, walk left into the second while holding left, and drop him onto it holding down. An earlier recording, where he spin dashes into the right spring at 6432 and rolls back over the sloped booster again and again, shows it keeping a speed already above 9. The whole game matches all of them on every frame, run from the act's first frame: Sonic and his animation, the camera, the rings, where each booster is drawn and with which frame, and every frame song 172 starts. The fourth booster throws Sonic into the half-pipe at 9968, which isn't built yet, so that recording is compared up to the frame before he reaches it. The original's OAM shows the boosters at BG priority 2.
 - *Palette animations:* mGBA's palette RAM, read every frame from the act's first frame, and again through the restart after a death, matches the colours the engine has loaded on every frame. A screenshot at a waterfall matches the engine's frame pixel for pixel in the waterfall, the layers and the sea, with the stage clock and both animations at the same point.
 
 ### HUD
@@ -353,7 +368,7 @@ Sonic's sensors follow SA1's player code. His position is his centre; the sensor
 - **Walls and ceilings** drop him below 1.875 px per frame and lock his controls for 30 grounded frames.
 - **In the air** the direction he moves picks which sensors run. Landing turns his speed into ground speed by the landing angle, and of the two steep ceiling slopes only `0x41`–`0x5F` catches him.
 - **Jump-through ledges** are solid on the ground. In the air the floor sensors ignore them while he rises, and the walls and ceiling while his downward speed is under 3.
-- **Bounds:** the camera stops at the act's edges, and falling out of the bottom kills Sonic (see [Dying and the restart](#dying-and-the-restart)).
+- **Bounds:** the camera stops at the act's edges. Before it moves each frame, `UpdateCamera` first keeps it a pixel further in from the right and bottom edges than it may end up, so when Sonic is in the air at the bottom of the act, inside the camera's vertical dead zone, it sits a pixel above the edge. Falling out of the bottom kills Sonic (see [Dying and the restart](#dying-and-the-restart)).
 
 The walk and run frames turn with the angle through the rotation hardware.
 
@@ -395,6 +410,7 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Spikes | 171 | 2 | Sonic is hurt by spikes |
 | Item box | 167 | 2 | A box breaks |
 | Shield | 168 | 2 | Either shield is given |
+| Booster | 172 | 2 | Every frame a booster sends Sonic on, even when he is already faster |
 | Crumbling platform | 173 | 2 | A crumbling platform starts to fall apart |
 | Trampoline | 176 | 2 | Every bounce |
 | Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |

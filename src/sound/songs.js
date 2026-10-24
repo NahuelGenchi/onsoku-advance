@@ -21,6 +21,7 @@ export const SONG = {
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
   SPRING: 170,
   SPIKES: 171,             // SE_171: hurt by spikes
+  BOOSTER: 172,            // SE_BOOSTER: every frame a booster sends Sonic on
   CRUMBLING_PLATFORM: 173,
   TRAMPOLINE: 176,
 };

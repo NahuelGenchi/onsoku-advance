@@ -35,6 +35,10 @@ function updateLook(cam, p) {
 
 export function updateCamera(cam, p) {
   if (!cam.started) { cam.started = true; return; }
+  // it moves from where it was, kept a pixel further in from the far edges than it may end up: at the
+  // bottom of the act, a dead zone can leave it a pixel up
+  cam.x = Math.min(Math.max(cam.x, 0), cam.maxX - 1);
+  cam.y = Math.min(Math.max(cam.y, 0), cam.maxY - 1);
   updateLook(cam, p);
   // a dead Sonic leaves the target where it was (unk50 bits 0–1); the view still eases onto it
   if (cam.freeze > 0) cam.freeze--;

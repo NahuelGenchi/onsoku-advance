@@ -1,8 +1,9 @@
 // Draws one 240 × 160 frame: the zone background with its per-line scrolling, the act's back layer, the
-// sprites behind the front layer, the front layer, the sprites in front of it, and the HUD on top, the
-// background and the layers in the colours the act's palette animations have loaded. The
+// sprites behind the front layer, the front layer, the sprites in front of it, and the HUD or the title card on
+// top, the background and the layers in the colours the act's palette animations have loaded. The
 // sprites are the act's rings and the step's list, stacked as the GBA stacks OAM entries: a lower OAM order
-// in front, and within an order the one put in first.
+// in front, and within an order the one put in first. While the title card fades the screen in, everything but
+// its semi-transparent sprites is darkened.
 
 import { SCREEN_W, SCREEN_H } from './constants.js';
 import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './stage.js';
@@ -22,7 +23,7 @@ function backgroundOffset(line, tick, cameraX) {
 export function createRenderer(canvas, assets) {
   canvas.width = SCREEN_W; canvas.height = SCREEN_H;
   const ctx = canvas.getContext('2d', { alpha: false });
-  const { atlas, frames } = assets.sprites, hud = assets.hud;
+  const { atlas, frames } = assets.sprites, hud = assets.hud, card = assets.titleCard;
   const stage = assets.stage, { backgrounds } = stage;
   const bgW = stage.background.width;
 
@@ -57,19 +58,42 @@ export function createRenderer(canvas, assets) {
     }
   }
 
+  // the title card's sprites from their OAM attributes; they have priority 0 and the lowest OAM orders, so
+  // they are in front of everything. A sprite off the right or the bottom edge wraps round to the left or the top.
+  function drawCard(sprites) {
+    for (const s of stack(sprites)) {
+      if ((s.a0 & 0x300) === 0x200) continue;   // hidden
+      const { w, h, glyphs } = card.slots[s.slot], [sx, sy] = glyphs[s.glyph];
+      const x = s.a1 & 0x1FF, y = s.a0 & 0xFF;
+      for (const dx of [x, x - 512]) for (const dy of [y, y - 256]) ctx.drawImage(card.sheet, sx, sy, w, h, dx, dy, w, h);
+    }
+  }
+
+  // the brightness decrease by bldY sixteenths, as mGBA (the reference) applies it to its 8-bit colours: the
+  // red channel keeps what a sixteenth-rounded-down decrease leaves, green and blue round down after it
+  function darken(bldY) {
+    const img = ctx.getImageData(0, 0, SCREEN_W, SCREEN_H), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      d[i] -= (d[i] * bldY) >> 4;
+      d[i + 1] = (d[i + 1] * (16 - bldY)) >> 4;
+      d[i + 2] = (d[i + 2] * (16 - bldY)) >> 4;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
   // back to front: higher orders first, and the later entries of an order before the earlier ones
   function stack(list) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  return function render({ tick, cam, rings, sprites, terrain, palettes, hud: hudState, showCollision }) {
+  return function render({ tick, cam, rings, sprites, terrain, palettes, hud: hudState, card: titleCard, showCollision }) {
     ctx.imageSmoothingEnabled = false;
-    // on the act's first frame the camera isn't kept inside the act yet: the original's title card covers
-    // that frame, and until this game has one the view is kept inside
+    // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
+    // screen black then, and the view is kept inside
     const cx = Math.min(Math.max(Math.floor(cam.x), 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y), 0), cam.maxY);
     const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
     for (let line = 0; line < SCREEN_H; line++) {
-      const off = mod(backgroundOffset(line, tick, cx), bgW);
+      const off = mod(backgroundOffset(line, tick - 1, cx), bgW);
       ctx.drawImage(background, off, line, bgW - off, 1, 0, line, bgW - off, 1);
       if (bgW - off < SCREEN_W) ctx.drawImage(background, 0, line, off, 1, bgW - off, line, off, 1);
     }
@@ -86,5 +110,12 @@ export function createRenderer(canvas, assets) {
     drawAll(false);
     if (showCollision) drawCollision(terrain, cx, cy);
     drawHud(hudState.sprites);
+    if (!titleCard) return;
+    // the card's sprites are semi-transparent all together, and blending them at full weight over what's
+    // behind keeps them out of the fade
+    const semi = titleCard.sprites.length > 0 && (titleCard.sprites[0].a0 & 0xC00) === 0x400;
+    if (!semi) drawCard(titleCard.sprites);
+    if (titleCard.fade.bldY) darken(titleCard.fade.bldY);
+    if (semi) drawCard(titleCard.sprites);
   };
 }

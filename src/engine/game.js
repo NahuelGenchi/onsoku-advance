@@ -313,6 +313,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   startCard();
 
   function step() {
+    input.poll?.();
     if (loading) { loading = false; return; }
     state.sprites = [];
     tasks.run(ctx);

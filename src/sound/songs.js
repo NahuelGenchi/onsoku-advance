@@ -9,6 +9,7 @@ export const SONG = {
   SLIDE: 111,              // SE_SONIC_SKID_ATTACK
   AIR_DASH: 112,           // SE_SONIC_MIDAIR_SOMERSAULT
   INSTA_SHIELD: 113,
+  GRINDING: 114,           // SE_GRINDING: from a grind rail's start until Sonic leaves it
   BRAKE: 115,
   JUMP: 116,               // also the combo's backflip
   RING: 117,               // SE_RING_COPY: what the ring manager and the ring sparkle play

@@ -1,6 +1,6 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
-// platforms, boulders, waterfalls, boosters, checkpoints, wall poles, item boxes, enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that
+// platforms, boulders, waterfalls, boosters, checkpoints, wall poles, grind rails, item boxes, enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that
 // every task keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
@@ -19,6 +19,7 @@ import { createWaterfall } from './waterfalls.js';
 import { createBooster } from './boosters.js';
 import { createCheckpoint } from './checkpoints.js';
 import { createWallPole } from './wallpoles.js';
+import { createGrindRail } from './grindrails.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -129,7 +130,6 @@ function toggle(e, slot) {
 
 // The act 1 kinds not built yet, as tasks that do nothing but leave when their spawn point does, at the
 // original's priority (0x2000 unless given here) and range. The stage goal makes no task while its d1 is 0.
-const STAND_IN_PRIORITY = { 20: 0x900 };   // the grind rail's end
 const STAND_IN_RANGE = {
   // the half-pipe's start and end look further back and further ahead
   28: (e, cam) => e.x > cam.x + 368 || e.x < cam.x - 800 || e.y > cam.y + 288 || e.y < cam.y - 128,
@@ -139,7 +139,7 @@ const STAGE_GOAL = 0, FORCED_SLIDE = 46;
 function standIn(e, slot, kind = e.kind) {
   if (kind === STAGE_GOAL && e.d[1] === 0) return null;
   const out = STAND_IN_RANGE[kind] ?? ((e, cam) => offCam(e.x, e.y, cam));
-  const priority = kind === FORCED_SLIDE ? ((e.d[1] << 24) >> 24) + 0x1000 : STAND_IN_PRIORITY[kind] ?? OBJECTS;
+  const priority = kind === FORCED_SLIDE ? ((e.d[1] << 24) >> 24) + 0x1000 : OBJECTS;
   return {
     priority,
     run(ctx) {
@@ -154,7 +154,8 @@ function interactable(e, slot, anims, ctx) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createWaterfall(e, slot, anims)
-    ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? standIn(e, slot);
+    ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
+    ?? standIn(e, slot);
 }
 
 /**

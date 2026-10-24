@@ -77,13 +77,13 @@ The asset viewer draws the act with this collision on top of it. Every hill, wal
 
 Each level's interactables are RL-compressed with the GBA BIOS format (header byte `0x30`, then runs and literal blocks). Decompressed, the list is a grid of 256 × 256 px regions: a size word, the grid's width and height, one 32-bit offset per region (0 when empty, counted from the width field), then each region's 7-byte records `x, y, kind, d0, d1, d2, d3`, ending with `0xFF`. `x` and `y` are tiles inside the region.
 
-Kinds 17 and 18 are the layer toggles: while Sonic's centre is inside the rectangle `d2 × d3` tiles from `(x, y)`, edges included, they put him on the front or back layer. Act 1 has 11 front and 20 back toggles at the loops, and three grind rails (kinds 19 and 20), which also swap layers and aren't supported yet.
+Kinds 17 and 18 are the layer toggles: while Sonic's centre is inside the rectangle `d2 × d3` tiles from `(x, y)`, edges included, they put him on the front or back layer. Act 1 has 11 front and 20 back toggles at the loops. The grind rails (kinds 19 and 20, see *Grind rails*) swap the layer too.
 
 The enemies use the same 7-byte records, with the enemy's kind in place of the interactable's. The item boxes have 3-byte records `x, y, kind`. Act 1 has 27 enemies and 13 item boxes.
 
 ### Objects
 
-**The task list.** The original runs everything as tasks in one list, sorted by priority, and the engine does the same with the same priorities. In act 1 a frame runs the camera (`0xF00`), then at `0x2000` the ring manager, the entities manager, two palette animations and every object, enemy and effect in the order they were made, then the scattered rings (`0x2001`), the HUD (`0x2180`), Sonic (`0x3000`), the GamiGami shots, the music manager (`0x4000`), the Buzzer shots (`0x9000`) and the stage's clock (`0xFF00`). A new task goes after the last task of its priority. The list fetches the next task before it runs the current one, so a task made by the one just before its place only runs from the next frame.
+**The task list.** The original runs everything as tasks in one list, sorted by priority, and the engine does the same with the same priorities. In act 1 a frame runs the grind rails' ends (`0x900`), the camera (`0xF00`), then at `0x2000` the ring manager, the entities manager, two palette animations and every object, enemy and effect in the order they were made, then the scattered rings and the grind sparks (`0x2001`), the HUD (`0x2180`), Sonic (`0x3000`), the GamiGami shots, the music manager (`0x4000`), the Buzzer shots (`0x9000`) and the stage's clock (`0xFF00`). A new task goes after the last task of its priority. The list fetches the next task before it runs the current one, so a task made by the one just before its place only runs from the next frame.
 
 **The entities manager** spawns objects, item boxes and enemies by their spawn point, from a range 128 px around the screen: from 128 px left of it to 128 px past its right edge (`x − 128` to `x + 368`), and from 128 px above it to 128 px below its bottom edge (`y − 128` to `y + 288`), edges included and kept inside the act. On its first frame, and after the camera jumps more than 248 px across or 208 px down, it spawns everything in the range. Otherwise it scans only the strip the camera's move uncovered sideways, the range's full height, then the strip it uncovered up or down, the range's full width. It scans the regions that start before the strip's far edge, so a spawn point exactly at a region's first pixel is found a frame late. In each region it spawns the interactables, then the item boxes, then the enemies. A spawned entity isn't spawned again while its task runs. Most tasks end when their spawn point leaves the range, which lets it spawn again later. A defeated enemy stays gone until the act starts over.
 
@@ -192,6 +192,43 @@ Each frame, before it steps its animation, the waiting task tests the box its la
 - switches to variant 1 and steps it at once, so the swing's first frame shows on the same frame.
 
 The holding task then moves him on each of its 14 frames: 1 px down on the first seven, then 1, 16, 7, 7, 7, 7 and 7 px up. On the 14th it lets him go, thrown up: in the air, uncurled with his feet where they were (offset 14), in the spring's rising state (character state 21, then 18 and 19), with a Y speed of −7.5 px a frame and the X speed he came with. His own step then runs on the same frame. If he dies while it holds him it lets him go. When the swing ends, 29 frames after the catch, the pole shows the swing's last frame, goes back to variant 0, and catches him again from the next frame. Dropped straight onto a pole, he is caught, thrown up, falls back onto it and is caught again, over and over. The camera follows him as usual, with the air dead zone only if he was in the air when caught.
+
+### Grind rails
+
+Act 1 has three grind rails, drawn into the act over the sea and running down to the right. Each is a line of collision on the other layer from the ground around it, with an entity at each end. Kind 19, the start, sits at its top, and kind 20, the end, at its bottom. Both have a box `d2 × d3` tiles from their spawn point, edges included. Neither reads `d0` or `d1`. They test Sonic's centre where he was at the end of the previous frame, and only while he is alive: while he is dead they neither test him nor leave.
+
+| Rail | Start (19) | Its box | End (20) | Its box |
+| :---: | :--- | :--- | :--- | :--- |
+| 1 | (3728, 728) | 24 × 16 | (4248, 1232) | 80 × 24 |
+| 2 | (7088, 248) | 32 × 16 | (7352, 496) | 64 × 32 |
+| 3 | (9968, 632) | 32 × 16 | (10368, 1016) | 112 × 24 |
+
+**The start** (`Task_GrindRailStart`, `0x08023AD9`, priority `0x2000`) takes Sonic when his centre is in its box, he isn't already grinding, he isn't rising and his X speed is to the right. He can be on the ground or in the air, walking, jumping or falling. It doesn't check whether he is curled up. Then it:
+
+- raises his X speed to at least 0.5 px a frame,
+- sets the grinding flag (`moveState` bit `0x1000000`) and swaps his layer,
+- draws him in front of the front layer (his sprite's BG priority 1),
+- plays song 114, which loops,
+- starts the sparks (`Task_GrindEffect`, `0x08040911`, priority `0x2001`).
+
+Once on the rail's layer, he lands on it or runs onto it as on any ground. A rolling Sonic passes under all three starts: curled up, his centre is too low for their boxes.
+
+**Grinding.** On the ground, not curled up, with the flag set, his own step (`sub_80472B8`) only grinds. He can't slip off the rail, his control lock doesn't count down, and the B moves, the spin dash and the walk don't run. Each frame (`sub_80449D8`):
+
+- Holding down or right, even together with left, pulls him down the slope by `sin × 5/32`, more than a walk's 3/32. As for the walk, not on a wall or ceiling.
+- Holding left takes 8/256 off his ground speed, and every frame takes 8/256 more, each time no lower than 0.75. So with nothing held he slows down to 0.75 px a frame along the rail, and holding down or right he speeds up.
+- He is put in character state 16, and his X and Y speeds follow the rail's angle.
+
+Then the act's edges, the move and his ground sensors run as on the ground. A jump press (`sub_8044434`) checks for 4 px of room above him on the layer he came from, not on the rail's. Without it, nothing happens. With it, he jumps back onto that layer: song 114 stops, his Y speed becomes the jump's 4.875 along the rail's normal, his X speed stays as it was, he curls up as for any jump, and he is drawn behind the front layer again. The original's code also has two cases the recordings don't reach: a hit while grinding takes him off the rail the same way, if there is room, and a Sonic who rolls onto a rail rolls down it, where a normal jump clears the flag but leaves him on the rail's layer.
+
+His animation is state 16's, animation 44. Where the rail is steeper than `0x20` (`(rotation + 0x20) & 0xC0` not 0) the animation chooser shows variant 1 instead and turns him to face right. All three of act 1's rails are that steep for all but their first pixels. The sparks (animation `749`, in OAM order 8) only show and animate on the frames his animation was that variant, at his feet, mirrored when he faces right. They go once he stops grinding.
+
+**The end** (`Task_GrindRailEnd`, `0x08023C59`) runs at priority `0x900`, before the camera, so it sees the camera of the last frame. It throws a grinding Sonic off when his centre is in its box:
+
+- In its right half (his x past the box's left edge plus half its width): up at the jump's 4.875 px a frame, in the spring's somersault (character state 17, animation 11, then 19).
+- In its left half, only while jump is held (the button itself, read from the pad): up at 7 px a frame, in character state 20 (animation 45).
+
+Either way, his X and ground speeds stay as they were, song 114 stops, song 116 plays, his attacks and mid-air moves end (`Player_TransitionCancelFlyingAndBoost`), he leaves the rail's layer and goes behind the front layer again. He isn't curled up and doesn't count as having jumped, so he has no jump cap, insta-shield or mid-air dash. Sonic's own step then runs in the air on the same frame. Coming down a rail fast, he usually passes its end's left half between two frames and is thrown up from the right half. Song 114 shares player 2 with the jump and with every other ring Sonic collects, so a ring on the rail can cut it off for good.
 
 ### Rings
 
@@ -309,7 +346,8 @@ Losing a life destroys every task, so nothing after Sonic runs on that frame, an
 - *Waterfalls and balancing:* 16 more recordings walk through a waterfall, fall through two, and stand on the third boulder inside one and jump. They also stand Sonic at a ledge each way and turn him round, walk him up to one, and stand him on both sides of the first boulder and of a crumbling platform each way round, at the edge and a pixel inside it. The whole game matches all of them on every frame, including his balancing animations and where the splash is drawn.
 - *Boosters:* 14 more recordings walk Sonic over the first, third and fourth boosters and the sloped one, drop him standing onto the first, hop over it at three timings, run into it with the combo's first B attack and with its somersault, walk left into the second while holding left, and drop him onto it holding down. An earlier recording, where he spin dashes into the right spring at 6432 and rolls back over the sloped booster again and again, shows it keeping a speed already above 9. The whole game matches all of them on every frame, run from the act's first frame: Sonic and his animation, the camera, the rings, where each booster is drawn and with which frame, and every frame song 172 starts. The fourth booster throws Sonic into the half-pipe at 9968, which isn't built yet, so that recording is compared up to the frame before he reaches it. The original's OAM shows the boosters at BG priority 2.
 - *Checkpoints and the restart:* 12 more recordings, which also dump the course time, the checkpoint Sonic would start from and the checkpoints' tasks, walk Sonic through each of the five checkpoints, through the first from the right and jumping, and roll him through it. Five of them then drop him out of the bottom of the act after the first, second or fourth checkpoint, wait through the restart and the title card, and walk on; one presses A during the card to skip it. Run from the act's first frame, the whole game matches all of them on every frame: Sonic and his animation, the camera, the course time and stage clock, where he would start again, the title card holding him, where each checkpoint is drawn and with which frame, the frames song 169 starts and the frame the music starts again. The earlier recordings all still match, with their harnesses now leaving the title card to the game, and a spin dash recording that dies and waits through the restart now matches too: before, the music started two frames late and Sonic grew bored 224 frames early.
-- *Wall poles:* 40 more recordings, which also dump the poles' tasks, drop Sonic beside each of the seven poles from four places, and beside the first standing, curled up, moving right at 3 or 8 px a frame and drifting left. They also throw him up curled into the first from below, run him off a ledge into one and hop him into another, and press A, B, down and left while the first holds him and as it lets go. Every pole catches him in at least three of them, some again and again. Run from the act's first frame, the whole game matches all of them on every frame: Sonic and his animation, the hold, the camera, where each pole is drawn and with which frame, and the frames song 175 starts. Two of them run on onto a grind rail and into the half-pipe, which aren't built yet, so they are compared up to the frame before.
+- *Wall poles:* 40 more recordings, which also dump the poles' tasks, drop Sonic beside each of the seven poles from four places, and beside the first standing, curled up, moving right at 3 or 8 px a frame and drifting left. They also throw him up curled into the first from below, run him off a ledge into one and hop him into another, and press A, B, down and left while the first holds him and as it lets go. Every pole catches him in at least three of them, some again and again. Run from the act's first frame, the whole game matches all of them on every frame: Sonic and his animation, the hold, the camera, where each pole is drawn and with which frame, and the frames song 175 starts. One of them runs on into the half-pipe, which isn't built yet, so it is compared up to the frame before. Another runs on down the second grind rail and now matches to its end.
+- *Grind rails:* 25 more recordings, which also dump the rails' and the sparks' tasks, Sonic's sprite priority and the grinding flag. They drop Sonic into each rail's start at 1, 3 and 5 px a frame, run him onto two of them on the ground, jump him onto the first from the ground at two timings, throw him onto the second from the wall pole below it, and roll him under two starts. On the rails they hold nothing, right, down or left, jump off partway, and ride to each end, where he is thrown from the right half or, slowed down with jump held, from the left half. Run from the act's first frame, the whole game matches all of them on every frame: Sonic, his animation and sprite priority, the grinding flag, the layer, the camera, where the sparks are drawn, the frames songs 114 and 116 start, and whether song 114 is still playing. One of them showed that up and down work during the control lock after slipping off a slope: Sonic, holding down, rolled as he landed.
 - *Palette animations:* mGBA's palette RAM, read every frame from the act's first frame, and again through the restart after a death, matches the colours the engine has loaded on every frame. A screenshot at a waterfall matches the engine's frame pixel for pixel in the waterfall, the layers and the sea, with the stage clock and both animations at the same point.
 
 ### HUD
@@ -363,6 +401,8 @@ Sonic's character state picks his animation through a table of 94 `(animation, v
 | Spring: falling | 10, variant 2 | Bounce block | 4 (the walk) |
 | Push | 12 | Balancing, facing the drop | 13 |
 | Balancing, back to the drop | 14 | Hanging on a wall pole | 38 |
+| Grinding | 44 | Grinding, steep | 44, variant 1 |
+| Jumping off a rail before its end | 45 | | |
 
 **Pushing.** Walking into a wall, or into the side of a solid object or a spring's back, sets the push flag (`moveState` bit `0x20`), and every frame it's set the animation chooser picks the push (character state 14). Rolling into a wall doesn't. Landing, leaving the ground, turning round, jumping, getting hurt, walking off an object and standing still on level ground clear it.
 
@@ -371,7 +411,7 @@ Sonic's character state picks his animation through a table of 94 `(animation, v
 - On an object (`Player_8044D74`): when his centre is more than a pixel past a side of its box, counting his half-width of 6 px. A side at 0 never counts, so he never balances on a crumbling platform's left side, or on its right side when it is flipped. Once balancing, he keeps on a pixel further in, which only matters when the object moves him.
 - On the terrain (`Player_8044E48`): when the floor scan under his centre finds no ground within 8 px, and the scans 8 px to each side find it right under one side and not within 8 px under the other.
 
-Effects: spin dash dust `746` (above a charge of 2.0: `747`), brake dust `748`, insta-shield flash `50` variant 1.
+Effects: spin dash dust `746` (above a charge of 2.0: `747`), brake dust `748`, insta-shield flash `50` variant 1, grind sparks `749`.
 
 ### Sonic's moves
 
@@ -397,7 +437,7 @@ Other details the engine reproduces: rolling starts from any ground speed, a jum
 Sonic's sensors follow SA1's player code. His position is his centre; the sensors sit 8 px either side of it and `spriteOffsetY` (14 standing, 9 curled) toward the surface. Each sensor scans up to three tiles ahead, or two back when it starts inside solid ground, and reports the distance to the last free pixel.
 
 - **On the ground** the surface angle picks one of four modes (floor, either wall, ceiling). Sonic snaps onto the nearer of his two sensors if it is within `min(|speed| + 3, 11)` px, and otherwise leaves the ground. Ground speed moves him along the angle, and slopes add `sin × 3/32` walking and `sin × 60/256` rolling, a quarter of that uphill. A standing Sonic never slides.
-- **Walls and ceilings** drop him below 1.875 px per frame and lock his controls for 30 grounded frames.
+- **Walls and ceilings** drop him below 1.875 px per frame and lock left and right for 30 grounded frames. Up and down still work during the lock, so holding down he rolls as soon as he lands. Up and down do nothing while he balances at an edge.
 - **In the air** the direction he moves picks which sensors run. Landing turns his speed into ground speed by the landing angle, and of the two steep ceiling slopes only `0x41`–`0x5F` catches him.
 - **Jump-through ledges** are solid on the ground. In the air the floor sensors ignore them while he rises, and the walls and ceiling while his downward speed is under 3.
 - **Bounds:** the camera stops at the act's edges. Before it moves each frame, `UpdateCamera` first keeps it a pixel further in from the right and bottom edges than it may end up, so when Sonic is in the air at the bottom of the act, inside the camera's vertical dead zone, it sits a pixel above the edge. Falling out of the bottom kills Sonic (see [Dying and the restart](#dying-and-the-restart)).
@@ -446,6 +486,7 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Booster | 172 | 2 | Every frame a booster sends Sonic on, even when he is already faster |
 | Crumbling platform | 173 | 2 | A crumbling platform starts to fall apart |
 | Wall pole | 175 | 2 | A wall pole catches Sonic |
+| Grinding | 114 | 2 | A grind rail's start takes Sonic; it loops until he jumps or is thrown off, or another sound takes player 2 |
 | Trampoline | 176 | 2 | Every bounce |
 | Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |
 | Rings from a box | 117 | 3 | The ring prizes, once for the lot |

@@ -67,6 +67,7 @@ function sideways(o, hb, p, terrain, res) {
   if (p.air || p.attack !== 0) { p.xsp = 0; return true; }
   if (p.xsp === 0) return true;
   res.flags |= PUSHING;
+  p.pushing = true;
   p.facing = fromLeft ? 1 : -1;
   standUp(p);
   p.gsp = 0; p.xsp = 0;
@@ -85,7 +86,7 @@ export function platform(o, hb, p, terrain) {
   if (stoodHere) p.onObject = null;
   const done = ((p.air || stoodHere) && vertical(o, hb, p, body(p), stoodHere, res))
     || sideways(o, hb, p, terrain, res) || vertical(o, hb, p, body(p), stoodHere, res);
-  if (!done && stoodHere && !p.onObject) p.air = true;   // walked or jumped off
+  if (!done && stoodHere && !p.onObject) { p.air = true; p.pushing = false; }   // walked or jumped off
   return res.flags;
 }
 
@@ -113,6 +114,22 @@ export function platformTop(o, x, y, hb, p) {
   }
   if (stoodHere) p.air = true;   // walked or jumped off
   return 0;
+}
+
+/**
+ * Whether Sonic breaks a breakable object (sub_800C394): curled up and moving down with his side probe (a
+ * pixel taller at each end) touching it, or his attack box on it while he isn't curled. A falling Sonic
+ * bounces back up at the same speed. Rolling into it on level ground doesn't break it.
+ */
+export function breaks(o, hb, p) {
+  if (!hb || p.dead) return false;
+  const [px, py] = at(p), probe = [-(SOX + 5), -(p.offsetY + 1), SOX + 5, p.offsetY + 1];
+  if ((p.curled && p.ysp > 0 && overlap(o.x, o.y, hb, px, py, probe))
+    || (p.boxes[1] && overlap(o.x, o.y, hb, px, py, p.boxes[1]) && !p.curled)) {
+    if (p.ysp > 0) p.ysp = -p.ysp;
+    return true;
+  }
+  return false;
 }
 
 /**

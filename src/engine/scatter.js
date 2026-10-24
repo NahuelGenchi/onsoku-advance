@@ -5,7 +5,6 @@
 
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { SINE } from './trig.js';
-import { SCREEN_W, SCREEN_H } from './constants.js';
 import { tileFloor } from './terrain.js';
 
 const SLOTS = 48;
@@ -66,13 +65,14 @@ export function createScatter(anims) {
 
     /**
      * One frame for every ring: it moves, may be picked up, bounces off the floor while falling (they go
-     * through walls and ceilings), falls, and ages. Returns the rings picked up, as { x, y }.
+     * through walls and ceilings), falls, and ages. Returns the rings picked up, as { x, y }. `view` is what
+     * the screen shows (camera.js viewOf): only drawing depends on it.
      */
-    update(player, cam, terrain, tick) {
+    update(player, view, terrain, tick) {
       tickAnim(anim, anims);
       const px = Math.floor(player.x), py = Math.floor(player.y), box = player.boxes[0];
       const canTake = !player.dead && (player.state !== 'hurt' || player.invulnerable === 0) && box;
-      const cx = Math.floor(cam.x), cy = Math.floor(cam.y), taken = [];
+      const taken = [];
       for (const r of rings) {
         r.shown = false;
         if (!r.life) continue;
@@ -88,8 +88,8 @@ export function createScatter(anims) {
         }
         r.vy += GRAVITY;
         // drawn where it was before the bounce; blinking in its last 32 frames with Sonic's blink
-        const sx = rx - cx, sy = ry - cy;
-        r.shown = sx + TILE > 0 && sx + TILE < SCREEN_W + 2 * TILE && sy > -TILE && sy < SCREEN_H + TILE
+        const sx = rx - view.x, sy = ry - view.y;
+        r.shown = sx + TILE > 0 && sx + TILE < view.w + 2 * TILE && sy > -TILE && sy < view.h + TILE
           && (r.life >= BLINK_BELOW || (tick & 2) === 0);
         r.sx = rx; r.sy = ry;
         r.life--;

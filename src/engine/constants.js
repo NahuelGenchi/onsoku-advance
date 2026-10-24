@@ -3,6 +3,9 @@
 // src/game/shared/stage/camera.c) and were checked against the USA ROM's code (see docs/ROM.md).
 
 export const SCREEN_W = 240, SCREEN_H = 160;   // Game Boy Advance screen
+// The widescreen view's largest size. Objects and enemies exist up to 128 px past each edge of the original
+// screen, so a view 64 px wider on each side and 24 px taller on each side never shows them appear or vanish.
+export const VIEW_MAX_W = 368, VIEW_MAX_H = 208;
 export const TICK_MS = 1000 / 60;
 
 export const PHYSICS = {

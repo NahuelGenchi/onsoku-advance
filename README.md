@@ -56,7 +56,7 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 <td width="50%" valign="top">
 
 **🔍 Pixel-perfect**<br>
-<sub>Native 240 × 160 output, scaled up in whole steps so every pixel stays sharp on any screen.</sub>
+<sub>Native 240 × 160 output, scaled up in whole steps so every pixel stays sharp on any screen. An optional widescreen view shows more of the act around it.</sub>
 
 </td>
 </tr>
@@ -99,7 +99,7 @@ flowchart LR
 
 1. **Extract.** You pick your ROM. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory. It is designed to run entirely in the browser: the ROM is read locally and nothing is uploaded.
 2. **Simulate.** The engine steps 60 times per second with the original game's rules: acceleration, braking, gravity, jump height, roll friction, spin dash speeds and the camera's dead zones.
-3. **Draw.** Sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds.
+3. **Draw.** Sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view, off by default, draws up to 368 × 208 around the same screen and fills the window at the same whole-step scale; the game runs exactly as it does at 240 × 160.
 4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)).
 
 ## Getting started
@@ -140,6 +140,7 @@ To see everything the extractor decodes, open <http://localhost:8000/viewer.html
 | Show or hide the help panel | <kbd>H</kbd> |
 | Show or hide the collision | <kbd>C</kbd> |
 | Sound on or off | <kbd>M</kbd> |
+| Widescreen view on or off | <kbd>V</kbd> |
 
 On touch screens, on-screen buttons appear instead.
 

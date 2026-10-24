@@ -56,9 +56,12 @@ export function createRings(layout, anims) {
     /** The atlas frame every ring shows. */
     frame: () => frameOf(anim, anims),
 
-    /** The atlas frame every ring shows, and the rings on screen as the original picks them. */
-    visible(cam) {
-      return { frame: frameOf(anim, anims), list: onScreen(cam) };
+    /**
+     * The atlas frame every ring shows, and the rings on screen as the original picks them; `view` (camera.js
+     * viewOf) is the original screen or the wider one.
+     */
+    visible(view) {
+      return { frame: frameOf(anim, anims), list: onScreen(view, view.w, view.h) };
     },
 
     /**
@@ -77,13 +80,13 @@ export function createRings(layout, anims) {
 
   // the rings the original draws: region by region from the camera's, those not taken whose point is on
   // screen, give or take a ring
-  function onScreen(cam) {
+  function onScreen(cam, w = SCREEN_W, h = SCREEN_H) {
     const cx = Math.floor(cam.x), cy = Math.floor(cam.y), list = [];
-    for (let ry = cy >> 8; ry * REGION < cy + SCREEN_H && ry < regionsY; ry++) {
-      for (let rx = cx >> 8; rx * REGION < cx + SCREEN_W && rx < regionsX; rx++) {
+    for (let ry = cy >> 8; ry * REGION < cy + h && ry < regionsY; ry++) {
+      for (let rx = cx >> 8; rx * REGION < cx + w && rx < regionsX; rx++) {
         for (const ring of regions[rx + ry * regionsX]) {
           const sx = ring.x - cx, sy = ring.y - cy;
-          if (ring.taken || sx < -TILE || sx + TILE > SCREEN_W + 2 * TILE || sy < 0 || sy - 2 * TILE > SCREEN_H) continue;
+          if (ring.taken || sx < -TILE || sx + TILE > w + 2 * TILE || sy < 0 || sy - 2 * TILE > h) continue;
           list.push(ring);
         }
       }

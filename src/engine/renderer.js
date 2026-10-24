@@ -1,9 +1,11 @@
-// Draws one 240 × 160 frame: the zone background with its per-line scrolling, the act's back layer, the
+// Draws one 240 × 160 frame (or a wider and taller one, in the widescreen view): the zone background with its per-line scrolling, the act's back layer, the
 // sprites behind the front layer, the front layer, the sprites in front of it, and the HUD or the title card on
 // top, the background and the layers in the colours the act's palette animations have loaded. The
 // sprites are the act's rings and the step's list, stacked as the GBA stacks OAM entries: a lower OAM order
 // in front, and within an order the one put in first. While the title card fades the screen in, everything but
-// its semi-transparent sprites is darkened.
+// its semi-transparent sprites is darkened. The widescreen view shows more of the act around the original
+// screen, which sits in its middle unless an edge of the act is near; the HUD keeps to the view's corners and
+// the title card to its middle.
 
 import { SCREEN_W, SCREEN_H } from './constants.js';
 import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './stage.js';
@@ -21,9 +23,13 @@ function backgroundOffset(line, tick, cameraX) {
   if (line < 88) return 0;
   return ((line - 86) * cameraX) >> 8;
 }
+// The lines that never scroll. The original screen only ever shows their first 240 columns, and they don't
+// repeat cleanly past their 256th: a big cloud is cut there.
+const STILL = line => line >= 40 && line < 88;
 
 export function createRenderer(canvas, assets) {
-  canvas.width = SCREEN_W; canvas.height = SCREEN_H;
+  let W = SCREEN_W, H = SCREEN_H;
+  canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d', { alpha: false });
   const { atlas, frames } = assets.sprites, hud = assets.hud, card = assets.titleCard;
   const stage = assets.stage, { backgrounds } = stage;
@@ -43,8 +49,9 @@ export function createRenderer(canvas, assets) {
 
   // the rotation hardware's sprites are put together here pixel by pixel, then drawn over the frame
   const atlasPixels = atlas.getContext('2d').getImageData(0, 0, atlas.width, atlas.height).data;
-  const objLayer = new ImageData(SCREEN_W, SCREEN_H), objCanvas = document.createElement('canvas');
-  objCanvas.width = SCREEN_W; objCanvas.height = SCREEN_H;
+  let objLayer = new ImageData(W, H);
+  const objCanvas = document.createElement('canvas');
+  objCanvas.width = W; objCanvas.height = H;
   const objCtx = objCanvas.getContext('2d');
 
   // a sprite through the rotation hardware (`affine`: rotation 0–1023 per turn, 8.8 scales, double size).
@@ -65,29 +72,33 @@ export function createRenderer(canvas, assets) {
     let sy = s16(Math.floor(y) - ((u2 * ox + u3 * oy + (hh << 8)) >> 8));
     let sw = w, sh = h;
     if (double) { sx -= hw; sy -= hh; sw *= 2; sh *= 2; }
-    if (sx + sw < 0 || sx > SCREEN_W || sy + sh < 0 || sy > SCREEN_H) return;
-    const box = [SCREEN_W, SCREEN_H, -1, -1];
-    for (const [px, py, pw, ph, tx, ty] of pieces) drawPiece((sx + px) & 0x1FF, (sy + py) & 0xFF, pw, ph, tx, ty, mat, double, box);
+    if (sx + sw < 0 || sx > W || sy + sh < 0 || sy > H) return;
+    const box = [W, H, -1, -1], wrap = W === SCREEN_W && H === SCREEN_H;
+    for (const [px, py, pw, ph, tx, ty] of pieces) {
+      drawPiece(wrap ? (sx + px) & 0x1FF : sx + px, wrap ? (sy + py) & 0xFF : sy + py, pw, ph, tx, ty, mat, double, box, wrap);
+    }
     if (box[2] < 0) return;
     const [x0, y0] = box, bw = box[2] - x0 + 1, bh = box[3] - y0 + 1;
     objCtx.putImageData(objLayer, 0, 0, x0, y0, bw, bh);
     ctx.drawImage(objCanvas, x0, y0, bw, bh, x0, y0, bw, bh);
-    for (let row = y0; row <= box[3]; row++) objLayer.data.fill(0, (row * SCREEN_W + x0) * 4, (row * SCREEN_W + box[2] + 1) * 4);
+    for (let row = y0; row <= box[3]; row++) objLayer.data.fill(0, (row * W + x0) * 4, (row * W + box[2] + 1) * 4);
   }
 
   // one rotated OAM entry at (ox, oy), sampled line by line the way mGBA 0.10.5's software renderer does
   // (src/gba/renderers/software-obj.c): 8.8 steps from the box's centre, the nearest texel, and the line's
   // run stopping at the first one outside the piece once its start is skipped ahead. A piece earlier in the
-  // frame has the lower OAM index and stays in front of a later one.
-  function drawPiece(ox, oy, pw, ph, tx, ty, [pa, pb, pc, pd], double, box) {
+  // frame has the lower OAM index and stays in front of a later one. With `wrap`, (ox, oy) are OAM's 9-bit x and
+  // 8-bit y, and a piece past the right or the bottom edge comes round on the left or the top, as on the GBA. The
+  // widescreen view reaches past x 256 and draws each piece where it is.
+  function drawPiece(ox, oy, pw, ph, tx, ty, [pa, pb, pc, pd], double, box, wrap) {
     const tw = double ? pw * 2 : pw, th = double ? ph * 2 : ph;
-    if ((oy >= SCREEN_H && oy + th < 228) || (ox >= SCREEN_W && ox + tw < 512)) return;
-    const x = (ox << 23) >> 23, endY = oy + th, px = objLayer.data;
-    for (let line = 0; line < SCREEN_H; line++) {
-      if ((line < oy && (endY - 256 < 0 || line >= endY - 256)) || line >= endY) continue;
+    if (wrap ? (oy >= H && oy + th < 228) || (ox >= W && ox + tw < 512) : oy >= H || ox >= W) return;
+    const x = wrap ? (ox << 23) >> 23 : ox, endY = oy + th, px = objLayer.data;
+    for (let line = 0; line < H; line++) {
+      if ((line < oy && (!wrap || endY - 256 < 0 || line >= endY - 256)) || line >= endY) continue;
       const inY = line < oy ? line - oy + 256 : line - oy;
       let outX = Math.max(x, 0), inX = outX - x;
-      const end = Math.min(x + tw, SCREEN_W);
+      const end = Math.min(x + tw, W);
       let xAcc = pa * (inX - 1 - (tw >> 1)) + pb * (inY - (th >> 1)) + (pw << 7);
       let yAcc = pc * (inX - 1 - (tw >> 1)) + pd * (inY - (th >> 1)) + (ph << 7);
       const skip = n => { xAcc += pa * n; yAcc += pc * n; outX += n; inX += n; };
@@ -104,7 +115,7 @@ export function createRenderer(canvas, assets) {
         xAcc += pa; yAcc += pc;
         const lx = xAcc >> 8, ly = yAcc >> 8;
         if (lx < 0 || lx >= pw || ly < 0 || ly >= ph) break;
-        const k = ((ty + ly) * atlas.width + tx + lx) * 4, o = (line * SCREEN_W + outX) * 4;
+        const k = ((ty + ly) * atlas.width + tx + lx) * 4, o = (line * W + outX) * 4;
         if (!atlasPixels[k + 3] || px[o + 3]) continue;
         px[o] = atlasPixels[k]; px[o + 1] = atlasPixels[k + 1]; px[o + 2] = atlasPixels[k + 2]; px[o + 3] = 255;
         if (outX < box[0]) box[0] = outX;
@@ -117,35 +128,62 @@ export function createRenderer(canvas, assets) {
 
   // debug overlay: the collision under the view, drawn through a scratch canvas so it blends
   const overlay = document.createElement('canvas');
-  overlay.width = SCREEN_W; overlay.height = SCREEN_H;
+  overlay.width = W; overlay.height = H;
   function drawCollision(terrain, cx, cy) {
-    overlay.getContext('2d').putImageData(collisionImage(terrain, cx, cy, SCREEN_W, SCREEN_H), 0, 0);
+    overlay.getContext('2d').putImageData(collisionImage(terrain, cx, cy, W, H), 0, 0);
     ctx.drawImage(overlay, 0, 0);
   }
 
-  // the HUD's sprites have priority 0: in front of the layers and every other sprite
+  // the HUD's sprites have priority 0: in front of the layers and every other sprite. The lives keep to the
+  // bottom of a taller view.
   function drawHud(sprites) {
     for (const [what, x, y] of sprites) {
       const [sx, sy, w, h] = what === 'ring' ? hud.ring : what === 'face' ? hud.face : hud.glyphs[what];
-      ctx.drawImage(hud.sheet, sx, sy, w, h, x, y, w, h);
+      ctx.drawImage(hud.sheet, sx, sy, w, h, x, y < SCREEN_H / 2 ? y : y + H - SCREEN_H, w, h);
     }
   }
 
   // the title card's sprites from their OAM attributes; they have priority 0 and the lowest OAM orders, so
   // they are in front of everything. A sprite off the right or the bottom edge wraps round to the left or the top.
+  // The widescreen view is wider and taller than that wrap allows for, so it places each sprite where its piece
+  // put it, without wrapping. The zigzag band keeps to the left edge and runs down to the bottom, the pieces
+  // along the bottom keep to it, the act number and the Japanese name to the right, and the white bar and the
+  // zone's name go on to the right edge: the bar with more of itself, the name with its next letters. Those two
+  // slide in from the original screen's right edge, so their way in is stretched to start from the view's.
   function drawCard(sprites) {
+    const wider = W - SCREEN_W, taller = H - SCREEN_H, wide = wider > 0 || taller > 0, more = Math.ceil(wider / 32);
+    const last = {}, shift = {};
+    sprites.forEach((s, i) => { last[s.slot] = i; });
+    // each one's x where its way in ends
+    for (const [slot, stop] of [['bar', -16], ['zone', 0]]) {
+      const first = sprites.find(s => s.slot === slot);
+      shift[slot] = first && first.x > stop ? Math.round((first.x - stop) * wider / (SCREEN_W - stop)) : 0;
+    }
+    const index = new Map(sprites.map((s, i) => [s, i]));
+    const put = (s, glyph, x, y) => {
+      const { w, h, glyphs } = card.slots[s.slot], [sx, sy] = glyphs[glyph];
+      if (wide) ctx.drawImage(card.sheet, sx, sy, w, h, x, y, w, h);
+      else for (const dx of [x, x - 512]) for (const dy of [y, y - 256]) ctx.drawImage(card.sheet, sx, sy, w, h, dx, dy, w, h);
+    };
     for (const s of stack(sprites)) {
       if ((s.a0 & 0x300) === 0x200) continue;   // hidden
-      const { w, h, glyphs } = card.slots[s.slot], [sx, sy] = glyphs[s.glyph];
-      const x = s.a1 & 0x1FF, y = s.a0 & 0xFF;
-      for (const dx of [x, x - 512]) for (const dy of [y, y - 256]) ctx.drawImage(card.sheet, sx, sy, w, h, dx, dy, w, h);
+      const x = wide ? s.x : s.a1 & 0x1FF, y = wide ? s.y : s.a0 & 0xFF;
+      if (s.slot === 'zigzag') {
+        for (let dy = 0; dy === 0 || (y === 128 && y + dy < H); dy += 32) put(s, s.glyph, x, y + dy);
+      } else if (s.slot === 'act' || s.slot === 'zoneJp') put(s, s.glyph, x + wider, y + taller);
+      else if (s.slot === 'bar' || s.slot === 'zone') {
+        put(s, s.glyph, x + shift[s.slot], y + taller);
+        if (index.get(s) !== last[s.slot]) continue;
+        // a bar sprite or the zone's next letter (its seven letters repeat), each 32 px further right
+        for (let i = 1; i <= more; i++) put(s, s.slot === 'zone' ? (s.glyph + i) % 7 : s.glyph, x + shift[s.slot] + 32 * i, y + taller);
+      } else put(s, s.glyph, x, y);
     }
   }
 
   // the brightness decrease by bldY sixteenths, as mGBA (the reference) applies it to its 8-bit colours: the
   // red channel keeps what a sixteenth-rounded-down decrease leaves, green and blue round down after it
   function darken(bldY) {
-    const img = ctx.getImageData(0, 0, SCREEN_W, SCREEN_H), d = img.data;
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
     for (let i = 0; i < d.length; i += 4) {
       d[i] -= (d[i] * bldY) >> 4;
       d[i + 1] = (d[i + 1] * (16 - bldY)) >> 4;
@@ -154,38 +192,66 @@ export function createRenderer(canvas, assets) {
     ctx.putImageData(img, 0, 0);
   }
 
+  // A still line of the background, its column 0 at the original screen's left edge `ox`. The widescreen view
+  // shows it mirrored past its own edges, which carries its clouds and islands on without a seam.
+  const mirrored = new WeakMap();
+  function drawStill(background, bgLine, line, ox) {
+    let flip = mirrored.get(background);
+    if (!flip) {
+      flip = document.createElement('canvas');
+      flip.width = bgW; flip.height = background.height;
+      const f = flip.getContext('2d');
+      f.scale(-1, 1); f.drawImage(background, -bgW, 0);
+      mirrored.set(background, flip);
+    }
+    const n = Math.min(bgW, W - ox), right = W - ox - n;
+    if (ox > 0) ctx.drawImage(flip, bgW - ox, bgLine, ox, 1, 0, line, ox, 1);
+    ctx.drawImage(background, 0, bgLine, n, 1, ox, line, n, 1);
+    if (right > 0) ctx.drawImage(flip, 0, bgLine, right, 1, ox + n, line, right, 1);
+  }
+
   // back to front: higher orders first, and the later entries of an order before the earlier ones
   function stack(list) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  return function render({ tick, cam, rings, sprites, terrain, palettes, hud: hudState, card: titleCard, showCollision }) {
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside
-    const cx = Math.min(Math.max(Math.floor(cam.x), 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y), 0), cam.maxY);
+    const { x: vx, y: vy } = view;
+    // the background is fixed to the view, as the original's is to its screen: it lines up with a 240 × 160
+    // screen in the view's middle, and the sea scrolls with where that screen would be. Near the act's edges
+    // the view stops before the camera does, and so does the background. A taller view shows the map's lines
+    // below it and repeats its top line above it.
+    const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, cx = vx + ox;
     const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
-    for (let line = 0; line < SCREEN_H; line++) {
-      const off = mod(backgroundOffset(line, tick - 1, cx), bgW);
-      ctx.drawImage(background, off, line, bgW - off, 1, 0, line, bgW - off, 1);
-      if (bgW - off < SCREEN_W) ctx.drawImage(background, 0, line, off, 1, bgW - off, line, off, 1);
+    for (let line = 0; line < H; line++) {
+      const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
+      if (STILL(bgLine)) { drawStill(background, bgLine, line, ox); continue; }
+      let off = mod(backgroundOffset(bgLine, tick - 1, cx) - ox, bgW);
+      for (let x = 0; x < W; off = 0) {
+        const n = Math.min(bgW - off, W - x);
+        ctx.drawImage(background, off, bgLine, n, 1, x, line, n, 1);
+        x += n;
+      }
     }
     const frame = stageAnimFrame(stage, tick);
-    drawLayer(ctx, stage, 'back', cx, cy, SCREEN_W, SCREEN_H, frame, palettes);
+    drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
-    const shown = rings.visible(cam);
+    const shown = rings.visible(view);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
     const drawAll = behind => {
       for (const s of list) {
         if ((s.prio >= 2) !== behind) continue;
-        if (s.affine) drawAffine(s.frame, s.x - cx, s.y - cy, s.affine);
-        else drawSprite(s.frame, s.x - cx, s.y - cy, s.flipX, s.flipY);
+        if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
       }
     };
     drawAll(true);
-    drawLayer(ctx, stage, 'front', cx, cy, SCREEN_W, SCREEN_H, frame, palettes);
+    drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
     drawAll(false);
-    if (showCollision) drawCollision(terrain, cx, cy);
+    if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
@@ -194,5 +260,14 @@ export function createRenderer(canvas, assets) {
     if (!semi) drawCard(titleCard.sprites);
     if (titleCard.fade.bldY) darken(titleCard.fade.bldY);
     if (semi) drawCard(titleCard.sprites);
+  }
+
+  /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */
+  render.resize = (w, h) => {
+    W = w; H = h;
+    canvas.width = objCanvas.width = overlay.width = w;
+    canvas.height = objCanvas.height = overlay.height = h;
+    objLayer = new ImageData(w, h);
   };
+  return render;
 }

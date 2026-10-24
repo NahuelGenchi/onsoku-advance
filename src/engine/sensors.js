@@ -80,8 +80,8 @@ export function groundSensors(p, t) {
 }
 
 /**
- * Stops Sonic at a wall ahead of him, one frame early (sub_8023128 walking, sub_80231C0 rolling).
- * Returns true when he was pushed back by a wall to his side; walking, that starts a push.
+ * Stops Sonic at a wall ahead of him, one frame early (sub_8023128 walking, sub_80231C0 rolling and in the
+ * B-button combo). Returns true when he was pushed back by a wall to his side; walking, that starts a push.
  */
 export function wallPush(p, t, rolling = false) {
   if (p.gsp === 0) return false;

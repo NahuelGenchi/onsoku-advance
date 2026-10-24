@@ -367,7 +367,7 @@ function groundStep(p, c, world, input) {
   } else if (p.attack !== 0) {
     slope(p);
     attackStep(p, c, world);
-    wallPush(p, t);
+    wallPush(p, t, true);   // the rolling check: a wall stops the combo's moves without starting a push
   } else {
     if (attackStep(p, c, world)) return;
     if (trySpinDash(p, c, world)) { bounds(p, world); followGround(p, t); return; }

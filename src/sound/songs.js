@@ -19,6 +19,7 @@ export const SONG = {
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
+  CHECKPOINT: 169,
   SPRING: 170,
   SPIKES: 171,             // SE_171: hurt by spikes
   BOOSTER: 172,            // SE_BOOSTER: every frame a booster sends Sonic on

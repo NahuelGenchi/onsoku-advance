@@ -90,6 +90,32 @@ export function platform(o, hb, p, terrain) {
 }
 
 /**
+ * A platform Sonic can only land on (Coll_Player_PlatformCrumbling): he passes through it from below and
+ * from the sides, and lands on its top whenever his body touches its box while he isn't rising, wherever in
+ * the box he is. This test keeps his subpixel position against the box's edges. `o` is what he stands on;
+ * (x, y) is where its box is this frame. Returns LANDED while he is on it.
+ */
+export function platformTop(o, x, y, hb, p) {
+  if (!hb || p.dead) return 0;
+  const stoodHere = p.onObject === o;
+  if (stoodHere) p.onObject = null;
+  const l = p.x - SOX, r = p.x + SOX, t = p.y - p.offsetY, b = p.y + p.offsetY;
+  const ol = x + hb[0], or = x + hb[2], ot = y + hb[1], ob = y + hb[3];
+  if (((ol <= l && or >= l) || (ol >= l && r >= ol)) && ((ot <= t && ob >= t) || (ot >= t && b >= ot)) && p.ysp >= 0) {
+    // he is put on top by the height he had before landing stood him up: landing curled, he ends up 5 px
+    // into it until the next frame
+    const oy = p.offsetY;
+    p.onObject = o; p.air = false;
+    if (!stoodHere) { land(p); p.gsp = p.xsp; p.rotation = 0; }
+    p.ysp = 0;
+    p.y = ot - oy + (p.y - Math.floor(p.y));
+    return LANDED;
+  }
+  if (stoodHere) p.air = true;   // walked or jumped off
+  return 0;
+}
+
+/**
  * An item box (Coll_Player_Itembox): Sonic's attack box on it breaks it (PUSHING), bouncing him back up if
  * he was falling. In the air his body on its upper half, falling or level, breaks it too (LANDED) and bounces
  * him; rising into its lower half stops him under it (FROM_BELOW); beside it, it stops him moving into it.

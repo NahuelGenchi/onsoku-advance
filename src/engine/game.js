@@ -133,7 +133,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
-    player, world, anims, cam: { x: 0, y: 0 }, draw,
+    player, world, anims, tiles: assets.sprites.tiles, cam: { x: 0, y: 0 }, draw,
     attack: (s, x, y) => attackTest(s, x, y, ctx),
     projectile: (s, x, y) => projectileTest(s, x, y, ctx),
     add: (task, priority) => tasks.add(task, priority),
@@ -201,7 +201,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // layer.
   function drawSonic() {
     if (player.hidden) return;
-    const turning = player.state === 'walk', nudge = player.facing < 0 && !turning ? 1 : 0;
+    const turning = player.state === 'walk' || player.state === 'bounce', nudge = player.facing < 0 && !turning ? 1 : 0;
     const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio: player.death ? 1 : 2 };
     draw(s, player.x + nudge, player.y, turning ? player.rotation : 0);
   }

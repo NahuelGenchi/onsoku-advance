@@ -106,6 +106,27 @@ The spring is animation `455`. Its variants come in pairs, idle and launch: 0–
 
 The speed is `7.5, 9.0, 10.5` or `12.0` by `d0 & 3`, or `d1 × 16` (in 1/256 px) when `d0` is above 3. Rising off a spring never goes faster than 11.8125, and the jump moves are off until he lands. An up or diagonal spring plays the somersault (character state 17), or when `d0` bit 0 is set, the rise, top and fall animations (states 21, 18, 19). Act 1 has 12 springs: four up, three right, two big up-right, two small up-left and one small up-right.
 
+### Platforms
+
+Act 1 has five kinds of platform. Sonic lands on the thin, falling and crumbling ones from above and passes through them from below and from the sides: he lands whenever his body touches the box while he isn't rising, wherever in the box he is. The trampoline and the bounce block are solid like any object.
+
+| Kind | Platform | Act 1 | Animation | Box |
+| ---: | :--- | ---: | :--- | :--- |
+| 21 | Thin | 3 | `463` | (−24, −6, 24, −4) |
+| 22 | Falling | 3 | `463` | (−24, −6, 24, −4) |
+| 23 | Trampoline | 1 | `461`, bouncing: variant 1 | (−20, −11, 20, 4) |
+| 24 | Crumbling | 2 | `904` (the decompiled C says `906`) | (0, 3, 64, 23) |
+| 25 | Bounce block | 7 | `462` | (−15, −5, 15, 11) |
+
+- **Thin:** it runs at priority `0x2010`, after the other objects. It swings across when `d2` is above `d3`, and up and down otherwise, by `d2` (or `d3`) × 8 px either side of its spawn point, once every 256 frames of the stage clock. A negative `d0` (or `d1`) starts it half a swing on. It carries Sonic by what it moved that frame, plus 1 px down, which its top then puts him back from. Act 1's three swing up and down.
+- **Falling:** 30 frames after Sonic lands on it, it falls, 42/256 px a frame faster every frame. It takes him with it for 32 frames, then drops him at its own speed and falls through him.
+- **Sagging:** while Sonic stands on a thin or falling platform it sags by up to 4 px, easing down by 1/64 of a half turn a frame and back up when he leaves. Only the sprite sags, not the box.
+- **Crumbling:** 32 frames after Sonic lands on it, song 173 plays and its 32 tiles of 8 × 8 px fall, one a frame, from the bottom right to the top left (from the bottom left when `d0` flips it). Each one falls 42/256 px a frame faster every frame. Sonic stands on it until the last tile lets go. The tiles stop being drawn, in order, at the first one past the bottom of the screen, and the platform goes when that is the first tile. One that goes before it has quite fallen apart never comes back; otherwise it comes back like the other objects.
+- **Trampoline:** landing on it throws Sonic up 1.22 times as fast as he came down, between 3.75 and 10.99 px a frame, uncurled and rising as off a spring (character state 21, then 18 and 19), and plays song 176. Walking onto it from the side lifts him 8 px first. It bounces through variant 1 for 14 frames, starting over at each new landing.
+- **Bounce block:** landing on it throws Sonic up at 5 px a frame, facing the way he holds the d-pad, in the walk animation (character state 23), and plays the spring's song 170. In that state he keeps facing that way in the air, and he tumbles: his angle turns 4/256 of a turn a frame the way he faces, drawn through the rotation hardware. That angle also turns off the push out of an object's sides while it points him at a wall, so he can fall past a bounce block's side into the one below. The block wobbles for 30 frames, up to 16 px up and down.
+
+A thin platform goes when its spawn point is off the screen and its current position is out of the range around the camera. A falling one goes the same way until it falls, then when its current position is out of range. A crumbling one goes when its spawn point is out of range, and once it crumbles, only when it is out of range sideways.
+
 ### Rings
 
 Rings use the interactables' grid, with 2-byte records `x, y` (tiles inside the region) ending with `0xFF`. Act 1 has 291. A ring is a 16 × 16 px sprite with its bottom centre on that point: animation `707`, four frames of 8 ticks each, in sprite palette 68. Every ring shares one sprite, so they all spin together.
@@ -215,6 +236,7 @@ Losing a life destroys every task, so nothing after Sonic runs on that frame. Th
 - *Enemies:* mGBA 0.10.5 recorded every task of the act's enemies, shots and effects after each frame, with Sonic's position and hitboxes, in 13 runs: each enemy kind on its own, both ways round and from different sides, and five runs where Sonic destroys enemies in a row. Fed Sonic's recorded position, the engine's enemies, shots, dust clouds, animals and points match the original's position, animation and hitbox on every frame of all 13 runs, and the score matches too.
 - *Damage:* nine more recordings dumped Sonic, the camera, the rings, the lives, the stage clock and the scattered rings after each frame. They cover a hit by spikes with 12 rings, a hit with 60 rings (48 scatter), knockbacks to either side and facing left, two hits from the left, a death on spikes and a fall out of the bottom of the act, both through the restart. Run from the recorded start, the whole game matches every one of them on every frame: Sonic's position, speed, blinking and death, the rings and lives, the camera, the stage clock, the scattered rings drawn and the sounds played. A tenth run, where Sonic runs into an item box and pushes against it, matches too.
 - *Item boxes:* 21 more recordings dumped the whole of IWRAM and the music players after every frame, from before the act starts. Sonic falls curled onto each kind of box, then waits, walks or meets a hazard: the shield and a spike hit with it, the magnetic shield pulling rings in, invincibility to its end, speed shoes to their end while running both ways, the 1-up, 5 rings, random rings, a hundredth ring from a box, a hop from below, a roll into a box, a push against its side in the air, and invincible Sonic against spikes and three kinds of enemy. Run from the act's first frame with only the recordings' inputs and pokes, the whole game matches every one of them on every frame: Sonic, the rings and lives, the camera, the stage clock, his item timers and shield, the random numbers, and where every box, icon, dust cloud, shield, star, sparkle and flying ring is drawn. The music changes on the same frames as the original's.
+- *Platforms:* 14 more recordings, made the same way, drop Sonic onto every kind of platform, still or walking off it, and jump from them. They cover a swinging platform carrying him and one he jumps up through, both falling platforms dropping him, the trampoline, a bounce block both ways, the cluster of bounce blocks with right held, and both crumbling platforms, one walked off as it goes. Run from the act's first frame, the whole game matches 13 of them on every frame: Sonic and his animation, the rings, the camera, the stage clock, the sounds, and where each platform and crumbling tile is drawn. The bounce-block cluster matches until Sonic lands on a boulder, which isn't built yet.
 
 ### HUD
 
@@ -264,7 +286,7 @@ Sonic's character state picks his animation through a table of 94 `(animation, v
 | Turn after braking | 7 | B: getting up from the slide | 53, variant 1 |
 | Spring: somersault | 11 | B: backflip | 55 |
 | Spring: rising | 10 | Spring: topping out | 10, variant 1 |
-| Spring: falling | 10, variant 2 | | |
+| Spring: falling | 10, variant 2 | Bounce block | 4 (the walk) |
 
 Effects: spin dash dust `746` (above a charge of 2.0: `747`), brake dust `748`, insta-shield flash `50` variant 1.
 
@@ -327,7 +349,7 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Mid-air dash | 112 | 3 | |
 | Somersault kick | 121 | 3 | The combo's second hit |
 | Slide kick | 111 | 3 | |
-| Spring | 170 | 2 | Every launch |
+| Spring | 170 | 2 | Every launch, and every bounce off a bounce block |
 | Timer warning | 139 | 2 | Every second from 9:40 to 10:00 |
 | 1-up | 307 | 0 | Every hundredth ring and the 1-up box, in place of the music; the music then starts over with a fade-in |
 | Invincibility | 28 | 0 | In place of the act's music until it runs out; the music then starts over with a fade-in. Speed shoes play the music player at twice the tempo. |
@@ -337,6 +359,8 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Spikes | 171 | 2 | Sonic is hurt by spikes |
 | Item box | 167 | 2 | A box breaks |
 | Shield | 168 | 2 | Either shield is given |
+| Crumbling platform | 173 | 2 | A crumbling platform starts to fall apart |
+| Trampoline | 176 | 2 | Every bounce |
 | Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |
 | Rings from a box | 117 | 3 | The ring prizes, once for the lot |
 

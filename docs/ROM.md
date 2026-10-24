@@ -142,6 +142,12 @@ A broken boulder leaves the dust cloud, lifts Sonic into the air if he stood on 
 
 The original places each piece through its sprite transform, around where the boulder was on the screen on the frame it broke: the piece's offset from there, as the camera moves, is multiplied by its scale over 512. So the pieces start at half their offset and drift out while they grow. A piece is left out once its double-size square is off the screen.
 
+### Waterfalls
+
+Act 1 has seven waterfalls, kind 27, each an area `d2` × 8 px wide and `d3` × 8 px tall, starting `d1` × 8 px below the spawn point (`d1` is signed, so most start above it). The waterfall's own picture is part of the stage's layers. Its task (`0x08075911`) runs at priority `0x2000` and goes when its spawn point leaves the range.
+
+While Sonic's centre is in the area, edges included, his vertical speed grows by 16/256 px a frame on top of gravity, before he moves. On the ground this does nothing, since the walk sets his speed from the ground speed, and standing on an object puts it back to 0. The task also draws a splash, animation `464`, at his centre 10 px lower, in OAM order 5. The splash only animates while it is drawn, so it starts each visit where it left off. The original sprite routine leaves it out while it is off the screen.
+
 Recordings of Sonic pushing each way, jumping on a boulder, breaking it with the spin attack, spin dashing into one, and breaking the second one all match the engine on every frame, including where every piece is drawn.
 
 ### Rings
@@ -253,8 +259,9 @@ Losing a life destroys every task, so nothing after Sonic runs on that frame. Th
 - *Enemies:* mGBA 0.10.5 recorded every task of the act's enemies, shots and effects after each frame, with Sonic's position and hitboxes, in 13 runs: each enemy kind on its own, both ways round and from different sides, and five runs where Sonic destroys enemies in a row. Fed Sonic's recorded position, the engine's enemies, shots, dust clouds, animals and points match the original's position, animation and hitbox on every frame of all 13 runs, and the score matches too.
 - *Damage:* nine more recordings dumped Sonic, the camera, the rings, the lives, the stage clock and the scattered rings after each frame. They cover a hit by spikes with 12 rings, a hit with 60 rings (48 scatter), knockbacks to either side and facing left, two hits from the left, a death on spikes and a fall out of the bottom of the act, both through the restart. Run from the recorded start, the whole game matches every one of them on every frame: Sonic's position, speed, blinking and death, the rings and lives, the camera, the stage clock, the scattered rings drawn and the sounds played. A tenth run, where Sonic runs into an item box and pushes against it, matches too.
 - *Item boxes:* 21 more recordings dumped the whole of IWRAM and the music players after every frame, from before the act starts. Sonic falls curled onto each kind of box, then waits, walks or meets a hazard: the shield and a spike hit with it, the magnetic shield pulling rings in, invincibility to its end, speed shoes to their end while running both ways, the 1-up, 5 rings, random rings, a hundredth ring from a box, a hop from below, a roll into a box, a push against its side in the air, and invincible Sonic against spikes and three kinds of enemy. Run from the act's first frame with only the recordings' inputs and pokes, the whole game matches every one of them on every frame: Sonic, the rings and lives, the camera, the stage clock, his item timers and shield, the random numbers, and where every box, icon, dust cloud, shield, star, sparkle and flying ring is drawn. The music changes on the same frames as the original's.
-- *Platforms:* 14 more recordings, made the same way, drop Sonic onto every kind of platform, still or walking off it, and jump from them. They cover a swinging platform carrying him and one he jumps up through, both falling platforms dropping him, the trampoline, a bounce block both ways, the cluster of bounce blocks with right held, and both crumbling platforms, one walked off as it goes. Run from the act's first frame, the whole game matches 13 of them on every frame: Sonic and his animation, the rings, the camera, the stage clock, the sounds, and where each platform and crumbling tile is drawn. The bounce-block cluster matches until Sonic walks off the third boulder past a waterfall, which pushes him down and isn't built yet.
+- *Platforms:* 14 more recordings, made the same way, drop Sonic onto every kind of platform, still or walking off it, and jump from them. They cover a swinging platform carrying him and one he jumps up through, both falling platforms dropping him, the trampoline, a bounce block both ways, the cluster of bounce blocks with right held, and both crumbling platforms, one walked off as it goes. Run from the act's first frame, the whole game matches all of them on every frame: Sonic and his animation, the rings, the camera, the stage clock, the sounds, and where each platform and crumbling tile is drawn.
 - *Boulders and pushing:* seven more recordings, with Sonic kept from getting hurt, push against a wall and against the first boulder from each side, jump on it, break it with the spin attack, spin dash into it, and break the second one. The whole game matches all of them on every frame, run from the act's first frame: Sonic and his push animation, the boulders, and where each piece is drawn, read from the original's sprite list.
+- *Waterfalls and balancing:* 16 more recordings walk through a waterfall, fall through two, and stand on the third boulder inside one and jump. They also stand Sonic at a ledge each way and turn him round, walk him up to one, and stand him on both sides of the first boulder and of a crumbling platform each way round, at the edge and a pixel inside it. The whole game matches all of them on every frame, including his balancing animations and where the splash is drawn.
 
 ### HUD
 
@@ -305,9 +312,15 @@ Sonic's character state picks his animation through a table of 94 `(animation, v
 | Spring: somersault | 11 | B: backflip | 55 |
 | Spring: rising | 10 | Spring: topping out | 10, variant 1 |
 | Spring: falling | 10, variant 2 | Bounce block | 4 (the walk) |
-| Push | 12 | | |
+| Push | 12 | Balancing, facing the drop | 13 |
+| Balancing, back to the drop | 14 | | |
 
 **Pushing.** Walking into a wall, or into the side of a solid object or a spring's back, sets the push flag (`moveState` bit `0x20`), and every frame it's set the animation chooser picks the push (character state 14). Rolling into a wall doesn't. Landing, leaving the ground, turning round, jumping, getting hurt, walking off an object and standing still on level ground clear it.
+
+**Balancing.** Each frame Sonic stands still on level ground (the same check that ends the push), he balances when he is at an edge: facing the drop (character state 12), or with his back to it (13).
+
+- On an object (`Player_8044D74`): when his centre is more than a pixel past a side of its box, counting his half-width of 6 px. A side at 0 never counts, so he never balances on a crumbling platform's left side, or on its right side when it is flipped. Once balancing, he keeps on a pixel further in, which only matters when the object moves him.
+- On the terrain (`Player_8044E48`): when the floor scan under his centre finds no ground within 8 px, and the scans 8 px to each side find it right under one side and not within 8 px under the other.
 
 Effects: spin dash dust `746` (above a charge of 2.0: `747`), brake dust `748`, insta-shield flash `50` variant 1.
 

@@ -6,18 +6,19 @@
 import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
 import { groundSensors, wallPush, airCollision, clearance, setOffsetY } from './sensors.js';
-import { LAYER_BACK } from './terrain.js';
+import { LAYER_BACK, scan, PROBE_FLOOR } from './terrain.js';
 import { sin8, cos8, s8 } from './trig.js';
 import { SONG } from '../sound/songs.js';
 
 // d-pad bits for the input history the mid-air dash reads
 const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
 const HISTORY = 16;
+const SOX = 6;   // spriteOffsetX, half his width
 
 // states: idle | walk | turn | brake | crouch | crouchEnd | lookUp | lookUpEnd | spinDash | spinDashRev |
 //         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip |
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
-//         push | hurt | dead
+//         push | balanceForward (facing over an edge) | balanceBack (his back to it) | hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -29,6 +30,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     onObject: null,    // the object he stands on (MOVESTATE_STOOD_ON_OBJ and stoodObj)
     curled: false,     // MOVESTATE_SPIN_ATTACK: rolling or jumping as a ball
     pushing: false,    // MOVESTATE_20: walked into a wall or a solid object; it shows the push animation
+    prevState: 'idle', // the state his animation was last picked for (prevCharState)
     jumped: false,     // left the ground with the jump button (allows the jump cap and mid-air moves)
     airLock: false,    // jumped out of a roll: no air control until the insta-shield
     spinDashing: false, dashAccel: 0,
@@ -208,10 +210,12 @@ function walkInput(p, c, world) {
     else if (p.state === 'lookUp') p.state = 'lookUpEnd';
     else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
   }
-  // standing still on level ground stops the push
+  // standing still on level ground stops the push, and at an edge he balances
   if (!((p.rotation + 0x20) & 0xC0) && p.gsp === 0) {
     p.pushing = false;
     if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+    if (p.onObject) balanceOnObject(p);
+    else balanceOnTerrain(p, world.terrain);
   }
 
   // up and down only count while no direction is held, and cancel each other out
@@ -223,6 +227,30 @@ function walkInput(p, c, world) {
     if (p.state === 'crouch') p.state = 'crouchEnd';
     else if (p.state === 'lookUp') p.state = 'lookUpEnd';
   }
+}
+
+// facing the drop (character state 12) or with his back to it (13), from the side the edge is on
+const balance = (p, edge) => { p.state = edge === p.facing ? 'balanceForward' : 'balanceBack'; };
+
+// at the side of the object he stands on (Player_8044D74): his centre more than a pixel past the side of its
+// box, less his half-width; a side at 0 never counts. Once balancing, he keeps on a pixel further in.
+function balanceOnObject(p) {
+  const o = p.onObject, [l, , r] = o.boxes[0];
+  if (l !== 0 && p.x < o.x + l - SOX + 1) return balance(p, -1);
+  if (r !== 0 && p.x > o.x + r + SOX - 2) return balance(p, 1);
+  if ((p.x < o.x + l - SOX + 2 || p.x > o.x + r + SOX - 3) && (p.prevState === 'balanceForward' || p.prevState === 'balanceBack')) {
+    p.state = p.prevState;
+  }
+}
+
+// at a ledge (Player_8044E48): no ground within 8 px under his centre, none under one side of him (2 px
+// past his half-width) and ground right under the other
+function balanceOnTerrain(p, t) {
+  const x = Math.floor(p.x), feet = Math.floor(p.y) + p.offsetY;
+  if (scan(t, feet, x, p.layer, 8, PROBE_FLOOR).d <= 8) return;
+  const left = scan(t, feet, x - 2 - SOX, p.layer, 8, PROBE_FLOOR).d, right = scan(t, feet, x + 2 + SOX, p.layer, 8, PROBE_FLOOR).d;
+  if (left > 8 && right === 0) balance(p, -1);
+  else if (left === 0 && right > 8) balance(p, 1);
 }
 
 // rolling (Player_8043DDC)
@@ -509,6 +537,7 @@ export function animatePlayer(p, input, anims, world) {
     if (p.state === before) break;
     choose(p, chooseAnimation(p, input));
   }
+  p.prevState = p.state;
   p.hidden = !p.dead && p.invulnerable > 0 && (world.tick & 2) !== 0;
   // dead, the timers count down only on the frame he dies: the tasks that take over from then on leave them
   if (p.dead && p.invulnerable === 1) return;

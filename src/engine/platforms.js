@@ -42,6 +42,7 @@ function thin(e, slot, anims) {
       const next = Math.imul(reach, SINE[(4 * ((ctx.world.tick + phase) & 0xFF)) & 0x3FF]) >> 14, moved = next - q;
       q = next;
       const x = e.x + (across ? q >> 8 : 0), y = e.y + (across ? 0 : q >> 8);
+      o.x = x;   // where Sonic balances at its edges
       if (p.onObject === o) {
         if (across) p.x += moved / 256;
         p.y += 1 + (across ? 0 : moved / 256);
@@ -60,7 +61,7 @@ function thin(e, slot, anims) {
  * it does, and falls through him. It comes back when its spawn point is uncovered again.
  */
 function falling(e, slot, anims) {
-  const o = { ...makeSprite('thinPlatform'), sag: 0 };
+  const o = { ...makeSprite('thinPlatform'), sag: 0, x: e.x };
   animate(o, anims);
   let phase = 'still', n = 0, vy = 0, q = 0;
   return {
@@ -100,7 +101,7 @@ const drop = t => s16(((t * 42 * t) << 8) >> 16);
  */
 function crumbling(e, slot, anims) {
   const flipX = e.d[0] !== 0;
-  const o = makeSprite('crumblingPlatform', { flipX });
+  const o = { ...makeSprite('crumblingPlatform', { flipX }), x: e.x };
   animate(o, anims);
   let phase = 'whole', n = 0;
   // the range it leaves by: 128 px around the screen, and once crumbling only across

@@ -52,6 +52,8 @@ export function createSound() {
     },
     /** m4aSongNumStop */
     stop(song) { call('songStop', song); },
+    /** m4aMPlayFadeOut on music player `player`, a step down every `speed` frames */
+    fadeOut(player, speed) { call('fadeOut', player, speed); },
     /** m4aMPlayTempoControl on the music (0x100 is normal speed) */
     tempo(tempo) { call('tempoControl', 0, tempo); },
     /** The music manager's invincibility: its song in place of the music */

@@ -20,7 +20,7 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
 //         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
-//         before its end) | hurt | dead
+//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -51,6 +51,9 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     carried: false,    // MOVESTATE_IA_OVERRIDE: an object moves him, and his own movement doesn't run
     grinding: false,   // MOVESTATE_1000000: on a grind rail, on the layer it put him on
     front: false,      // drawn in front of the front layer (his sprite's priority 1), as on a grind rail
+    halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js)
+    ignoreInput: false, // MOVESTATE_IGNORE_INPUT: an object holds his controls, as the forced slide does
+    jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,
     chain: 0,          // enemies defeated since he last touched the ground (defeatScoreIndex)
@@ -188,7 +191,8 @@ function walk(p, dir, world) {
       if (g * dir < max) g = max * dir;
     }
     p.gsp = g;
-    if (p.state !== 'turn') p.state = 'walk';
+    // on a half-pipe he keeps the state it gives him
+    if (p.state !== 'turn' && !p.halfPipe) p.state = 'walk';
   } else {
     let g = p.gsp + K.deceleration * pace(p) * dir;
     if (g * dir > 0) g = K.reverseKick * dir;
@@ -316,7 +320,7 @@ function attackStep(p, c, world) {
 }
 
 /** Ends the combo, the mid-air moves and the spin dash (also Player_TransitionCancelFlyingAndBoost). */
-export function endAttack(p) { p.attack = 0; p.attackNext = 0; p.midAir = 0; p.jumped = false; p.spinDashing = false; }
+export function endAttack(p) { p.attack = 0; p.attackNext = 0; p.midAir = 0; p.jumped = false; p.spinDashing = false; p.halfPipe = false; }
 
 // jumping off a grind rail (sub_8044434), if there are at least 4 px of room that way on the layer he came
 // from, back on which he lands: straight up from the rail as fast as a jump, keeping his X speed
@@ -503,6 +507,7 @@ export function stepPlayer(p, input, world) {
     jump: input.jump, jumpPressed: input.jumpPressed, attackPressed: input.attackPressed,
   };
   input.jumpPressed = false; input.attackPressed = false;
+  p.jumpPressed = c.jumpPressed;
 
   if (p.dead) deadStep(p, world);
   else if (p.carried) return;
@@ -525,6 +530,10 @@ function chooseAnimation(p, input) {
       // the walk cycle plays at |speed| × 1.0, never slower than 0.5×
       a.speed = Math.max(ANIMATION.minWalkSpeed, Math.min(ANIMATION.normalSpeed, Math.floor(speed * 256) >> 4));
       return 'walk';
+    // up a half-pipe's side, at the walk cycle's speed
+    case 'halfPipeLow': case 'halfPipeMid': case 'halfPipeHigh':
+      a.speed = Math.max(ANIMATION.minWalkSpeed, Math.min(ANIMATION.normalSpeed, Math.floor(speed * 256) >> 4));
+      return p.state;
     case 'brake': return speed < ANIMATION.brakeTurnSpeed ? 'brakeTurn' : 'brake';
     // on a steep part of a rail he always faces down it, to the right
     case 'grind':

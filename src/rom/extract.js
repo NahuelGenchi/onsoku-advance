@@ -1,5 +1,5 @@
 // Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects, the
-// springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, Neo Green Hill Zone act 1 with its collision, objects,
+// springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, the title card, Neo Green Hill Zone act 1 with its collision, objects,
 // enemies and rings, and the zone's background. Runs entirely in the browser.
 
 import { Rom } from './rom.js';
@@ -12,6 +12,7 @@ import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggle
 import { readColors } from './colors.js';
 import { soundLayout } from './sound.js';
 import { hudGraphics } from './hud.js';
+import { titleCardGraphics } from './titlecard.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -105,7 +106,7 @@ const PALETTE_ANIMATIONS = [814, 815];
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
@@ -127,6 +128,7 @@ export async function extractAssets(buffer, onProgress = () => {}) {
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },
     sprites, stage, physics: { spinDashSpeeds },
     hud: extractHud(rom, offsets.uiGraphics),
+    titleCard: extractTitleCard(rom, offsets.uiGraphics, offsets.titleCard),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
   };
@@ -261,6 +263,11 @@ function paletteVariants(base, animations, banks) {
 function extractHud(rom, tableAt) {
   const { image, ...rects } = hudGraphics(rom, tableAt);
   return { sheet: toCanvas(image), ...rects };
+}
+
+function extractTitleCard(rom, uiAt, cardAt) {
+  const { image, ...card } = titleCardGraphics(rom, uiAt, cardAt);
+  return { sheet: toCanvas(image), ...card };
 }
 
 function toCanvas(img) {

@@ -19,6 +19,7 @@ export const KNOWN_VERSIONS = [
       spinDashSpeeds: 0x4A7084,
       musicPlayers: 0x6D767C,
       uiGraphics: 0x680A38,
+      titleCard: 0x681274,
     },
   },
 ];

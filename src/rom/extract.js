@@ -5,8 +5,8 @@
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
-import { spriteTables, animationFrames, animationPalette, renderFrame } from './sprites.js';
-import { tilemapHeader, renderMetatileAtlas, renderPlainMap } from './tilemaps.js';
+import { spriteTables, animationFrames, animationPalette, renderFrame, paletteAnimation } from './sprites.js';
+import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks } from './tilemaps.js';
 import { readCollision, readSpawn } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
@@ -83,10 +83,13 @@ const YELLOW_SPRING_PALETTE = 36;
 // layer (behind him) and the background.
 const LEVEL = 0;
 const NGH = { front: 0, back: 1, background: 2 };
+// the act's palette animations, which stage tasks run (StageInit_Zone1Act1): 814 steps the background's
+// colours in palette row 15 every 16 frames, 815 the waterfalls' in row 10 every frame
+const PALETTE_ANIMATIONS = [814, 815];
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, background }, physics, sound }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
@@ -96,9 +99,10 @@ export async function extractAssets(buffer, onProgress = () => {}) {
   const offsets = locateTables(rom, id.known);
 
   onProgress('Decoding Sonic…');
-  const sprites = extractSprites(rom, spriteTables(rom, offsets.spriteTables));
+  const tables = spriteTables(rom, offsets.spriteTables);
+  const sprites = extractSprites(rom, tables);
   onProgress('Decoding Neo Green Hill…');
-  const stage = extractStage(rom, offsets);
+  const stage = extractStage(rom, offsets, tables);
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
   // indexes into those in the original, so both are read
   const spinDashSpeeds = Array.from({ length: 18 }, (_, i) => rom.s16(offsets.spinDashSpeeds + i * 2) / 256);
@@ -178,7 +182,7 @@ function packAtlas(images, width = 512) {
   return { canvas, rects };
 }
 
-function extractStage(rom, offsets) {
+function extractStage(rom, offsets, tables) {
   const front = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.front);
   const back = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.back);
   const background = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.background);
@@ -191,8 +195,12 @@ function extractStage(rom, offsets) {
   }
   const palette = readColors(rom, front.palette, 256);
   const interactables = readInteractables(rom, offsets.interactables, LEVEL);
+  const animations = PALETTE_ANIMATIONS.map(anim => paletteAnimation(rom, tables, anim));
   // the two layers share one tileset and its animated tiles, so one atlas serves both
-  const atlas = renderMetatileAtlas(rom, front, palette, collision.metatiles.length / 144);
+  const count = collision.metatiles.length / 144;
+  const tiles = paletteVariants(palette, animations, mapBanks(rom, front, count * front.xTiles * front.yTiles));
+  const atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.rows), follows: tiles.follows };
+  const sky = paletteVariants(palette, animations, mapBanks(rom, background, background.xTiles * background.yTiles));
 
   return {
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
@@ -204,8 +212,34 @@ function extractStage(rom, offsets) {
     itemBoxes: readItemBoxes(rom, offsets.itemBoxes, LEVEL),
     enemies: readInteractables(rom, offsets.enemies, LEVEL, 'enemies'),
     entityRegions: entityRegions(rom, offsets.interactables, LEVEL),
+    paletteAnimations: animations.map(({ frames, loop }) => ({ delays: frames.map(f => f.delay), loop })),
     background: toCanvas(renderPlainMap(rom, background, palette)),
+    backgrounds: { canvases: sky.palettes.map(p => toCanvas(renderPlainMap(rom, background, p))), follows: sky.follows },
   };
+}
+
+/**
+ * The stage palette under each state of the palette animations that load colours into the rows in `banks`:
+ * its own colours, then those of each frame, which loads over the frames before it. The palettes are indexed
+ * by the states of those animations (`follows`) in turn, the first the most significant (stage.js picks
+ * one), and `rows` holds the rows they change.
+ */
+function paletteVariants(base, animations, banks) {
+  const rowsOf = a => new Set(a.frames.flatMap(f => f.loads.flatMap(l => l.colors.map((_, i) => (l.insert + i) >> 4))));
+  const follows = [], rows = new Set();
+  let palettes = [base];
+  animations.forEach((a, k) => {
+    const changes = [...rowsOf(a)].filter(r => banks.has(r));
+    if (!changes.length) return;
+    follows.push(k);
+    for (const r of changes) rows.add(r);
+    palettes = palettes.flatMap(p => [p, ...a.frames.map((_, s) => {
+      const q = p.slice();
+      for (const f of a.frames.slice(0, s + 1)) for (const l of f.loads) l.colors.forEach((c, i) => { q[l.insert + i] = c; });
+      return q;
+    })]);
+  });
+  return { palettes, follows, rows };
 }
 
 function extractHud(rom, tableAt) {

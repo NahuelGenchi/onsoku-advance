@@ -8,9 +8,21 @@ export function stageAnimFrame(stage, tick) {
   return frames > 1 ? Math.floor(tick / stage.animDelay) % frames : 0;
 }
 
-/** Draws `layer` ('front' or 'back') with the view's top-left corner at world (x, y). */
-export function drawLayer(ctx, stage, layer, x, y, w, h, animFrame = 0) {
-  const { canvas, size, slots } = stage.atlas, map = stage.layers[layer], slot = slots[animFrame];
+/**
+ * Which of the palettes rendered for the palette animations in `follows` their states pick: `shown` holds
+ * the frame each animation has loaded, -1 for the stage's own colours.
+ */
+export function paletteVariant(stage, follows, shown) {
+  return follows.reduce((v, k) => v * (stage.paletteAnimations[k].delays.length + 1) + shown[k] + 1, 0);
+}
+
+/**
+ * Draws `layer` ('front' or 'back') with the view's top-left corner at world (x, y), in the colours the
+ * palette animations' frames `shown` give it.
+ */
+export function drawLayer(ctx, stage, layer, x, y, w, h, animFrame = 0, shown = []) {
+  const { canvas, size, slots, follows } = stage.atlas, map = stage.layers[layer];
+  const slot = slots[animFrame][shown.length ? paletteVariant(stage, follows, shown) : 0];
   const mx0 = Math.max(0, Math.floor(x / size)), mx1 = Math.min(stage.levelX - 1, Math.floor((x + w - 1) / size));
   const my0 = Math.max(0, Math.floor(y / size)), my1 = Math.min(stage.levelY - 1, Math.floor((y + h - 1) / size));
   for (let my = my0; my <= my1; my++) {

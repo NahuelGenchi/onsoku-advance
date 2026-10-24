@@ -127,6 +127,24 @@ export function animationFrames(rom, tables, anim, variant, basePalette, { skipP
   return { frames, loop, end: last?.op ?? null };
 }
 
+/**
+ * An animation that only loads colours, as the stage's palette animations do: the frames it shows, each with
+ * its delay and the colours its commands load just before it ({ insert, colors }), and the frame it loops
+ * back to (null when it ends).
+ */
+export function paletteAnimation(rom, tables, anim, variant = 0) {
+  const steps = parseScript(rom, tables, anim, variant);
+  const frames = [];
+  let loads = [];
+  for (const s of steps) {
+    if (s.op === 'palette') loads.push({ insert: s.insert, colors: readColors(rom, tables.palettes + s.palId * 32, s.count) });
+    else if (s.op === 'show') { frames.push({ delay: s.delay, loads, at: s.at }); loads = []; }
+  }
+  const last = steps[steps.length - 1];
+  const loop = last?.op === 'jump' ? Math.max(0, frames.findIndex(f => f.at >= last.to)) : null;
+  return { frames, loop };
+}
+
 /** The palette an animation loads with its first GetPalette command. */
 export function animationPalette(rom, tables, anim) {
   const palette = new Array(256).fill(null).map(() => [255, 0, 255]);

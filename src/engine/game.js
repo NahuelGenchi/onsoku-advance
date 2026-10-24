@@ -14,6 +14,7 @@ import { attackTest, projectileTest, defeatEffects } from './defeat.js';
 import { createRings } from './rings.js';
 import { createScatter } from './scatter.js';
 import { createHud, updateHud } from './hud.js';
+import { createPaletteAnimation } from './palettes.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { SONG } from '../sound/songs.js';
@@ -37,11 +38,13 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   const tasks = createTasks(), entities = createEntities(assets.stage, anims, tasks);
   const rings = createRings(assets.stage.rings, anims), scatter = createScatter(anims);
   rings.reset(); scatter.reset();
+  const palettes = assets.stage.paletteAnimations.map(createPaletteAnimation);
   const state = {
     tick: 0, player, terrain, tasks, rings, scatter, cam: createCamera(player, terrain), effects: [], sprites: [],
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
     animal: 0,   // gTrappedAnimalVariant: the next defeat's animal
     seed: 0,     // gPseudoRandom: the game's random numbers, one sequence for the whole game, from 0
+    palettes: palettes.map(a => a.shown),   // the frame each palette animation has loaded (palettes.js)
   };
   const sparkles = new Set();   // the ring sparkles still running their animation
   let extraLife = false, restart = false, loading = false, startMusic = false, starMusic = false;
@@ -214,18 +217,20 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     Object.assign(player, createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds }));
     state.cam = createCamera(player, terrain);
     tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear();
+    for (const a of palettes) a.reset();
+    state.palettes = palettes.map(a => a.shown);
     state.ringCount = 0; state.effects = []; state.sprites = []; state.courseTime = 0; state.clockStopped = false; state.animal = 0;
     loading = true; startMusic = true; starMusic = false;
   }
 
   // the stage's own tasks, made in the original's order: the rings manager and the entities manager first
-  // among the objects' priority, then the act's two palette animations (814 and 815, not shown yet: they only
-  // hold their place, which lets what the entities manager spawns run in the same frame), the scattered rings
-  // just after them, the HUD, Sonic (with his effects), the music and, last, the stage's clocks
+  // among the objects' priority, then the act's two palette animations (which lets what the entities manager
+  // spawns run in the same frame), the scattered rings just after them, the HUD, Sonic (with his effects),
+  // the music and, last, the stage's clocks
   const STAGE_TASKS = [
     [0x2000, ctx => collectRings(ctx)],
     [0x2000, ctx => entities.manager.run(ctx)],
-    [0x2000, () => {}], [0x2000, () => {}],
+    ...palettes.map(a => [0x2000, () => { a.run(); state.palettes = palettes.map(b => b.shown); }]),
     // a sparkle the scattered rings leave first runs on the next frame
     [0x2001, () => {
       for (const ring of scatter.update(player, state.cam, terrain, state.tick)) addRing(ring);

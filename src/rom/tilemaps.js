@@ -44,30 +44,45 @@ function tileAddress(header, index, animFrame) {
   return header.tiles + header.tilesSize + (animFrame - 1) * header.animTileSize + offset;
 }
 
+/** The palette banks (rows of 16 colours) used by the first `entries` tile entries of a map. */
+export function mapBanks(rom, header, entries) {
+  const banks = new Set();
+  for (let i = 0; i < entries; i++) banks.add(rom.u16(header.map + i * 2) >> 12);
+  return banks;
+}
+
 /**
  * Renders metatiles 0 … count-1 of a stage layer into one atlas, 16 per row, plus a copy of every metatile
- * that uses animated tiles for each further animation frame.
- * @returns {{ canvas: HTMLCanvasElement, size: number, slots: Int16Array[] }} slots[frame][id] is the atlas slot
+ * that uses animated tiles for each further animation frame, and of every one that uses a palette bank in
+ * `varying` for each further palette in `palettes`.
+ * @returns {{ canvas: HTMLCanvasElement, size: number, slots: Int16Array[][] }} slots[frame][palette][id] is the atlas slot
  */
-export function renderMetatileAtlas(rom, header, palette, count) {
+export function renderMetatileAtlas(rom, header, palettes, count, varying = new Set()) {
   const size = header.xTiles * 8, perMetatile = header.xTiles * header.yTiles;
   const animTiles = header.animTileSize / TILE_BYTES, frames = Math.max(1, header.animFrameCount);
   const entry = (id, i) => rom.u16(header.map + (id * perMetatile + i) * 2);
-  const animated = id => { for (let i = 0; i < perMetatile; i++) if ((entry(id, i) & 0x3FF) < animTiles) return true; return false; };
+  const uses = test => Array.from({ length: count }, (_, id) => {
+    for (let i = 0; i < perMetatile; i++) if (test(entry(id, i))) return true;
+    return false;
+  });
+  const animated = uses(e => (e & 0x3FF) < animTiles), recoloured = uses(e => varying.has(e >> 12));
 
-  const slots = Array.from({ length: frames }, () => new Int16Array(count));
-  const jobs = [];
-  for (let id = 0; id < count; id++) { slots[0][id] = jobs.length; jobs.push([id, 0]); }
-  for (let f = 1; f < frames; f++) {
-    for (let id = 0; id < count; id++) {
-      if (animated(id)) { slots[f][id] = jobs.length; jobs.push([id, f]); } else slots[f][id] = slots[0][id];
+  const slots = [], jobs = [];
+  for (let f = 0; f < frames; f++) {
+    slots.push([]);
+    for (let p = 0; p < palettes.length; p++) {
+      const slot = slots[f][p] = new Int16Array(count);
+      for (let id = 0; id < count; id++) {
+        if ((f === 0 || animated[id]) && (p === 0 || recoloured[id])) { slot[id] = jobs.length; jobs.push([id, f, p]); }
+        else slot[id] = slots[animated[id] ? f : 0][recoloured[id] ? p : 0][id];
+      }
     }
   }
   const img = new ImageData(16 * size, Math.ceil(jobs.length / 16) * size);
-  jobs.forEach(([id, f], slot) => {
+  jobs.forEach(([id, f, p], slot) => {
     const x0 = (slot % 16) * size, y0 = Math.floor(slot / 16) * size;
     for (let i = 0; i < perMetatile; i++) {
-      drawEntry(img, rom, header, palette, entry(id, i), x0 + (i % header.xTiles) * 8, y0 + Math.floor(i / header.xTiles) * 8, false, f);
+      drawEntry(img, rom, header, palettes[p], entry(id, i), x0 + (i % header.xTiles) * 8, y0 + Math.floor(i / header.xTiles) * 8, false, f);
     }
   });
   const canvas = document.createElement('canvas');

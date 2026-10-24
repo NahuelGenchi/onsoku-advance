@@ -24,5 +24,6 @@ export const SONG = {
   SPIKES: 171,             // SE_171: hurt by spikes
   BOOSTER: 172,            // SE_BOOSTER: every frame a booster sends Sonic on
   CRUMBLING_PLATFORM: 173,
+  POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
 };

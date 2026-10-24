@@ -5,7 +5,7 @@
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
-import { spriteTables, animationFrames, animationPalette, renderFrame, paletteAnimation } from './sprites.js';
+import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation } from './sprites.js';
 import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks } from './tilemaps.js';
 import { readCollision, readSpawn } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
@@ -94,6 +94,9 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // the weaker up springs are yellow: they skip the animation's red palette (33) and draw with sprite
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
+// the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
+// block), and the boulders' debris; their frames also keep their OAM pieces as the hardware reads them
+const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge']);
 
 // Neo Green Hill Zone act 1: level 0. Its tilemap entries are the front layer (drawn over Sonic), the back
 // layer (behind him) and the background.
@@ -163,6 +166,8 @@ function extractSprites(rom, tables) {
           byKey.set(key, images.length);
           images.push({ img, anchorX: layout.anchorX, anchorY: layout.anchorY });
         }
+        const image = images[byKey.get(key)];
+        if (ROTATED.has(name) && !image.pieces) image.pieces = framePieces(rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp);
         // the hitboxes set just before a frame come with it
         return f.boxes ? [byKey.get(key), f.delay, f.boxes] : [byKey.get(key), f.delay];
       });
@@ -178,7 +183,14 @@ function extractSprites(rom, tables) {
     images.push({ img, anchorX: 0, anchorY: 0 });
     return images.length - 1;
   }) };
-  const { canvas, rects } = packAtlas(images);
+  // a rotated frame's pieces go into the atlas after the frames, and its rect gets them as [x, y, w, h, atlasX, atlasY]
+  const pieces = images.flatMap((image, i) => (image.pieces ?? []).map(p => ({ img: p.img, frame: i, x: p.x, y: p.y })));
+  const { canvas, rects } = packAtlas([...images, ...pieces]);
+  pieces.forEach((p, k) => {
+    const [ax, ay, w, h] = rects[images.length + k];
+    (rects[p.frame][6] ??= []).push([p.x, p.y, w, h, ax, ay]);
+  });
+  rects.length = images.length;
   return { atlas: canvas, frames: rects, anims, tiles };
 }
 

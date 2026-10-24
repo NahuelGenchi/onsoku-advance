@@ -54,6 +54,27 @@ export function frameLayout(rom, tables, anim, frame) {
   };
 }
 
+// the OAM pieces of a frame: each one's size, its place in the frame, the flips its entry carries and a
+// function giving the colour index of its pixel (px, py), unflipped (0 is transparent)
+function oamPieces(rom, tables, anim, f, tilesAt, eightBpp) {
+  const oamBase = rom.requirePtr(tables.oam + anim * 4, `OAM data of animation ${anim}`);
+  return Array.from({ length: f.pieces }, (_, i) => {
+    const o = oamBase + (f.oamIndex + i) * 6;
+    const a0 = rom.u16(o), a1 = rom.u16(o + 2), a2 = rom.u16(o + 4);
+    const [w, h] = OAM_SIZES[((a0 >> 14) & 3) * 4 + ((a1 >> 14) & 3)];
+    const bpp8 = eightBpp || ((a0 >> 13) & 1) === 1;
+    const tile0 = a2 & 0x3FF, bank = (a2 >> 12) & 15, tilesWide = w / 8;
+    const color = (px, py) => {
+      const tx = px >> 3, ty = py >> 3, ix = px & 7, iy = py & 7;
+      if (bpp8) return rom.u8(tilesAt + tile0 * 32 + (ty * tilesWide + tx) * 64 + iy * 8 + ix);
+      const b = rom.u8(tilesAt + (tile0 + ty * tilesWide + tx) * 32 + iy * 4 + (ix >> 1));
+      const c = ix & 1 ? b >> 4 : b & 15;
+      return c && c + bank * 16;
+    };
+    return { x: a1 & 0x1FF, y: a0 & 0xFF, w, h, hflip: (a1 >> 12) & 1, vflip: (a1 >> 13) & 1, color };
+  });
+}
+
 /**
  * Draws one frame the way the game places its OAM pieces, facing the game's default direction (left).
  * `tilesAt` is the ROM offset of the tiles loaded by the frame's last GetTiles command.
@@ -61,27 +82,13 @@ export function frameLayout(rom, tables, anim, frame) {
 export function renderFrame(rom, tables, anim, frame, tilesAt, palette, eightBpp) {
   const f = frameLayout(rom, tables, anim, frame);
   const img = new ImageData(Math.max(1, f.width), Math.max(1, f.height));
-  const oamBase = rom.requirePtr(tables.oam + anim * 4, `OAM data of animation ${anim}`);
-  for (let i = 0; i < f.pieces; i++) {
-    const o = oamBase + (f.oamIndex + i) * 6;
-    const a0 = rom.u16(o), a1 = rom.u16(o + 2), a2 = rom.u16(o + 4);
-    const [w, h] = OAM_SIZES[((a0 >> 14) & 3) * 4 + ((a1 >> 14) & 3)];
-    let x = a1 & 0x1FF, y = a0 & 0xFF, hflip = (a1 >> 12) & 1, vflip = (a1 >> 13) & 1;
+  for (const p of oamPieces(rom, tables, anim, f, tilesAt, eightBpp)) {
+    let { x, y, w, h, hflip, vflip } = p;
     if (f.flip & 2) { vflip ^= 1; y = f.height - h - y; }
     if (f.flip & 1) { hflip ^= 1; x = f.width - w - x; }
-    const bpp8 = eightBpp || ((a0 >> 13) & 1) === 1;
-    const tile0 = a2 & 0x3FF, bank = (a2 >> 12) & 15, tilesWide = w / 8;
     for (let py = 0; py < h; py++) {
       for (let px = 0; px < w; px++) {
-        const tx = px >> 3, ty = py >> 3, ix = px & 7, iy = py & 7;
-        let c;
-        if (bpp8) {
-          c = rom.u8(tilesAt + tile0 * 32 + (ty * tilesWide + tx) * 64 + iy * 8 + ix);
-        } else {
-          const b = rom.u8(tilesAt + (tile0 + ty * tilesWide + tx) * 32 + iy * 4 + (ix >> 1));
-          c = ix & 1 ? b >> 4 : b & 15;
-          if (c) c += bank * 16;
-        }
+        const c = p.color(px, py);
         if (!c) continue;
         const dx = x + (hflip ? w - 1 - px : px), dy = y + (vflip ? h - 1 - py : py);
         if (dx < 0 || dy < 0 || dx >= f.width || dy >= f.height) continue;
@@ -91,6 +98,27 @@ export function renderFrame(rom, tables, anim, frame, tilesAt, palette, eightBpp
     }
   }
   return { img, layout: f };
+}
+
+/**
+ * A frame's OAM pieces as the rotation hardware gets them: each piece's place in the frame and its pixels as
+ * its tiles hold them. DisplaySprite leaves the frame's flip out of a rotated sprite, and the hardware reads a
+ * rotated entry's flip bits as part of its matrix number, so neither flips the pixels.
+ */
+export function framePieces(rom, tables, anim, frame, tilesAt, palette, eightBpp) {
+  const f = frameLayout(rom, tables, anim, frame);
+  return oamPieces(rom, tables, anim, f, tilesAt, eightBpp).map(p => {
+    const img = new ImageData(p.w, p.h);
+    for (let py = 0; py < p.h; py++) {
+      for (let px = 0; px < p.w; px++) {
+        const c = p.color(px, py);
+        if (!c) continue;
+        const rgb = palette[c] ?? [255, 0, 255], k = (py * p.w + px) * 4;
+        img.data[k] = rgb[0]; img.data[k + 1] = rgb[1]; img.data[k + 2] = rgb[2]; img.data[k + 3] = 255;
+      }
+    }
+    return { x: p.x, y: p.y, img };
+  });
 }
 
 /**

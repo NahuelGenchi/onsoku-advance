@@ -6,8 +6,10 @@
 
 import { SCREEN_W, SCREEN_H } from './constants.js';
 import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './stage.js';
+import { SINE } from './trig.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
+const s16 = v => (v << 16) >> 16;
 
 // Neo Green Hill's background scrolls each line on its own: three cloud bands drift with time,
 // the big clouds and islands stay still, and the sea scrolls faster toward the bottom of the screen.
@@ -27,18 +29,89 @@ export function createRenderer(canvas, assets) {
   const bgW = stage.background.width;
 
   // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does
-  // `angle` (0–255 per turn) turns the sprite around its anchor like the GBA's rotation hardware, and `scale`
-  // grows it around the same point
-  function drawSprite(index, x, y, flipX, flipY = false, angle = 0, scale = 1) {
+  function drawSprite(index, x, y, flipX, flipY = false) {
     if (index < 0) return;
     const [sx, sy, w, h, ax, ay] = frames[index];
     const px = Math.floor(x), py = Math.floor(y);   // the integer part, like the original's I(qWorldX)
-    if (!flipX && !flipY && !angle && scale === 1) { ctx.drawImage(atlas, sx, sy, w, h, px - ax, py - ay, w, h); return; }
+    if (!flipX && !flipY) { ctx.drawImage(atlas, sx, sy, w, h, px - ax, py - ay, w, h); return; }
     ctx.save(); ctx.translate(px, py);
-    if (angle) ctx.rotate(angle * Math.PI / 128);
-    ctx.scale(flipX ? -scale : scale, flipY ? -scale : scale);
+    ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
     ctx.drawImage(atlas, sx, sy, w, h, -ax, -ay, w, h);
     ctx.restore();
+  }
+
+  // the rotation hardware's sprites are put together here pixel by pixel, then drawn over the frame
+  const atlasPixels = atlas.getContext('2d').getImageData(0, 0, atlas.width, atlas.height).data;
+  const objLayer = new ImageData(SCREEN_W, SCREEN_H), objCanvas = document.createElement('canvas');
+  objCanvas.width = SCREEN_W; objCanvas.height = SCREEN_H;
+  const objCtx = objCanvas.getContext('2d');
+
+  // a sprite through the rotation hardware (`affine`: rotation 0–1023 per turn, 8.8 scales, double size).
+  // TransformSprite builds the matrix and moves the sprite so its anchor stays at (x, y) once turned;
+  // DisplaySprite puts each OAM piece where the frame has it, in a box twice its size with the double-size
+  // flag, and every piece turns around its own centre
+  function drawAffine(index, x, y, { rotation, scaleX, scaleY, double }) {
+    if (index < 0) return;
+    const [, , w, h, ax, ay, pieces] = frames[index];
+    if (!pieces) { drawSprite(index, x, y, scaleX < 0, scaleY < 0); return; }   // a frame the extractor kept no pieces for
+    const cos = SINE[(rotation & 1023) + 256] >> 6, sin = SINE[rotation & 1023] >> 6;
+    const rx = s16(Math.trunc(0x10000 / scaleX)), ry = s16(Math.trunc(0x10000 / scaleY));
+    const mat = [s16((cos * rx) >> 8), s16((sin * rx) >> 8), s16((-sin * ry) >> 8), s16((cos * ry) >> 8)];
+    const kx = Math.abs(scaleX), ky = Math.abs(scaleY);
+    const u0 = s16((cos * kx) >> 8), u1 = s16((-sin * kx) >> 8), u2 = s16((sin * ky) >> 8), u3 = s16((cos * ky) >> 8);
+    const hw = w >> 1, hh = h >> 1, ox = (scaleX > 0 ? ax : w - ax) - hw, oy = (scaleY > 0 ? ay : h - ay) - hh;
+    let sx = s16(Math.floor(x) - ((u0 * ox + u1 * oy + (hw << 8)) >> 8));
+    let sy = s16(Math.floor(y) - ((u2 * ox + u3 * oy + (hh << 8)) >> 8));
+    let sw = w, sh = h;
+    if (double) { sx -= hw; sy -= hh; sw *= 2; sh *= 2; }
+    if (sx + sw < 0 || sx > SCREEN_W || sy + sh < 0 || sy > SCREEN_H) return;
+    const box = [SCREEN_W, SCREEN_H, -1, -1];
+    for (const [px, py, pw, ph, tx, ty] of pieces) drawPiece((sx + px) & 0x1FF, (sy + py) & 0xFF, pw, ph, tx, ty, mat, double, box);
+    if (box[2] < 0) return;
+    const [x0, y0] = box, bw = box[2] - x0 + 1, bh = box[3] - y0 + 1;
+    objCtx.putImageData(objLayer, 0, 0, x0, y0, bw, bh);
+    ctx.drawImage(objCanvas, x0, y0, bw, bh, x0, y0, bw, bh);
+    for (let row = y0; row <= box[3]; row++) objLayer.data.fill(0, (row * SCREEN_W + x0) * 4, (row * SCREEN_W + box[2] + 1) * 4);
+  }
+
+  // one rotated OAM entry at (ox, oy), sampled line by line the way mGBA 0.10.5's software renderer does
+  // (src/gba/renderers/software-obj.c): 8.8 steps from the box's centre, the nearest texel, and the line's
+  // run stopping at the first one outside the piece once its start is skipped ahead. A piece earlier in the
+  // frame has the lower OAM index and stays in front of a later one.
+  function drawPiece(ox, oy, pw, ph, tx, ty, [pa, pb, pc, pd], double, box) {
+    const tw = double ? pw * 2 : pw, th = double ? ph * 2 : ph;
+    if ((oy >= SCREEN_H && oy + th < 228) || (ox >= SCREEN_W && ox + tw < 512)) return;
+    const x = (ox << 23) >> 23, endY = oy + th, px = objLayer.data;
+    for (let line = 0; line < SCREEN_H; line++) {
+      if ((line < oy && (endY - 256 < 0 || line >= endY - 256)) || line >= endY) continue;
+      const inY = line < oy ? line - oy + 256 : line - oy;
+      let outX = Math.max(x, 0), inX = outX - x;
+      const end = Math.min(x + tw, SCREEN_W);
+      let xAcc = pa * (inX - 1 - (tw >> 1)) + pb * (inY - (th >> 1)) + (pw << 7);
+      let yAcc = pc * (inX - 1 - (tw >> 1)) + pd * (inY - (th >> 1)) + (ph << 7);
+      const skip = n => { xAcc += pa * n; yAcc += pc * n; outX += n; inX += n; };
+      if (pa) {
+        if ((xAcc >> 8) < 0) skip(Math.trunc((-xAcc - 1) / pa));
+        else if ((xAcc >> 8) >= pw) skip(Math.trunc(((pw << 8) - xAcc) / pa));
+      }
+      if (pc) {
+        if ((yAcc >> 8) < 0) skip(Math.trunc((-yAcc - 1) / pc));
+        else if ((yAcc >> 8) >= ph) skip(Math.trunc(((ph << 8) - yAcc) / pc));
+      }
+      if (outX < 0 || outX >= end) continue;
+      for (; outX < end; outX++) {
+        xAcc += pa; yAcc += pc;
+        const lx = xAcc >> 8, ly = yAcc >> 8;
+        if (lx < 0 || lx >= pw || ly < 0 || ly >= ph) break;
+        const k = ((ty + ly) * atlas.width + tx + lx) * 4, o = (line * SCREEN_W + outX) * 4;
+        if (!atlasPixels[k + 3] || px[o + 3]) continue;
+        px[o] = atlasPixels[k]; px[o + 1] = atlasPixels[k + 1]; px[o + 2] = atlasPixels[k + 2]; px[o + 3] = 255;
+        if (outX < box[0]) box[0] = outX;
+        if (line < box[1]) box[1] = line;
+        if (outX > box[2]) box[2] = outX;
+        if (line > box[3]) box[3] = line;
+      }
+    }
   }
 
   // debug overlay: the collision under the view, drawn through a scratch canvas so it blends
@@ -79,7 +152,11 @@ export function createRenderer(canvas, assets) {
     const shown = rings.visible(cam);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
     const drawAll = behind => {
-      for (const s of list) if ((s.prio >= 2) === behind) drawSprite(s.frame, s.x - cx, s.y - cy, s.flipX, s.flipY, s.angle, s.scale);
+      for (const s of list) {
+        if ((s.prio >= 2) !== behind) continue;
+        if (s.affine) drawAffine(s.frame, s.x - cx, s.y - cy, s.affine);
+        else drawSprite(s.frame, s.x - cx, s.y - cy, s.flipX, s.flipY);
+      }
     };
     drawAll(true);
     drawLayer(ctx, stage, 'front', cx, cy, SCREEN_W, SCREEN_H, frame, palettes);

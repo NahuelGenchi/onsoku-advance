@@ -41,6 +41,15 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 - **OAM piece** (3 × 16 bits): the GBA's own sprite attributes (shape, size, position, flips, first tile), relative to the tiles loaded for the frame.
 - Sprites face **left**; the game mirrors them when Sonic faces right.
 
+### Rotation hardware
+
+Some sprites go through the GBA's rotation and scaling (affine) OBJ mode instead of plain flips: Sonic's walk and run frames (and the walk frames he tumbles in after a bounce block, character state 23) and the boulders' debris. The extractor keeps those frames' OAM pieces as their tiles hold them, and the renderer draws them pixel by pixel ([`src/engine/renderer.js`](../src/engine/renderer.js)).
+
+- **Matrix** (`TransformSprite`): from the rotation `r` (0–1023 per turn) and the 8.8 scales `sx`, `sy`, with `c = COS_24_8(r)` and `s = SIN_24_8(r)` (the sine table's Q2.14 values shifted right 6), PA = `c × Div(0x10000, sx) >> 8`, PB = `s × Div(0x10000, sx) >> 8`, PC = `−s × Div(0x10000, sy) >> 8`, PD = `c × Div(0x10000, sy) >> 8`, each kept to 16 bits. A negative scale mirrors the sprite.
+- **Placement:** the transform moves the sprite so its anchor stays at (x, y) once turned. With `ax` the anchor X (or `width − ax` when `sx` is negative), `ay` likewise, and the half-sizes `hw`, `hh`, it subtracts `(c|sx| × (ax − hw) − s|sx| × (ay − hh) + hw × 256) >> 8` from x and `(s|sy| × (ax − hw) + c|sy| × (ay − hh) + hh × 256) >> 8` from y (each product `>> 8` first). `DisplaySprite` then places each OAM piece at its own offset in the frame, ignoring the frame's flip; with the double-size flag it first moves the sprite up and left by half the frame's size. The hardware reads a rotated entry's flip bits as part of its matrix number, so the pieces keep their tiles' orientation.
+- **Sampling:** every piece turns around the centre of its own box (its size, or twice it at double size), clipped to that box. For each line, mGBA 0.10.5's software renderer starts from `PA × (−1 − w/2) + PB × (line − h/2) + 128 × size` in 8.8 fixed point, skips ahead to the first column inside the piece by integer division, then steps PA and PC a column and takes the nearest texel, ending the line's run at the first texel outside the piece. A piece earlier in the frame has the lower OAM index and stays in front of a later one.
+- **Sonic** uses matrix 0 without double size and a single 64 × 64 piece. His transform scale is −1.0 when he faces right (which also moves him 1 px left, `MACRO_8024B10_PSI_UPDATE`) and +1.0 facing left, and his rotation is his angle times four. The matrices this produces match the OAM that mGBA's recordings hold.
+
 ### Stage layers
 
 - Each stage layer is a 12 × 12-tile metatile map (96 × 96 px per metatile) with a 4bpp tileset and a 256-colour palette. Sonic Advance stores one byte per metatile.
@@ -142,7 +151,7 @@ A broken boulder leaves the dust cloud, lifts Sonic into the air if he stood on 
 - They turn by 42, 42, 14 and 14 in 1/1024 of a turn a frame, pieces 1 and 4 one way and pieces 2 and 3 the other.
 - They grow from their own size to twice it, by 8/256 a frame.
 
-The original places each piece through its sprite transform, around where the boulder was on the screen on the frame it broke: the piece's offset from there, as the camera moves, is multiplied by its scale over 512. So the pieces start at half their offset and drift out while they grow. A piece is left out once its double-size square is off the screen.
+The original places each piece through its sprite transform (`sub_8004E14`), around where the boulder was on the screen on the frame it broke: the piece's offset from there, as the camera moves, is multiplied by its scale over 512. So the pieces start at half their offset and drift out while they grow. The transform then builds the matrix and subtracts the turned anchor the way `TransformSprite` does (see [Rotation hardware](#rotation-hardware)). A piece is left out once its double-size square is off the screen.
 
 ### Waterfalls
 
@@ -519,7 +528,7 @@ Sonic's sensors follow SA1's player code. His position is his centre; the sensor
 - **Jump-through ledges** are solid on the ground. In the air the floor sensors ignore them while he rises, and the walls and ceiling while his downward speed is under 3.
 - **Bounds:** the camera stops at the act's edges. Before it moves each frame, `UpdateCamera` first keeps it a pixel further in from the right and bottom edges than it may end up, so when Sonic is in the air at the bottom of the act, inside the camera's vertical dead zone, it sits a pixel above the edge. Falling out of the bottom kills Sonic (see [Dying and the restart](#dying-and-the-restart)).
 
-The walk and run frames turn with the angle through the rotation hardware.
+The walk and run frames turn with the angle through the rotation hardware (see [Rotation hardware](#rotation-hardware)).
 
 ### Sound
 

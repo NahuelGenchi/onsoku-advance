@@ -144,10 +144,11 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   };
 
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
-  // background priority: 2 behind the front layer, 0 and 1 in front of it)
-  function draw(s, x, y, angle = 0, scale = 1) {
+  // background priority: 2 behind the front layer, 0 and 1 in front of it); `affine` sends it through the
+  // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }
+  function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, angle, scale, order: s.order, prio: s.prio });
+    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
@@ -214,14 +215,17 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       tasks.add(magneticRing(r.x, r.y, (x, y) => addRing({ x, y }), rings.frame));
     }
   }
-  // Sonic's sprite (OAM order 16): the walk and run frames go through the rotation hardware and follow the
-  // slope; facing left, the original shifts the other frames 1px right. Dying or grinding puts him in front of
+  // Sonic's sprite (OAM order 16): the walk and run frames go through the rotation hardware (matrix 0, normal
+  // size) and follow the slope, mirrored with a negative scale when he faces right, which also moves him 1px
+  // left; facing left, the original shifts the other frames 1px right. Dying or grinding puts him in front of
   // the front layer.
   function drawSonic() {
     if (player.hidden) return;
-    const turning = player.state === 'walk' || player.state === 'bounce', nudge = player.facing < 0 && !turning ? 1 : 0;
     const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio: player.death || player.front ? 1 : 2 };
-    draw(s, player.x + nudge, player.y, turning ? player.rotation : 0);
+    if (player.state === 'walk' || player.state === 'bounce') {
+      const right = player.facing > 0;
+      draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.rotation << 2, scaleX: right ? -256 : 256, scaleY: 256, double: false });
+    } else draw(s, player.x + (player.facing < 0 ? 1 : 0), player.y);
   }
 
   // the title card (sub_80550F8) plays from the act's first frame and after each restart, holding Sonic and

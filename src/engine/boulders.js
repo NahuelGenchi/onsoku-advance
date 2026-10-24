@@ -69,7 +69,7 @@ function debris(sx, sy, cx, cy, anims) {
         const x = sx + ((dx * scale * 128) >> 16), y = sy + ((dy * scale * 128) >> 16);
         // drawn at double size, it is left out once that square is off the screen
         if (x + q.size < 0 || x - q.size > SCREEN_W || y + q.size < 0 || y - q.size > SCREEN_H) continue;
-        ctx.draw(q.s, cam.x + x, cam.y + y, q.angle / 4, scale / 256);
+        ctx.draw(q.s, cam.x + x, cam.y + y, { rotation: q.angle, scaleX: scale, scaleY: scale, double: true });
       }
       return true;
     },

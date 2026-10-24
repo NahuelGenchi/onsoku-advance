@@ -1,5 +1,5 @@
 // Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects, the
-// springs, the spikes, the enemies, the rings, the HUD, Neo Green Hill Zone act 1 with its collision, objects,
+// springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, Neo Green Hill Zone act 1 with its collision, objects,
 // enemies and rings, and the zone's background. Runs entirely in the browser.
 
 import { Rom } from './rom.js';
@@ -21,6 +21,8 @@ export const SONIC_ANIMATIONS = {
   spinAttack: [51, 0], somersault: [52, 0], slide: [53, 0], slideEnd: [53, 1], backflip: [55, 0],
   // launched by a spring: the somersault (charState 17), or rising, topping out and falling (21, 18, 19)
   spring: [11, 0], springRise: [10, 0], springPeak: [10, 1], springFall: [10, 2],
+  // thrown up by a bounce block (charState 23): the walk animation
+  bounce: [4, 0],
   // knocked back (charState 15) and dying (1)
   hurt: [19, 0], dead: [21, 0],
 };
@@ -57,6 +59,11 @@ export const ITEM_ANIMATIONS = {
   706: { icon0: 0, icon4: 4, icon5: 5, icon6: 6, icon7: 7, icon8: 8, icon9: 9, icon10: 10 },
   750: { shield: 0 }, 751: { magneticShield: 0 }, 752: { stars: 0, starSparkle: 1 },
 };
+// Neo Green Hill's platforms: the thin one (463), which the falling one shares, the trampoline at rest and
+// bouncing (461), the bounce block (462) and the crumbling platform (904)
+export const PLATFORM_ANIMATIONS = {
+  463: { thinPlatform: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 }, 904: { crumblingPlatform: 0 },
+};
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -71,7 +78,7 @@ const NGH = { front: 0, back: 1, background: 2 };
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims }, hud: { sheet, glyphs, ring, face }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, background }, physics, sound }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, background }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
@@ -109,7 +116,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
@@ -134,8 +141,17 @@ function extractSprites(rom, tables) {
       anims[name] = { frames, loop: script.loop };
     }
   }
+  // the crumbling platform draws its 64 × 32 frame as 32 tiles of 8 × 8, left to right and top to bottom,
+  // each from its top left corner
+  const whole = images[anims.crumblingPlatform.frames[0][0]].img;
+  const tiles = { crumblingPlatform: Array.from({ length: 32 }, (_, i) => {
+    const img = new ImageData(8, 8), tx = (i & 7) * 8, ty = (i >> 3) * 8;
+    for (let y = 0; y < 8; y++) img.data.set(whole.data.subarray(((ty + y) * whole.width + tx) * 4, ((ty + y) * whole.width + tx + 8) * 4), y * 32);
+    images.push({ img, anchorX: 0, anchorY: 0 });
+    return images.length - 1;
+  }) };
   const { canvas, rects } = packAtlas(images);
-  return { atlas: canvas, frames: rects, anims };
+  return { atlas: canvas, frames: rects, anims, tiles };
 }
 
 // shelf packing with a 1px gap; rects are [x, y, w, h, anchorX, anchorY]

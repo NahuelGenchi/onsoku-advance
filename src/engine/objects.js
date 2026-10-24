@@ -1,6 +1,6 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
-// item boxes, enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that
+// platforms, item boxes, enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that
 // every task keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
@@ -13,6 +13,7 @@ import { createSpring } from './springs.js';
 import { createSpikes } from './spikes.js';
 import { ENEMIES } from './enemies.js';
 import { createItemBox } from './itembox.js';
+import { createPlatform } from './platforms.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -39,8 +40,10 @@ export function createTasks() {
   };
 }
 
-// IS_OUT_OF_CAM_RANGE on the screen position of an entity's spawn point: x in -128..368, y in -128..288
-const offCam = (x, y, cam) => ((x - cam.x + 128) & 0xFFFF) > 496 || y - cam.y + 128 < 0 || y - cam.y > 288;
+/** IS_OUT_OF_CAM_RANGE on the screen position of world point (x, y): out unless x is in -128..368 and y in -128..288. */
+export const offCam = (x, y, cam) => ((x - cam.x + 128) & 0xFFFF) > 496 || y - cam.y + 128 < 0 || y - cam.y > 288;
+/** IS_OUT_OF_DISPLAY_RANGE on world point (x, y): more than 128 px out from the screen. */
+export const offDisplay = (x, y, cam) => x > cam.x + 368 || x < cam.x - 128 || y > cam.y + 288 || y < cam.y - 128;
 
 // a hitbox under the sprite's flips, as the sprite system applies them when the box is set
 function flipBox(box, flipX, flipY) {
@@ -121,7 +124,7 @@ function toggle(e, slot) {
 
 // The act 1 kinds not built yet, as tasks that do nothing but leave when their spawn point does, at the
 // original's priority (0x2000 unless given here) and range. The stage goal makes no task while its d1 is 0.
-const STAND_IN_PRIORITY = { 20: 0x900, 21: 0x2010 };   // the grind rail's end, the thin platform
+const STAND_IN_PRIORITY = { 20: 0x900 };   // the grind rail's end
 const STAND_IN_RANGE = {
   // the half-pipe's start and end look further back and further ahead
   28: (e, cam) => e.x > cam.x + 368 || e.x < cam.x - 800 || e.y > cam.y + 288 || e.y < cam.y - 128,
@@ -145,7 +148,7 @@ function standIn(e, slot, kind = e.kind) {
 function interactable(e, slot, anims) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
-  return def ? objectTask(def, slot, anims) : standIn(e, slot);
+  return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? standIn(e, slot);
 }
 
 /**

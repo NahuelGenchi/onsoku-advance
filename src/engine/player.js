@@ -16,7 +16,8 @@ const HISTORY = 16;
 
 // states: idle | walk | turn | brake | crouch | crouchEnd | lookUp | lookUpEnd | spinDash | spinDashRev |
 //         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip |
-//         spring (somersault off a spring) | springRise | springPeak | springFall | hurt | dead
+//         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
+//         hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -323,7 +324,7 @@ function airStep(p, c, world) {
   // air control and drag (Player_AirInputControls)
   if (!p.airLock && c.dir) {
     const dir = c.dir, acc = K.airAcceleration * pace(p), max = K.maxRunSpeed * pace(p);
-    p.facing = dir;
+    if (p.state !== 'bounce') p.facing = dir;   // off a bounce block he keeps facing the way he went up
     let v = p.xsp + acc * dir;
     if (v * dir > max) {
       v -= acc * dir;
@@ -339,9 +340,11 @@ function airStep(p, c, world) {
   bounds(p, world);
   p.x += p.xsp; p.y += p.ysp;
   p.ysp += K.gravity;
-  // the angle he left the ground at eases back to upright (Player_8047224)
+  // the angle he left the ground at eases back to upright; off a bounce block he tumbles the way he faces
+  // instead (Player_8047224)
   const r = s8(p.rotation);
-  p.rotation = (r > 0 ? Math.max(0, r - 2) : Math.min(0, r + 2)) & 0xFF;
+  if (p.state === 'bounce') p.rotation = (p.rotation + 4 * p.facing) & 0xFF;
+  else p.rotation = (r > 0 ? Math.max(0, r - 2) : Math.min(0, r + 2)) & 0xFF;
   airCollision(p, world.terrain, () => land(p));
 }
 
@@ -434,8 +437,9 @@ function chooseAnimation(p, input) {
       return 'walk';
     case 'brake': return speed < ANIMATION.brakeTurnSpeed ? 'brakeTurn' : 'brake';
     case 'springRise':
+      // the animation was picked before the state changes, so the top-out one starts on the next frame
       if (p.ysp >= -K.springPeakSpeed) p.state = 'springPeak';
-      return p.state;
+      return 'springRise';
     default: return p.state;
   }
 }

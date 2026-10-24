@@ -269,17 +269,21 @@ function rollStep(p, c, world) {
   if (wallPush(p, world.terrain, true) && p.curled) { uncurl(p); p.state = 'walk'; }
 }
 
-// the B-button combo on the ground (sub_8047668): returns true while it owns the frame
+// the B-button combo on the ground (sub_8047668): returns true while it owns the frame. It doesn't start
+// while Sonic revs a spin dash, pushes, or stands on a wall or the ceiling (Player_Sonic_StartRoll).
 function attackStep(p, c, world) {
   switch (p.attack) {
-    case 0:
-      if (p.spinDashing || !c.attackPressed) return false;
+    case 0: {
+      const floor = (p.rotation + 0x40) & 0xFF;
+      if (p.spinDashing || p.pushing || floor === 0 || floor >= 0x80 || !c.attackPressed) return false;
       p.gsp = K.spinAttackSpeed * sign(p); p.xsp = 0;
       p.attack = 1; p.state = 'spinAttack';
       world.playSound(SONG.SPIN);
       return true;
+    }
     case 1:
       p.gsp = toward0(p.gsp, K.attackFriction);
+      alongSurface(p);   // before a somersault's speed, which moves him from the next frame
       if (p.gsp === 0) { p.state = 'idle'; p.attack = 0; }
       if (c.attackPressed) {
         p.gsp = K.somersaultSpeed * sign(p); p.attack++; p.attackNext = 0; p.state = 'somersault';
@@ -288,11 +292,13 @@ function attackStep(p, c, world) {
       break;
     case 2:
       p.gsp = toward0(p.gsp, K.attackFriction);
+      alongSurface(p);
       if (p.attackNext === 0 && c.attackPressed) p.attackNext = 1;        // then slide
       else if (p.attackNext === 0 && c.jumpPressed) p.attackNext = 2;     // then backflip
       break;
     case 3:
       p.gsp = toward0(p.gsp, K.slideFriction);
+      alongSurface(p);
       if (p.gsp === 0) { p.state = 'slideEnd'; p.attack = 4; }
       break;
   }
@@ -313,7 +319,6 @@ function groundStep(p, c, world) {
   } else if (p.attack !== 0) {
     slope(p);
     attackStep(p, c, world);
-    alongSurface(p);
     wallPush(p, t);
   } else {
     if (attackStep(p, c, world)) return;

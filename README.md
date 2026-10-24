@@ -127,22 +127,22 @@ To see everything the extractor decodes, open <http://localhost:8000/viewer.html
 <summary><b>Controls</b></summary>
 <br>
 
-| Action | Keyboard |
-| :--- | :--- |
-| Run | <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> |
-| Jump (A) | <kbd>Z</kbd> or <kbd>Space</kbd> |
-| Insta-shield | <kbd>Z</kbd> again in a jump, once the rise slows |
-| Mid-air dash | Tap <kbd>←</kbd> <kbd>←</kbd> or <kbd>→</kbd> <kbd>→</kbd> in a jump |
-| Attack (B): spin, then kick, then slide or backflip | <kbd>X</kbd>, <kbd>X</kbd>, then <kbd>X</kbd> or <kbd>Z</kbd> |
-| Crouch, or roll while moving | <kbd>↓</kbd> |
-| Spin dash | <kbd>↓</kbd> + <kbd>Z</kbd> |
-| Look up | <kbd>↑</kbd> |
-| Show or hide the help panel | <kbd>H</kbd> |
-| Show or hide the collision | <kbd>C</kbd> |
-| Sound on or off | <kbd>M</kbd> |
-| Widescreen view on or off | <kbd>V</kbd> |
+| Action | Keyboard | Controller |
+| :--- | :--- | :--- |
+| Run | <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> | D-pad or left stick |
+| Jump (A) | <kbd>Z</kbd> or <kbd>Space</kbd> | <kbd>A</kbd> |
+| Insta-shield | <kbd>Z</kbd> again in a jump, once the rise slows | <kbd>A</kbd> again |
+| Mid-air dash | Tap <kbd>←</kbd> <kbd>←</kbd> or <kbd>→</kbd> <kbd>→</kbd> in a jump | Tap left twice or right twice |
+| Attack (B): spin, then kick, then slide or backflip | <kbd>X</kbd>, <kbd>X</kbd>, then <kbd>X</kbd> or <kbd>Z</kbd> | <kbd>B</kbd> or <kbd>X</kbd>, again, then again or <kbd>A</kbd> |
+| Crouch, or roll while moving | <kbd>↓</kbd> | Down |
+| Spin dash | <kbd>↓</kbd> + <kbd>Z</kbd> | Down + <kbd>A</kbd> |
+| Look up | <kbd>↑</kbd> | Up |
+| Show or hide the help panel | <kbd>H</kbd> | |
+| Show or hide the collision | <kbd>C</kbd> | |
+| Sound on or off | <kbd>M</kbd> | |
+| Widescreen view on or off | <kbd>V</kbd> | |
 
-On touch screens, on-screen buttons appear instead.
+The controller column follows the standard layout of an Xbox controller; other controllers the browser maps to that layout work the same way. Press a button once after the page loads so the browser lists the controller. On touch screens, on-screen buttons appear instead.
 
 </details>
 

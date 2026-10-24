@@ -57,19 +57,21 @@ export function createTitleCard(gfx) {
 }
 
 // sub_8052F78 (semi-transparent) and sub_80530CC (normal): `count` sprites from `text` in a row from (x, y),
-// or the zigzag's grid of `rows` rows, each starting at the column that's on screen, as OAM attributes
+// or the zigzag's grid of `rows` rows, each starting at the column that's on screen, as OAM attributes. Each
+// also keeps where it is before OAM wraps it, which only the widescreen view needs: its x, and its y as the 9-bit
+// signed number the pieces work with (the name drops in from y 422 and up, that is from above the screen).
 function put(card, p, [text, y = p.y], semi) {
   const { shape, size, w, h } = card.gfx.slots[p.slot];
-  let a0 = (shape << 14) + (y & 0xFF) + (semi ? 0x400 : 0);
-  const emit = (a1, i) => card.sprites.push({ slot: p.slot, glyph: text[i], a0: a0 & 0xFFFF, a1: a1 & 0xFFFF, order: p.order });
+  let a0 = (shape << 14) + (y & 0xFF) + (semi ? 0x400 : 0), top = (y << 23) >> 23;
+  const emit = (a1, i, x) => card.sprites.push({ slot: p.slot, glyph: text[i], a0: a0 & 0xFFFF, a1: a1 & 0xFFFF, x, y: top, order: p.order });
   if (!p.grid) {
     let a1 = (size << 14) + (p.x & 0x1FF);
-    for (let i = 0; i < p.count; i++, a1 += w) emit(a1, i);
+    for (let i = 0; i < p.count; i++, a1 += w) emit(a1, i, p.x + w * i);
     return;
   }
-  for (let r = 0; r < p.rows; r++, a0 += h) {
-    let a1 = (size << 14) + (p.x & 0x1FF);
-    for (let i = (-p.x & 0x1FF) >> 7; i < p.count; i++, a1 += w) emit(a1, i);
+  for (let r = 0; r < p.rows; r++, a0 += h, top += h) {
+    let a1 = (size << 14) + (p.x & 0x1FF), x = p.x;
+    for (let i = (-p.x & 0x1FF) >> 7; i < p.count; i++, a1 += w, x += w) emit(a1, i, x);
   }
 }
 

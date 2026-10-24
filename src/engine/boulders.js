@@ -7,7 +7,6 @@ import { makeSprite, animate, offCam } from './objects.js';
 import { platform, breaks } from './collide.js';
 import { dustCloud } from './defeat.js';
 import { SONG } from '../sound/songs.js';
-import { SCREEN_W, SCREEN_H } from './constants.js';
 
 export const DECORATION = 16;
 
@@ -68,7 +67,9 @@ function debris(sx, sy, cx, cy, anims) {
         const dx = cx - cam.x + q.across * n, dy = q.y - cam.y;
         const x = sx + ((dx * scale * 128) >> 16), y = sy + ((dy * scale * 128) >> 16);
         // drawn at double size, it is left out once that square is off the screen
-        if (x + q.size < 0 || x - q.size > SCREEN_W || y + q.size < 0 || y - q.size > SCREEN_H) continue;
+        // (the widescreen view draws the ones in its wider area too)
+        const v = ctx.view, left = v.x - cam.x, top = v.y - cam.y;
+        if (x + q.size < left || x - q.size > left + v.w || y + q.size < top || y - q.size > top + v.h) continue;
         ctx.draw(q.s, cam.x + x, cam.y + y, { rotation: q.angle, scaleX: scale, scaleY: scale, double: true });
       }
       return true;

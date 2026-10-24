@@ -3,10 +3,10 @@
 // the objects make fall in where the original's do. Each step also lists the sprites it shows, in the order
 // the original puts them in OAM, for the renderer.
 
-import { TICK_MS, CAMERA, PHYSICS } from './constants.js';
+import { TICK_MS, CAMERA, PHYSICS, SCREEN_W, SCREEN_H } from './constants.js';
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { createPlayer, stepPlayer, animatePlayer, hurt } from './player.js';
-import { createCamera, updateCamera } from './camera.js';
+import { createCamera, updateCamera, viewOf } from './camera.js';
 import { createRenderer } from './renderer.js';
 import { createTerrain } from './terrain.js';
 import { createTasks, createEntities } from './objects.js';
@@ -54,7 +54,10 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
     card: null,           // the title card (titlecard.js) while it holds Sonic and the clock
+    view: null,           // what the screen shows around the camera (camera.js viewOf); only drawing reads it
   };
+  let viewW = SCREEN_W, viewH = SCREEN_H;   // the original screen, or the widescreen view's size
+  state.view = viewOf(state.cam, viewW, viewH);
   const sparkles = new Set();   // the ring sparkles still running their animation
   let cardPad = [];   // the pad directions held on the title card's last frame
   let extraLife = false, restart = false, loading = false, starMusic = false;
@@ -152,7 +155,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
-    player, world, anims, tiles: assets.sprites.tiles, cam: { x: 0, y: 0 }, draw, input,
+    player, world, anims, tiles: assets.sprites.tiles, cam: { x: 0, y: 0 }, view: state.view, draw, input,
     attack: (s, x, y) => attackTest(s, x, y, ctx),
     projectile: (s, x, y) => projectileTest(s, x, y, ctx),
     add: (task, priority) => tasks.add(task, priority),
@@ -244,6 +247,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     Object.assign(player, createPlayer({ x: at.x, y: at.y, spinDashSpeeds: assets.physics.spinDashSpeeds }));
     if (state.courseTime >= MAX_COURSE_TIME && state.checkpoint) state.checkpoint.time = 0;
     state.cam = createCamera(player, terrain);
+    state.view = viewOf(state.cam, viewW, viewH);
     tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear();
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
@@ -263,13 +267,14 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     [0x0F00, () => {
       updateCamera(state.cam, player);
       ctx.cam = { x: Math.floor(state.cam.x), y: Math.floor(state.cam.y) };
+      ctx.view = state.view = viewOf(state.cam, viewW, viewH);
     }],
     [0x2000, ctx => collectRings(ctx)],
     [0x2000, ctx => entities.manager.run(ctx)],
     ...palettes.map(a => [0x2000, () => { a.run(); state.palettes = palettes.map(b => b.shown); }]),
     // a sparkle the scattered rings leave first runs on the next frame
     [0x2001, () => {
-      for (const ring of scatter.update(player, state.cam, terrain, state.tick)) addRing(ring);
+      for (const ring of scatter.update(player, state.view, terrain, state.tick)) addRing(ring);
       const dropped = scatter.visible();
       for (const r of dropped.list) draw({ frame: dropped.frame, flipX: false, flipY: false, order: 20, prio: 2 }, r.x, r.y);
     }],
@@ -326,6 +331,13 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   return {
     state, step,
     draw: () => render(state),
+    /** Sets the size of what the screen shows: 240 × 160, the original's, or wider and taller (widescreen). */
+    setView(w, h) {
+      if (w === viewW && h === viewH) return;
+      viewW = w; viewH = h;
+      ctx.view = state.view = viewOf(state.cam, w, h);
+      render.resize(w, h);
+    },
     // the act's music starts with the act, as the stage's init does (StageInit_Zone1Act1)
     start() {
       input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);

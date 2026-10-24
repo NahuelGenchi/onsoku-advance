@@ -41,6 +41,7 @@ export function createWallPole(e, slot, anims) {
     if (++t <= 13) return;
     p.air = true;
     standUp(p);   // uncurled, his feet where they were
+    p.airLock = false;   // a jump out of a roll would otherwise leave him unable to steer away from it
     p.state = 'springRise';
     p.ysp = -LAUNCH;
     p.carried = false;

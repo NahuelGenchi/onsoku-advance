@@ -1,10 +1,11 @@
 // Draws one 240 × 160 frame: the zone background with its per-line scrolling, the act's back layer, the
-// sprites behind the front layer, the front layer, the sprites in front of it, and the HUD on top. The
+// sprites behind the front layer, the front layer, the sprites in front of it, and the HUD on top, the
+// background and the layers in the colours the act's palette animations have loaded. The
 // sprites are the act's rings and the step's list, stacked as the GBA stacks OAM entries: a lower OAM order
 // in front, and within an order the one put in first.
 
 import { SCREEN_W, SCREEN_H } from './constants.js';
-import { drawLayer, stageAnimFrame, collisionImage } from './stage.js';
+import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './stage.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
 
@@ -22,8 +23,8 @@ export function createRenderer(canvas, assets) {
   canvas.width = SCREEN_W; canvas.height = SCREEN_H;
   const ctx = canvas.getContext('2d', { alpha: false });
   const { atlas, frames } = assets.sprites, hud = assets.hud;
-  const stage = assets.stage, { background } = stage;
-  const bgW = background.width;
+  const stage = assets.stage, { backgrounds } = stage;
+  const bgW = stage.background.width;
 
   // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does
   // `angle` (0–255 per turn) turns the sprite around its anchor like the GBA's rotation hardware, and `scale`
@@ -61,18 +62,19 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  return function render({ tick, cam, rings, sprites, terrain, hud: hudState, showCollision }) {
+  return function render({ tick, cam, rings, sprites, terrain, palettes, hud: hudState, showCollision }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet: the original's title card covers
     // that frame, and until this game has one the view is kept inside
     const cx = Math.min(Math.max(Math.floor(cam.x), 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y), 0), cam.maxY);
+    const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
     for (let line = 0; line < SCREEN_H; line++) {
       const off = mod(backgroundOffset(line, tick, cx), bgW);
       ctx.drawImage(background, off, line, bgW - off, 1, 0, line, bgW - off, 1);
       if (bgW - off < SCREEN_W) ctx.drawImage(background, 0, line, off, 1, bgW - off, line, off, 1);
     }
     const frame = stageAnimFrame(stage, tick);
-    drawLayer(ctx, stage, 'back', cx, cy, SCREEN_W, SCREEN_H, frame);
+    drawLayer(ctx, stage, 'back', cx, cy, SCREEN_W, SCREEN_H, frame, palettes);
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
     const shown = rings.visible(cam);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
@@ -80,7 +82,7 @@ export function createRenderer(canvas, assets) {
       for (const s of list) if ((s.prio >= 2) === behind) drawSprite(s.frame, s.x - cx, s.y - cy, s.flipX, s.flipY, s.angle, s.scale);
     };
     drawAll(true);
-    drawLayer(ctx, stage, 'front', cx, cy, SCREEN_W, SCREEN_H, frame);
+    drawLayer(ctx, stage, 'front', cx, cy, SCREEN_W, SCREEN_H, frame, palettes);
     drawAll(false);
     if (showCollision) drawCollision(terrain, cx, cy);
     drawHud(hudState.sprites);

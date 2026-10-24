@@ -1,8 +1,8 @@
 // Neo Green Hill's checkpoints (SAT-R decompilation, src/game/sa1/stage/interactables/checkpoint.c), kind 7.
 // d0 numbers them along the act. When Sonic's centre enters one's box it spins, with song 169 from its
 // script, and the act starts over from it after a death; one whose number is not above the last passed
-// spawns already passed. (The original also skips one while Sonic is held by a grind rail or the like,
-// MOVESTATE_IA_OVERRIDE, which this game doesn't have yet.)
+// spawns already passed. It doesn't count while an object holds Sonic (MOVESTATE_IA_OVERRIDE), as a wall
+// pole does.
 
 import { makeSprite, startAnim, animate, offCam } from './objects.js';
 import { SONG } from '../sound/songs.js';
@@ -30,7 +30,7 @@ export function createCheckpoint(e, slot, anims, ctx) {
     run(ctx) {
       if (phase === 'spinning') return spin(ctx);
       const p = ctx.player, x = Math.floor(p.x), y = Math.floor(p.y), [l, t, r, b] = o.boxes[0] ?? [];
-      if (phase === 'waiting' && x >= e.x + l && x <= e.x + r && y >= e.y + t && y <= e.y + b) {
+      if (phase === 'waiting' && !p.carried && x >= e.x + l && x <= e.x + r && y >= e.y + t && y <= e.y + b) {
         // it records where Sonic will start, his feet at its base, and the time, then runs its spinning
         // task at once and goes on with the rest of this one, so the spin's first frame shows for one frame
         ctx.world.passCheckpoint(index, e.x, e.y - p.offsetY);

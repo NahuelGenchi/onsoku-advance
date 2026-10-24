@@ -169,7 +169,7 @@ The booster runs before Sonic, so his own step then works on that speed in the s
 
 Act 1 has five checkpoints, kind 7, numbered by `d0` along the act: 1 at (3640, 768), 2 at (6376, 1056), 3 at (9576, 960), 4 at (9600, 1248) and 5 at (9904, 672). `d1` isn't read. All are animation `452`, in sprite palette 33, drawn at their spawn point in OAM order 18 and BG priority 2. Variant 0 waits: frame 0, with the box (−7, −44, 8, 5). Variant 1 spins: its script starts song 169, then shows frames 1, 2, 3, 4, 5 and 0 for 2 frames each and ends. Variant 2 is the passed checkpoint: frames 0 and 6 for 3 frames each, on a loop. Each kind of task runs at priority `0x2000` and goes when its spawn point leaves the range. The waiting one is `0x080215D9`, the spinning one `0x08021809` and the passed one `0x080218D9`.
 
-A checkpoint whose number is not above the number of the last one passed (`gBossIndex`, 0 when the act is first entered and kept through deaths) spawns already passed. A waiting one tests, before anything else, whether Sonic's centre, where he was at the end of the previous frame, is inside its box, edges included. It doesn't check whether he is alive, only that nothing like a grind rail holds him (`MOVESTATE_IA_OVERRIDE`, which this game doesn't have yet). When he is inside, it:
+A checkpoint whose number is not above the number of the last one passed (`gBossIndex`, 0 when the act is first entered and kept through deaths) spawns already passed. A waiting one tests, before anything else, whether Sonic's centre, where he was at the end of the previous frame, is inside its box, edges included. It doesn't check whether he is alive, only that nothing holds him (`MOVESTATE_IA_OVERRIDE`), as a wall pole does. When he is inside, it:
 
 - makes its number the last passed,
 - keeps where Sonic will start after a death: his centre at its x, and his `spriteOffsetY` above its base, so a rolling Sonic (offset 9) starts 5 px lower than a standing one (14),
@@ -177,6 +177,21 @@ A checkpoint whose number is not above the number of the last one passed (`gBoss
 - switches to variant 1 and runs the spinning task at once, then steps its animation again. Frame 1 only shows for that one frame.
 
 When the spin ends, the sprite shows its last frame for that frame and the passed task takes over on the next.
+
+### Wall poles
+
+Act 1 has seven wall poles, kind 45, short bars sticking out to the left of a wall: at (7008, 384), (6768, 1080), (8064, 1096), (9216, 856), (9552, 1008), (9552, 1112) and (10752, 576). They don't read their `d` bytes. Kind 44, the same pole sticking out to the right, shares their code, and act 1 has none. Zone 1 draws them with animation `468`, the other zones with the red flag pole `470`. Variant 0 is the pole at rest: one frame, with the box (10, 5, 23, 8), mirrored on kind 45 to (−23, 5, −10, 8). Variant 1 is its swing: nine frames, 29 frames in all, then it ends. A pole is drawn at its spawn point in OAM order 18 and BG priority 2, flipped on kind 45. Its tasks run at priority `0x2000` and go when its spawn point leaves the range: waiting `0x08077965`, holding Sonic `0x08077A25` and swinging back `0x08077BA5`.
+
+Each frame, before it steps its animation, the waiting task tests the box its last frame set against Sonic's body (see *Objects*), where he was at the end of the previous frame, if he is alive. A pole has no box on its first frame. It doesn't look at his speed, his direction, or whether he is in the air or curled up: walking, falling, jumping or rolling into it, from either side, it catches him. Then it:
+
+- ends his attacks, mid-air moves, spin dash charge and push (`Player_TransitionCancelFlyingAndBoost`); his speeds, and whether he is in the air or curled up, stay as they were,
+- plays song 175,
+- holds him (`MOVESTATE_IA_OVERRIDE`): his own movement doesn't run while it is set, so no input, speed, gravity, collision or act edge moves him, but his animation, his input history and his timers still do,
+- puts his centre 8 px from the pole's spawn point along the bar, near the wall, and 16 px below it, with no subpixel: (x − 8, y + 16) on kind 45, facing right, and (x + 8, y + 16) on kind 44, facing left,
+- puts him in character state 31: animation 38, five frames of 3, 3, 3, 2 and 2 frames that stays on its last,
+- switches to variant 1 and steps it at once, so the swing's first frame shows on the same frame.
+
+The holding task then moves him on each of its 14 frames: 1 px down on the first seven, then 1, 16, 7, 7, 7, 7 and 7 px up. On the 14th it lets him go, thrown up: in the air, uncurled with his feet where they were (offset 14), in the spring's rising state (character state 21, then 18 and 19), with a Y speed of −7.5 px a frame and the X speed he came with. His own step then runs on the same frame. If he dies while it holds him it lets him go. When the swing ends, 29 frames after the catch, the pole shows the swing's last frame, goes back to variant 0, and catches him again from the next frame. Dropped straight onto a pole, he is caught, thrown up, falls back onto it and is caught again, over and over. The camera follows him as usual, with the air dead zone only if he was in the air when caught.
 
 ### Rings
 
@@ -294,6 +309,7 @@ Losing a life destroys every task, so nothing after Sonic runs on that frame, an
 - *Waterfalls and balancing:* 16 more recordings walk through a waterfall, fall through two, and stand on the third boulder inside one and jump. They also stand Sonic at a ledge each way and turn him round, walk him up to one, and stand him on both sides of the first boulder and of a crumbling platform each way round, at the edge and a pixel inside it. The whole game matches all of them on every frame, including his balancing animations and where the splash is drawn.
 - *Boosters:* 14 more recordings walk Sonic over the first, third and fourth boosters and the sloped one, drop him standing onto the first, hop over it at three timings, run into it with the combo's first B attack and with its somersault, walk left into the second while holding left, and drop him onto it holding down. An earlier recording, where he spin dashes into the right spring at 6432 and rolls back over the sloped booster again and again, shows it keeping a speed already above 9. The whole game matches all of them on every frame, run from the act's first frame: Sonic and his animation, the camera, the rings, where each booster is drawn and with which frame, and every frame song 172 starts. The fourth booster throws Sonic into the half-pipe at 9968, which isn't built yet, so that recording is compared up to the frame before he reaches it. The original's OAM shows the boosters at BG priority 2.
 - *Checkpoints and the restart:* 12 more recordings, which also dump the course time, the checkpoint Sonic would start from and the checkpoints' tasks, walk Sonic through each of the five checkpoints, through the first from the right and jumping, and roll him through it. Five of them then drop him out of the bottom of the act after the first, second or fourth checkpoint, wait through the restart and the title card, and walk on; one presses A during the card to skip it. Run from the act's first frame, the whole game matches all of them on every frame: Sonic and his animation, the camera, the course time and stage clock, where he would start again, the title card holding him, where each checkpoint is drawn and with which frame, the frames song 169 starts and the frame the music starts again. The earlier recordings all still match, with their harnesses now leaving the title card to the game, and a spin dash recording that dies and waits through the restart now matches too: before, the music started two frames late and Sonic grew bored 224 frames early.
+- *Wall poles:* 40 more recordings, which also dump the poles' tasks, drop Sonic beside each of the seven poles from four places, and beside the first standing, curled up, moving right at 3 or 8 px a frame and drifting left. They also throw him up curled into the first from below, run him off a ledge into one and hop him into another, and press A, B, down and left while the first holds him and as it lets go. Every pole catches him in at least three of them, some again and again. Run from the act's first frame, the whole game matches all of them on every frame: Sonic and his animation, the hold, the camera, where each pole is drawn and with which frame, and the frames song 175 starts. Two of them run on onto a grind rail and into the half-pipe, which aren't built yet, so they are compared up to the frame before.
 - *Palette animations:* mGBA's palette RAM, read every frame from the act's first frame, and again through the restart after a death, matches the colours the engine has loaded on every frame. A screenshot at a waterfall matches the engine's frame pixel for pixel in the waterfall, the layers and the sea, with the stage clock and both animations at the same point.
 
 ### HUD
@@ -346,7 +362,7 @@ Sonic's character state picks his animation through a table of 94 `(animation, v
 | Spring: rising | 10 | Spring: topping out | 10, variant 1 |
 | Spring: falling | 10, variant 2 | Bounce block | 4 (the walk) |
 | Push | 12 | Balancing, facing the drop | 13 |
-| Balancing, back to the drop | 14 | | |
+| Balancing, back to the drop | 14 | Hanging on a wall pole | 38 |
 
 **Pushing.** Walking into a wall, or into the side of a solid object or a spring's back, sets the push flag (`moveState` bit `0x20`), and every frame it's set the animation chooser picks the push (character state 14). Rolling into a wall doesn't. Landing, leaving the ground, turning round, jumping, getting hurt, walking off an object and standing still on level ground clear it.
 
@@ -429,6 +445,7 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Checkpoint | 169 | 2 | A checkpoint starts to spin, from its animation's script |
 | Booster | 172 | 2 | Every frame a booster sends Sonic on, even when he is already faster |
 | Crumbling platform | 173 | 2 | A crumbling platform starts to fall apart |
+| Wall pole | 175 | 2 | A wall pole catches Sonic |
 | Trampoline | 176 | 2 | Every bounce |
 | Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |
 | Rings from a box | 117 | 3 | The ring prizes, once for the lot |

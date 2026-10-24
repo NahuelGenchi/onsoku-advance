@@ -18,7 +18,8 @@ const SOX = 6;   // spriteOffsetX, half his width
 // states: idle | walk | turn | brake | crouch | crouchEnd | lookUp | lookUpEnd | spinDash | spinDashRev |
 //         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip |
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
-//         push | balanceForward (facing over an edge) | balanceBack (his back to it) | hurt | dead
+//         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
+//         pole) | hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -46,6 +47,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     speedUp: 0,        // frames of speed shoes left (timerSpeedup)
     hidden: false,     // left out of this frame's drawing: blinking, or gone below the screen after dying
     dead: false,       // MOVESTATE_DEAD
+    carried: false,    // MOVESTATE_IA_OVERRIDE: an object moves him, and his own movement doesn't run
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,
     chain: 0,          // enemies defeated since he last touched the ground (defeatScoreIndex)
@@ -455,6 +457,7 @@ export function stepPlayer(p, input, world) {
   input.jumpPressed = false; input.attackPressed = false;
 
   if (p.dead) deadStep(p, world);
+  else if (p.carried) return;
   else if (p.air) airStep(p, c, world);
   else groundStep(p, c, world);
 }

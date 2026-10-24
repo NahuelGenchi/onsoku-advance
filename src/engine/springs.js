@@ -76,7 +76,7 @@ function side(o, p) {
     return true;
   }
   land(p);
-  if (r & PUSHING) { p.xsp = p.gsp = 0; standUp(p); }
+  if (r & PUSHING) { p.pushing = true; p.xsp = p.gsp = 0; standUp(p); }
   return false;
 }
 

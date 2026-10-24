@@ -17,7 +17,7 @@ const HISTORY = 16;
 // states: idle | walk | turn | brake | crouch | crouchEnd | lookUp | lookUpEnd | spinDash | spinDashRev |
 //         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip |
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
-//         hurt | dead
+//         push | hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -28,6 +28,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     air: false,        // MOVESTATE_IN_AIR
     onObject: null,    // the object he stands on (MOVESTATE_STOOD_ON_OBJ and stoodObj)
     curled: false,     // MOVESTATE_SPIN_ATTACK: rolling or jumping as a ball
+    pushing: false,    // MOVESTATE_20: walked into a wall or a solid object; it shows the push animation
     jumped: false,     // left the ground with the jump button (allows the jump cap and mid-air moves)
     airLock: false,    // jumped out of a roll: no air control until the insta-shield
     spinDashing: false, dashAccel: 0,
@@ -123,7 +124,7 @@ function doubleTap(p) {
 // jumps away from the surface, if there are at least 4 px of room that way
 function tryJump(p, c, world) {
   if (!c.jumpPressed || clearance(p, world.terrain, p.rotation + 0x80) < 4) return false;
-  p.air = true; p.jumped = true; p.state = 'spin';
+  p.air = true; p.jumped = true; p.pushing = false; p.state = 'spin';
   const a = (p.rotation - 0x40) & 0xFF, jump = q8(K.jumpSpeed);
   p.xsp = (q8(p.xsp) + ((jump * cos8(a)) >> 8)) / 256;
   p.ysp = (q8(p.ysp) + ((jump * sin8(a)) >> 8)) / 256;
@@ -172,7 +173,7 @@ const pace = p => (p.speedUp > 0 ? 2 : 1);
 function walk(p, dir, world) {
   const acc = K.acceleration * pace(p), max = K.maxRunSpeed * pace(p);
   if (p.gsp * dir >= 0) {
-    if (p.facing !== dir) p.state = 'turn';
+    if (p.facing !== dir) { p.state = 'turn'; p.pushing = false; }
     p.facing = dir;
     let g = p.gsp + acc * dir;
     if (g * dir > max) {
@@ -207,7 +208,11 @@ function walkInput(p, c, world) {
     else if (p.state === 'lookUp') p.state = 'lookUpEnd';
     else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
   }
-  if (p.gsp === 0 && p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+  // standing still on level ground stops the push
+  if (!((p.rotation + 0x20) & 0xC0) && p.gsp === 0) {
+    p.pushing = false;
+    if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+  }
 
   // up and down only count while no direction is held, and cancel each other out
   if (c.up && !c.down) { if (p.gsp === 0) p.state = 'lookUp'; }
@@ -233,7 +238,7 @@ function rollStep(p, c, world) {
   if (p.gsp === 0) { uncurl(p); p.state = c.down ? 'crouch' : 'walk'; }
   alongSurface(p);
   // a wall to the side stops the roll and stands him up
-  if (wallPush(p, world.terrain) && p.curled) { uncurl(p); p.state = 'walk'; }
+  if (wallPush(p, world.terrain, true) && p.curled) { uncurl(p); p.state = 'walk'; }
 }
 
 // the B-button combo on the ground (sub_8047668): returns true while it owns the frame
@@ -350,7 +355,7 @@ function airStep(p, c, world) {
 
 /** Touching down on the ground or an object (sub_8021BE0); the caller sets the ground speed. */
 export function land(p) {
-  p.air = false;
+  p.air = false; p.pushing = false;
   p.state = 'walk';
   if (p.curled) uncurl(p);
   p.offsetY = SPRITE_OFFSET_Y;   // set outright, even when something uncurled him without moving him
@@ -369,7 +374,7 @@ export function hurt(p) {
   p.invulnerable = K.invulnerable;
   p.xsp = p.xsp < 0 || (p.xsp === 0 && p.facing < 0) ? K.hurtSpeedX : -K.hurtSpeedX;
   p.ysp = -K.hurtSpeedY;
-  p.onObject = null; p.air = true;
+  p.onObject = null; p.air = true; p.pushing = false;
   endAttack(p);
   p.airLock = false;
   p.state = 'hurt';
@@ -426,6 +431,7 @@ function chooseAnimation(p, input) {
   const a = p.anim, speed = Math.abs(p.gsp);
   a.speed = ANIMATION.normalSpeed;
   if (p.gsp !== 0 || input.left || input.right || input.up || input.down || input.jump || input.attack) p.idleT = K.boredDelay;
+  if (p.pushing) p.state = 'push';
   switch (p.state) {
     case 'idle':
       if (p.idleT !== 0) { p.idleT--; return 'idle'; }

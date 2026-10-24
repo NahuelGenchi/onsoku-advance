@@ -71,7 +71,7 @@ export function groundSensors(p, t) {
   const val = Math.min(a.d, b.d), rot = a.d < b.d ? p.rotA : p.rotB;
 
   if (val < -MAX_SNAP) return;
-  if (val > 0 && val > Math.min(Math.floor(Math.abs(speed)) + 3, MAX_SNAP)) { p.air = true; return; }
+  if (val > 0 && val > Math.min(Math.floor(Math.abs(speed)) + 3, MAX_SNAP)) { p.air = true; p.pushing = false; return; }
   if (mode === 0) p.y += val;
   else if (mode === 1) p.x -= val;
   else if (mode === 2) p.y -= val;
@@ -81,9 +81,9 @@ export function groundSensors(p, t) {
 
 /**
  * Stops Sonic at a wall ahead of him, one frame early (sub_8023128 walking, sub_80231C0 rolling).
- * Returns true when he was pushed back by a wall to his side.
+ * Returns true when he was pushed back by a wall to his side; walking, that starts a push.
  */
-export function wallPush(p, t) {
+export function wallPush(p, t, rolling = false) {
   if (p.gsp === 0) return false;
   const a = (p.rotation + (p.gsp >= 0 ? -0x40 : 0x40)) & 0xFF;
   p.rotA = p.rotB = a;
@@ -98,9 +98,9 @@ export function wallPush(p, t) {
   if (d > 0) return false;
   switch (quadrant(a)) {
     case 0: p.y += d; p.ysp = 0; return false;
-    case 1: p.x -= d; p.xsp = 0; p.gsp = 0; return true;
+    case 1: p.x -= d; p.xsp = 0; p.gsp = 0; p.pushing ||= !rolling; return true;
     case 2: p.y -= d; p.ysp = 0; p.air = true; return false;
-    default: p.x += d; p.xsp = 0; p.gsp = 0; return true;
+    default: p.x += d; p.xsp = 0; p.gsp = 0; p.pushing ||= !rolling; return true;
   }
 }
 

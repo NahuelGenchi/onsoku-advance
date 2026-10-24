@@ -127,9 +127,9 @@ export function createGame(canvas, assets, input, sound = SILENT) {
 
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
   // background priority: 2 behind the front layer, 0 and 1 in front of it)
-  function draw(s, x, y, angle = 0) {
+  function draw(s, x, y, angle = 0, scale = 1) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, angle, order: s.order, prio: s.prio });
+    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, angle, scale, order: s.order, prio: s.prio });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {

@@ -26,15 +26,16 @@ export function createRenderer(canvas, assets) {
   const bgW = background.width;
 
   // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does
-  // `angle` (0–255 per turn) turns the sprite around its anchor like the GBA's rotation hardware
-  function drawSprite(index, x, y, flipX, flipY = false, angle = 0) {
+  // `angle` (0–255 per turn) turns the sprite around its anchor like the GBA's rotation hardware, and `scale`
+  // grows it around the same point
+  function drawSprite(index, x, y, flipX, flipY = false, angle = 0, scale = 1) {
     if (index < 0) return;
     const [sx, sy, w, h, ax, ay] = frames[index];
     const px = Math.floor(x), py = Math.floor(y);   // the integer part, like the original's I(qWorldX)
-    if (!flipX && !flipY && !angle) { ctx.drawImage(atlas, sx, sy, w, h, px - ax, py - ay, w, h); return; }
+    if (!flipX && !flipY && !angle && scale === 1) { ctx.drawImage(atlas, sx, sy, w, h, px - ax, py - ay, w, h); return; }
     ctx.save(); ctx.translate(px, py);
     if (angle) ctx.rotate(angle * Math.PI / 128);
-    ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+    ctx.scale(flipX ? -scale : scale, flipY ? -scale : scale);
     ctx.drawImage(atlas, sx, sy, w, h, -ax, -ay, w, h);
     ctx.restore();
   }
@@ -76,7 +77,7 @@ export function createRenderer(canvas, assets) {
     const shown = rings.visible(cam);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
     const drawAll = behind => {
-      for (const s of list) if ((s.prio >= 2) === behind) drawSprite(s.frame, s.x - cx, s.y - cy, s.flipX, s.flipY, s.angle);
+      for (const s of list) if ((s.prio >= 2) === behind) drawSprite(s.frame, s.x - cx, s.y - cy, s.flipX, s.flipY, s.angle, s.scale);
     };
     drawAll(true);
     drawLayer(ctx, stage, 'front', cx, cy, SCREEN_W, SCREEN_H, frame);

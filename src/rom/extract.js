@@ -23,6 +23,8 @@ export const SONIC_ANIMATIONS = {
   spring: [11, 0], springRise: [10, 0], springPeak: [10, 1], springFall: [10, 2],
   // thrown up by a bounce block (charState 23): the walk animation
   bounce: [4, 0],
+  // walking into a wall or a solid object (charState 14)
+  push: [12, 0],
   // knocked back (charState 15) and dying (1)
   hurt: [19, 0], dead: [21, 0],
 };
@@ -64,6 +66,8 @@ export const ITEM_ANIMATIONS = {
 export const PLATFORM_ANIMATIONS = {
   463: { thinPlatform: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 }, 904: { crumblingPlatform: 0 },
 };
+// the boulders (458), and the small and large pieces a broken one leaves (459, 460)
+export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -116,7 +120,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

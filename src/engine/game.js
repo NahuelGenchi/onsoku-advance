@@ -25,6 +25,11 @@ const START_LIVES = 3;
 const ITEM_TIME = 1200;   // invincibility and speed shoes last 20 seconds
 const RANDOM_RING_PRIZES = [1, 5, 10, 20, 30, 40];   // ItemBox_RingAmountTable
 const SPEED_UP_TEMPO = 0x200, NORMAL_TEMPO = 0x100;
+const MAX_COURSE_TIME = 10 * 3600;
+// the title card's frames: a press from its 36th to its 214th skips it to its 215th, and it ends after its 225th
+const CARD_SKIP_FROM = 35, CARD_SKIP_TO = 215, CARD_FRAMES = 225;
+// what Sonic reads while the title card holds him: the jump and attack buttons InitializePlayer leaves held, never pressed
+const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, jumpPressed: false, attackPressed: false };
 
 const SILENT = {
   play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, tempo() {}, invincibility() {},
@@ -45,9 +50,13 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     animal: 0,   // gTrappedAnimalVariant: the next defeat's animal
     seed: 0,     // gPseudoRandom: the game's random numbers, one sequence for the whole game, from 0
     palettes: palettes.map(a => a.shown),   // the frame each palette animation has loaded (palettes.js)
+    checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
+    checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
+    card: null,           // the title card's frame count while it holds Sonic and the clock
   };
   const sparkles = new Set();   // the ring sparkles still running their animation
-  let extraLife = false, restart = false, loading = false, startMusic = false, starMusic = false;
+  let cardPad = [];   // the pad directions held on the title card's last frame
+  let extraLife = false, restart = false, loading = false, starMusic = false;
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
   const render = createRenderer(canvas, assets);
 
@@ -86,6 +95,9 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     },
     // the act starts over: the original destroys every task, so nothing after Sonic's runs this frame
     lifeLost() { restart = true; tasks.stop(); },
+    get checkpointIndex() { return state.checkpointIndex; },
+    // Sonic passed checkpoint `index`: the act starts over with his centre at (x, y) and the clock at this time
+    passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.courseTime }; },
     // Sonic's attack box destroyed an enemy at (x, y)
     defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
     playSound: song => sound.play(song),
@@ -209,18 +221,28 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     draw(s, player.x + nudge, player.y, turning ? player.rotation : 0);
   }
 
-  // HandleLifeLost: a life less, and the act starts over with everything in it, keeping the score and the
-  // stage clock (no checkpoints yet; the game over at no lives left is not built yet). Loading the act again
-  // takes the original the whole next frame, in which nothing runs; the music starts on the frame after.
+  // the title card (sub_80550F8): not drawn yet, but it holds Sonic and the clock while it runs, as the
+  // original's does from the act's first frame and after each restart
+  function startCard() { state.card = 0; state.clockStopped = true; }
+
+  // HandleLifeLost: a life less, and the act starts over with everything in it, keeping the score, the stage
+  // clock and the last checkpoint passed. Sonic starts at that checkpoint, or at the act's start without one,
+  // and the course time goes back to what it was there (to 0 if it had run out); the camera starts from him.
+  // The act's music starts again at once (StageInit_Zone1Act1), and loading the act takes the original the
+  // whole next frame, in which nothing runs. (The game over at no lives left is not built yet.)
   function restartAct() {
     if (state.lives > 0) state.lives--;
-    Object.assign(player, createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds }));
+    const at = state.checkpoint ?? assets.stage.spawn;
+    Object.assign(player, createPlayer({ x: at.x, y: at.y, spinDashSpeeds: assets.physics.spinDashSpeeds }));
+    if (state.courseTime >= MAX_COURSE_TIME && state.checkpoint) state.checkpoint.time = 0;
     state.cam = createCamera(player, terrain);
     tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear();
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
-    state.ringCount = 0; state.effects = []; state.sprites = []; state.courseTime = 0; state.clockStopped = false; state.animal = 0;
-    loading = true; startMusic = true; starMusic = false;
+    state.ringCount = 0; state.effects = []; state.sprites = []; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
+    startCard();
+    sound.playStageMusic(SONG.NEO_GREEN_HILL_1);
+    loading = true; starMusic = false;
   }
 
   // the stage's own tasks, made in the original's order: the rings manager and the entities manager first
@@ -237,25 +259,37 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       const dropped = scatter.visible();
       for (const r of dropped.list) draw({ frame: dropped.frame, flipX: false, flipY: false, order: 20, prio: 2 }, r.x, r.y);
     }],
+    // the title card: from its 226th frame, or ten frames after A, B or the pad is pressed from its 36th to
+    // its 214th, Sonic takes the controls and the clock starts; the buttons he held when it ends aren't presses
+    [0x2100, () => {
+      if (state.card === null) return;
+      const pad = ['left', 'right', 'up', 'down'].filter(k => input[k]);
+      const pressed = input.jumpPressed || input.attackPressed || pad.some(k => !cardPad.includes(k));
+      cardPad = pad;
+      input.jumpPressed = false; input.attackPressed = false;
+      if (pressed && state.card > CARD_SKIP_FROM && state.card < CARD_SKIP_TO) state.card = CARD_SKIP_TO;
+      if (++state.card > CARD_FRAMES) { state.card = null; state.clockStopped = false; }
+    }],
     [0x2180, () => { if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER); }],
     [0x3000, () => {
-      stepPlayer(player, input, world);
-      animatePlayer(player, input, anims, world);
+      const held = state.card === null ? input : CARD_INPUT;
+      stepPlayer(player, held, world);
+      animatePlayer(player, held, anims, world);
       drawSonic();
       state.effects = state.effects.filter(updateEffect);
       for (const e of state.effects) draw({ frame: frameOf(e.anim, anims), flipX: e.flipX, flipY: e.flipY, order: 8, prio: 2 }, e.x, e.y);
     }],
-    // the music manager: the act's music after a restart, invincibility's song and an extra life's 1-up jingle
-    // in place of it (synth.js runs it, with what it reads of Sonic)
+    // the music manager: invincibility's song and an extra life's 1-up jingle in place of the act's music
+    // (synth.js runs it, with what it reads of Sonic)
     [0x4000, () => {
       sound.playerState(player.invincible > 0, player.speedUp > 0, !player.dead);
-      if (startMusic) { startMusic = false; sound.playStageMusic(SONG.NEO_GREEN_HILL_1); }
       if (starMusic) { starMusic = false; sound.invincibility(); }
       if (extraLife) { extraLife = false; sound.oneUp(); }
     }],
     [0xFF00, () => { if (!state.clockStopped) state.courseTime++; state.tick++; }],
   ];
   for (const [priority, run] of STAGE_TASKS) tasks.add({ run: ctx => { run(ctx); return true; } }, priority, true);
+  startCard();
 
   // the camera's task (0x0F00) comes before all of them: it follows where Sonic was at the end of the last
   // frame, and this frame is drawn with it

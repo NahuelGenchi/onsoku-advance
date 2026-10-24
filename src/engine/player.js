@@ -421,7 +421,7 @@ export function hurt(p) {
 function deadStep(p, world) {
   if (!p.death) {
     p.death = 'falling'; p.state = 'dead';
-    p.xsp = 0; p.gsp = 0; p.invulnerable = 2; p.onObject = null;
+    p.xsp = 0; p.gsp = 0; p.invulnerable = 2; p.onObject = null; p.pushing = false;
     endAttack(p);
     world.died();
     return;

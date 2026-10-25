@@ -87,6 +87,8 @@ export const PLATFORM_ANIMATIONS = {
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // Ice Mountain's objects: the block of ice (555) and the large and small pieces a broken one leaves (556, 557)
 export const ICE_MOUNTAIN_ANIMATIONS = { 555: { iceBlock: 0 }, 556: { iceShardsLarge: 0 }, 557: { iceShardsSmall: 0 } };
+// the breakable wall (559); some levels have their own (levels.js `sprites`)
+export const WALL_ANIMATIONS = { 559: { breakableWall: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // an act's water: its surface (563) and the splash where Sonic goes in or out (581), the drowning countdown's
@@ -142,7 +144,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
 
   onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
-  const sprites = extractSprites(rom, tables, info.water);
+  const sprites = extractSprites(rom, tables, info.water, info.sprites);
   onProgress(`Decoding ${info.name}…`);
   const stage = extractStage(rom, offsets, tables, info);
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
@@ -162,9 +164,10 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
 /**
  * Every animation's frames on one atlas. In an act with `water` they are drawn a second time, on an atlas with
  * the same layout, in the colours under the water line: palette 423 in the water's colours, whatever palette
- * the animation loads above it.
+ * the animation loads above it. `levelSprites` { name: [anim, variant] } are the level's own looks for objects
+ * whose animation the ROM picks by level; they replace the default of the same name.
  */
-function extractSprites(rom, tables, water) {
+function extractSprites(rom, tables, water, levelSprites = {}) {
   const sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
   const springPalette = animationPalette(rom, tables, SPRING_ANIM);
   const yellowPalette = springPalette.slice();
@@ -179,11 +182,15 @@ function extractSprites(rom, tables, water) {
     { list: yellow, palette: yellowPalette, skipPalette: true, under: underYellow },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...(water ? UNDERWATER_ANIMATIONS : {}) }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...(water ? UNDERWATER_ANIMATIONS : {}) }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
   ];
+  for (const group of groups) group.list = Object.fromEntries(Object.entries(group.list).filter(([name]) => !(name in levelSprites)));
+  for (const [name, [anim, variant]] of Object.entries(levelSprites)) {
+    groups.push({ list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, anim) });
+  }
 
   // each image keeps how it was drawn, `src`, to be drawn again in the colours under water
   const images = [], byKey = new Map(), anims = {};
@@ -215,14 +222,16 @@ function extractSprites(rom, tables, water) {
     }
     return redrawn.get(i);
   };
-  // the crumbling platform draws its 64 × 32 frame as 32 tiles of 8 × 8, left to right and top to bottom,
-  // each from its top left corner
-  const crumbling = anims.crumblingPlatform.frames[0][0];
-  const tiles = { crumblingPlatform: Array.from({ length: 32 }, (_, i) => {
-    const cut = whole => cutTile(whole, (i & 7) * 8, (i >> 3) * 8);
-    images.push({ img: cut(images[crumbling].img), anchorX: 0, anchorY: 0, redraw: () => cut(redraw(crumbling).img) });
-    return images.length - 1;
-  }) };
+  // the crumbling platform draws its 64 × 32 frame as 32 tiles of 8 × 8, and the breakable wall its 32 × 64
+  // one, left to right and top to bottom, each from its top left corner
+  const tiles = Object.fromEntries(['crumblingPlatform', 'breakableWall'].map(name => {
+    const whole = anims[name].frames[0][0], { width, height } = images[whole].img, across = width >> 3;
+    return [name, Array.from({ length: across * (height >> 3) }, (_, i) => {
+      const cut = img => cutTile(img, (i % across) * 8, Math.floor(i / across) * 8);
+      images.push({ img: cut(images[whole].img), anchorX: 0, anchorY: 0, redraw: () => cut(redraw(whole).img) });
+      return images.length - 1;
+    })];
+  }));
   // a rotated frame's pieces go into the atlas after the frames, and its rect gets them as [x, y, w, h, atlasX, atlasY]
   const pieces = images.flatMap((image, i) => (image.pieces ?? []).map((p, k) => ({ img: p.img, frame: i, x: p.x, y: p.y, redraw: () => redraw(i).pieces[k].img })));
   const all = [...images, ...pieces], { canvas, rects } = packAtlas(all);

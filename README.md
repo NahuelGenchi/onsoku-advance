@@ -239,7 +239,7 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 <tr><td><b>Casino Paradise</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/81">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/76">Act 2 and the Egg Ball</a></td></tr>
 <tr><td><b>Ice Mountain</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/71">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/72">Act 2 and the Egg Spider</a></td></tr>
 <tr><td><b>Angel Island</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/77">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/80">Act 2 and Mecha Knuckles</a></td></tr>
-<tr><td><b>Egg Rocket</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/78">Planned</a></td></tr>
+<tr><td><b>Egg Rocket</b></td><td colspan="2">🟡 Playable by adding <code>?level=10</code> to the game's address<br><sub>No ending yet, and its Moles are still missing. <a href="docs/egg-rocket.md">What it reads from the ROM</a></sub></td></tr>
 <tr><td><b>Cosmic Angel</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/74">The zone and the Egg Snake</a></td></tr>
 <tr><td><b>X Zone</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/82">Its three bosses and the normal ending</a></td></tr>
 <tr><td><b>Moon Zone</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/85">The Super Egg Robo and the true ending</a></td></tr>

@@ -14,6 +14,8 @@ Other Sonic Advance versions are recognized by their cartridge header. When the 
 
 To check your ROM, open [`viewer.html`](../viewer.html): it shows the version, checksum, table offsets and everything decoded from them.
 
+What each zone adds is written up on its own page: [Egg Rocket Zone](egg-rocket.md).
+
 ## What the extractor reads
 
 Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA addresses). The formats were worked out by the [SAT-R](https://github.com/SAT-R) decompilation; this repository contains none of its code or data.

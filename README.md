@@ -227,7 +227,7 @@ Other controllers that your browser maps to the Xbox layout work the same way. P
 > [!NOTE]
 > **Early days: the first act is playable.** You can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets. The act has no ending yet (no goal signpost or score tally), and there is no game over yet.
 >
-> **Casino Paradise Zone act 1** opens with `?level=4` at the end of the game's address. Its pinball tubes, bumpers, flippers, balloons and other gadgets work, and so do its Hanabii and Slot enemies. Its clown enemy, the Pierrot, and the act's ending are still to come, and its special spring is a placeholder.
+> **Casino Paradise Zone act 1** opens with `?level=4` at the end of the game's address. Its pinball tubes, bumpers, flippers, balloons and other gadgets work, and so do its enemies. The act's ending is still to come, and its special spring is a placeholder.
 
 Here's the road through the rest of the game. Each step has its own issue, so you can follow along.
 

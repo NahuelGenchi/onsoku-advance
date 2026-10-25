@@ -340,11 +340,11 @@ Kept from the original (issue [#56](https://github.com/NahuelGenchi/onsoku-advan
 - A bumper's shake reads two cosines past the sine table's end, where the ROM has 1 and 482, so its last two frames don't move it across.
 - The small blue flipper switches to the lying flipper's art 24 frames after it throws Sonic, until it next spawns. Read in the code only: in the recording it is off screen by then.
 
-**How it was checked.** mGBA 0.10.5 with the USA ROM, started on level 4 through the course select with `gCurrentLevel` (`0x0300514C`) set, Sonic placed by memory writes. The engine was run on the same inputs. Sonic's position, speeds, state, rings and score matched on every frame of every run. In the 20 runs recorded with video, every screen from the camera catching up with the placed Sonic to the end matched pixel for pixel, except where a Pierrot shows, which isn't built yet:
+**How it was checked.** mGBA 0.10.5 with the USA ROM, started on level 4 through the course select with `gCurrentLevel` (`0x0300514C`) set, Sonic placed by memory writes. The engine was run on the same inputs. Sonic's position, speeds, state, rings and score matched on every frame of every run. In the 21 runs recorded with video, every screen matched pixel for pixel, from the act's first frame in the first run and from the camera catching up with the placed Sonic in the others:
 
 | What | Recordings |
 | :--- | :--- |
-| Act 1 from its start | idle and running, the background and its fireworks included |
+| Act 1 from its start | 600 frames: the title card, standing, then running: the layers, the background and its fireworks |
 | Party balloon | three pops and a respawn, the pop's song |
 | Marble tracks | two chains: entrance, three points, exit; entrance, points, the drop, two points, exit |
 | Bumpers | every kind and both flips of the triangles, nine runs of 800 to 1000 frames, and a wall bumper |
@@ -406,13 +406,13 @@ The defeat plays song 138.
 | ---: | :--- | ---: | :--- | :--- |
 | 8 | Hanabii | 4 | `415`: walking 0, launching 1; shot `419`, firework `416` | Walks 0.625 px a frame between (`d0` + 1) × 8 and (`d0` + `d2`) × 8 px right of its spawn point, following the floor, and turns at either end. Away from the ends, with Sonic within 100 px, it stops for 19 frames and launches a shot on the 7th, then walks on and doesn't launch again for 100 frames of walking. The shot rises from its mouth at 944/256 px a frame, slowing by 44/256 px a frame per frame, and when it has nearly stopped it bursts into a firework that hangs there for 20 frames, drawn four times mirrored around its point. Only the unmirrored quarter's box hurts. |
 | 9 | Slot | 10 | `417`: floating 0, dropping 1; coin `420`, pieces `421` | Floats 0.625 px a frame between `d0` × 8 and (`d0` + `d2`) × 8 px right of its spawn point, bobbing up to 20 px above that line every 32 frames. Away from the ends, with Sonic's centre within 16 px across, it stops for 20 frames and drops a coin, then floats on for 100 frames before it can drop another. The coin falls, gaining 40/256 px a frame each frame, and shatters on the floor or on touching Sonic: six pieces fan out by the floor's angle at a random share of its speed, bounce, slow down and go after 45 frames, blinking for the last 30. The pieces don't hurt. Its sprite is a left half, drawn again mirrored. |
-| 10 | Pierrot | 5 | | Not built here: a stand-in that leaves its place in the task list, until [#76](https://github.com/NahuelGenchi/onsoku-advance/issues/76) brings it. |
+| 10 | Pierrot | 5 | `418` | A clown on a ball, from [#76](https://github.com/NahuelGenchi/onsoku-advance/issues/76). It rolls 0.625 px a frame between `d0` × 8 and (`d0` + `d2`) × 8 px right of its spawn point, following the floor. The ball can't be broken: Sonic curled up bounces back off it, turned round, and it hurts him any other way. The clown on top is defeated as any enemy is. |
 
 A defeat in Casino Paradise frees a lion (`440`), which sits, a peacock (`439`), which hops away, and a parrot (`442`), which flies off swaying, in turn (`sAnimsTrappedAnimals`, `0x681154` in the USA ROM; [#77](https://github.com/NahuelGenchi/onsoku-advance/issues/77) built every zone's).
 
 Kept from the original (issue [#56](https://github.com/NahuelGenchi/onsoku-advance/issues/56)): the Hanabii squares its distances to Sonic into 16 bits (`CamCoord`), so from 182 px away along either axis the square wraps negative and it launches as if he were within 100 px.
 
-**How it was checked.** mGBA 0.10.5, from act 1 with Sonic placed by memory writes: a Hanabii walking and launching (1000 frames, its own task's memory matching on every frame) and one launching at Sonic held 182 to 199 px away, the 16-bit wrap (900); a Slot dropping coins on Sonic, the coin shattering on the floor and on him (1000 and 880); and a Slot defeated three times, with the game's next-animal counter (`gTrappedAnimalVariant`, `0x0300501C`) set to each animal (750 frames each). Sonic's state and every screen match.
+**How it was checked.** mGBA 0.10.5, from act 1 with Sonic placed by memory writes: a Hanabii walking and launching (1000 frames, its own task's memory matching on every frame) and one launching at Sonic held 182 to 199 px away, the 16-bit wrap (900); a Slot dropping coins on Sonic, the coin shattering on the floor and on him (1000 and 880); Pierrots rolling on screen in three runs; and a Slot defeated three times, with the game's next-animal counter (`gTrappedAnimalVariant`, `0x0300501C`) set to each animal (750 frames each). Sonic's state and every screen match.
 
 ### Item boxes
 

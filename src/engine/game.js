@@ -63,6 +63,9 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
     rushFx: createRushFx(), // its trail, burst and aura (rushfx.js)
     shake: -1,            // the frame of the boost's screen shake showing, or -1; only drawing reads it
+    // how many times the camera's task has run since the act started, which sets the layers' animated tiles
+    // (UpdateBgAnimationTiles); only drawing reads it
+    bgAnim: 0,
   };
   let viewW = SCREEN_W, viewH = SCREEN_H;   // the original screen, or the widescreen view's size
   state.view = viewOf(state.cam, viewW, viewH);
@@ -289,7 +292,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear();
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
-    state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
+    state.ringCount = 0; state.effects = []; state.sprites = []; state.bgAnim = 0; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
     startCard();
     sound.playStageMusic(assets.stage.music);
     loading = true; starMusic = false;
@@ -307,6 +310,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       if (state.shake >= 0 && ++state.shake >= RUSH_BOOST.shake.length) state.shake = -1;
       const moves = state.cam.started;
       updateCamera(state.cam, player);
+      state.bgAnim++;
       ctx.cam = { x: Math.floor(state.cam.x), y: Math.floor(state.cam.y) };
       ctx.view = state.view = viewOf(state.cam, viewW, viewH);
       if (moves && backgroundUpdate) backgroundUpdate(ctx, state.cam);

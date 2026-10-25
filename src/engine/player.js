@@ -197,10 +197,12 @@ function trySpinDash(p, c, world) {
 // derived from (the speed up block after sub_80232D0's water checks)
 const pace = p => (p.speedUp > 0 ? 2 : 1);
 
+// each state it sets also sets his standing height, which matters only when something uncurled him without
+// moving him (a red flag's throw)
 function walk(p, dir, world) {
   const acc = K.acceleration * pace(p), max = K.maxRunSpeed * pace(p);
   if (p.gsp * dir >= 0) {
-    if (p.facing !== dir) { p.state = 'turn'; p.pushing = false; }
+    if (p.facing !== dir) { p.state = 'turn'; p.pushing = false; setOffsetY(p, SPRITE_OFFSET_Y); }
     p.facing = dir;
     let g = p.gsp + acc * dir;
     if (g * dir > max) {
@@ -209,13 +211,13 @@ function walk(p, dir, world) {
     }
     p.gsp = g;
     // on a half-pipe he keeps the state it gives him
-    if (p.state !== 'turn' && !p.halfPipe) p.state = 'walk';
+    if (p.state !== 'turn' && !p.halfPipe) { p.state = 'walk'; setOffsetY(p, SPRITE_OFFSET_Y); }
   } else {
     let g = p.gsp + K.deceleration * pace(p) * dir;
     if (g * dir > 0) g = K.reverseKick * dir;
     p.gsp = g;
     // the skid sound restarts on every frame Sonic is still this fast
-    if (g * dir <= -K.brakeMinSpeed) { world.playSound(SONG.BRAKE); p.state = 'brake'; }
+    if (g * dir <= -K.brakeMinSpeed) { world.playSound(SONG.BRAKE); p.state = 'brake'; setOffsetY(p, SPRITE_OFFSET_Y); }
   }
 }
 
@@ -232,10 +234,13 @@ function walkInput(p, c, world) {
   if (c.dir) walk(p, c.dir, world);
   else if (!c.sideways) {
     if (p.gsp !== 0) {
-      if (p.state === 'brake' || p.state === 'idle') p.state = 'walk';
-    } else if (p.state === 'crouch') p.state = 'crouchEnd';
-    else if (p.state === 'lookUp') p.state = 'lookUpEnd';
-    else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+      if (p.state === 'brake' || p.state === 'idle') { p.state = 'walk'; setOffsetY(p, SPRITE_OFFSET_Y); }
+    } else {
+      if (p.state === 'crouch') p.state = 'crouchEnd';
+      else if (p.state === 'lookUp') p.state = 'lookUpEnd';
+      else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+      setOffsetY(p, SPRITE_OFFSET_Y);
+    }
   }
   // standing still on level ground stops the push, and at an edge he balances
   if (!((p.rotation + 0x20) & 0xC0) && p.gsp === 0) {

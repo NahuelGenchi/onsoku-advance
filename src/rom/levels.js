@@ -12,6 +12,12 @@ export const LEVELS = {
   6: { name: 'Ice Mountain Zone act 1', zone: 3, act: 0, paletteAnimations: [822, 821], music: 18, water: { level: 1546, blend: 0x7F207F20 }, snow: 71 },
   // StageInit_Zone4Act2 (0x0803DE11): the same, with the water line at 1664 and act 2's song
   7: { name: 'Ice Mountain Zone act 2', zone: 3, act: 1, paletteAnimations: [822, 821], music: 19, water: { level: 1664, blend: 0x7F207F20 }, snow: 71 },
+  // StageInit_ForestChaoGarden (0x0803DF3D), the first multiplayer stage (Chao Hunt's stage A, called Forest Chao
+  // Garden in the ROM's own text): Neo Green Hill's two palette animations, then 820's variants 1 and 0 (a
+  // palette animation given as [animation, variant]), and act 1's song; its background scrolls as zone 1's does
+  // (StageBgUpdate_Zone1Acts12) and its objects look like Neo Green Hill's. It is played only in the multiplayer
+  // modes (`multiplayer`), each player starting from their own place in the table after the start positions.
+  14: { name: 'Forest Chao Garden', zone: 7, act: 0, paletteAnimations: [814, 815, [820, 1], [820, 0]], music: 12, multiplayer: true },
 };
 
 /** The entry of `level`, or an error for one this game can't load yet. */

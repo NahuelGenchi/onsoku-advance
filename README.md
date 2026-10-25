@@ -222,6 +222,22 @@ drawn, and Sonic Advance's own sprites behind Sonic count as background when the
 
 Other controllers that your browser maps to the Xbox layout work the same way. Press a button once after the page loads so the browser notices the controller. On touch screens, on-screen buttons appear instead.
 
+## Multiplayer: Chao Hunt
+
+The original game's Chao Hunt, on its first multiplayer stage, for 2 to 4 players on one computer. Each player gets their own Game Boy Advance screen on the page. Three minutes on the clock, one Chao hidden in the stage: grab it, and knock whoever has it to take it from them. Whoever holds it when time runs out wins.
+
+To play, add `?level=14` to the game's address, for example [nahuelgenchi.github.io/onsoku-advance/?level=14](https://nahuelgenchi.github.io/onsoku-advance/?level=14), and `&players=3` or `&players=4` for more than two. The rules, the stage and its objects, the mystery item boxes, the music and the results screen are the original's, checked against the original running on linked emulators ([docs/ROM.md](docs/ROM.md#multiplayer-chao-hunt) has the details).
+
+| | Player 1 | Player 2 | Players 3 and 4 |
+| :--- | :--- | :--- | :--- |
+| **Run**, crouch, look up | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> | <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> | D-pad or left stick |
+| **Jump**, and go on from the results | <kbd>F</kbd> | <kbd>.</kbd> | <kbd>A</kbd> |
+| **Attack** | <kbd>G</kbd> | <kbd>/</kbd> | <kbd>B</kbd> or <kbd>X</kbd> |
+
+Players 1 and 2 share the keyboard. Controllers go to the players without keys first: with 3 or 4 players, the first controller is player 3's and the second player 4's, and any more go to players 1 and 2. With 2 players, the first controller is player 1's and the second player 2's. <kbd>H</kbd> and <kbd>M</kbd> work as usual; the widescreen view and the Rush boost are for single player only.
+
+For now everyone plays Sonic, which the original doesn't allow. The results screen leaves out the players' names, which the original takes from each cartridge's save. The other three stages, the screen after the results and the original's menus for setting up a game aren't built yet. For testing, `&seed=` sets the random number the players share at the start and `&chao=` (0 to 7) which of the stage's eight places the Chao starts at.
+
 ## Where it's at
 
 > [!NOTE]
@@ -246,7 +262,7 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 </tbody>
 </table>
 
-Also on the way: the [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67), the [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70), the [special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84), plus two more optional extras from Sonic Advance 2: its [Boost Mode](https://github.com/NahuelGenchi/onsoku-advance/issues/63) and its [mid-air tricks](https://github.com/NahuelGenchi/onsoku-advance/issues/65).
+Also on the way: the [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67), the [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70), the [special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and the other three [Chao Hunt](#multiplayer-chao-hunt) stages, plus two more optional extras from Sonic Advance 2: its [Boost Mode](https://github.com/NahuelGenchi/onsoku-advance/issues/63) and its [mid-air tricks](https://github.com/NahuelGenchi/onsoku-advance/issues/65).
 
 <details>
 <summary><b>Milestones</b></summary>

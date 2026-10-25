@@ -41,3 +41,22 @@ export function arcTan2(x, y) {
   }
   return r & 0xFFFF;
 }
+
+const s16 = v => (v << 16) >> 16;
+const OCTANTS = [1, 0, 2, 3, 6, 7, 5, 4];
+
+/**
+ * The angle (0–1023 per turn) the sprite code finds for a vector from its octant and the ratio of its smaller
+ * part to its larger one (sub_8004418), −1 for (0, 0). Its callers pass the vector's y first. The parts are s16
+ * and the arithmetic keeps to s16, as the original's does.
+ */
+export function vectorAngle(x, y) {
+  if ((x | y) === 0) return -1;
+  let i = 0, f;
+  if (x <= 0) { x = s16(-x); i = 4; }
+  if (y <= 0) { y = s16(-y); i += 2; }
+  if (x >= y) { y = s16(y * 128); f = x === 0 ? y : s16(Math.trunc(y / x)); }
+  else { i++; x = s16(x * 128); f = y === 0 ? x : s16(Math.trunc(x / y)); }
+  if (OCTANTS[i] & 1) f = s16(128 - f);
+  return (f + OCTANTS[i] * 128) & 0x3FF;
+}

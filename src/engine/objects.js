@@ -1,8 +1,9 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
 // platforms, boulders, waterfalls, boosters, checkpoints, wall poles, grind rails, the incline ramp, the
-// half-pipe, the forced slide, item boxes, enemies, and a stand-in for each kind of act 1's that this game
-// doesn't build yet, so that every task keeps its place in the list.
+// half-pipe, the forced slide, the water bridge, the multiplayer stages' mystery item boxes, item boxes,
+// enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that every task keeps
+// its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
 // order, and the tasks of a priority in the order they were made. The original fetches the next task before
@@ -24,6 +25,8 @@ import { createGrindRail } from './grindrails.js';
 import { createRamp } from './ramps.js';
 import { createHalfPipe } from './halfpipes.js';
 import { createSlide } from './slides.js';
+import { createWaterBridge } from './waterbridge.js';
+import { createMysteryBox } from './mysterybox.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -151,7 +154,8 @@ function interactable(e, slot, anims, ctx) {
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
-    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? standIn(e, slot);
+    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createWaterBridge(e, slot, anims)
+    ?? createMysteryBox(e, slot, anims, ctx) ?? standIn(e, slot);
 }
 
 /**
@@ -163,14 +167,16 @@ function interactable(e, slot, anims, ctx) {
  * it can spawn again when its point is uncovered again; a defeated enemy's slot is `gone` until the act
  * starts over.
  *
- * `stage` has interactables, itemBoxes, enemies and entityRegions; `tasks` is the list it adds to.
+ * `stage` has interactables, itemBoxes, enemies and entityRegions; `tasks` is the list it adds to. Each game
+ * keeps its own copy of the entities' data, which some objects change (the mystery item boxes' counts).
  */
 export function createEntities(stage, anims, tasks) {
   const { x: regionsX, y: regionsY } = stage.entityRegions;
   const regions = Array.from({ length: regionsX * regionsY }, () => []);
-  const slot = (e, spawn) => ({ e, live: null, gone: false, spawn });
+  const slot = (e, spawn) => ({ e: { ...e, d: e.d.slice() }, live: null, gone: false, spawn });
+  const interactables = (s, ctx) => interactable(s.e, s, anims, ctx);
   for (const [list, spawn] of [
-    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx)],
+    [stage.interactables, interactables],
     [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
     [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s, -1)],
   ]) {
@@ -189,6 +195,7 @@ export function createEntities(stage, anims, tasks) {
         for (const s of regions[rx + ry * regionsX]) {
           const { x, y } = s.e;
           if (s.live || s.gone || x < x0 || x > x1 || y < y0 || y > y1) continue;
+          s.e.changed = false;
           const task = s.spawn(s, ctx);
           if (!task) continue;
           s.live = task;
@@ -219,10 +226,22 @@ export function createEntities(stage, anims, tasks) {
         return true;
       },
     },
+    /** The interactable at place `id` in region (rx, ry)'s list, as the room events name one. */
+    interactable(rx, ry, id) { return regions[rx + ry * regionsX]?.find(s => s.spawn === interactables && s.e.id === id)?.e ?? null; },
+    /**
+     * Another player's change to that interactable (ReceiveRoomEvent_PlatformChange): a live one sees it as
+     * `changed` until it leaves (MAP_ENTITY_STATE_MINUS_THREE); with action 0 one that isn't live never
+     * spawns again.
+     */
+    change(rx, ry, id, action) {
+      const s = regions[rx + ry * regionsX]?.find(s => s.spawn === interactables && s.e.id === id);
+      if (s?.live) s.e.changed = true;
+      else if (s && action === 0) s.gone = true;
+    },
     /** Everything leaves and the next scan spawns what is in range, as when the act starts over. */
     reset() {
       prev = null;
-      for (const r of regions) for (const s of r) { s.live = null; s.gone = false; }
+      for (const r of regions) for (const s of r) { s.live = null; s.gone = false; s.e.changed = false; }
     },
   };
 }

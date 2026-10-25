@@ -278,7 +278,50 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
+  // the multiplayer modes' screen effects. Darkness darkens everything but the lit span of each line (the
+  // window WIN0, its lines from H-blank DMA); the screen fades to white by brightening all of it; an
+  // invisible player's sprite is a window (the OBJ window) that shows only the background, or only the
+  // backdrop, through everything drawn in front of it.
+  function darkenOutside(bldY, spans, ox, oy) {
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
+    for (let line = 0; line < H; line++) {
+      const span = spans[line - oy];
+      for (let x = 0; x < W; x++) {
+        if (span && x - ox >= span[0] && x - ox < span[1]) continue;
+        const i = (line * W + x) * 4;
+        d[i] -= (d[i] * bldY) >> 4;
+        d[i + 1] = (d[i + 1] * (16 - bldY)) >> 4;
+        d[i + 2] = (d[i + 2] * (16 - bldY)) >> 4;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+  function brighten(bldY) {
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
+    for (let i = 0; i < d.length; i += 4) for (let c = 0; c < 3; c++) d[i + c] += ((255 - d[i + c]) * bldY) >> 4;
+    ctx.putImageData(img, 0, 0);
+  }
+  function objWindow(list, vx, vy, behind, layers) {
+    const main = ctx;
+    ctx = maskCtx;
+    maskCtx.imageSmoothingEnabled = false;
+    maskCtx.clearRect(0, 0, W, H);
+    for (const s of list) {
+      if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+      else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+    }
+    ctx = main;
+    const mask = maskCtx.getImageData(0, 0, W, H).data, img = ctx.getImageData(0, 0, W, H), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (!mask[i + 3]) continue;
+      if (layers & 0x08) { d[i] = behind[i]; d[i + 1] = behind[i + 1]; d[i + 2] = behind[i + 2]; }
+      else { d[i] = backdrop[0]; d[i + 1] = backdrop[1]; d[i + 2] = backdrop[2]; }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+  const backdrop = stage.backdrop ?? [0, 0, 0];
+
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake, effects2d }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -304,6 +347,8 @@ export function createRenderer(canvas, assets) {
         x += n;
       }
     }
+    const windows = sprites.filter(s => s.window);
+    const behind = windows.length && effects2d?.objWindow ? ctx.getImageData(0, 0, W, H).data : null;
     const frame = stageAnimFrame(stage, tick);
     drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
@@ -311,18 +356,23 @@ export function createRenderer(canvas, assets) {
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
     const drawAll = behind => {
       for (const s of list) {
-        if ((s.prio >= 2) !== behind) continue;
+        if ((s.prio >= 2) !== behind || s.window) continue;
+        // the HUD's and the modes' screen sprites are placed on the original screen, in the view's corner
+        const dx = s.screen ? 0 : vx, dy = s.screen ? 0 : vy;
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
-        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
-        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+        else if (s.affine) drawAffine(s.frame, s.x - dx, s.y - dy, s.affine);
+        else drawSprite(s.frame, s.x - dx, s.y - dy, s.flipX, s.flipY);
       }
     };
     drawAll(true);
     drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
     drawAll(false);
+    if (behind) objWindow(windows, vx, vy, behind, effects2d.objWindowLayers);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
+    if (effects2d?.darkness) darkenOutside(effects2d.darkness.y, effects2d.darkness.spans, ox, oy);
+    if (effects2d?.fade) brighten(effects2d.fade);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
     // behind keeps them out of the fade

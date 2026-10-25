@@ -35,14 +35,22 @@ const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: tr
 const NO_INPUT = { left: false, right: false, up: false, down: false, jump: false, attack: false, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
 
 const SILENT = {
-  play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
-  playerState() {}, stopAll() {},
+  play() {}, playOrChange() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {},
+  invincibility() {}, playerState() {}, stopAll() {},
 };
 
-export function createGame(canvas, assets, input, sound = SILENT) {
+/**
+ * One GBA's game. `mode` is a multiplayer mode for this GBA (chaohunt.js), or null for the single-player
+ * game: where Sonic starts (`start`), its tasks (`setup(game)`), what ends the title card (`cardEnd()`),
+ * his life lost (`lifeLost()`), what he reads of the controls (`input(held)`), the stage's clock
+ * (`clock()`), what he sends the others at the end of his frame (`send()`), and what the camera centres on
+ * (`follow()`).
+ */
+export function createGame(canvas, assets, input, sound = SILENT, mode = null) {
   const { anims } = assets.sprites;
   const terrain = createTerrain(assets.stage.collision);
-  const player = createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds });
+  const start = mode?.start ?? assets.stage.spawn;
+  const player = createPlayer({ ...start, spinDashSpeeds: assets.physics.spinDashSpeeds });
   const tasks = createTasks(), entities = createEntities(assets.stage, anims, tasks);
   const rings = createRings(assets.stage.rings, anims), scatter = createScatter(anims);
   rings.reset(); scatter.reset();
@@ -61,6 +69,10 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
     rushFx: createRushFx(), // its trail, burst and aura (rushfx.js)
     shake: -1,            // the frame of the boost's screen shake showing, or -1; only drawing reads it
+    // a mode's screen effects, for drawing: darkness ({ y: bldY, spans: each line's lit [x1, x2) or null }), a
+    // fade to white (bldY), and the object window (objWindow, with the layers it shows: objWindowLayers 0x08
+    // the background alone, 0 nothing but the backdrop)
+    effects2d: null,
   };
   let viewW = SCREEN_W, viewH = SCREEN_H;   // the original screen, or the widescreen view's size
   state.view = viewOf(state.cam, viewW, viewH);
@@ -103,14 +115,19 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       state.cam.locked = true; state.clockStopped = true;
       sound.play(SONG.LIFE_LOST);
     },
-    // the act starts over: the original destroys every task, so nothing after Sonic's runs this frame
-    lifeLost() { restart = true; tasks.stop(); },
+    // the act starts over: the original destroys every task, so nothing after Sonic's runs this frame; in a
+    // multiplayer mode he starts again where he started, and the stage goes on
+    lifeLost() {
+      if (mode) { mode.lifeLost(); return; }
+      restart = true; tasks.stop();
+    },
     get checkpointIndex() { return state.checkpointIndex; },
     // Sonic passed checkpoint `index`: the act starts over with his centre at (x, y) and the clock at this time
     passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.courseTime }; },
     // Sonic's attack box destroyed an enemy at (x, y)
     defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
     playSound: song => sound.play(song),
+    playSoundOrChange: song => sound.playOrChange(song),
     random,
     // an item box's prize (Task_Itembox2)
     prize(kind) {
@@ -167,11 +184,16 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio });
+    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, window: s.window });
+  }
+  // the same at a place on the screen, as the HUD's sprites are put
+  function drawOnScreen(s, x, y, affine = null) {
+    if (s.frame < 0) return;
+    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, screen: true });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
-    player, world, anims, tiles: assets.sprites.tiles, cam: { x: 0, y: 0 }, view: state.view, draw, input,
+    player, world, anims, tiles: assets.sprites.tiles, cam: { x: 0, y: 0 }, view: state.view, draw, drawOnScreen, input,
     attack: (s, x, y) => attackTest(s, x, y, ctx),
     projectile: (s, x, y) => projectileTest(s, x, y, ctx),
     add: (task, priority) => tasks.add(task, priority),
@@ -258,6 +280,17 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   function startCard() { state.card = createTitleCard(assets.titleCard); state.clockStopped = true; state.hud.sprites = []; }
   const hudTask = { run() { if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER); return true; } };
 
+  // the multiplayer modes' InitializePlayer and Task_PlayerHandleDeath after a life lost: Sonic starts again at
+  // (x, y), still and standing, the buttons he holds not counting as presses, on the back layer, with the
+  // camera centred on him again and following him, and the music's tempo back to normal
+  function respawn({ x, y }) {
+    Object.assign(player, createPlayer({ x, y, spinDashSpeeds: assets.physics.spinDashSpeeds }), { itemEffect: 0, confusion: 0 });
+    input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
+    state.cam = createCamera(player, terrain);
+    state.view = viewOf(state.cam, viewW, viewH);
+    sound.tempo(NORMAL_TEMPO);
+  }
+
   // HandleLifeLost: a life less, and the act starts over with everything in it, keeping the score, the stage
   // clock and the last checkpoint passed. Sonic starts at that checkpoint, or at the act's start without one,
   // and the course time goes back to what it was there (to 0 if it had run out); the camera starts from him.
@@ -288,7 +321,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // grind rails' ends (0x900) run before it and see the last frame's
     [0x0F00, () => {
       if (state.shake >= 0 && ++state.shake >= RUSH_BOOST.shake.length) state.shake = -1;
-      updateCamera(state.cam, player);
+      updateCamera(state.cam, player, mode?.follow() ?? player);
       ctx.cam = { x: Math.floor(state.cam.x), y: Math.floor(state.cam.y) };
       ctx.view = state.view = viewOf(state.cam, viewW, viewH);
     }],
@@ -310,18 +343,22 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       const pressed = input.jumpPressed || input.attackPressed || pad.some(k => !cardPad.includes(k));
       cardPad = pad;
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
-      if (runTitleCard(state.card, pressed)) return;
+      // only the single-player game's card can be cut short
+      if (runTitleCard(state.card, pressed && !mode)) return;
       state.card = null; state.clockStopped = false;
+      if (mode) { mode.cardEnd(); return; }
       state.hud = createHud();
       tasks.add(hudTask, 0x2180);
     }],
     [0x3000, () => {
-      const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? NO_INPUT : input;
+      const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? NO_INPUT : mode ? mode.input(input) : input;
       stepPlayer(player, held, world);
       animatePlayer(player, held, anims, world);
       // the boost's effects run after him, as Rush's objects run after its player
       if (state.rushArt && (state.rush || state.rushFx.list.length > 0)) stepRushFx(state.rushFx, player, state.rushArt, player.boost);
-      drawSonic();
+      // in a multiplayer mode he tells the others where he is and how he looks, and is drawn as they see him
+      if (mode) mode.send();
+      else drawSonic();
       state.effects = state.effects.filter(updateEffect);
       for (const e of state.effects) draw({ frame: frameOf(e.anim, anims), flipX: e.flipX, flipY: e.flipY, order: 8, prio: 2 }, e.x, e.y);
     }],
@@ -332,10 +369,16 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       if (starMusic) { starMusic = false; sound.invincibility(); }
       if (extraLife) { extraLife = false; sound.oneUp(); }
     }],
-    [0xFF00, () => { if (!state.clockStopped) state.courseTime++; state.tick++; }],
+    [0xFF00, () => {
+      if (mode) mode.clock();
+      else if (!state.clockStopped) state.courseTime++;
+      state.tick++;
+    }],
   ];
   for (const [priority, run] of STAGE_TASKS) tasks.add({ run: ctx => { run(ctx); return true; } }, priority, true);
   startCard();
+  const game = { state, tasks, entities, ctx, world, player, respawn, sound };
+  mode?.setup(game);
 
   function step() {
     input.poll?.();
@@ -354,8 +397,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     frame = requestAnimationFrame(loop);
   }
 
-  return {
-    state, step,
+  return Object.assign(game, {
+    step,
     draw: () => render(state),
     /** Sets the size of what the screen shows: 240 × 160, the original's, or wider and taller (widescreen). */
     setView(w, h) {
@@ -366,11 +409,13 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     },
     /** Turns the Sonic Rush boost on (with `art`, what rush.js read from the Sonic Rush ROM) or off. */
     setRushBoost(on, art = state.rushArt) { state.rushArt = art; state.rush = on && !!art; input.setRush?.(state.rush); },
-    // the act's music starts with the act, as the stage's init does (StageInit_ZoneNActM)
-    start() {
-      input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);
+    // the act's music starts with the act, as the stage's init does (StageInit_ZoneNActM); a multiplayer game
+    // steps its GBAs together itself (`ownLoop` false)
+    start(ownLoop = true) {
+      input.enabled = true; last = performance.now(); pending = 0;
+      if (ownLoop) frame = requestAnimationFrame(loop);
       sound.playStageMusic(assets.stage.music);
     },
     stop() { input.enabled = false; input.release(); cancelAnimationFrame(frame); sound.stopAll(); },
-  };
+  });
 }

@@ -16,6 +16,10 @@ export const THIN = 21, FALLING = 22, TRAMPOLINE = 23, CRUMBLING = 24, BOUNCE_BL
 const s8 = v => (v << 24) >> 24, s16 = v => (v << 16) >> 16;
 const LEFT = 1, RIGHT = 2;   // Sonic's held d-pad bits (player.js)
 
+// in a multiplayer game a falling or crumbling platform giving way under this GBA's player tells the others
+// (a room event, chaohunt.js), whose own copy of it, if it is out, gives way at once (`e.changed`)
+const giveWay = (ctx, e) => ctx.mp?.sendEvent({ type: 1, x: e.rx, y: e.ry, id: e.id, action: 1 });
+
 // how far a thin or falling platform sags under Sonic: it eases down by 1/64 of a half turn a frame while he
 // stands on it, and back up when he is off it
 function sagging(o, p) {
@@ -70,7 +74,8 @@ function falling(e, slot, anims) {
       if (phase !== 'falling') {
         const hit = platformTop(o, e.x, e.y, o.boxes[0], p);
         if (phase === 'still' && hit & LANDED) { phase = 'waiting'; n = 30; }
-        else if (phase === 'waiting' && --n === 0) phase = 'falling';
+        else if (phase === 'waiting' && !e.changed && --n === 0) { phase = 'falling'; giveWay(ctx, e); }
+        if (e.changed) { phase = 'falling'; n = 0; }
         if (offDisplay(e.x, e.y, cam) && offCam(e.x, e.y, cam)) { slot.live = null; return false; }
         ctx.draw(o, e.x, e.y + sagging(o, p));
         return true;
@@ -112,7 +117,11 @@ function crumbling(e, slot, anims) {
       if (phase === 'whole' || phase === 'waiting') {
         const hit = platformTop(o, e.x, e.y, o.boxes[0], p);
         if (phase === 'whole' && hit & LANDED) { phase = 'waiting'; n = 0; }
-        else if (phase === 'waiting' && n++ > 30) { phase = 'crumbling'; n = 0; ctx.world.playSound(SONG.CRUMBLING_PLATFORM); }
+        else if (phase === 'waiting' && !e.changed && n++ > 30) {
+          phase = 'crumbling'; n = 0; ctx.world.playSound(SONG.CRUMBLING_PLATFORM);
+          giveWay(ctx, e);
+        }
+        if (e.changed) { phase = 'crumbling'; n = 0; ctx.world.playSound(SONG.CRUMBLING_PLATFORM); }
         if ((outX(cam) || e.y > cam.y + 288 || e.y < cam.y - 128) && offCam(e.x, e.y, cam)) { slot.live = null; return false; }
         ctx.draw(o, e.x, e.y);
         return true;

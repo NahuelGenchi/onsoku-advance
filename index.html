@@ -14,6 +14,7 @@
 
   <section class="stage" id="stage" hidden>
     <canvas id="screen" tabindex="0" aria-label="Sonic in Neo Green Hill Zone act 1. Use the arrow keys to run, Z or Space to jump, X to attack, or a controller: A to jump, B or X to attack."></canvas>
+    <div class="screens" id="screens" hidden></div>
 
     <aside class="help" id="help">
       <dl>
@@ -31,6 +32,7 @@
         <dt><kbd>R</kbd></dt><dd>Rush boost: Sonic Rush's boost, on top of the original game (asks for your Sonic Rush ROM the first time)</dd>
         <dt><kbd>L</kbd> <kbd>Shift</kbd></dt><dd>With the Rush boost on: boost (press on the ground, hold to keep it)</dd>
         <dt>Controller</dt><dd>D-pad or left stick: move · <kbd>A</kbd> jump · <kbd>B</kbd> or <kbd>X</kbd> attack · with the Rush boost on, <kbd>X</kbd> boosts</dd>
+        <dt>Multiplayer</dt><dd>Player 1: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>F</kbd> jump · <kbd>G</kbd> attack. Player 2: arrows move · <kbd>.</kbd> jump · <kbd>/</kbd> attack. Players 3 and 4: a controller each (controllers go to players 3 and 4 first, then 1 and 2) · on the results screen, jump to go on</dd>
       </dl>
       <p class="stats" id="stats" aria-live="off"></p>
       <p class="actions"><button type="button" class="link" id="change-rom">Change ROM</button> · <button type="button" class="link" id="wide" aria-pressed="false">Widescreen: off</button> · <button type="button" class="link" id="rush" aria-pressed="false">Rush boost: off</button> · <a href="viewer.html">Asset viewer</a></p>

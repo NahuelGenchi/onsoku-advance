@@ -54,7 +54,8 @@ export function readRings(rom, tableAt, level) {
 
 /**
  * Every interactable (or, from the enemy table, every enemy) of `level`, region by region in the list's order:
- * { kind, x, y, d: [d0, d1, d2, d3], rx, ry } with x and y in pixels and rx, ry its region.
+ * { kind, x, y, d: [d0, d1, d2, d3], rx, ry, id } with x and y in pixels, rx, ry its region and id its place
+ * in the region's list.
  */
 export function readInteractables(rom, tableAt, level, what = 'interactables') {
   return readEntities(rom, tableAt, level, what, 7);
@@ -78,10 +79,10 @@ function readEntities(rom, tableAt, level, what, size) {
     const offset = view.getUint32(12 + r * 4, true);
     if (!offset) continue;
     const rx = r % regionsX, ry = Math.floor(r / regionsX);
-    for (let at = 4 + offset; data[at] !== 0xFF; at += size) {
+    for (let at = 4 + offset, id = 0; data[at] !== 0xFF; at += size, id++) {
       list.push({
         kind: data[at + 2], x: data[at] * 8 + rx * REGION, y: data[at + 1] * 8 + ry * REGION,
-        d: Array.from(data.subarray(at + 3, at + size)), rx, ry,
+        d: Array.from(data.subarray(at + 3, at + size)), rx, ry, id,
       });
     }
   }

@@ -24,6 +24,8 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 | Tilemap table | `0x4A6C40` | Act 2 reuses act 1's background in zones 1–5, so entries 2/5, 8/11, 14/17, 20/23 and 26/29 match |
 | Collision table | `0x4A6DA4` | Act 1's header points at the same metatiles and layer maps as tilemap entries 0 and 1 |
 | Start positions | `0x4A6DEC` | Right after the collision table's 18 entries |
+| Multiplayer start positions | `0x4A6E34` | Right after the start positions: four (x, y) pairs for each of the four multiplayer stages |
+| Chao places | `0x0B8570` | Eight (x, y) pairs of 16-bit values for each multiplayer stage, all inside 64–2047; found from the end of the run of such pairs, as the table before it looks like pairs too |
 | Rings | `0x0B7F4C` | The table just before the interactables |
 | Interactables | `0x0B7F94` | Four tables of 18 RL-compressed lists follow each other (rings, interactables, item boxes, enemies); act 1's lists are grids of 51 × 6 regions |
 | Item boxes | `0x0B7FDC` | The table after the interactables |
@@ -464,7 +466,7 @@ The Japanese name's 16 tiles are put together as `LoadStageIntroGraphics` loads 
 
 ### Start positions
 
-A pair of 16-bit values (x, y) per level, in pixels, right after the collision table. Neo Green Hill Zone act 1 starts at (104, 444). The four multiplayer stages are (0, 0): they use a separate table of per-player positions.
+A pair of 16-bit values (x, y) per level, in pixels, right after the collision table. Neo Green Hill Zone act 1 starts at (104, 444). The four multiplayer stages are (0, 0): they use a separate table of per-player positions. That table follows at once: four (x, y) pairs per stage, one for each link id (gSpawnPositions_Modes_4_and_5). The first stage's are (232, 832), (1585, 930), (232, 350) and (1585, 282).
 
 ### Sonic's animations
 
@@ -587,3 +589,53 @@ Sounds on the same player cut each other off, as in the original. There is no la
 - *The final output:* the DirectSound part of the port's audio lines up with mGBA's recorded output. The PSG part matches mGBA's in pitch, level and envelope (median spectrum correlation 0.98), but not sample for sample: a Game Boy channel's waveform phase depends on the exact CPU cycle the engine writes its registers, which the port does not model.
 
 The port mixes at the GBA's 65536 Hz, averages that down to the browser's output rate, removes the DC offset the unipolar PSG channels add, and plays at half of the GBA's full scale. The game itself still steps at 60 Hz while the sound engine keeps the GBA's 59.7275 frames per second, so a sound starts within one frame of the move that plays it.
+
+### Multiplayer: Chao Hunt
+
+The first multiplayer stage is level 14 in the ROM's per-level tables (the four multiplayer stages are 14–17, after the 14 single-player ones). The ROM's own text calls it Forest Chao Garden. Its init, `StageInit_ForestChaoGarden` (`0x0803DF3D`), starts Neo Green Hill's two palette animations (814, 815), then animation 820's variants 1 and 0, and act 1's song (12). Its background scrolls as zone 1's does, and its objects are Neo Green Hill's, plus the water bridge (kind 40) and its splash (kind 43), and the mystery item box (kind 115). Its tilemaps, collision, rings and object lists are entries 14 of the usual tables. The engine keeps this stage's data (its start places, the Chao's places, its music) apart from the mode, so the other three stages can use the same mode.
+
+**The link.** Each GBA runs the whole stage for itself and sees the others only through 20-byte packets (`gMultiSioSend`, `gMultiSioRecv`). A packet sent in frame f is what every GBA reads in frame f + 2, its own included; the recordings show this for every player and every frame checked. In a stage a packet is:
+
+| Bytes | Contents |
+| :--- | :--- |
+| 0–1 | Kind, `0x1000` |
+| 2–5 | x and y, signed 16-bit |
+| 6–7 | Sonic's animation, with the Chao he carries in bits 12–14 |
+| 8–9 | Flags: 1 rotated, 2 facing right, 4 can't be touched (dead, carried or blinking), 8 gravity, `0x30` sprite priority, `0x40` hidden, `0x80` layer, `0x100` carried, `0x600` which player he stands on, `0x800` a new animation this frame, `0xF000` the room event toggles |
+| 0xA | His items: 1 shield, 2 invincible, 4 speed up, 8 magnetic shield, `0x20` invisible, `0x40` confused, `0x80` teleporting (the title card) |
+| 0xB | Variant, with the sprite's y offset from bit 3 |
+| 0xC | Animation speed |
+| 0xD | Rotation, while walking or thrown up by a bounce block |
+| 0xE–0x13 | The room event being sent: a type and five bytes |
+
+The new-animation flag is set only for the first animation the player's task picks in a frame, when it differs from the last one; the picks after an animation ends don't set it.
+
+**Room events.** Things one player does that matter to the others go one at a time. A GBA queues them (16 slots of 8 bytes, never cleared), sends the next one once every other GBA has acknowledged the last by flipping its bit `0x1000 << id` in their flags, and toggles its own bit with each new one. A receiving GBA handles an event when the sender's bit differs from its own copy, then flips its copy as the acknowledgement. Level 14 uses four types:
+
+| Type | Sent when | Carries | The others |
+| :--- | :--- | :--- | :--- |
+| 1 | A falling (kind 22) or crumbling (kind 24) platform gives way under the sender | The platform's region x and y, its id, action 1 | The platform gives way at once if it is spawned there, without counting down and without sending |
+| 5 | A mystery item box is broken | Its region x and y, id and broken count | The box's count catches up |
+| 6 | Confusion or darkness comes out of a box | 0 confusion, 1 darkness | Confusion for 600 frames. Darkness, for 64 + 600 + 64 frames, only when the sender or this player holds a Chao, or nobody does |
+| 9 | A knock takes the Chao | The Chao's id and its new player | The Chao jumps off, and sound 163 plays |
+
+The other types need rings (4, ring loss), which this stage has none of, or Tails or Knuckles (8, carrying).
+
+**The players.** Every GBA has a task for each player, its own included, and draws all of them from the packets, at where they were two frames before; Sonic's own sprite isn't drawn. Each task starts at this GBA's own start place until its packets arrive. The other players' tasks are solid to Sonic and run the knocks: his attack box on another's body knocks them back, theirs on his knocks him for 120 frames, and the one knocked loses the Chao to the other. Each packet also says which player its sender stands on. The camera follows this GBA's player task, not Sonic: its x and y, and its y offset, which the view eases toward 5 px a frame as in single player. It also starts a frame later than in a single-player act: in the recordings its eased offset first changes on the stage's fourth frame.
+
+**The round.** Three minutes on a clock running down from the title card's end. The Chao starts 16 px above one of the stage's eight places (the one the leading GBA picks; the recordings use place 2) and goes to the first player whose body box touches it. It hovers 20 px behind and 28 px above that player and passes to whoever knocks them. When the clock runs out, sound 304 plays, each player's result (win, lose or draw, animation 902) shows over them, and once this GBA's room events are all out, 240 frames later the sound fades and the screen whitens over 64 frames. The one holding the Chao wins; nobody holding it is a draw for all. Every 512 frames the shared random number moves on, and with it which of the stage's mystery item boxes shows.
+
+**The HUD.** The clock (animation 905, red in the last minute) and each player's Chao count (animation 606). The count and the arrows toward players off screen (animation 767) skip their animations' palettes (sprite flag 18) and use the OBJ palette slot of their player's character, so with everyone Sonic they are drawn in Sonic's palette.
+
+**The results screen.** Its background is tilemap 88 over the colour (0, 27, 30). Each player's strip slides in from alternate sides as the screen fades in from white, with a Chao (animation 885) and a message (883) for how they did, and this GBA's music for its own result: song 7 won, 8 lost, 9 drew. 45 frames into the screen, sound 157, 158 or 159 plays. It holds until a player presses A, or until 0x707 frames into it, and every GBA follows the first to press it (a packet of kind `0xB0`). The strips slide out and the screen whitens. The players' names on the strips come from each GBA's save data and are left out, and the screen after it isn't built.
+
+**How it was checked.** The reference is mGBA 0.10.5 running 2 and 4 linked copies of the tested ROM in lockstep, dumping each one's IWRAM, OAM, palettes and link registers after every frame. The recorded players are Sonic, Tails, Knuckles and Amy, as the original doesn't allow two players the same character. The port's GBAs were given the same buttons and compared every frame on every GBA: Sonic's position and speeds, the clock, the shared random number, the Chao's position and players, each player's Chao count, the camera and the packets sent.
+
+- *2 players, the round's start and a run to the right (frames 2219–2800):* everything matches.
+- *2 players, one runs into the other and knocks them (2440–3400):* everything matches.
+- *2 players, the Chao caught, a crumbling platform's room event and its acknowledgement, the camera, and a spin attack knocking the other player, who loses a Chao count (2440–3900):* everything matches. Tails' idle and bored boxes are 3 px shorter than Sonic's, (−6, −10, 6, 16) against (−6, −13, 6, 16), so this run was compared with Tails' boxes on the second player.
+- *4 players, the start and a run (2319–2900):* everything matches, the camera included.
+- *2 players, the round's end (13180–13900):* positions, clock, results and random numbers match, and the results screen starts on the same frame, with the packets zeroed from then on. Its fade, the strips' positions, the `0xB0` packet and its last frame match too. A frame of it is identical to mGBA's apart from the names.
+- *Stage frames (2-player recording, frames 2599–2601):* the port's screen for player 1 is identical to mGBA's frame one frame later (mGBA's image shows the state of the frame before it), except for the other player's Chao count and arrow, which mGBA draws in Tails' palette.
+
+Only read in the code, not checked against a recording: a Chao taken by the other GBA's knock (room event 9 received), a platform's room event received, the mystery item boxes' items (confusion, darkness, invisibility), the 3-player layout, and the sounds (the round-over sound, its fade, and the results screen's music and sound). The original-game bugs found along the way stay in, and are listed on issue #56.

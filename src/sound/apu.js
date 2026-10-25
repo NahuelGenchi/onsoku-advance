@@ -187,7 +187,7 @@ export function createApu() {
   /** The output for this instant, given the DirectSound samples now playing on FIFO A and B, as offsets
    *  around the bias in 10-bit units: [left, right]. */
   function mix(fifoA, fifoB) {
-    const on = !!(reg(0x84) & 0x80), nr51 = reg(0x81);
+    const on = !!(reg(0x84) & 0x80), nr51 = reg(0x81) & ~(api.muted * 0x11);
     const s1 = on && sq[0].on ? DUTY[reg(0x62) >> 6][sq[0].pos] * sq[0].env.vol : 0;
     const s2 = on && sq[1].on ? DUTY[reg(0x68) >> 6][sq[1].pos] * sq[1].env.vol : 0;
     const s3 = on && ch3.on ? waveSample() : 0;
@@ -207,5 +207,7 @@ export function createApu() {
     return [clip(l), clip(r)];
   }
 
-  return { read, write, run, mix, regs };
+  // `muted`: channels 1–4 (bits 0–3) left out of the mix, as m4a.js mutes the music's
+  const api = { read, write, run, mix, regs, muted: 0 };
+  return api;
 }

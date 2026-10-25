@@ -91,12 +91,15 @@ export function renderMetatileAtlas(rom, header, palettes, count, varying = new 
   return { canvas, size, slots };
 }
 
-/** Renders a plain (non-metatile) background map, with colour 0 opaque like the GBA backdrop. */
-export function renderPlainMap(rom, header, palette) {
+/**
+ * Renders a plain (non-metatile) background map, with colour 0 opaque like the GBA backdrop, or left transparent
+ * for a background drawn over another.
+ */
+export function renderPlainMap(rom, header, palette, transparent = false) {
   const img = new ImageData(header.xTiles * 8, header.yTiles * 8);
   for (let ty = 0; ty < header.yTiles; ty++) {
     for (let tx = 0; tx < header.xTiles; tx++) {
-      drawEntry(img, rom, header, palette, rom.u16(header.map + (ty * header.xTiles + tx) * 2), tx * 8, ty * 8, true);
+      drawEntry(img, rom, header, palette, rom.u16(header.map + (ty * header.xTiles + tx) * 2), tx * 8, ty * 8, !transparent);
     }
   }
   return img;

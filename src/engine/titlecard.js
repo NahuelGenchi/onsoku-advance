@@ -40,6 +40,7 @@ export function createTitleCard(gfx) {
   const card = {
     frame: 0,     // unk24
     done: true,   // unk26: the fade's last result, true until its first step
+    fading: true, // the fade stepped this frame (it also does as the card is made)
     fade: { level: 0, speed: FADE_SPEED, bldY: 0 },
     pieces: {
       zigzag: piece('zigzag', -80, 0, 3, 3, { rows: 5, grid: true }),
@@ -163,15 +164,20 @@ const TASKS = {
  */
 export function runTitleCard(card, pressed) {
   const { fade } = card;
+  // each step of the fade sets the brightness decrease on every layer (gBldRegs.bldCnt 0x3FFF), in place of
+  // any blending the stage's background set up this frame
+  card.fading = false;
   if (pressed && card.frame > CARD_SKIP_FROM && card.frame < CARD_SKIP_TO) {
     card.frame = CARD_SKIP_TO;
     fade.speed = div(FADE_FULL - fade.level, 10);
     card.done = fadeStep(fade, true);
+    card.fading = true;
   }
   const k = card.frame, done = card.done;   // what the pieces see this frame
   if (k <= 105 || !card.done) {
     if (k > 20) card.done = fadeStep(fade, true);
     else fadeStep(fade, false);
+    card.fading = true;
   }
   card.sprites = [];
   if (++card.frame > CARD_FRAMES) return false;

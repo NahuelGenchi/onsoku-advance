@@ -12,6 +12,14 @@ export const LEVELS = {
   6: { name: 'Ice Mountain Zone act 1', zone: 3, act: 0, paletteAnimations: [822, 821], music: 18, water: { level: 1546, blend: 0x7F207F20 }, snow: 71 },
   // StageInit_Zone4Act2 (0x0803DE11): the same, with the water line at 1664 and act 2's song
   7: { name: 'Ice Mountain Zone act 2', zone: 3, act: 1, paletteAnimations: [822, 821], music: 19, water: { level: 1664, blend: 0x7F207F20 }, snow: 71 },
+  // StageInit_Zone5Act1 (0x0803DE55): palette animation 823, the waterfalls' colours in row 10 every frame; the
+  // background stands still under Egg Rocket's clouds, tilemap 72 (TM_EGG_ROCKET_CLOUDS) on BG0, blended over it
+  // (CreateStageBg_Zone5). The thin platforms (sPlatformThinAnims), bounce blocks (sBounceBlockAnims) and
+  // waterfall splash (gUnknown_086CED28) are zone 5's own.
+  8: {
+    name: 'Angel Island Zone act 1', zone: 4, act: 0, paletteAnimations: [823], music: 20, clouds: 72,
+    sprites: { thinPlatform: [535, 0], bounceBlock: [543, 0], waterSplash: [552, 0] },
+  },
 };
 
 /** The entry of `level`, or an error for one this game can't load yet. */

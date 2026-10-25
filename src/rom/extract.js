@@ -106,7 +106,7 @@ const MAP = { front: 0, back: 1, background: 2 };
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds, clouds }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
   const info = levelInfo(level);
@@ -118,7 +118,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
 
   onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
-  const sprites = extractSprites(rom, tables);
+  const sprites = extractSprites(rom, tables, info.sprites);
   onProgress(`Decoding ${info.name}…`);
   const stage = extractStage(rom, offsets, tables, info);
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
@@ -135,7 +135,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   };
 }
 
-function extractSprites(rom, tables) {
+function extractSprites(rom, tables, levelSprites = {}) {
   const sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
   const springPalette = animationPalette(rom, tables, SPRING_ANIM);
   const yellowPalette = springPalette.slice();
@@ -152,6 +152,12 @@ function extractSprites(rom, tables) {
       palette: animationPalette(rom, tables, Number(anim)),
     })),
   ];
+  // the level's own look for objects every zone has (levels.js: the ROM picks their animation by gCurrentLevel),
+  // each with its animation's palette
+  for (const group of groups) group.list = Object.fromEntries(Object.entries(group.list).filter(([name]) => !(name in levelSprites)));
+  for (const [name, [anim, variant]] of Object.entries(levelSprites)) {
+    groups.push({ list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, anim) });
+  }
 
   const images = [], byKey = new Map(), anims = {};
   for (const { list, palette, skipPalette } of groups) {
@@ -230,6 +236,13 @@ function extractStage(rom, offsets, tables, info) {
   const tiles = paletteVariants(palette, animations, mapBanks(rom, front, count * front.xTiles * front.yTiles));
   const atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.rows), follows: tiles.follows };
   const sky = paletteVariants(palette, animations, mapBanks(rom, background, background.xTiles * background.yTiles));
+  let clouds = null;
+  if (info.clouds !== undefined) {
+    // drawn with the stage's palette (its own isn't loaded), colour 0 transparent
+    const map = tilemapHeader(rom, offsets.tilemaps, info.clouds);
+    const v = paletteVariants(palette, animations, mapBanks(rom, map, map.xTiles * map.yTiles));
+    clouds = { canvases: v.palettes.map(p => toCanvas(renderPlainMap(rom, map, p, true))), follows: v.follows };
+  }
 
   return {
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
@@ -245,6 +258,7 @@ function extractStage(rom, offsets, tables, info) {
     paletteAnimations: animations.map(({ frames, loop }) => ({ delays: frames.map(f => f.delay), loop })),
     background: toCanvas(renderPlainMap(rom, background, palette)),
     backgrounds: { canvases: sky.palettes.map(p => toCanvas(renderPlainMap(rom, background, p))), follows: sky.follows },
+    clouds,
   };
 }
 

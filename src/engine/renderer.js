@@ -13,6 +13,7 @@ import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './sta
 import { SINE } from './trig.js';
 import { rushObjEntries, rushTrailStrips, TRAIL_COLOR } from './rushfx.js';
 import { rasterizeStrips, objLayer as dsObjLayer, to6, out8 } from './dsdraw.js';
+import { BACKGROUND_SCROLL } from './backgrounds.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
 const s16 = v => (v << 16) >> 16;
@@ -36,7 +37,7 @@ export function createRenderer(canvas, assets) {
   let ctx = canvas.getContext('2d', { alpha: false });   // the Rush boost borrows it for a moment (drawRushObjs)
   const { atlas, frames } = assets.sprites, hud = assets.hud, card = assets.titleCard;
   const stage = assets.stage, { backgrounds } = stage;
-  const bgW = stage.background.width;
+  const bgW = stage.background?.width;
 
   // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does
   function drawSprite(index, x, y, flipX, flipY = false) {
@@ -273,6 +274,51 @@ export function createRenderer(canvas, assets) {
     if (right > 0) ctx.drawImage(flip, 0, bgLine, right, 1, ox + n, line, right, 1);
   }
 
+  // The layers and the background of an act with many palette animations (stage.indexed) are colour indices,
+  // drawn through the colours the animations have loaded on this frame: the background and the back layer
+  // straight into the frame, the front layer over the sprites behind it.
+  const ix = stage.indexed, pal32 = new Uint32Array(256);
+  let ixBack = ix && new ImageData(W, H), ixFront = ix && new ImageData(W, H);
+  const ixCanvas = document.createElement('canvas');
+  ixCanvas.width = W; ixCanvas.height = H;
+  function loadPalette(shown) {
+    const p = ix.palette.slice();
+    ix.loads.forEach((frames, k) => { for (let f = 0; f <= shown[k]; f++) for (const l of frames[f]) l.colors.forEach((c, i) => { p[l.insert + i] = c; }); });
+    p.forEach(([r, g, b], i) => { pal32[i] = 0xFF000000 | (b << 16) | (g << 8) | r; });
+  }
+  // a layer's pixels under the view into `out`, where they aren't transparent
+  function indexLayer(out, layer, vx, vy, frame) {
+    const { size, pixels, slots } = ix.metatiles, slot = slots[frame], map = stage.layers[layer];
+    for (let y = 0; y < H; y++) {
+      const wy = vy + y, my = Math.floor(wy / size), row = (wy - my * size) * size;
+      if (wy < 0 || my >= stage.levelY) continue;
+      for (let x = 0; x < W;) {
+        const wx = vx + x, mx = Math.floor(wx / size), col = wx - mx * size, n = Math.min(size - col, W - x);
+        if (wx >= 0 && mx < stage.levelX) {
+          const block = slot[map[my * stage.levelX + mx]] * size * size + row + col;
+          for (let i = 0; i < n; i++) {
+            const c = pixels[block + i];
+            if (c) out[y * W + x + i] = pal32[c];
+          }
+        }
+        x += n;
+      }
+    }
+  }
+  // the background through its scroll function, lined up with the original screen in the view's middle; the
+  // map wraps both ways and colour 0 is the backdrop
+  function indexBackground(out, tick, vx, vy, terrain) {
+    const bg = ix.background, scroll = BACKGROUND_SCROLL[stage.backgroundScroll];
+    const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, cx = vx + ox, cy = vy + oy;
+    for (let y = 0; y < H; y++) {
+      const [bx, by] = scroll(y - oy, tick, cx, cy, terrain), row = (by + y - oy) & 0xFF;
+      for (let x = 0; x < W; x++) {
+        const c = row < bg.height ? bg.pixels[row * bg.width + mod(bx + x - ox, bg.width)] : 0;
+        out[y * W + x] = pal32[c];
+      }
+    }
+  }
+
   // back to front: higher orders first, and the later entries of an order before the earlier ones
   function stack(list) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
@@ -289,23 +335,32 @@ export function createRenderer(canvas, assets) {
       vy = Math.max(0, Math.min(vy + dy, terrain.height - H));
     }
     // the background is fixed to the view, as the original's is to its screen: it lines up with a 240 × 160
-    // screen in the view's middle, and the sea scrolls with where that screen would be. Near the act's edges
-    // the view stops before the camera does, and so does the background. A taller view shows the map's lines
-    // below it and repeats its top line above it.
-    const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, cx = vx + ox;
-    const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
-    for (let line = 0; line < H; line++) {
-      const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
-      if (STILL(bgLine)) { drawStill(background, bgLine, line, ox); continue; }
-      let off = mod(backgroundOffset(bgLine, tick - 1, cx) - ox, bgW);
-      for (let x = 0; x < W; off = 0) {
-        const n = Math.min(bgW - off, W - x);
-        ctx.drawImage(background, off, bgLine, n, 1, x, line, n, 1);
-        x += n;
-      }
-    }
+    // screen in the view's middle. Near the act's edges the view stops before the camera does, and so does the
+    // background.
     const frame = stageAnimFrame(stage, tick);
-    drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
+    if (ix) {
+      loadPalette(palettes);
+      const out = new Uint32Array(ixBack.data.buffer);
+      indexBackground(out, tick - 1, vx, vy, terrain);
+      indexLayer(out, 'back', vx, vy, frame);
+      ctx.putImageData(ixBack, 0, 0);
+    } else {
+      // Neo Green Hill's sea scrolls with where that screen would be; a taller view shows the map's lines below
+      // it and repeats its top line above it
+      const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, cx = vx + ox;
+      const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
+      for (let line = 0; line < H; line++) {
+        const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
+        if (STILL(bgLine)) { drawStill(background, bgLine, line, ox); continue; }
+        let off = mod(backgroundOffset(bgLine, tick - 1, cx) - ox, bgW);
+        for (let x = 0; x < W; off = 0) {
+          const n = Math.min(bgW - off, W - x);
+          ctx.drawImage(background, off, bgLine, n, 1, x, line, n, 1);
+          x += n;
+        }
+      }
+      drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
+    }
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
     const shown = rings.visible(view);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
@@ -319,7 +374,13 @@ export function createRenderer(canvas, assets) {
       }
     };
     drawAll(true);
-    drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
+    if (ix) {
+      const out = new Uint32Array(ixFront.data.buffer);
+      out.fill(0);
+      indexLayer(out, 'front', vx, vy, frame);
+      ixCanvas.getContext('2d').putImageData(ixFront, 0, 0);
+      ctx.drawImage(ixCanvas, 0, 0);
+    } else drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
     drawAll(false);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
@@ -335,9 +396,10 @@ export function createRenderer(canvas, assets) {
   /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */
   render.resize = (w, h) => {
     W = w; H = h;
-    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = w;
-    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = h;
+    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = ixCanvas.width = w;
+    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = ixCanvas.height = h;
     objLayer = new ImageData(w, h);
+    if (ix) { ixBack = new ImageData(w, h); ixFront = new ImageData(w, h); }
     trailBuf = new Uint8Array(w * h);
   };
   return render;

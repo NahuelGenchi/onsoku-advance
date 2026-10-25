@@ -9,6 +9,8 @@ const FRAME_CYCLES = 280896, SAMPLE_CYCLES = FRAME_CYCLES / SOUND.SAMPLES;   // 
 const FULL_SCALE = 512;   // the 10-bit DAC swings ±512 around the bias
 const DC_POLE = 0.9995;   // the output's coupling capacitor, as a one-pole high-pass
 const BGM = 0, INVINCIBILITY = 28, ONE_UP = 307;
+// sBossSongIndices: the boss fight, its intro, Mecha Knuckles, Egg Snake, Egg Wrecker, Egg Drillster, the final boss
+const BOSS_SONGS = [29, 30, 31, 32, 49, 50, 25];
 const PAUSE = 0x80000000;
 
 /**
@@ -76,11 +78,16 @@ export function createSynth(rom, layout, rate) {
 // extra life replaces the music with the 1-up jingle. On any frame where the music player has stopped, the
 // stage music starts over from its beginning, fading in from 1/64 and at double tempo while Sonic has speed
 // shoes (MusManager_UpdateBgmParams). It leaves the player alone the frame the stage music starts.
+// A boss sets its state (gMusicManagerState.unk1): 0x10 and a boss song's index starts that song, which then
+// takes the stage music's place (0x20); 0x30 stops it and brings the stage music back, and after every boss
+// but Egg Wrecker and Egg Drillster the manager stops managing for the rest of the act (unk0 = 0xFF).
 export function createMusicManager(engine) {
-  let stageSong = null, oneUp = false, star = false, starting = false;
+  let stageSong = null, oneUp = false, star = false, starting = false, boss = 0, done = false;
   let invincible = false, speedUp = false, alive = true;
   const own = {
-    stageMusic(song) { stageSong = song; starting = true; engine.songStart(song); },
+    stageMusic(song) { stageSong = song; starting = true; boss = 0; done = false; engine.songStart(song); },
+    /** a boss's music state (gMusicManagerState.unk1) */
+    musicState(value) { boss = value; },
     oneUp() { oneUp = true; },
     /** an item box's invincibility (gMusicManagerState.unk2) */
     invincibility() { star = true; },
@@ -97,7 +104,7 @@ export function createMusicManager(engine) {
     frame(calls) {
       for (const [name, args] of calls) (own[name] ?? engine[name])(...args);
       if (stageSong === null || starting) { starting = false; return; }
-      if (!alive) return;
+      if (!alive || done) return;
       const { status, songHeader } = engine.players[BGM];
       const playing = (status & 0xFFFF) !== 0 && (status & PAUSE) === 0;
       const is = n => songHeader === engine.songHeader(n);
@@ -105,7 +112,17 @@ export function createMusicManager(engine) {
       else if (!is(ONE_UP) && !is(INVINCIBILITY) && invincible && !star) { engine.songStart(INVINCIBILITY); bgmParams(); }
       else if (star) { star = false; engine.songStart(INVINCIBILITY); }
       else if (oneUp) { oneUp = false; engine.songStart(ONE_UP); }
-      else if (!playing) { engine.songStart(stageSong); bgmParams(); }
+      else if ((boss & 0xF0) === 0x10) { boss &= 0xF; engine.songStart(BOSS_SONGS[boss]); boss |= 0x20; }
+      else if ((boss & 0xF0) === 0x30) {
+        boss &= 0xF; engine.songStop(BOSS_SONGS[boss]);
+        engine.songStart(stageSong); bgmParams();
+        if (((boss - 4) & 0xFF) > 1) done = true;
+        boss = 0;
+      } else if (!playing) {
+        if ((boss & 0xF0) === 0x20) engine.songStart(BOSS_SONGS[boss & 0xF]);
+        else engine.songStart(stageSong);
+        bgmParams();
+      }
     },
   };
 }

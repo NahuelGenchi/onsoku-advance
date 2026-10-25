@@ -31,6 +31,7 @@ import { createHookRail } from './hookrails.js';
 import { createSecurityGate } from './securitygates.js';
 import { createConveyor } from './conveyors.js';
 import { createSteamExhaust } from './steamexhausts.js';
+import { createSwingingHook } from './swinginghooks.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -160,7 +161,8 @@ function interactable(e, slot, anims, ctx) {
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createHookRail(e, slot, anims) ?? createSecurityGate(e, slot, anims)
-    ?? createConveyor(e, slot, ctx) ?? createSteamExhaust(e, slot, anims) ?? standIn(e, slot);
+    ?? createConveyor(e, slot, ctx) ?? createSteamExhaust(e, slot, anims) ?? createSwingingHook(e, slot, anims)
+    ?? standIn(e, slot);
 }
 
 /**

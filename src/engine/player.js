@@ -21,7 +21,7 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
 //         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
 //         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | react (taken
-//         aback as Mecha Knuckles wakes up) | hurt | dead
+//         aback as Mecha Knuckles wakes up) | hang | hangMove (on a hang bar) | hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -55,6 +55,8 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js)
     ignoreInput: false, // MOVESTATE_IGNORE_INPUT: an object holds his controls, as the forced slide does
     scripted: false,   // MOVESTATE_800000: an object sets his state, which walking, standing and landing leave alone
+    stayCurled: false, // MOVESTATE_200: an object keeps him curled up (tubes.js): landing doesn't stand him up, a
+                       // roll that stops starts again, and nothing caps how fast he rises
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,
@@ -78,6 +80,9 @@ function uncurl(p) { p.curled = false; setOffsetY(p, SPRITE_OFFSET_Y); }
 
 /** Stands Sonic up out of a ball, keeping his feet in place (PLAYERFN_CHANGE_SHIFT_OFFSETS). */
 export function standUp(p) { uncurl(p); }
+
+/** Curls Sonic into a ball, keeping his feet in place (PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 9)). */
+export function curlUp(p) { curl(p); }
 
 // standing on an object, the object holds him up and the ground sensors rest (sub_8022D6C)
 function followGround(p, t) {
@@ -278,7 +283,8 @@ function balanceOnTerrain(p, t) {
   else if (left === 0 && right > 8) balance(p, 1);
 }
 
-// rolling (Player_8043DDC)
+// rolling (Player_8043DDC): a roll that stops stands him up, unless an object keeps him curled (MOVESTATE_200):
+// then it starts again at 3 px a frame the way he faces, with the rolling sound
 function rollStep(p, c, world) {
   if (c.dir && !p.lock) {
     if (p.gsp * c.dir >= 0) p.facing = c.dir;
@@ -288,7 +294,10 @@ function rollStep(p, c, world) {
     }
   }
   p.gsp = toward0(p.gsp, K.rollFriction * pace(p));
-  if (p.gsp === 0) { uncurl(p); p.state = c.down ? 'crouch' : 'walk'; }
+  if (p.gsp === 0) {
+    if (!p.stayCurled) { uncurl(p); p.state = c.down ? 'crouch' : 'walk'; }
+    else { p.gsp = K.stayCurledSpeed * p.facing; world.playSound(SONG.SPIN); }
+  }
   alongSurface(p);
   // a wall to the side stops the roll and stands him up
   if (wallPush(p, world.terrain, true) && p.curled) { uncurl(p); p.state = 'walk'; }
@@ -516,7 +525,7 @@ function airStep(p, c, world) {
       world.playSound(SONG.INSTA_SHIELD);
       world.spawnInstaShield();
     }
-  } else if (p.ysp < -K.riseCap) p.ysp = -K.riseCap;
+  } else if (p.ysp < -K.riseCap && !p.stayCurled) p.ysp = -K.riseCap;
 
   // air control and drag (Player_AirInputControls); boosting, Rush's air movement instead
   if (p.boost) rushAir(p, c);
@@ -547,14 +556,16 @@ function airStep(p, c, world) {
 }
 
 /**
- * Touching down on the ground or an object (sub_8021BE0), walking unless an object sets his state; the caller
- * sets the ground speed.
+ * Touching down on the ground or an object (sub_8021BE0); the caller sets the ground speed. He walks unless an
+ * object sets his state (MOVESTATE_800000), and lands as he is while an object keeps him curled (MOVESTATE_200).
  */
 export function land(p) {
   p.air = false; p.pushing = false;
-  if (!p.scripted) p.state = 'walk';
-  if (p.curled) uncurl(p);
-  p.offsetY = SPRITE_OFFSET_Y;   // set outright, even when something uncurled him without moving him
+  if (!p.stayCurled) {
+    if (!p.scripted) p.state = 'walk';
+    if (p.curled) uncurl(p);
+    p.offsetY = SPRITE_OFFSET_Y;   // set outright, even when something uncurled him without moving him
+  }
   p.airLock = false;
   p.chain = 0;
   endAttack(p);

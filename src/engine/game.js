@@ -35,7 +35,7 @@ const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: tr
 const NO_INPUT = { left: false, right: false, up: false, down: false, jump: false, attack: false, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
 
 const SILENT = {
-  play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
+  play() {}, playOrChange() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
   playerState() {}, stopAll() {}, musicState() {},
 };
 
@@ -155,6 +155,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     stopSound: song => sound.stop(song),
     fadeOut: (player, speed) => sound.fadeOut(player, speed),
     playSoundPitched: (song, pitch) => sound.playPitched(song, pitch),
+    playSoundOrChange: song => sound.playOrChange(song),
     freezeCamera() { state.cam.freeze = CAMERA.spinDashFreeze; },
     // the Rush boost: whether it is on, its start (its effects, Sonic Rush's sound effect, a screen shake, and the
     // camera's delay), and a hit's shake

@@ -10,7 +10,7 @@
 // just before its place in the list (the last of its priority, say) only runs from the next frame.
 
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
-import { createSpring } from './springs.js';
+import { createSpring, createHidingSpring } from './springs.js';
 import { createSpikes } from './spikes.js';
 import { ENEMIES } from './enemies.js';
 import { createItemBox } from './itembox.js';
@@ -24,6 +24,9 @@ import { createGrindRail } from './grindrails.js';
 import { createRamp } from './ramps.js';
 import { createHalfPipe } from './halfpipes.js';
 import { createSlide } from './slides.js';
+import { createTube } from './tubes.js';
+import { createSpikedPlatform } from './spikedplatforms.js';
+import { createHangBar } from './hangbars.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -146,12 +149,13 @@ function standIn(e, slot, kind = e.kind) {
 }
 
 // what an interactable spawns as
-function interactable(e, slot, anims, ctx) {
+function interactable(e, slot, anims, ctx, zone) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
-    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? standIn(e, slot);
+    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims, zone) ?? createTube(e, slot) ?? createSpikedPlatform(e, slot, anims)
+    ?? createHidingSpring(e, slot, anims) ?? createHangBar(e, slot) ?? standIn(e, slot);
 }
 
 /**
@@ -170,7 +174,7 @@ export function createEntities(stage, anims, tasks) {
   const regions = Array.from({ length: regionsX * regionsY }, () => []);
   const slot = (e, spawn) => ({ e, live: null, gone: false, spawn });
   for (const [list, spawn] of [
-    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx)],
+    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx, stage.zone)],
     [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
     [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s, -1)],
   ]) {

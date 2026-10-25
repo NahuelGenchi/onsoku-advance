@@ -23,6 +23,7 @@ export const PHYSICS = {
   riseCap: 11.8125,            // rising without having jumped never goes faster than this
   rollFriction: 4 / 256,       // half the acceleration
   rollDeceleration: 24 / 256,
+  stayCurledSpeed: 3,          // a roll an object keeps curled (MOVESTATE_200) starts again at this when it stops
   boredDelay: 360,             // 6 seconds without input
   // spin dash charge, in 1/256 units: each rev adds 2.0 and raises it to at least 8.0, and it decays by
   // 1/32 per frame. The release speed is read from the ROM's tables by the charge's integer part.

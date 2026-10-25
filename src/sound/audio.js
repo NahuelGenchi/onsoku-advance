@@ -36,6 +36,8 @@ export function createSound() {
 
     /** m4aSongNumStart */
     play(song) { call('songStart', song); },
+    /** m4aSongNumStartOrChange: the song starts unless it is already playing on its player */
+    playOrChange(song) { call('songStartOrChange', song); },
     /** Gives the engine Sonic Rush's sound archive and tables (rush.js) for the boost's sound effect */
     loadRush(sound) { rushSound = sound; node?.port.postMessage({ type: 'rush', sound }); },
     /** Plays a Sonic Rush sound effect, [sequence archive, sound], as the DS does (nitro.js) */

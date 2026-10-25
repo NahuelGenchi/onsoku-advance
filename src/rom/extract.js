@@ -39,6 +39,8 @@ export const SONIC_ANIMATIONS = {
   halfPipeLow: [36, 0], halfPipeMid: [36, 1], halfPipeHigh: [36, 2],
   // taken aback as Mecha Knuckles wakes up (charState 39)
   react: [24, 0],
+  // hanging from a hang bar, still (charState 35) and moving along it (36)
+  hang: [41, 0], hangMove: [41, 1],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -79,14 +81,19 @@ export const ITEM_ANIMATIONS = {
 export const PLATFORM_ANIMATIONS = {
   463: { thinPlatform: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 }, 904: { crumblingPlatform: 0 },
 };
+// the spiked platforms of every zone but Casino Paradise, spikes up (538) and down (539)
+export const SPIKED_PLATFORM_ANIMATIONS = { 538: { spikedPlatformUp: 0 }, 539: { spikedPlatformDown: 0 } };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // the splash under Sonic on a forced slide
 export const SLIDE_ANIMATIONS = { 474: { slideSplash: 0 } };
-// the speed boosters (471): flat, on a slight slope up to the right, and up to the left
-export const BOOSTER_ANIMATIONS = { 471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 } };
+// the speed boosters (471): flat, on a slight slope up to the right, and up to the left; and on a steep slope
+export const BOOSTER_ANIMATIONS = {
+  471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 },
+  571: { boosterSteep: 0 }, 570: { boosterSteep2: 0 },   // steep, turned counter-clockwise and clockwise
+};
 // the checkpoints (452): waiting, spinning as Sonic passes (its script starts song 169, which the game plays,
 // src/engine/checkpoints.js), and passed
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };
@@ -165,7 +172,7 @@ function extractSprites(rom, tables, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...SPIKED_PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

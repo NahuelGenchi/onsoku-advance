@@ -28,4 +28,5 @@ export const SONG = {
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
   ROCKET: 200,             // SE_200: Mecha Knuckles' rocket, stopped as it goes
+  MUD_SLIDE: 201,          // SE_201: Angel Island's forced slide takes Sonic
 };

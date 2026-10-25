@@ -1,5 +1,6 @@
-// Neo Green Hill's speed boosters (SAT-R decompilation, src/game/sa1/stage/interactables/booster.c): the flat
-// one (kind 31) and the one on a slight slope up to the right (33). Running or rolling over one on the ground
+// The speed boosters (SAT-R decompilation, src/game/sa1/stage/interactables/booster.c): Neo Green Hill's flat
+// one (kind 31) and the ones on a slight slope (32, 33), and the ones on a steep slope (100, its animation
+// turned counter-clockwise, as in Angel Island act 2, and 101, clockwise). Running or rolling over one on the ground
 // sends Sonic its way at 12 px a frame, unless he is already going faster than 9 that way; it points right,
 // or left when d1 is set.
 
@@ -8,9 +9,12 @@ import { overlap } from './collide.js';
 import { endAttack } from './player.js';
 import { SONG } from '../sound/songs.js';
 
-export const BOOSTER = 31, BOOSTER_SLIGHT_LEFT = 32, BOOSTER_SLIGHT_RIGHT = 33;
-// the animation's variant for each kind
-const LOOKS = { [BOOSTER]: 'booster', [BOOSTER_SLIGHT_LEFT]: 'boosterSlightLeft', [BOOSTER_SLIGHT_RIGHT]: 'boosterSlightRight' };
+export const BOOSTER = 31, BOOSTER_SLIGHT_LEFT = 32, BOOSTER_SLIGHT_RIGHT = 33, BOOSTER_STEEP = 100, BOOSTER_STEEP_2 = 101;
+// the animation (variant) for each kind
+const LOOKS = {
+  [BOOSTER]: 'booster', [BOOSTER_SLIGHT_LEFT]: 'boosterSlightLeft', [BOOSTER_SLIGHT_RIGHT]: 'boosterSlightRight',
+  [BOOSTER_STEEP]: 'boosterSteep', [BOOSTER_STEEP_2]: 'boosterSteep2',
+};
 const SOX = 6;   // Sonic's spriteOffsetX
 const BOOST = 12, BOOSTED = 9;
 // the character states a boost keeps: rolling and the spin dash; anything else becomes the walk

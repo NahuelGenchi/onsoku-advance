@@ -31,7 +31,7 @@ export const OBJECTS = 0x2000;   // the priority of the entities and of most tas
 
 /**
  * The task list: add(task, priority, permanent), run(ctx), stop(), which ends this frame's run after the
- * task running now, and reset(), which keeps the permanent tasks.
+ * task running now, removeRange(from, to), and reset(), which keeps the permanent tasks.
  */
 export function createTasks() {
   let list = [], next = null;
@@ -45,10 +45,12 @@ export function createTasks() {
     run(ctx, after = -1) {
       for (let t = list.find(t => t.priority > after); t; t = next) {
         next = list[list.indexOf(t) + 1] ?? null;
-        if (!t.run(ctx)) list.splice(list.indexOf(t), 1);
+        if (!t.run(ctx) && list.includes(t)) list.splice(list.indexOf(t), 1);
       }
     },
     stop() { next = null; },
+    /** TasksDestroyInPriorityRange: the tasks from priority `from` up to `to`, not included, go at once. */
+    removeRange(from, to) { list = list.filter(t => t.priority < from || t.priority >= to); },
     reset() { list = list.filter(t => t.permanent); next = null; },
   };
 }

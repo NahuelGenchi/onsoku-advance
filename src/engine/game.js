@@ -148,6 +148,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     fadeOut: (player, speed) => sound.fadeOut(player, speed),
     playSoundPitched: (song, pitch) => sound.playPitched(song, pitch),
     freezeCamera() { state.cam.freeze = CAMERA.spinDashFreeze; },
+    // the camera stops where it is, until the act starts over
+    stopCamera() { state.cam.speedX = 0; state.cam.speedY = 0; },
     // the Rush boost: whether it is on, its start (its effects, Sonic Rush's sound effect, a screen shake, and the
     // camera's delay), and a hit's shake
     get rush() { return state.rush; },

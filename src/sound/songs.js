@@ -28,6 +28,7 @@ export const SONG = {
   CRUMBLING_PLATFORM: 173,
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
+  ICE_BLOCK_BREAK: 193,    // SE_193: a block of ice breaks, after SE_ITEM_BOX
   WHIRLWIND: 200,          // SE_200: a whirlwind (player float toggle) first lifting Sonic
   WATERFALL: 201,          // SE_201: Angel Island's waterfalls, from when one first holds Sonic
 };

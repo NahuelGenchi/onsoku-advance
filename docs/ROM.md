@@ -18,6 +18,8 @@ To check your ROM, open [`viewer.html`](../viewer.html): it shows the version, c
 
 Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA addresses). The formats were worked out by the [SAT-R](https://github.com/SAT-R) decompilation; this repository contains none of its code or data.
 
+What each zone adds is written up on its own page: [Cosmic Angel Zone](cosmic-angel.md).
+
 | Data | Offset | How it is found without the checksum |
 | :--- | :--- | :--- |
 | Sprite tables | `0x0D868C` | Six ROM pointers whose first animation and frame parse correctly |

@@ -1,5 +1,5 @@
-// Draws one 240 × 160 frame (or a wider and taller one, in the widescreen view): the zone background with its per-line scrolling, the act's back layer, the
-// sprites behind the front layer, the front layer, the sprites in front of it, and the HUD or the title card on
+// Draws one 240 × 160 frame (or a wider and taller one, in the widescreen view): the zone background with its per-line scrolling, the sprites behind every
+// layer (Casino Paradise's fireworks), the act's back layer, the sprites behind the front layer, the front layer, the sprites in front of it, and the HUD or the title card on
 // top, the background and the layers in the colours the act's palette animations have loaded. The
 // sprites are the act's rings and the step's list, stacked as the GBA stacks OAM entries: a lower OAM order
 // in front, and within an order the one put in first. While the title card fades the screen in, everything but
@@ -305,6 +305,14 @@ export function createRenderer(canvas, assets) {
       }
     }
   }
+  // a layer drawn over what the frame has so far
+  function indexOver(layer, vx, vy, frame) {
+    const out = new Uint32Array(ixFront.data.buffer);
+    out.fill(0);
+    indexLayer(out, layer, vx, vy, frame);
+    ixCanvas.getContext('2d').putImageData(ixFront, 0, 0);
+    ctx.drawImage(ixCanvas, 0, 0);
+  }
   // the background through its scroll function, lined up with the original screen in the view's middle; the
   // map wraps both ways and colour 0 is the backdrop
   function indexBackground(out, tick, vx, vy, terrain) {
@@ -338,12 +346,28 @@ export function createRenderer(canvas, assets) {
     // screen in the view's middle. Near the act's edges the view stops before the camera does, and so does the
     // background.
     const frame = stageAnimFrame(stage, tick);
+    // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
+    const shown = rings.visible(view);
+    const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
+    // the sprites at the background priorities `prios`: 3 in front of the background only, 2 behind the front
+    // layer, 0 and 1 in front of it
+    const drawAll = (...prios) => {
+      for (const s of list) {
+        if (!prios.includes(s.prio)) continue;
+        if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
+        else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
+        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+      }
+    };
+    const behindLayers = list.some(s => s.prio === 3);
     if (ix) {
       loadPalette(palettes);
       const out = new Uint32Array(ixBack.data.buffer);
       indexBackground(out, tick - 1, vx, vy, terrain);
-      indexLayer(out, 'back', vx, vy, frame);
+      if (!behindLayers) indexLayer(out, 'back', vx, vy, frame);
       ctx.putImageData(ixBack, 0, 0);
+      if (behindLayers) { drawAll(3); indexOver('back', vx, vy, frame); }
     } else {
       // Neo Green Hill's sea scrolls with where that screen would be; a taller view shows the map's lines below
       // it and repeats its top line above it
@@ -359,29 +383,13 @@ export function createRenderer(canvas, assets) {
           x += n;
         }
       }
+      if (behindLayers) drawAll(3);
       drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
     }
-    // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
-    const shown = rings.visible(view);
-    const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
-    const drawAll = behind => {
-      for (const s of list) {
-        if ((s.prio >= 2) !== behind) continue;
-        if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
-        else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
-        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
-        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
-      }
-    };
-    drawAll(true);
-    if (ix) {
-      const out = new Uint32Array(ixFront.data.buffer);
-      out.fill(0);
-      indexLayer(out, 'front', vx, vy, frame);
-      ixCanvas.getContext('2d').putImageData(ixFront, 0, 0);
-      ctx.drawImage(ixCanvas, 0, 0);
-    } else drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
-    drawAll(false);
+    drawAll(2);
+    if (ix) indexOver('front', vx, vy, frame);
+    else drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
+    drawAll(0, 1);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
     if (!titleCard) return;

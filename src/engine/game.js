@@ -17,6 +17,7 @@ import { createScatter } from './scatter.js';
 import { createHud, updateHud } from './hud.js';
 import { createTitleCard, runTitleCard } from './titlecard.js';
 import { createPaletteAnimation } from './palettes.js';
+import { BACKGROUND_UPDATE } from './backgrounds.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { SONG } from '../sound/songs.js';
@@ -47,6 +48,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   const rings = createRings(assets.stage.rings, anims), scatter = createScatter(anims);
   rings.reset(); scatter.reset();
   const palettes = assets.stage.paletteAnimations.map(createPaletteAnimation);
+  const backgroundUpdate = BACKGROUND_UPDATE[assets.stage.backgroundScroll];
   const state = {
     tick: 0, player, terrain, tasks, rings, scatter, cam: createCamera(player, terrain), effects: [], sprites: [],
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
@@ -285,12 +287,15 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // the music and, last, the stage's clocks
   const STAGE_TASKS = [
     // the camera follows where Sonic was at the end of the last frame, and this frame is drawn with it; the
-    // grind rails' ends (0x900) run before it and see the last frame's
+    // grind rails' ends (0x900) run before it and see the last frame's. Once it moves, it updates the zone's
+    // background (backgrounds.js).
     [0x0F00, () => {
       if (state.shake >= 0 && ++state.shake >= RUSH_BOOST.shake.length) state.shake = -1;
+      const moves = state.cam.started;
       updateCamera(state.cam, player);
       ctx.cam = { x: Math.floor(state.cam.x), y: Math.floor(state.cam.y) };
       ctx.view = state.view = viewOf(state.cam, viewW, viewH);
+      if (moves && backgroundUpdate) backgroundUpdate(ctx, state.cam);
     }],
     [0x2000, ctx => collectRings(ctx)],
     [0x2000, ctx => entities.manager.run(ctx)],

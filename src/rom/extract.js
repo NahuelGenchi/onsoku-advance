@@ -53,7 +53,7 @@ export const OBJECT_ANIMATIONS = {
 export const SPIKES_ANIM = 454;
 export const SPIKE_ANIMATIONS = { spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3] };
 // Neo Green Hill act 1's and Angel Island's enemies and their shots, the dust and points a defeat leaves and
-// the freed animals, by animation; each loads its own palette
+// every zone's freed animals, by animation; each loads its own palette
 export const ENEMY_ANIMATIONS = {
   401: { kikiBob: 1, kikiThrow: 2 }, 408: { coconut: 0 }, 402: { coconutPiece: 0 },
   403: { buzzerFly: 0, buzzerShoot: 1, buzzerTurn: 2 }, 409: { buzzerShot: 0 },
@@ -64,7 +64,10 @@ export const ENEMY_ANIMATIONS = {
   709: { score0: 0, score1: 1, score2: 2, score3: 3, score4: 4 },
   430: { leonWalk: 0, leonShoot: 1, leonTurn: 2 },
   431: { wamuHead: 0, wamuBody: 1, wamuTail: 2 },
-  445: { animalOtter: 0 }, 450: { animalKoala: 0 }, 449: { animalKangaroo: 0 },
+  437: { animalSeal: 0 }, 438: { animalGorilla: 0 }, 439: { animalPeacock: 0 }, 440: { animalLion: 0 },
+  441: { animalMole: 0 }, 442: { animalParrot: 0 }, 443: { animalPenguin: 0 }, 444: { animalRabbit: 0 },
+  445: { animalOtter: 0 }, 446: { animalDeer: 0 }, 447: { animalSkunk: 0 }, 448: { animalRobin: 0 },
+  449: { animalKangaroo: 0 }, 450: { animalKoala: 0 }, 451: { animalElephant: 0 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their

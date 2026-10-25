@@ -28,7 +28,7 @@ import { createSlide } from './slides.js';
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
 /**
- * The task list: add(task, priority, permanent), run(ctx), stop(), which ends this frame's run after the
+ * The task list: add(task, priority, permanent), run(ctx, after), stop(), which ends this frame's run after the
  * task running now, and reset(), which keeps the permanent tasks.
  */
 export function createTasks() {
@@ -39,8 +39,9 @@ export function createTasks() {
       const at = list.findIndex(t => t.priority > priority);
       list.splice(at < 0 ? list.length : at, 0, task);
     },
-    run(ctx) {
-      for (let t = list[0]; t; t = next) {
+    // with `after`, only the tasks of a higher priority run, as on the frame a task of that priority makes the act
+    run(ctx, after = -1) {
+      for (let t = list.find(t => t.priority > after); t; t = next) {
         next = list[list.indexOf(t) + 1] ?? null;
         if (!t.run(ctx)) list.splice(list.indexOf(t), 1);
       }

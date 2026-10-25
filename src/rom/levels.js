@@ -6,8 +6,9 @@ export const LEVELS = {
   // Neo Green Hill act 1 (StageInit_Zone1Act1): 814 steps the background's colours in palette row 15 every
   // 16 frames, 815 the waterfalls' in row 10 every frame
   0: { name: 'Neo Green Hill Zone act 1', paletteAnimations: [814, 815] },
-  // X Zone (StageInit_Zone7Act1): only its song
-  12: { name: 'X Zone', paletteAnimations: [] },
+  // X Zone (StageInit_Zone7Act1): only its song; picked from the course select, the HUD's zero-ring flash
+  // starts from the 90 the menus left in its task's memory
+  12: { name: 'X Zone', paletteAnimations: [], hudFlash: 90 },
 };
 
 /** The levels this version builds, by index. */

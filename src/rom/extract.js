@@ -134,7 +134,7 @@ const LAYER = { front: 0, back: 1, background: 2 };
 /**
  * Identifies and decodes `buffer`, with `level` (the ROM's level index, src/rom/levels.js) as the stage.
  * `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text, level }, stage: { level, zone, music, width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text, level }, stage: { level, zone, music, hudFlash, width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
   const rom = new Rom(buffer);
@@ -238,7 +238,7 @@ function packAtlas(images, width = 512) {
 }
 
 function extractStage(rom, offsets, tables, level) {
-  const { name, paletteAnimations } = LEVELS[level];
+  const { name, paletteAnimations, hudFlash = 1 } = LEVELS[level];
   const front = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYER.front);
   const back = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYER.back);
   const background = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYER.background);
@@ -261,7 +261,7 @@ function extractStage(rom, offsets, tables, level) {
 
   return {
     // the zone (0–6), and the song the stage init starts, from the ROM's song per level (gLevelSongs)
-    level, zone: level >> 1, music: rom.u16(offsets.levelSongs + level * 2),
+    level, zone: level >> 1, music: rom.u16(offsets.levelSongs + level * 2), hudFlash,
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
     layers: { front: collision.layers[0], back: collision.layers[1] },
     atlas, animDelay: front.animDelay, collision,

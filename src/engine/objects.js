@@ -38,6 +38,7 @@ import { createCurler } from './curlers.js';
 import { createMarbleTrack } from './marbletrack.js';
 import { createCraneClaw } from './craneclaws.js';
 import { createLava } from './lava.js';
+import { createHidingSpikes } from './hidingspikes.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -169,7 +170,7 @@ function interactable(e, slot, anims, ctx, level) {
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createHookRail(e, slot, anims) ?? createSecurityGate(e, slot, anims)
     ?? createConveyor(e, slot, ctx) ?? createSwingingHook(e, slot, anims)
     ?? createSwingRope(e, slot) ?? createCraneClaw(e, slot, anims) ?? createVisibilityToggle(e, slot) ?? createCurler(e, slot)
-    ?? createMarbleTrack(e, slot, anims, level) ?? createLava(e, slot) ?? standIn(e, slot);
+    ?? createMarbleTrack(e, slot, anims, level) ?? createLava(e, slot) ?? createHidingSpikes(e, slot, anims) ?? standIn(e, slot);
 }
 
 /**

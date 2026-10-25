@@ -65,6 +65,8 @@ export function createSound() {
     invincibility() { call('invincibility'); },
     /** What the music manager reads of Sonic each frame */
     playerState(invincible, speedUp, alive) { call('playerState', invincible, speedUp, alive); },
+    /** The music manager's boss state (gMusicManagerState.unk1): 0x1n starts boss song n, 0x3n ends it */
+    musicState(value) { call('musicState', value); },
     stopAll() { call('allStop'); },
 
     get muted() { return muted; },

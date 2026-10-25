@@ -36,7 +36,7 @@ const NO_INPUT = { left: false, right: false, up: false, down: false, jump: fals
 
 const SILENT = {
   play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
-  playerState() {}, stopAll() {},
+  playerState() {}, stopAll() {}, musicState() {},
 };
 
 export function createGame(canvas, assets, input, sound = SILENT) {
@@ -82,6 +82,15 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   const world = {
     level: assets.stage.level,
     get tick() { return state.tick; },
+    // the camera's bounds as the original keeps them (gCamera.minX … maxY: the right and bottom edges, not the
+    // corner's limits), which keep Sonic in
+    get bounds() {
+      const c = state.cam;
+      return { minX: c.minX, maxX: c.maxX + SCREEN_W, minY: c.minY, maxY: c.maxY + SCREEN_H };
+    },
+    get cam() { return state.cam; },
+    // the music manager's boss state (gMusicManagerState.unk1): 0x1n starts boss song n, 0x3n ends it
+    musicState(value) { sound.musicState(value); },
     get cameraY() { return Math.floor(state.cam.y); },
     terrain,
     // a hazard touched Sonic (Coll_DamagePlayer): a shield takes the hit, or with rings he drops them all, up
@@ -109,6 +118,12 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     get checkpointIndex() { return state.checkpointIndex; },
     // Sonic passed checkpoint `index`: the act starts over with his centre at (x, y) and the clock at this time
     passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.courseTime }; },
+    // INCREMENT_SCORE_A: points with no 1-up jingle, though every 50000 still give a life
+    addScore(n) {
+      const before = state.score;
+      state.score += n;
+      if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) state.lives = (state.lives + 1) & 0xFF;
+    },
     // Sonic's attack box destroyed an enemy at (x, y)
     defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
     playSound: song => sound.play(song),
@@ -164,11 +179,12 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   };
 
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
-  // background priority: 2 behind the front layer, 0 and 1 in front of it); `affine` sends it through the
+  // background priority: 2 behind the front layer, 0 and 1 in front of it), and `window` when it is an OBJ
+  // window that turns what it covers white (a boss's hit flash, renderer.js); `affine` sends it through the
   // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio });
+    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, window: s.window });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {

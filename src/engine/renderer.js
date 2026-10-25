@@ -194,6 +194,35 @@ export function createRenderer(canvas, assets) {
     ctx.putImageData(img, x0, y0);
   }
 
+  // A sprite in OBJ window mode (a boss's hit flash) is not drawn itself: inside its shape the layers and the
+  // backdrop are brightened to full white (bldY 16). The sprites there keep their colours, as mGBA (the
+  // reference) draws them: with effects off outside the window, it leaves the sprites out of the blend.
+  const windowCanvas = document.createElement('canvas'), frontCanvas = document.createElement('canvas');
+  windowCanvas.width = frontCanvas.width = W; windowCanvas.height = frontCanvas.height = H;
+  // the window's shape in white, or null without one
+  function windowShape(list, vx, vy) {
+    if (!list.length) return null;
+    const main = ctx;
+    ctx = windowCanvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    for (const s of list) drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx = main;
+    return windowCanvas;
+  }
+  // the front layer, white inside the window
+  function drawFrontWhitened(shape, vx, vy, frame, palettes) {
+    const f = frontCanvas.getContext('2d');
+    f.clearRect(0, 0, W, H);
+    drawLayer(f, stage, 'front', vx, vy, W, H, frame, palettes);
+    f.globalCompositeOperation = 'source-atop';
+    f.drawImage(shape, 0, 0);
+    f.globalCompositeOperation = 'source-over';
+    ctx.drawImage(frontCanvas, 0, 0);
+  }
+
   // debug overlay: the collision under the view, drawn through a scratch canvas so it blends
   const overlay = document.createElement('canvas');
   overlay.width = W; overlay.height = H;
@@ -341,15 +370,18 @@ export function createRenderer(canvas, assets) {
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
     const drawAll = behind => {
       for (const s of list) {
-        if ((s.prio >= 2) !== behind) continue;
+        if ((s.prio >= 2) !== behind || s.window) continue;
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
         else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
         else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
       }
     };
+    const shape = windowShape(list.filter(s => s.window), vx, vy);
+    if (shape) ctx.drawImage(shape, 0, 0);
     drawAll(true);
-    drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
+    if (shape) drawFrontWhitened(shape, vx, vy, frame, palettes);
+    else drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
     drawAll(false);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
@@ -365,8 +397,8 @@ export function createRenderer(canvas, assets) {
   /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */
   render.resize = (w, h) => {
     W = w; H = h;
-    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = w;
-    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = h;
+    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = windowCanvas.width = frontCanvas.width = w;
+    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = windowCanvas.height = frontCanvas.height = h;
     objLayer = new ImageData(w, h);
     trailBuf = new Uint8Array(w * h);
   };

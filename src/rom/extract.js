@@ -80,6 +80,20 @@ export const PLATFORM_ANIMATIONS = {
 };
 // X Zone's thin platform (605: sPlatformThinAnims), and its bricks that fall once Sonic lands on them (574)
 export const X_ZONE_ANIMATIONS = { 605: { thinPlatformX: 0 }, 574: { fallingBrick: 0 } };
+// the bosses' explosion (611) and the pieces a wrecked one throws (697, 695, 696: small, middle and large)
+export const BOSS_ANIMATIONS = {
+  611: { bossExplosion: 0 },
+  697: { debrisSmall0: 0, debrisSmall1: 1 }, 695: { debrisMid0: 0, debrisMid1: 1 }, 696: { debrisLarge0: 0, debrisLarge1: 1 },
+};
+// X Zone's Egg Wrecker: its ship (684), Eggman in it at rest, laughing and hurt (686) and fleeing (694), the
+// ship's flame, the hook and a chain link (683), and the ball (685)
+export const EGG_WRECKER_ANIMATIONS = {
+  684: { eggWreckerMobile: 0 },
+  686: { eggWreckerEggman0: 0, eggWreckerEggman1: 1, eggWreckerEggman2: 2 },
+  694: { eggman4: 4, eggman6: 6 },
+  683: { eggWreckerFlame: 0, eggWreckerHook: 1, eggWreckerLink: 2 },
+  685: { eggWreckerBall: 0 },
+};
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // the splash at Sonic's feet in a waterfall
@@ -150,7 +164,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...X_ZONE_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...X_ZONE_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_WRECKER_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

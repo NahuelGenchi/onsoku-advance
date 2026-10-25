@@ -29,4 +29,5 @@ export const SONG = {
   CRUMBLING_PLATFORM: 173, // SE_173: also an Egg Rocket stage separation's start
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
+  WHIRLWIND: 200,          // SE_200: a whirlwind (player float toggle) first lifting Sonic
 };

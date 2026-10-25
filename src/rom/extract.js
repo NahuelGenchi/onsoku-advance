@@ -82,8 +82,9 @@ export const ITEM_ANIMATIONS = {
 export const PLATFORM_ANIMATIONS = {
   463: { thinPlatform: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 }, 904: { crumblingPlatform: 0 },
 };
-// the boulders (458), and the small and large pieces a broken one leaves (459, 460)
-export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
+// the boulders (458), Angel Island's rolling ones (457), and the small and large pieces a broken one leaves
+// (459, 460)
+export const ROCK_ANIMATIONS = { 457: { fallingBoulder: 0 }, 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // the splash under Sonic on a forced slide

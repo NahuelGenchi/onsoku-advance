@@ -1,18 +1,25 @@
 // The spikes, following SA1's spike code (SAT-R decompilation, src/game/sa1/stage/interactables/spikes.c).
 // They are solid like any platform and hurt only from the side they point to: the up spikes when Sonic lands
-// on top, the sideways ones through the face they point out of.
+// on top, the down spikes when he hits them from below, the sideways ones through the face they point out of.
 
 import { platform, LANDED, FROM_BELOW, LEFT_FACE, RIGHT_FACE } from './collide.js';
 import { SONG } from '../sound/songs.js';
 
 // interactable kinds
-export const SPIKES_UP = 1, SPIKES_LEFT = 3, SPIKES_RIGHT = 4;
+export const SPIKES_UP = 1, SPIKES_DOWN = 2, SPIKES_LEFT = 3, SPIKES_RIGHT = 4;
 
 const SOX = 6;   // Sonic's spriteOffsetX
 
 // up (sub_8020D44): landing on them hurts
 function up(o, p, world) {
   if ((platform(o, o.boxes[0], p, world.terrain) & LANDED) && world.damage()) world.playSound(SONG.SPIKES);
+  return false;
+}
+
+// down (sub_8020E98): hitting them from below hurts; not while an object carries Sonic
+function down(o, p, world) {
+  if (p.carried) return false;
+  if ((platform(o, o.boxes[0], p, world.terrain) & FROM_BELOW) && world.damage()) world.playSound(SONG.SPIKES);
   return false;
 }
 
@@ -37,6 +44,7 @@ function right(o, p, world) {
 /** The object for a spike entity, or null when `kind` is not one of the spikes built. */
 export function createSpikes(e) {
   if (e.kind === SPIKES_UP) return { kind: e.kind, x: e.x, y: e.y, d: e.d, flipX: false, flipY: false, order: 17, idle: 'spikesUp', collide: up };
+  if (e.kind === SPIKES_DOWN) return { kind: e.kind, x: e.x, y: e.y, d: e.d, flipX: false, flipY: true, order: 17, idle: 'spikesUp', collide: down };
   if (e.kind === SPIKES_LEFT) return { kind: e.kind, x: e.x, y: e.y, d: e.d, flipX: true, flipY: false, order: 17, idle: 'spikesSide', collide: left };
   if (e.kind === SPIKES_RIGHT) return { kind: e.kind, x: e.x, y: e.y, d: e.d, flipX: false, flipY: false, order: 17, idle: 'spikesSide', collide: right };
   return null;

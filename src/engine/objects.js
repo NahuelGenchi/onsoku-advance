@@ -39,6 +39,7 @@ import { createHidingSpikes } from './hidingspikes.js';
 import { createRedFlag } from './redflags.js';
 import { createShipSwing } from './shipswing.js';
 import { createSpikedPlatform } from './spikedplatforms.js';
+import { createBowl } from './bowls.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -174,6 +175,7 @@ function interactable(e, slot, anims, ctx, level) {
     ?? createHidingSpikes(e, slot, anims) ?? createRedFlag(e, slot, anims)
     ?? createShipSwing(e, slot, anims)
     ?? createSpikedPlatform(e, slot, anims)
+    ?? createBowl(e, slot, anims)
     ?? standIn(e, slot);
 }
 

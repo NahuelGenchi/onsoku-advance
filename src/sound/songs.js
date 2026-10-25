@@ -31,4 +31,7 @@ export const SONG = {
   BUMPER_B: 184,           // SE_BUMPER_B: a triangular bumper
   BALLOON_POP: 189,        // a party balloon pops
   TUBE: 202,               // SE_202: a tube's track takes Sonic
+  BOWL: 206,               // SE_BOWL: a bowl catches Sonic
+  BOWL_2: 207,             // SE_BOWL_2 and SE_BOWL_3: 56 and 112 frames later
+  BOWL_3: 208,
 };

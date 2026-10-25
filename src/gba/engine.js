@@ -10,7 +10,7 @@
 // copies run past the V-blank; the screens ported here never do, on the recordings they are checked against,
 // so that isn't modelled.
 
-import { REG } from './video.js';
+import { REG, SCREEN_W } from './video.js';
 
 export const FLAGS = {
   UPDATE_BG_PALETTES: 0x1, UPDATE_OBJ_PALETTES: 0x2, HBLANK_COPY: 0x4, KEEP_HBLANK_BUFFER: 0x20,
@@ -53,6 +53,12 @@ export function createEngine(video, rom, sound) {
     repeatCounters: new Uint8Array(10), firstRepeat: new Uint8Array(10).fill(20), nextRepeat: new Uint8Array(10).fill(8),
     keys: 0,   // what the player holds, as KEY bits
     curTask: null,
+    // for the widescreen view (video.js): how each layer goes on past the screen's edges, as the screens set it
+    // with their layers (null: wrapping, as the hardware does); every sprite piece DisplaySprite puts out, where
+    // it really is; a window effect's true shape, for each half of the H-blank buffer and each window; and the
+    // H-blank buffer's scroll values before they are cut to the registers' 9 bits (NaN where not known)
+    wideLayers: [null, null, null, null], wideOam: [], wideWindows: [[null, null], [null, null]],
+    hblankTrue: new Float64Array(iwram.byteLength >> 1).fill(NaN),
   };
   const gfxQueue = new Array(GFX_QUEUE).fill(null), bgQueue = new Array(BG_QUEUE).fill(null);
   let gfxCursor = 0, gfxIndex = 0, bgCursor = 0, bgIndex = 0;
@@ -239,10 +245,12 @@ export function createEngine(video, rom, sound) {
   // --- the H-blank DMA ------------------------------------------------------------------------------------------
   /** Where the tasks write this frame's line-by-line values (gBgOffsetsHBlankPrimary), as a byte offset in e.hblank. */
   e.setHBlankCopy = (target, size) => { e.flags |= FLAGS.HBLANK_COPY; e.hblankTarget = target; e.hblankSize = size; };
-  function copyHBlankEntry(at) {
-    for (let k = 0; k < e.hblankSize; k += 2) video.write(e.hblankTarget + k, e.hblank[at + k] | (e.hblank[at + k + 1] << 8));
+  function copyHBlankLine(target, at, size) {
+    for (let k = 0; k < size; k += 2) video.write(target + k, e.hblank[at + k] | (e.hblank[at + k + 1] << 8), e.hblankTrue[(at + k) >> 1]);
   }
-  let hdma = null;   // this frame's H-blank DMA: where it reads next
+  const copyHBlankEntry = at => copyHBlankLine(e.hblankTarget, at, e.hblankSize);
+  let hdma = null;   // this frame's H-blank DMA: where it starts reading
+  let wide = { layers: e.wideLayers, sprites: [], windows: null };   // what the widescreen view draws this frame by
 
   // --- keys (core.c: GetInput) ---------------------------------------------------------------------------------
   function readKeys() {
@@ -283,6 +291,13 @@ export function createEngine(video, rom, sound) {
     if (e.flags & FLAGS.HBLANK_COPY) copyHBlankEntry(e.primary);
     processOam();
     video.oam.set(e.oamBuffer);
+    const shapes = e.wideWindows[e.primary ? 1 : 0], target = hdma?.target;
+    wide = {
+      layers: e.wideLayers.slice(),
+      sprites: e.wideOam.sort((p, q) => p.order - q.order),   // as processOam orders them
+      windows: target === REG.WIN0H ? [shapes[0], hdma.size === 4 ? shapes[1] : null] : target === REG.WIN1H ? [null, shapes[1]] : null,
+    };
+    e.wideOam = [];
     copyGraphics();
     fillMaps();
     copyBackgrounds();
@@ -300,16 +315,35 @@ export function createEngine(video, rom, sound) {
     vblank();
   };
   /** Draws the frame into `out` (240 × 160 RGBA words), with the H-blank DMA between its lines; `probe(y)`, if
-   *  given, sees the registers as each line is drawn. */
-  e.draw = (out, probe) => {
+   *  given, sees the registers as each line is drawn. With `view` ({ w, h }), the widescreen view instead,
+   *  w × h words (video.js drawFrame). */
+  e.draw = (out, probe, view) => {
     probe?.(0);
+    let at = hdma?.at;
     video.drawFrame(out, (hdma || probe) && (y => {
       if (hdma) {
-        for (let k = 0; k < hdma.size; k += 2) video.write(hdma.target + k, e.hblank[hdma.at + k] | (e.hblank[hdma.at + k + 1] << 8));
-        hdma.at += hdma.size;
+        copyHBlankLine(hdma.target, at, hdma.size);
+        at += hdma.size;
       }
       if (probe && y < 159) probe(y + 1);
-    }));
+    }), view && wideView(view));
   };
+
+  // the widescreen view of this frame. A sprite that slides in from past the screen's right edge (its wideFrom
+  // is its x on the first frame it shows) slides in from past the view's edge instead: faster across the
+  // margin, so it reaches the screen's edge when it would, and on from there as it is.
+  function wideView({ w, h }) {
+    const ox = (w - SCREEN_W) >> 1, groups = new Map();
+    for (const p of wide.sprites) {
+      const from = p.sprite.wideFrom, g = groups.get(p.sprite);
+      if (from !== undefined && (!g || p.trueX < g.left)) groups.set(p.sprite, { left: p.trueX, first: from + p.trueX - p.x });
+    }
+    const sprites = wide.sprites.map(({ a, b, c, trueX, trueY, sprite }) => {
+      const g = groups.get(sprite);
+      if (g && g.left > SCREEN_W && g.first > SCREEN_W) trueX += Math.round((g.left - SCREEN_W) * ox / (g.first - SCREEN_W));
+      return { a, b, c, trueX, trueY };
+    });
+    return { w, h, layers: wide.layers, sprites, windows: wide.windows };
+  }
   return e;
 }

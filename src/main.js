@@ -146,14 +146,15 @@ function showStats() {
 }
 
 // largest whole-number scale the original screen fits at, so every pixel stays square and sharp; the
-// widescreen view then fills what the window has around it at that scale, up to its largest size (in the act
-// only: the screens before it are the original's)
+// widescreen view then fills what the window has around it at that scale, up to its largest size, in the
+// game's start as in the act
 function fitScreen() {
   const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
   const fit = Math.min(vw / SCREEN_W, vh / SCREEN_H);
   const scale = fit >= 1 ? Math.floor(fit) : Math.max(fit, 0.25);
-  const size = (room, min, max) => (wide && !front ? Math.max(min, Math.min(max, Math.floor(room / scale) & ~1)) : min);
+  const size = (room, min, max) => (wide ? Math.max(min, Math.min(max, Math.floor(room / scale) & ~1)) : min);
   const w = size(vw, SCREEN_W, VIEW_MAX_W), h = size(vh, SCREEN_H, VIEW_MAX_H);
+  front?.setView(w, h);
   game?.setView(w, h);
   screen.style.width = `${w * scale}px`;
   screen.style.height = `${h * scale}px`;

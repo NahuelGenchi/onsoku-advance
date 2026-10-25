@@ -66,4 +66,10 @@ function spotlightBeam(t) {
     if (y1 > 0x9F) windowLeft(e, b.bg, p[0], p[1], p[2], p[3], 0);
     else windowBetween(e, b.bg, p);
   }
+  // for the widescreen view, the whole beam, its edges going on past the screen's sides and top
+  const x = b.unk6, y = b.unk8, tanLeft = tan(a0), tanRight = tan(a1);
+  e.wideWindows[e.primary ? 1 : 0][b.bg & 1] = {
+    left: line => x - (((y - line) * tanLeft) >> 8),
+    right: line => x + (((y - line) * tanRight) >> 8) + 1,
+  };
 }

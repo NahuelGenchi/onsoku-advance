@@ -7,7 +7,11 @@ import { REG } from './video.js';
 
 const s8 = v => (v << 24) >> 24, s16 = v => (v << 16) >> 16;
 
-function put16(e, at, v) { e.hblank[at] = v & 0xFF; e.hblank[at + 1] = (v >> 8) & 0xFF; }
+// a line's value, and for the widescreen view its true value, if it is more than the register keeps
+function put16(e, at, v, trueValue = NaN) {
+  e.hblank[at] = v & 0xFF; e.hblank[at + 1] = (v >> 8) & 0xFF;
+  e.hblankTrue[at >> 1] = trueValue;
+}
 
 /** sub_8007858: layer `bg` scrolled to `h` on lines minY to maxY - 1, and `v` there going one line up each line. */
 export function scrollLines(e, bg, minY, maxY, h, v) {
@@ -31,7 +35,7 @@ export function shearLines(e, bg, minY, maxY, shift, step, h, v) {
   minY &= 0xFF; maxY &= 0xFF;
   shift = s16(shift); step = s8(step);
   for (let at = e.primary + minY * 4; minY < maxY; minY++, at += 4) {
-    put16(e, at, (shift + h) & 0x1FF); put16(e, at + 2, v);
+    put16(e, at, (shift + h) & 0x1FF, shift + h); put16(e, at + 2, v);
     shift = s16(-(shift + step)); step = s8(-step);
   }
 }
@@ -41,6 +45,7 @@ export function shearLines(e, bg, minY, maxY, shift, step, h, v) {
 function windowLines(e, bg) {
   const size = bg >= 2 ? 4 : 2;
   e.setHBlankCopy(bg < 2 && bg & 1 ? REG.WIN1H : REG.WIN0H, size);
+  e.wideWindows[e.primary ? 1 : 0][bg & 1] = null;   // the window's true shape, if the effect knows it, comes after
   return { size, at: e.primary + (bg >= 2 && bg & 1 ? 2 : 0) };
 }
 

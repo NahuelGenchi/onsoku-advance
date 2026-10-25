@@ -52,6 +52,15 @@ export function createIntro(ctx) {
   e.dispCnt = 0x1040;
   e.bgCnt[0] = 0x9D86; e.bgCnt[1] = 0x1B8B; e.bgCnt[2] = 0x9880;
   e.bgScroll.fill(0, 0, 6);
+  // for the widescreen view: Eggman and his hands once, nothing past their pictures (their maps' last 16
+  // columns, and their rows past the pictures, are left over), and the streaks going on down for ever, their
+  // first and last columns carried on out to the sides
+  e.wideLayers = [
+    { x: { once: true, box: [0, 240] }, y: { once: true, box: [0, 280] } },
+    { x: { once: true, box: [0, 240], edge: true } },
+    { x: { once: true, box: [0, 240] }, y: { once: true, box: [0, 216] } },
+    null,
+  ];
 
   const emerald = introSprite(ctx, { qUnk38: -36 << 8, qUnk3C: -36 << 8, qUnk40: 0x240 }, {
     graphics: { src: 0, dest: 0x10020, size: 0, anim: ANIM_EMERALD }, x: EMERALD_X, y: EMERALD_Y, oamFlags: 3 << 6, frameFlags: 0x1000,
@@ -173,6 +182,13 @@ function introSpotlights(t) {
     e.bldCnt = 0; e.bldY = 0;
     e.dispCnt = 0x1340;
     e.bgCnt[0] = 0x1D86; e.bgCnt[1] = 0x1883;
+    // for the widescreen view: each picture once, its edges carried on, and the backdrop's too (its map's last
+    // 16 columns are left over)
+    e.wideLayers = [
+      { x: { once: true, edge: true }, y: { once: true, edge: true } },
+      { x: { once: true, box: [0, 240], edge: true }, y: { once: true, edge: true } },
+      null, null,
+    ];
     createCharacter(ctx, intro, 0);
     t.main = characterTurn;
     return;
@@ -271,6 +287,7 @@ function createCharacter(ctx, intro, k) {
       graphics: { src: 0, dest: rom.u32(entry + 8) - 0x06000000, size: 0, anim: rom.u32(entry) & 0xFFFF },
       variant: rom.u32(entry + 4) & 0xFF, x: 280, y: 70, oamFlags: 0x180, frameFlags: c.letterFlags,
     });
+    letter.s.wideFrom = stopX + 0x108;   // its x when it first shows, for the widescreen view (engine.js)
     e.createTask(letterTask, letter, 0x6820);
     updateSprite(e, ctx.sprites, letter.s);
     if (c.drawLetters) displaySprite(e, ctx.sprites, letter.s);

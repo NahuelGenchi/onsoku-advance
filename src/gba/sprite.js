@@ -95,7 +95,10 @@ function command(e, tables, s, at) {
   }
 }
 
-/** DisplaySprite: the sprite's frame into OAM at (x, y), if any of it is on screen. */
+/**
+ * DisplaySprite: the sprite's frame into OAM at (x, y), if any of it is on screen. For the widescreen view, every
+ * piece also goes into e.wideOam where it really is, on screen or not.
+ */
 export function displaySprite(e, tables, s) {
   if (s.dimensions === -1) return;
   const rom = e.rom, d = s.dimensions;
@@ -111,13 +114,10 @@ export function displaySprite(e, tables, s) {
     y -= ff & SPRITE.Y_FLIP ? h - offsetY : offsetY;
     x -= ff & SPRITE.X_FLIP ? w - offsetX : offsetX;
   }
-  if (!(x + w >= 0 && x <= 240 && y + h >= 0 && y <= 160)) return;
+  let shown = x + w >= 0 && x <= 240 && y + h >= 0 && y <= 160;
   const oamData = rom.u32(tables.oam + s.graphics.anim * 4) - 0x08000000;
   const m = e.oamMalloc, order = (s.oamFlags & 0x7C0) >> 6;
   for (let i = 0; i < pieces; i++) {
-    const k = e.allocOam(order);
-    if (k < 0) return;
-    if (i === 0) s.oamBaseIndex = e.oamFreeIndex - 1;
     const src = oamData + ((oamIndex & 0x3FFF) + i) * 6;
     let a0 = rom.u16(src), a1 = rom.u16(src + 2), a2 = rom.u16(src + 4);
     let sprX = a1 & 0x1FF, sprY = a0 & 0xFF;
@@ -138,6 +138,11 @@ export function displaySprite(e, tables, s) {
     a1 = (a1 + ((x + sprX) & 0x1FF)) & 0xFFFF;
     if (a0 & 0x2000) a2 = (a2 + (a2 & 0x3FF)) & 0xFFFF;
     a2 = (a2 + ((s.graphics.dest - OBJ_VRAM) >> 5)) & 0xFFFF;
+    e.wideOam.push({ a: a0, b: a1, c: a2, trueX: x + sprX, trueY: y + sprY, order, sprite: s, x: s.x });
+    if (!shown) continue;
+    const k = e.allocOam(order);
+    if (k < 0) { shown = false; continue; }
+    if (i === 0) s.oamBaseIndex = e.oamFreeIndex - 1;
     m[k * 4] = a0; m[k * 4 + 1] = a1; m[k * 4 + 2] = a2;
   }
 }

@@ -22,6 +22,8 @@ function showLogo(ctx, tilemapId, main) {
   e.dispCnt = 0x40;
   e.bgCnt[2] = 0x5E01;
   e.bgScroll[4] = 0; e.bgScroll[5] = 0;
+  // for the widescreen view: the logo's map once across, nothing either side of it
+  e.wideLayers = [null, null, { x: { once: true } }, null];
   e.video.vram.fill(0, 0, 64);
   e.mapFill[2].value = 0;
   e.mapFill[2].rect.set([0, 0, 0xFF, 0x40]);

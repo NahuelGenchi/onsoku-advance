@@ -24,7 +24,8 @@ function keysOf(input) {
 /**
  * Starts the logos on `canvas`. `rom` is the ROM (rom.js), `offsets` where its tables are (locate.js), `input`
  * the player's buttons and `sound` the sound engine (audio.js). `play()` is called once the act is to start.
- * Returns { stop, step, draw }; step() and draw() are for checking, a frame at a time.
+ * Returns { stop, step, draw, setView }: setView(w, h) draws a widescreen view of w × h from then on (the
+ * original 240 × 160 is the default); step() and draw() are for checking, a frame at a time.
  */
 export function createFrontEnd(canvas, rom, offsets, input, sound, play) {
   const video = createVideo();
@@ -38,10 +39,18 @@ export function createFrontEnd(canvas, rom, offsets, input, sound, play) {
   };
   createSegaLogo(ctx);
 
-  canvas.width = SCREEN_W; canvas.height = SCREEN_H;
   const out = canvas.getContext('2d', { alpha: false });
-  const image = out.createImageData(SCREEN_W, SCREEN_H);
-  const pixels = new Uint32Array(image.data.buffer);
+  let image, pixels, view = null, drawn = false;
+  // the size the screens are drawn at: the original screen, or a widescreen view around it (video.js)
+  function setView(w = SCREEN_W, h = SCREEN_H) {
+    if (image && w === image.width && h === image.height) return;
+    canvas.width = w; canvas.height = h;
+    image = out.createImageData(w, h);
+    pixels = new Uint32Array(image.data.buffer);
+    view = w === SCREEN_W && h === SCREEN_H ? null : { w, h };
+    if (drawn) draw();   // at once, as resizing the canvas clears it
+  }
+  setView();
 
   function step() {
     input.poll?.();
@@ -49,8 +58,9 @@ export function createFrontEnd(canvas, rom, offsets, input, sound, play) {
     engine.run();
   }
   function draw() {
-    engine.draw(pixels);
+    engine.draw(pixels, null, view);
     out.putImageData(image, 0, 0);
+    drawn = true;
   }
 
   let frame = 0, last = performance.now(), pending = 0;
@@ -67,5 +77,5 @@ export function createFrontEnd(canvas, rom, offsets, input, sound, play) {
 
   input.enabled = true;
   frame = requestAnimationFrame(loop);
-  return { stop, step, draw, engine };
+  return { stop, step, draw, setView, engine };
 }

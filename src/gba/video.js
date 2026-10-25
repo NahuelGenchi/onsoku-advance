@@ -5,8 +5,16 @@
 // blending arithmetic, the same order of sprites and layers, and the same quirks where it departs from the plain
 // rules (how a rotated sprite's line starts and stops, which pixels a semi-transparent sprite brightens or darkens).
 // Mosaic and the OBJ window aren't drawn yet; nothing that uses them is.
+//
+// The widescreen view draws a wider frame with the original screen in its middle, drawn exactly as above. Around
+// it, each scene goes on as it really is: each layer as the scene says it carries on past the screen's edges
+// (wrapping where the scene relies on it, otherwise its picture once, with its edge carried on or nothing past
+// it), the sprites where they really are rather than where OAM wraps them, a window across the screen's edge on
+// past it (or the shape the scene gives it), and the lines above and below with the registers of the screen's
+// first and last line, their scroll carried on as it changes from line to line.
 
 export const SCREEN_W = 240, SCREEN_H = 160;
+const MAX_W = 512;   // the widest view
 
 // the display registers, as byte offsets from 0x04000000
 export const REG = {
@@ -78,14 +86,24 @@ export function createVideo() {
   const normal = new Uint32Array(512), variant = new Uint32Array(512);
   let variantFor = -1;   // the effect and level the variant colours were made for
 
-  const row = new Uint32Array(SCREEN_W), spriteLayer = new Uint32Array(SCREEN_W);
-  const windows = Array.from({ length: 8 }, () => ({ endX: 0, ctl: 0 }));
+  const row = new Uint32Array(MAX_W), spriteLayer = new Uint32Array(MAX_W);
+  const windows = Array.from({ length: 64 }, () => ({ endX: 0, ctl: 0 }));
   let nWindows = 1;
 
-  /** Writes a 16-bit display register, as the CPU or a DMA does. */
-  function write(reg, value) {
+  // the widescreen view while a frame is drawn (null for the original screen): `ox` the columns left of the
+  // original screen, so a line's pixel x is at row[x + ox]; on a line above or below it, the whole line is margin
+  let view = null, ox = 0, lineW = SCREEN_W, marginLine = false;
+  // a scroll's true value where the scene knows it (an effect that shifts lines either way), else NaN
+  const ioTrue = new Float64Array(io.length).fill(NaN);
+  const lineIo = Array.from({ length: SCREEN_H }, () => new Uint16Array(io.length));
+  const lineTrue = Array.from({ length: SCREEN_H }, () => new Float64Array(io.length));
+
+  /** Writes a 16-bit display register, as the CPU or a DMA does; `trueValue` is a scroll's value before it is
+   *  cut to the register's 9 bits, for the widescreen view. */
+  function write(reg, value, trueValue = NaN) {
     value &= MASK[reg] ?? 0xFFFF;
     io[reg >> 1] = value;
+    ioTrue[reg >> 1] = trueValue;
     if (reg >= 0x28 && reg < 0x40 && (reg & 0xF) >= 8) {
       // BGxX and BGxY: a write sets the reference point and restarts it from there
       const bg = reg >= 0x38 ? 1 : 0, axis = (reg & 4) >> 2, hi = reg & 2;
@@ -163,6 +181,51 @@ export function createVideo() {
     else breakWindowInner(hs, he, ctl);
   }
 
+  // the widescreen view's margins: whether window n covers (x, y) there. With a shape from the scene, that shape,
+  // which goes on past where the window's rows stop it on the screen (a beam goes on up past where it leaves the
+  // screen's side); otherwise as the window covers the screen's nearest pixel, so a window across the screen's
+  // edge goes on past it.
+  function inWindow(n, x, y) {
+    const shape = view.windows?.[n];
+    if (shape) return x >= shape.left(y) && x < shape.right(y);
+    const cy = y < 0 ? 0 : y >= SCREEN_H ? SCREEN_H - 1 : y;
+    const [vs, ve] = windowRows(REG.WIN0V + n * 2);
+    if (ve >= vs) { if (cy >= ve || cy < vs) return false; }
+    else if (cy >= ve && cy < vs) return false;
+    const cx = x < 0 ? 0 : x >= SCREEN_W ? SCREEN_W - 1 : x;
+    const [hs, he] = windowSpan(REG.WIN0H + n * 2);
+    return he < hs ? cx < he || cx >= hs : cx >= hs && cx < he;
+  }
+  function marginCtl(x, y) {
+    if (!(dispcnt & 0xE000)) return 0xFF;
+    for (let n = 0; n < 2; n++) if ((dispcnt & (0x2000 << n)) && inWindow(n, x, y)) return (io[REG.WININ >> 1] >> (n * 8)) & 0x3F;
+    return io[REG.WINOUT >> 1] & 0x3F;
+  }
+  // the runs across a line of the widescreen view, as row indices: the screen's own (already in `windows`) moved
+  // over by `ox`, and the margins' worked out a pixel at a time
+  function wideWindows(y) {
+    const centre = marginLine ? [] : windows.slice(0, nWindows).map(w => ({ endX: w.endX + ox, ctl: w.ctl }));
+    const runs = [];
+    // a run never crosses the screen's edges, so each is the screen's or a margin's
+    const margin = (from, to) => {
+      let ctl = -1;
+      for (let x = from; x < to; x++) {
+        const c = marginCtl(x, y);
+        if (c === ctl) runs[runs.length - 1].endX = x + ox + 1;
+        else { runs.push({ endX: x + ox + 1, ctl: c }); ctl = c; }
+      }
+    };
+    if (marginLine) margin(-ox, SCREEN_W + ox);
+    else {
+      margin(-ox, 0);
+      for (const w of centre) runs.push(w);
+      margin(SCREEN_W, SCREEN_W + ox);
+    }
+    nWindows = runs.length;
+    runs.forEach((r, i) => { windows[i].endX = r.endX; windows[i].ctl = r.ctl; });
+  }
+  const inScreen = (start, end) => !marginLine && start >= ox && end <= ox + SCREEN_W;
+
   // the sprites that can show this frame, in OAM order: each one's attributes, top line, bottom line and draw time
   let sprites = [];
   function cleanOam() {
@@ -184,7 +247,8 @@ export function createVideo() {
   let dispcnt, mode, effect, blda, bldb, bldy, target1Obj, target2Obj, target1Bd, target2Bd, forceTarget1;
   const bgs = [0, 1, 2, 3].map(index => ({ index, cnt: 0, priority: 0, target1: false, target2: false, enabled: false }));
 
-  // one sprite across the run [start, end) of line y, into the sprite layer; returns whether it drew there
+  // one sprite across the run [start, end) of line y, into the sprite layer; returns whether it drew there. A
+  // sprite of the widescreen view's margins has its true position, trueX and trueY, instead of OAM's.
   function drawSprite(s, y, start, end, ctl) {
     const { a, b, c } = s;
     const [width, height] = OBJ_SIZES[((a >> 14) * 4) + (b >> 14)];
@@ -192,7 +256,8 @@ export function createVideo() {
     let flags = ((c >> 10) & 3) << PRIORITY_SHIFT;
     if ((blendOn && target1Obj && effect === ALPHA) || objMode === 1) flags |= TARGET_1;
     if (objMode === 2) return 0;   // the OBJ window: not drawn yet
-    let x = (b << 23) >> 23;
+    const real = s.trueX !== undefined;
+    let x = real ? s.trueX : (b << 23) >> 23;
     const map1d = (dispcnt & 0x40) !== 0, is256 = (a & 0x2000) !== 0;
     const charBase = ((c & 0x3FF) & ~(is256 && !map1d ? 1 : 0)) * 0x20;
     const maskLo = map1d ? 0x7FFE : 0x3FE, maskHi = map1d ? 0 : charBase & 0x7C00;
@@ -206,15 +271,15 @@ export function createVideo() {
     flags >>>= 0;
     const colors = useVariant ? variant : normal;
     const palBase = 256 + (is256 ? 0 : (c >> 12) << 4);
-    let inY = y - (a & 0xFF);
+    let inY = y - (real ? s.trueY : a & 0xFF);
     const stride = map1d ? (width >> (is256 ? 0 : 1)) : 0x80;
     const OBJ = 0x10000;
 
     const put = (outX, pixel) => {
-      const current = spriteLayer[outX];
+      const at = outX + ox, current = spriteLayer[at];
       if (((current & ORDER) >>> 0) <= flags) return;
-      if (pixel) spriteLayer[outX] = (colors[palBase + pixel] | flags) >>> 0;
-      else if (current !== UNWRITTEN) spriteLayer[outX] = ((current & ~(ORDER | REBLEND | TARGET_1)) | (flags & (ORDER | REBLEND | TARGET_1))) >>> 0;
+      if (pixel) spriteLayer[at] = (colors[palBase + pixel] | flags) >>> 0;
+      else if (current !== UNWRITTEN) spriteLayer[at] = ((current & ~(ORDER | REBLEND | TARGET_1)) | (flags & (ORDER | REBLEND | TARGET_1))) >>> 0;
     };
     const fetch = (localX, localY) => {
       if (is256) {
@@ -231,7 +296,7 @@ export function createVideo() {
       const dbl = (a >> 9) & 1, totalWidth = width << dbl, totalHeight = height << dbl;
       const m = ((b >> 9) & 0x1F) * 16;
       const pa = (oam[m + 3] << 16) >> 16, pb = (oam[m + 7] << 16) >> 16, pc = (oam[m + 11] << 16) >> 16, pd = (oam[m + 15] << 16) >> 16;
-      if (inY < 0) inY += 256;
+      if (inY < 0 && !real) inY += 256;
       let outX = x >= start ? x : start, condition = x + totalWidth, inX = outX - x;
       if (end < condition) condition = end;
       let xAccum = pa * (inX - 1 - (totalWidth >> 1)) + pb * (inY - (totalHeight >> 1)) + (width << 7);
@@ -257,7 +322,7 @@ export function createVideo() {
     }
 
     let outX = x >= start ? x : start, condition = x + width;
-    if ((a & 0xFF) + height - 256 >= 0) inY += 256;
+    if (!real && (a & 0xFF) + height - 256 >= 0) inY += 256;
     if (b & 0x2000) inY = height - inY - 1;
     if (end < condition) condition = end;
     let inX = outX - x, step = 1;
@@ -332,9 +397,65 @@ export function createVideo() {
         if (!pixel) continue;
         color = colors[((map >> 12) << 4) | pixel];
       }
-      if (!(row[x] & WRITABLE)) continue;
-      if (blend) blendInto(x, (color | flags) >>> 0);
-      else layInto(x, (color | flags) >>> 0);
+      const at = x + ox;
+      if (!(row[at] & WRITABLE)) continue;
+      if (blend) blendInto(at, (color | flags) >>> 0);
+      else layInto(at, (color | flags) >>> 0);
+    }
+  }
+
+  // a text background over the row indices [start, end) of line y in the widescreen view's margins, as the
+  // scene says the layer carries on (view.layers[index], by default wrapping both ways as the hardware does): per
+  // axis, { once, box: [from, to), edge }. A layer shown once has its picture at its true scroll, the register's
+  // value nearest 0 unless the scene gave it, between `box`'s columns or rows of its map (all of it by default),
+  // and past them its edge if `edge`, else nothing.
+  function drawTextWide(bg, y, start, end, ctl) {
+    if (!(ctl & (1 << bg.index))) return;
+    const [flags, colors] = bgFlags(bg, ctl), blend = (flags & TARGET_2) !== 0;
+    const cnt = bg.cnt, size = cnt >> 14, is256 = (cnt & 0x80) !== 0;
+    const charBase = ((cnt >> 2) & 3) << 14, screenBase = ((cnt >> 8) & 0x1F) << 11;
+    const mapW = size & 1 ? 512 : 256, mapH = size & 2 ? 512 : 256;
+    const way = view.layers?.[bg.index], wx = way?.x, wy = way?.y;
+    const r = (REG.BG0HOFS >> 1) + bg.index * 2;
+    const scroll = (k, n, once) => {
+      if (!once) return io[k];
+      if (!Number.isNaN(ioTrue[k])) return ioTrue[k];
+      const v = io[k] & (n - 1);
+      return v >= n >> 1 ? v - n : v;
+    };
+    // where along an axis the map is read, or -1 for nothing
+    const along = (p, n, w) => {
+      if (!w?.once) return ((p % n) + n) % n;
+      const [from, to] = w.box ?? [0, n];
+      if (p >= from && p < to) return p;
+      if (!w.edge) return -1;
+      return p < from ? from : to - 1;
+    };
+    const inY = along(y + scroll(r + 1, mapH, wy?.once), mapH, wy);
+    if (inY < 0) return;
+    const hofs = scroll(r, mapW, wx?.once);
+    const rowBase = (screenBase >> 1) + (inY >= 256 ? (size === 3 ? 2048 : 1024) : 0) + ((inY & 0xF8) << 2);
+    for (let at = start; at < end; at++) {
+      const inX = along(at - ox + hofs, mapW, wx);
+      if (inX < 0) continue;
+      const map = vram16[(rowBase + (inX >= 256 ? 1024 : 0) + ((inX & 0xF8) >> 3)) & 0xFFFF];
+      let ty = inY & 7, tx = inX & 7;
+      if (map & 0x800) ty = 7 - ty;
+      if (map & 0x400) tx = 7 - tx;
+      let pixel, color;
+      if (is256) {
+        pixel = vram[(charBase + ((map & 0x3FF) << 6) + (ty << 3) + tx) % 0x18000];
+        if (!pixel) continue;
+        color = colors[pixel];
+      } else {
+        const byte = vram[(charBase + ((map & 0x3FF) << 5) + (ty << 2) + (tx >> 1)) % 0x18000];
+        pixel = tx & 1 ? byte >> 4 : byte & 0xF;
+        if (!pixel) continue;
+        color = colors[((map >> 12) << 4) | pixel];
+      }
+      if (!(row[at] & WRITABLE)) continue;
+      if (blend) blendInto(at, (color | flags) >>> 0);
+      else layInto(at, (color | flags) >>> 0);
     }
   }
 
@@ -353,15 +474,16 @@ export function createVideo() {
       else if ((x | y) & ~(span - 1)) continue;
       const map = vram[screenBase + (lx >> 11) + (((ly >> 7) & 0x7F0) << size)];
       const pixel = vram[charBase + (map << 6) + ((ly & 0x700) >> 5) + ((lx & 0x700) >> 8)];
-      if (!pixel || !(row[outX] & WRITABLE)) continue;
-      if (blend) blendInto(outX, (colors[pixel] | flags) >>> 0);
-      else layInto(outX, (colors[pixel] | flags) >>> 0);
+      const at = outX + ox;
+      if (!pixel || !(row[at] & WRITABLE)) continue;
+      if (blend) blendInto(at, (colors[pixel] | flags) >>> 0);
+      else layInto(at, (colors[pixel] | flags) >>> 0);
     }
   }
 
   function drawLine(y, out, outAt) {
     dispcnt = io[0];
-    if (dispcnt & 0x80) { out.fill(0xFFFFFFFF, outAt, outAt + SCREEN_W); return; }
+    if (dispcnt & 0x80) { out.fill(0xFFFFFFFF, outAt, outAt + lineW); return; }
     mode = dispcnt & 7;
     const bldcnt = io[REG.BLDCNT >> 1], alpha = io[REG.BLDALPHA >> 1];
     effect = (bldcnt >> 6) & 3;
@@ -386,6 +508,7 @@ export function createVideo() {
       if (dispcnt & 0x4000) breakWindow(1, y);
       if (dispcnt & 0x2000) breakWindow(0, y);
     } else windows[0].ctl = 0xFF;
+    if (ox || marginLine) wideWindows(y);
     forceTarget1 = false;
 
     // the backdrop
@@ -396,21 +519,35 @@ export function createVideo() {
       for (; x < windows[w].endX; x++) row[x] = backdrop;
     }
 
-    // the sprites into their own layer, each drawing for as long as the line's time lasts
+    // the sprites into their own layer, each drawing for as long as the line's time lasts; in the widescreen
+    // view's margins, the scene's sprites where they really are, all of them
     let spriteLayers = 0;
     if (dispcnt & 0x1000) {
       let cycles = dispcnt & 0x20 ? OBJ_CYCLES_HBLANK_FREE : OBJ_CYCLES;
-      for (const s of sprites) {
+      for (const s of marginLine ? [] : sprites) {
         if ((y < s.y && (s.endY - 256 < 0 || y >= s.endY - 256)) || y >= s.endY) continue;
         let end = 0;
         for (let w = 0; w < nWindows; w++) {
           const start = end;
           end = windows[w].endX;
-          if (!(windows[w].ctl & 0x10)) continue;
-          spriteLayers |= drawSprite(s, y, start, end, windows[w].ctl) << ((s.c >> 10) & 3);
+          if (!(windows[w].ctl & 0x10) || (ox && !inScreen(start, end))) continue;
+          spriteLayers |= drawSprite(s, y, start - ox, end - ox, windows[w].ctl) << ((s.c >> 10) & 3);
         }
         cycles -= s.cycles;
         if (cycles <= 0) break;
+      }
+      for (const s of view && (ox || marginLine) ? view.sprites ?? [] : []) {
+        const affine = s.a & 0x100;
+        if (!affine && (s.a & 0x200)) continue;
+        const height = OBJ_SIZES[((s.a >> 14) * 4) + (s.b >> 14)][1] << (affine ? (s.a >> 9) & 1 : 0);
+        if (y < s.trueY || y >= s.trueY + height) continue;
+        let end = 0;
+        for (let w = 0; w < nWindows; w++) {
+          const start = end;
+          end = windows[w].endX;
+          if (!(windows[w].ctl & 0x10) || inScreen(start, end)) continue;
+          spriteLayers |= drawSprite(s, y, start - ox, end - ox, windows[w].ctl) << ((s.c >> 10) & 3);
+        }
       }
     }
 
@@ -418,14 +555,17 @@ export function createVideo() {
     for (let w = 0; w < nWindows; w++) {
       const start = end, ctl = windows[w].ctl;
       end = windows[w].endX;
+      const margin = (ox || marginLine) && !inScreen(start, end);
       for (let p = 0; p < 4; p++) {
         if (spriteLayers & (1 << p)) compositeSprites(p, start, end, ctl);
         for (const bg of bgs) {
           if (!bg.enabled || bg.priority !== p) continue;
-          if (bg.index < 2) { if (mode < 2) drawText(bg, y, start, end, ctl); }
-          else if (bg.index === 2) { if (mode === 0) drawText(bg, y, start, end, ctl); else if (mode <= 2) drawAffine(bg, start, end, ctl); }
-          else if (mode === 0) drawText(bg, y, start, end, ctl);
-          else if (mode === 2) drawAffine(bg, start, end, ctl);
+          const text = bg.index < 2 ? mode < 2 : bg.index === 2 ? mode === 0 : mode === 0;
+          const affine = bg.index === 2 ? mode === 1 || mode === 2 : bg.index === 3 && mode === 2;
+          if (text) {
+            if (margin) drawTextWide(bg, y, start, end, ctl);
+            else drawText(bg, y, start - ox, end - ox, ctl);
+          } else if (affine && !marginLine) drawAffine(bg, start - ox, end - ox, ctl);
         }
       }
     }
@@ -451,7 +591,7 @@ export function createVideo() {
       }
     }
 
-    if (mode !== 0) {
+    if (mode !== 0 && !marginLine) {
       for (let k = 0; k < 2; k++) {
         if (!bgs[k + 2].enabled) continue;
         const r = (REG.BG2PA >> 1) + k * 8;
@@ -459,20 +599,65 @@ export function createVideo() {
         cur[k][1] += (io[r + 3] << 16) >> 16;
       }
     }
-    for (let i = 0; i < SCREEN_W; i++) out[outAt + i] = (row[i] & 0xFFFFFF) | 0xFF000000;
+    for (let i = 0; i < lineW; i++) out[outAt + i] = (row[i] & 0xFFFFFF) | 0xFF000000;
+  }
+
+  // the registers of a line above or below the screen: those of its first or last line, with each layer's scroll
+  // carried on by as much as it changes between that line and the next one in
+  const s9 = v => (v << 23) >> 23;
+  function marginRegs(y) {
+    const [edge, next, by] = y < 0 ? [0, 1, -y] : [SCREEN_H - 1, SCREEN_H - 2, y - SCREEN_H + 1];
+    io.set(lineIo[edge]); ioTrue.set(lineTrue[edge]);
+    for (let k = REG.BG0HOFS >> 1; k < (REG.BG0HOFS >> 1) + 8; k++) {
+      const a = lineTrue[edge][k], b = lineTrue[next][k];
+      if (!Number.isNaN(a) && !Number.isNaN(b)) {
+        ioTrue[k] = a + (a - b) * by;
+        io[k] = ioTrue[k] & 0x1FF;
+      } else {
+        io[k] = (io[k] + s9(lineIo[edge][k] - lineIo[next][k]) * by) & 0x1FF;
+        ioTrue[k] = NaN;
+      }
+    }
   }
 
   /**
    * Draws a frame into `out` (240 × 160 RGBA words, as an ImageData's buffer holds them). `hblank(y)` runs
-   * after line y is drawn, as the H-blank does, and may write registers for the next line.
+   * after line y is drawn, as the H-blank does, and may write registers for the next line. With `wide`, a
+   * widescreen view of { w, h } (even numbers no smaller than the screen) instead, w × h words, with the scene's
+   * `layers`, `sprites` and `windows` past the screen's edges (see drawTextWide, drawSprite and inWindow).
+   * The registers are as they were before it afterwards, so a frame can be drawn again; the V-blank sets every
+   * one the H-blank changes before the next.
    */
-  function drawFrame(out, hblank) {
+  function drawFrame(out, hblank, wide) {
+    const before = io.slice(), beforeTrue = ioTrue.slice(), beforeRef = ref.map(r => r.slice());
     updateColors();
     cleanOam();
-    for (let y = 0; y < SCREEN_H; y++) {
-      drawLine(y, out, y * SCREEN_W);
-      hblank?.(y);
+    if (!wide || (wide.w === SCREEN_W && wide.h === SCREEN_H)) {
+      for (let y = 0; y < SCREEN_H; y++) {
+        drawLine(y, out, y * SCREEN_W);
+        hblank?.(y);
+      }
+    } else {
+      view = wide; lineW = Math.min(wide.w, MAX_W); ox = (lineW - SCREEN_W) >> 1;
+      const oy = (wide.h - SCREEN_H) >> 1;
+      for (let y = 0; y < SCREEN_H; y++) {
+        lineIo[y].set(io); lineTrue[y].set(ioTrue);
+        drawLine(y, out, (y + oy) * lineW);
+        hblank?.(y);
+      }
+      // then the lines above and below
+      marginLine = true;
+      for (let y = -oy; y < wide.h - oy; y++) {
+        if (y === 0) y = SCREEN_H;
+        if (y >= wide.h - oy) break;
+        marginRegs(y);
+        drawLine(y, out, (y + oy) * lineW);
+      }
+      marginLine = false;
+      view = null; lineW = SCREEN_W; ox = 0;
     }
+    io.set(before); ioTrue.set(beforeTrue);
+    for (let k = 0; k < 2; k++) [ref[k][0], ref[k][1]] = beforeRef[k];
     // the V-blank starts the rotating layers from their reference points again
     cur[0][0] = ref[0][0]; cur[0][1] = ref[0][1]; cur[1][0] = ref[1][0]; cur[1][1] = ref[1][1];
   }

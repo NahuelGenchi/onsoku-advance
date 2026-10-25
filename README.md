@@ -56,7 +56,7 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 <td width="50%" valign="top">
 
 **🔍 Pixel-perfect**<br>
-<sub>Native 240 × 160 output, scaled up in whole steps so every pixel stays sharp on any screen. An optional widescreen view shows more of the act around it.</sub>
+<sub>Native 240 × 160 output, scaled up in whole steps so every pixel stays sharp on any screen. An optional widescreen view shows more of the game around it, from the logos on.</sub>
 
 </td>
 </tr>

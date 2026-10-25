@@ -469,6 +469,14 @@ Frames are counted as mGBA draws them from power-on, the first being frame 0:
 
 **Lag.** The original skips a frame's keys and tasks when the V-blank's copies run past the V-blank. These screens never do on the recordings, so that isn't modelled.
 
+**The widescreen view.** With it on, the logos and the intro fill the same view as the act, with the original screen in its middle drawn exactly as at 240 × 160; the game runs the same either way. Past the screen's edges each scene goes on as it really is:
+
+- *Layers:* the logos' map once across, with nothing either side. Eggman and his hands appear once, with nothing past their pictures (their maps' last 16 columns, and the rows past the pictures, are left over). Each character's picture and the backdrop behind it appear once, their edges carried on. The streaks carry on down for ever and out to the sides by their outer columns.
+- *Sprites:* where they really are, not where OAM wraps them, so the emerald and the sparkles show above the screen before they fall into it. A name's letters, which slide in from just past the screen's right edge, slide in from just past the view's.
+- *Effects:* the spotlights are the whole wedges they are. The fades, the darkening and the SEGA wipe's stretched lines carry on above, below and to the sides.
+
+Turning it on or off (<kbd>V</kbd>) re-fits the view at once. It was checked on every frame of the runs above: at 240 × 160 the pictures are the same as before, and at every view size tried, the middle of the view is the original screen.
+
 **How it was checked.** mGBA 0.10.5 recorded the game from power-on to the title screen, with a save and nothing pressed, dumping VRAM, palette RAM, OAM, the work RAM and every line's display registers after each frame. Three more runs, recorded around the press, skip with A held from frame 720 (in Sonic Team's fade), Start from 1500 (during the spotlights) and B from 2100 (in Tails's turn).
 
 - *Every frame:* from the SEGA logo's first frame to the intro's last (7 to 3223), the engine's VRAM, palette RAM, OAM and each line's registers match the recording's, except for some VRAM on frames 445 and 3223. On those the next screen clears VRAM straight rather than in the V-blank (on 445 Sonic Team's logo its first two tiles, on 3223 the title screen, which isn't built), and the recording catches that write a frame before it shows. Nothing on screen uses those bytes then: the recorded state draws the same picture as the engine.

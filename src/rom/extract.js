@@ -78,6 +78,8 @@ export const ENEMY_ANIMATIONS = {
   412: { tentouHover: 0, tentouFly: 1, tentouFire: 2 },
   // and its Senbon walking and with its spikes out
   411: { senbonWalk: 0, senbonSpikes: 1 },
+  // and its fireball rising and falling, and the fireball's sparks
+  413: { fireballRise: 0, fireballFall: 1 }, 414: { fireballSpark: 0 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their

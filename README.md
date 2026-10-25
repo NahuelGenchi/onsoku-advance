@@ -2,162 +2,178 @@
 
 # Onsoku Advance
 
-**A from-scratch front-end port of Sonic Advance for the Game Boy Advance.**<br>
-No emulator and no game files in this repository: your own ROM, read on your machine, brought to life in the browser.
+### Sonic Advance, rebuilt to play in your web browser.
+
+Nothing to install. Bring your own copy of the game; it never leaves your device.
 
 <br>
 
-[![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-ffd23f?style=for-the-badge&labelColor=0b1240)](#status)
-[![Runs in the browser](https://img.shields.io/badge/runs_in-the_browser-4f86ff?style=for-the-badge&labelColor=0b1240)](#how-it-works)
-[![No emulation](https://img.shields.io/badge/emulation-none-8fd3ff?style=for-the-badge&labelColor=0b1240)](#how-it-works)
-[![Bring your own ROM](https://img.shields.io/badge/ROM-bring_your_own-ff8a3d?style=for-the-badge&labelColor=0b1240)](#getting-started)
-[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-c5d4ff?style=for-the-badge&labelColor=0b1240)](LICENSE)
+<a href="https://nahuelgenchi.github.io/onsoku-advance/"><img src="docs/assets/gameplay/hero.webp" width="736" alt="Sonic races through two loops in Neo Green Hill Zone, passes a checkpoint, grinds down a long rail collecting rings and speeds off past the flower beds"></a>
+
+<sub>Neo Green Hill Zone, act 1, in the optional widescreen view. Every clip on this page is a recording of Onsoku Advance itself.</sub>
 
 <br>
 
-### [▶ Play in your browser](https://nahuelgenchi.github.io/onsoku-advance/)
-
-<sub>Bring your own Sonic Advance ROM: it is read on your device and never uploaded.</sub>
+<a href="https://nahuelgenchi.github.io/onsoku-advance/"><img src="docs/assets/play.svg" width="300" height="72" alt="Play in your browser"></a>
 
 <br>
 
-[Overview](#overview) &nbsp;·&nbsp; [Status](#status) &nbsp;·&nbsp; [How it works](#how-it-works) &nbsp;·&nbsp; [Getting started](#getting-started) &nbsp;·&nbsp; [Roadmap](#roadmap) &nbsp;·&nbsp; [Contributing](#contributing) &nbsp;·&nbsp; [Legal](#legal)
+[What is it?](#what-is-it) &nbsp;·&nbsp; [How to play](#play-in-three-steps) &nbsp;·&nbsp; [Moves](#what-sonic-can-do) &nbsp;·&nbsp; [Extras](#extras-you-can-switch-on) &nbsp;·&nbsp; [Controls](#controls) &nbsp;·&nbsp; [Progress](#where-its-at) &nbsp;·&nbsp; [Questions](#questions)
 
 </div>
 
 <br>
 
-## Overview
+## What is it?
 
-*Onsoku* (音速) is Japanese for **"speed of sound"**. Onsoku Advance rebuilds Sonic Advance as a modern web app: the game logic is written from scratch in JavaScript and drawn on a canvas, while the graphics, palettes, level data, music and sounds come from the ROM you own, decoded on your machine.
+Onsoku Advance lets you play **Sonic Advance**, Sonic's 2001 adventure for the Game Boy Advance, in a web browser.
+
+It isn't an emulator (a program that imitates a Game Boy Advance). Instead, the game has been rebuilt piece by piece, so that Sonic runs, jumps and rolls the way he does on the cartridge. The pictures, levels, music and sounds come from **your own copy of the game**: you open your Sonic Advance file on the game's page, and Onsoku Advance reads everything it needs from it, right there on your device.
+
+*Onsoku* (音速) is Japanese for "speed of sound".
 
 <table>
 <tr>
-<td width="50%" valign="top">
+<td width="33%" valign="top">
 
-**⚡ No emulation**<br>
-<sub>The original machine code never runs. Movement, animation and camera are reimplemented as plain JavaScript that any modern browser runs natively.</sub>
-
-</td>
-<td width="50%" valign="top">
-
-**🎮 Bring your own ROM**<br>
-<sub>Nothing from the game is stored here. Sprites, palettes, tiles, songs and samples are read from your own copy, in your browser, and never uploaded.</sub>
+🎮 **True to the original**<br>
+Same physics, same timing, same camera and the game's own sound engine, checked against the original game frame by frame.
 
 </td>
-</tr>
-<tr>
-<td width="50%" valign="top">
+<td width="33%" valign="top">
 
-**🎯 Faithful by design**<br>
-<sub>Physics constants, animation timing and camera rules follow the original game, as documented by the community decompilation. The sound engine is a port of the original's, checked byte for byte against an emulator.</sub>
+🔒 **Private by design**<br>
+Your game file is opened on your device and stays there. Nothing from it is ever uploaded.
 
 </td>
-<td width="50%" valign="top">
+<td width="33%" valign="top">
 
-**🔍 Pixel-perfect**<br>
-<sub>Native 240 × 160 output, scaled up in whole steps so every pixel stays sharp on any screen. An optional widescreen view shows more of the act around it.</sub>
+⚡ **Nothing to install**<br>
+Open the page, choose your file and play, with a keyboard, an Xbox controller or on-screen touch buttons.
 
 </td>
 </tr>
 </table>
 
-## Status
+## Play in three steps
 
-> [!NOTE]
-> **Pre-alpha: the first playable prototype is in.** Sonic runs through Neo Green Hill Zone act 1 and act 2, read from your ROM with its collision: slopes, walls, ceilings, jump-through ledges and loops, with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, his insta-shield, mid-air dash and B-button ground combo, and the original camera. The act's springs, spikes, rings, enemies, item boxes, platforms (swinging, falling and crumbling platforms, the trampoline and the bounce blocks), boulders, waterfalls, speed boosters, checkpoints, wall poles, grind rails, the incline ramp, the half-pipe and the forced slide work as in the original, and the waterfalls and the sea cycle their colours as they do there: enemies can be destroyed for points and freed animals, Sonic pushes against walls and objects and balances at edges, a hit scatters his rings or, without any, costs a life and starts the act over from the last checkpoint, and the boxes give extra lives, rings, both shields, invincibility and speed shoes. The act opens, and starts over, with the original title card sliding in as the screen fades in from black. The original HUD shows the ring count, score, timer and lives, with an extra life and its jingle every 100 rings. The act's music and its sounds play through a port of the game's own sound engine. At the goal signpost act 1 ends as in the original: Sonic runs off, the act-clear jingle plays and the results count the time and ring bonuses into the score, then act 2 follows with its own title card, objects and music, the score and lives carried over. Act 2's mini loops, water bridge, bushes and hiding spikes work as in the original; its boss is not built yet, and there is no game over.
+1. **Open the game** at **[nahuelgenchi.github.io/onsoku-advance](https://nahuelgenchi.github.io/onsoku-advance/)** in a current desktop browser.
+2. **Choose your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*). The game starts right away. Tick *Remember this ROM on this device* to skip this step next time.
+3. **Play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
 
-| Area | State | Tracked in |
-| :--- | :--- | :--- |
-| ROM extractor: sprites, palettes, tiles | 🟢 Done, see the [asset viewer](#getting-started) | [#4](https://github.com/NahuelGenchi/onsoku-advance/issues/4) |
-| Movement, animations and camera | 🟢 Done | [#5](https://github.com/NahuelGenchi/onsoku-advance/issues/5) |
-| Stage maps and collision | 🟡 Neo Green Hill acts 1 and 2 | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
-| Rings, objects and enemies | 🟡 Springs, spikes, rings, act 1's enemies, item boxes, platforms, boulders, waterfalls, boosters, checkpoints, wall poles, grind rails, the incline ramp, the half-pipe, the forced slide, the goal and the act's results, and act 2's mini loops, water bridge, bushes and hiding spikes, with damage, death and the restart | [#46](https://github.com/NahuelGenchi/onsoku-advance/issues/46) |
-| HUD | 🟢 Rings, score, timer and lives | [#22](https://github.com/NahuelGenchi/onsoku-advance/issues/22) |
-| Sound and music | 🟡 Act 1 and act 2 music, the act-clear jingle, the 1-up jingle, the invincibility music, and the sounds of Sonic, the springs, the spikes, the rings, the enemies, the item boxes, the crumbling platforms, the trampoline, the boulders, the boosters, the checkpoints, the wall poles, the grind rails, the incline ramp, the goal, the results, the water bridge and the bushes | [#20](https://github.com/NahuelGenchi/onsoku-advance/issues/20) |
-| Hosted build | 🟢 Live on [GitHub Pages](https://nahuelgenchi.github.io/onsoku-advance/) | [#12](https://github.com/NahuelGenchi/onsoku-advance/issues/12) |
-| Versioned releases | ⚪ Planned | [M3](https://github.com/NahuelGenchi/onsoku-advance/milestone/4) |
+> [!TIP]
+> **Where does the file come from?** From a Sonic Advance cartridge you own, copied to your computer with a cartridge reader. This project can't provide the game. Sonic Advance (USA) is the tested version; [docs/ROM.md](docs/ROM.md) has the details.
 
-## How it works
+## What Sonic can do
 
-```mermaid
-flowchart LR
-    rom[("Your Sonic Advance ROM")]
-    subgraph browser["Your browser"]
-        direction LR
-        ext["Extractor<br/>finds the sprite and<br/>tilemap tables"]
-        data[("Sprites · palettes<br/>tiles · animations")]
-        engine["Onsoku engine<br/>physics · animation · camera"]
-        screen["240 × 160 canvas"]
-        sound["Sound engine<br/>songs · samples · PSG"]
-        speakers["Audio output"]
-        ext --> data --> engine --> screen
-        engine --> sound --> speakers
-    end
-    rom --> ext
-```
+All of this works today. Each clip was played and recorded in Onsoku Advance, in Neo Green Hill Zone act 1.
 
-1. **Extract.** You pick your ROM. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory. It is designed to run entirely in the browser: the ROM is read locally and nothing is uploaded.
-2. **Simulate.** The engine steps 60 times per second with the original game's rules: acceleration, braking, gravity, jump height, roll friction, spin dash speeds and the camera's dead zones.
-3. **Draw.** Sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view, off by default, draws up to 368 × 208 around the same screen and fills the window at the same whole-step scale; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds a trail and an aura around Sonic while it runs.
-4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The optional Sonic Rush boost's sound effect plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, added to the same output.
-
-## Getting started
-
-You will need:
-
-- A current desktop browser
-- Your own Sonic Advance ROM, dumped from a cartridge you own. Tested versions are listed in [docs/ROM.md](docs/ROM.md).
-
-**Play online:** open <https://nahuelgenchi.github.io/onsoku-advance/> and choose your ROM. The page only reads it in your browser. The [asset viewer](https://nahuelgenchi.github.io/onsoku-advance/viewer.html) is there too.
-
-**Run it locally:** there is no build step. The pages use JavaScript modules, which browsers only load over HTTP, so serve the repository folder with any static file server and open it on `localhost`:
-
-```sh
-git clone https://github.com/NahuelGenchi/onsoku-advance.git
-cd onsoku-advance
-python -m http.server 8000
-```
-
-Then open <http://localhost:8000> and choose your ROM to play. Tick *Remember this ROM on this device* to skip that step next time.
-
-To see everything the extractor decodes, open <http://localhost:8000/viewer.html>: Sonic's, the springs' and the rings' animations playing with their original timing, the sprite atlas, Neo Green Hill Zone act 1 with its collision, and the zone's background.
-
-<details open>
-<summary><b>Controls</b></summary>
+<table>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/assets/gameplay/spin-dash.webp" width="360" alt="Sonic crouches by a checkpoint, revs up in a cloud of dust and shoots off down a long hill beside a grind rail">
 <br>
+<b>Spin dash</b><br>
+Crouch, rev up and let go to blast off from a standstill.<br>
+<kbd>↓</kbd> + <kbd>Z</kbd>
+</td>
+<td width="50%" valign="top">
+<img src="docs/assets/gameplay/air-moves.webp" width="360" alt="Sonic jumps by a palm tree and flashes the insta-shield, then jumps again and dashes forward in mid-air">
+<br>
+<b>Insta-shield and mid-air dash</b><br>
+Press jump again in the air for a flash of shield, or tap a direction twice to dash.<br>
+<kbd>Z</kbd> in the air &nbsp;·&nbsp; <kbd>→</kbd> <kbd>→</kbd> in the air
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/assets/gameplay/combo.webp" width="360" alt="Standing on the beach, Sonic does a spin attack, a kick and a high backflip, then a spin, a kick and a slide">
+<br>
+<b>Spin, kick, then slide or backflip</b><br>
+The attack button chains three moves together on the ground.<br>
+<kbd>X</kbd> <kbd>X</kbd> then <kbd>X</kbd> or <kbd>Z</kbd>
+</td>
+<td width="50%" valign="top">
+<img src="docs/assets/gameplay/enemies.webp" width="360" alt="Sonic jumps onto a crab robot on the beach; it bursts in a puff of smoke and a seagull flies free">
+<br>
+<b>Bop the robots</b><br>
+Land on an enemy to break it open and free the animal trapped inside.<br>
+<kbd>Z</kbd> to jump on it
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/assets/gameplay/item-boxes.webp" width="360" alt="Sonic rolls into an item box, which bursts; its icon rises and he runs on surrounded by invincibility stars">
+<br>
+<b>Item boxes</b><br>
+Break one open for rings, a shield, invincibility, speed shoes or an extra life.<br>
+<kbd>↓</kbd> while running to roll into it
+</td>
+<td width="50%" valign="top">
+<img src="docs/assets/gameplay/rings.webp" width="360" alt="Sonic is hit in mid-air under a wooden pier and his rings burst out in every direction, then he runs back to grab some">
+<br>
+<b>Rings</b><br>
+Collect them as you run. Take a hit and they scatter, so grab what you can. 100 rings earn an extra life.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/assets/gameplay/wall-poles.webp" width="360" alt="Sonic leaps at a pole sticking out of a cliff, swings around it and is flung up past a checkpoint">
+<br>
+<b>Wall poles</b><br>
+Grab a pole on a cliff face and get swung up to the next one.
+</td>
+<td width="50%" valign="top">
+<img src="docs/assets/gameplay/half-pipe.webp" width="360" alt="Sonic runs into a huge curved half-pipe, races up its wall and out the other side">
+<br>
+<b>Half-pipe</b><br>
+Hit it at speed and Sonic races up and around its curved wall.
+</td>
+</tr>
+</table>
 
-| Action | Keyboard | Controller |
-| :--- | :--- | :--- |
-| Run | <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> | D-pad or left stick |
-| Jump (A) | <kbd>Z</kbd> or <kbd>Space</kbd> | <kbd>A</kbd> |
-| Insta-shield | <kbd>Z</kbd> again in a jump, once the rise slows | <kbd>A</kbd> again |
-| Mid-air dash | Tap <kbd>←</kbd> <kbd>←</kbd> or <kbd>→</kbd> <kbd>→</kbd> in a jump | Tap left twice or right twice |
-| Attack (B): spin, then kick, then slide or backflip | <kbd>X</kbd>, <kbd>X</kbd>, then <kbd>X</kbd> or <kbd>Z</kbd> | <kbd>B</kbd> or <kbd>X</kbd> (only <kbd>B</kbd> with the Rush boost on), again, then again or <kbd>A</kbd> |
-| Boost, with the [Rush boost](#sonic-rush-boost) on | <kbd>L</kbd> or <kbd>Shift</kbd> | <kbd>X</kbd> |
-| Crouch, or roll while moving | <kbd>↓</kbd> | Down |
-| Spin dash | <kbd>↓</kbd> + <kbd>Z</kbd> | Down + <kbd>A</kbd> |
-| Look up | <kbd>↑</kbd> | Up |
-| Show or hide the help panel | <kbd>H</kbd> | |
-| Show or hide the collision | <kbd>C</kbd> | |
-| Sound on or off | <kbd>M</kbd> | |
-| Widescreen view on or off | <kbd>V</kbd> | |
-| Rush boost on or off | <kbd>R</kbd> | |
+Act 1 also has its loops, springs, spikes, grind rails, speed boosters, checkpoints, a trampoline, swinging, falling and crumbling platforms, bounce blocks, boulders, waterfalls, an incline ramp and a forced slide, all working as in the original.
 
-The controller column follows the standard layout of an Xbox controller; other controllers the browser maps to that layout work the same way. Press a button once after the page loads so the browser lists the controller. On touch screens, on-screen buttons appear instead.
+## True to the cartridge
 
-</details>
+<div align="center">
+<img src="docs/assets/gameplay/title-card.webp" width="480" alt="The screen fades in from black as the Neo Green Hill Zone act 1 title card slides in, with Sonic standing on the beach">
+</div>
+
+The goal is a game that behaves *exactly* like the original, not one that looks roughly like it.
+
+- **Rules from the source.** Sonic's speed, jumps and rolls, the camera and every object follow the original game's rules, as worked out by [SAT-R](https://github.com/SAT-R), the community project that turned Sonic Advance's program back into readable code.
+- **Checked against the real thing.** The results are compared with the original game running in an emulator. Even the original's own bugs are kept, so the two match; they are [listed](https://github.com/NahuelGenchi/onsoku-advance/issues/56) for an optional fix later.
+- **The game's own sound.** The music and sound effects are played by a rebuilt copy of the cartridge's sound engine, whose output matches the original's byte for byte.
+- **Sharp pixels.** The game draws at the Game Boy Advance's own 240 × 160 and scales up in whole steps, so every pixel stays crisp on any screen.
+
+The act opens, and starts over after a lost life, with the original title card sliding in as the screen fades up from black. The original on-screen counters show your rings, score, time and lives.
+
+## Extras you can switch on
+
+Two optional additions on top of the original game. Both are off until you turn them on, and with them off the game runs exactly as without them.
+
+### Widescreen view
+
+<div align="center">
+<img src="docs/assets/gameplay/widescreen.webp" width="736" alt="The original 240 by 160 screen, outlined in the middle of a wider frame; the widescreen view then fades in around it, showing more of the loop and the grind rail">
+</div>
+
+See more of the act around the original screen, up to 368 × 208, filling the window at the same whole-step scale. The outline marks the Game Boy Advance's screen: the game plays exactly as it does there. Press <kbd>V</kbd> or use the *Widescreen* button in the help panel.
 
 ### Sonic Rush boost
 
-An optional extra on top of the original game: Sonic Rush's boost, its rules read from Sonic Rush (USA) for the
-Nintendo DS and checked in an emulator. It is off by default; <kbd>R</kbd> or the *Rush boost* button in the help
-panel turns it on, and the choice is remembered on the device. With it off, the game runs and draws exactly as
-without it. For now it has no limit: Sonic Rush's tension gauge, which the boost uses up, is not built.
+<div align="center">
+<img src="docs/assets/gameplay/rush-boost.webp" width="480" alt="Sonic bursts forward along the beach at full speed, wrapped in a blue aura and leaving a long blue trail behind him">
+</div>
 
-Its look and sound are Sonic Rush's own, so it needs your Sonic Rush ROM (`.nds`) as well: it is asked for the first
-time the boost is turned on, read in the browser like the Sonic Advance ROM and, like it, kept on this device only.
-Nothing from Sonic Rush is in this repository.
+The boost from *Sonic Rush* on the Nintendo DS. Hold the boost button and Sonic blasts ahead at top speed, wrapped in Rush's blue aura and trail, smashing enemies, boulders and item boxes on contact, while nothing can hurt him. Press <kbd>R</kbd> or use the *Rush boost* button to turn it on, then hold <kbd>L</kbd> or <kbd>Shift</kbd> (<kbd>X</kbd> on a controller) to boost.
+
+Its look and sound are Sonic Rush's own, so it also needs your **Sonic Rush ROM** (`.nds`). It's asked for the first time you turn the boost on and, like the Sonic Advance file, read and kept on your device only. Its rules were read from Sonic Rush (USA) and checked in an emulator. For now it has no limit: Sonic Rush's tension gauge, which the boost uses up, isn't built yet.
+
+<details>
+<summary><b>How the boost works, in detail</b></summary>
+<br>
 
 - **Start.** Press the boost button while standing or running on the ground (not curled up, attacking or on a
   grind rail). Sonic turns to the direction held and runs at least 12 px a frame that way at once, with Sonic
@@ -183,7 +199,58 @@ Nothing from Sonic Rush is in this repository.
 Where the port differs from the DS: the trail's polygons are not clipped at the screen's edges before they are
 drawn, and Sonic Advance's own sprites behind Sonic count as background when the boost's sprites blend over them.
 
-## Roadmap
+</details>
+
+## Controls
+
+| | Keyboard | Xbox controller |
+| :--- | :--- | :--- |
+| **Run** | <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> | D-pad or left stick |
+| **Jump** | <kbd>Z</kbd> or <kbd>Space</kbd> | <kbd>A</kbd> |
+| **Insta-shield** | <kbd>Z</kbd> again in a jump, once the rise slows | <kbd>A</kbd> again |
+| **Mid-air dash** | Tap <kbd>←</kbd> <kbd>←</kbd> or <kbd>→</kbd> <kbd>→</kbd> in a jump | Tap left twice or right twice |
+| **Attack:** spin, then kick, then slide or backflip | <kbd>X</kbd>, <kbd>X</kbd>, then <kbd>X</kbd> or <kbd>Z</kbd> | <kbd>B</kbd> or <kbd>X</kbd> (only <kbd>B</kbd> with the Rush boost on), again, then again or <kbd>A</kbd> |
+| **Crouch**, or **roll** while moving | <kbd>↓</kbd> | Down |
+| **Spin dash** | <kbd>↓</kbd> + <kbd>Z</kbd> | Down + <kbd>A</kbd> |
+| **Look up** | <kbd>↑</kbd> | Up |
+| **Boost**, with the [Rush boost](#sonic-rush-boost) on | <kbd>L</kbd> or <kbd>Shift</kbd> | <kbd>X</kbd> |
+| Help panel on or off | <kbd>H</kbd> | |
+| Sound on or off | <kbd>M</kbd> | |
+| Widescreen view on or off | <kbd>V</kbd> | |
+| Rush boost on or off | <kbd>R</kbd> | |
+| Show the collision (for checking the level) | <kbd>C</kbd> | |
+
+Other controllers that your browser maps to the Xbox layout work the same way. Press a button once after the page loads so the browser notices the controller. On touch screens, on-screen buttons appear instead.
+
+## Where it's at
+
+> [!NOTE]
+> **Early days: the first zone's two acts are playable.** You can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets, through to its goal signpost and score tally, and then **act 2** with its mini loops, water bridge, bushes and hiding spikes, up to its boss's arena. The boss isn't built yet, and there is no game over yet.
+
+Here's the road through the rest of the game. Each step has its own issue, so you can follow along.
+
+<table>
+<thead>
+<tr><th align="left">Zone</th><th align="left">Act 1</th><th align="left">Act 2 and boss</th></tr>
+</thead>
+<tbody>
+<tr><td><b>Neo Green Hill</b></td><td>🟢 Playable now, through its ending</td><td>🟡 Act 2 playable<br><sub>Next up: <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/83">the Egg Hammer Tank</a></sub></td></tr>
+<tr><td><b>Secret Base</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/79">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/73">Act 2 and the Egg Press</a></td></tr>
+<tr><td><b>Casino Paradise</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/81">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/76">Act 2 and the Egg Ball</a></td></tr>
+<tr><td><b>Ice Mountain</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/71">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/72">Act 2 and the Egg Spider</a></td></tr>
+<tr><td><b>Angel Island</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/77">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/80">Act 2 and Mecha Knuckles</a></td></tr>
+<tr><td><b>Egg Rocket</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/78">Planned</a></td></tr>
+<tr><td><b>Cosmic Angel</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/74">The zone and the Egg Snake</a></td></tr>
+<tr><td><b>X Zone</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/82">Its three bosses and the normal ending</a></td></tr>
+<tr><td><b>Moon Zone</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/85">The Super Egg Robo and the true ending</a></td></tr>
+</tbody>
+</table>
+
+Also on the way: the [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67), the [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70), the [special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84), plus two more optional extras from Sonic Advance 2: its [Boost Mode](https://github.com/NahuelGenchi/onsoku-advance/issues/63) and its [mid-air tricks](https://github.com/NahuelGenchi/onsoku-advance/issues/65).
+
+<details>
+<summary><b>Milestones</b></summary>
+<br>
 
 | Milestone | Outcome | Issues closed |
 | :--- | :--- | :--- |
@@ -191,6 +258,108 @@ drawn, and Sonic Advance's own sprites behind Sonic count as background when the
 | [M1 — Playable prototype](https://github.com/NahuelGenchi/onsoku-advance/milestone/2) | Sonic on a Neo Green Hill platform, assets from your own ROM | ![M1 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/onsoku-advance/2?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
 | [M2 — Stages and gameplay](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) | Full stages with collision, rings, objects, enemies, sound and music | ![M2 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/onsoku-advance/3?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
 | [M3 — Release](https://github.com/NahuelGenchi/onsoku-advance/milestone/4) | A hosted build and versioned releases, with no game files | ![M3 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/onsoku-advance/4?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
+
+The game is [live on GitHub Pages](https://nahuelgenchi.github.io/onsoku-advance/); versioned releases are planned.
+
+</details>
+
+## Questions
+
+<details>
+<summary><b>Is this an emulator?</b></summary>
+<br>
+
+No. An emulator imitates the Game Boy Advance and runs the cartridge's original program. Onsoku Advance never runs that program: the game's rules have been written again from scratch in JavaScript, the language of web pages, and only the pictures, levels, music and sounds are read from your copy of the game.
+
+</details>
+
+<details>
+<summary><b>Where do I get a Sonic Advance ROM?</b></summary>
+<br>
+
+From a Sonic Advance cartridge you own, copied to your computer with a cartridge reader (this is often called *dumping* it). This project doesn't provide the game and can't point you to copies of it.
+
+</details>
+
+<details>
+<summary><b>Is my game file uploaded anywhere?</b></summary>
+<br>
+
+No. The page reads it inside your browser and never sends it anywhere. If you tick *Remember this ROM on this device*, it's kept in your browser's storage on that device only, and *Forget the saved ROM* removes it again. The same goes for the Sonic Rush ROM.
+
+</details>
+
+<details>
+<summary><b>Which version of Sonic Advance works?</b></summary>
+<br>
+
+**Sonic Advance (USA)** is the tested version. Other versions are recognized from their cartridge header, and the game searches them for what it needs; the [asset viewer](https://nahuelgenchi.github.io/onsoku-advance/viewer.html) shows whether that worked. [docs/ROM.md](docs/ROM.md) has the list and how to help add a version.
+
+</details>
+
+<details>
+<summary><b>Can I play on a phone or tablet?</b></summary>
+<br>
+
+It's made for a current desktop browser, with a keyboard or a controller. On touch screens, on-screen buttons appear so you can play by touch.
+
+</details>
+
+<details>
+<summary><b>Is there sound?</b></summary>
+<br>
+
+Yes: the act's music, the extra-life and invincibility tunes, and the sound effects of Sonic, the rings, the enemies, the item boxes and the act's springs, platforms, boosters, rails and more, all read from your ROM. <kbd>M</kbd> turns the sound on or off.
+
+</details>
+
+<details>
+<summary><b>Is this official?</b></summary>
+<br>
+
+No. It's an unofficial fan project, not affiliated with or endorsed by SEGA or Sonic Team. See [Legal](#legal).
+
+</details>
+
+## How it works
+
+For the curious: the path from your ROM to the screen and speakers.
+
+```mermaid
+flowchart LR
+    rom[("Your Sonic Advance ROM")]
+    subgraph browser["Your browser"]
+        direction LR
+        ext["Extractor<br/>finds the sprite and<br/>tilemap tables"]
+        data[("Sprites · palettes<br/>tiles · animations")]
+        engine["Onsoku engine<br/>physics · animation · camera"]
+        screen["240 × 160 canvas"]
+        sound["Sound engine<br/>songs · samples · PSG"]
+        speakers["Audio output"]
+        ext --> data --> engine --> screen
+        engine --> sound --> speakers
+    end
+    rom --> ext
+```
+
+1. **Extract.** You pick your ROM. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory, entirely in the browser.
+2. **Simulate.** The engine steps 60 times per second with the original game's rules: acceleration, braking, gravity, jump height, roll friction, spin dash speeds and the camera's dead zones.
+3. **Draw.** Sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view draws up to 368 × 208 around the same screen; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds its trail and aura around Sonic.
+4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The Rush boost's sound plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, added to the same output.
+
+## Run it on your own computer
+
+There is no build step. The pages use JavaScript modules, which browsers only load over HTTP, so serve the repository folder with any static file server and open it on `localhost`:
+
+```sh
+git clone https://github.com/NahuelGenchi/onsoku-advance.git
+cd onsoku-advance
+python -m http.server 8000
+```
+
+Then open <http://localhost:8000> and choose your ROM to play.
+
+To see everything the extractor decodes, open <http://localhost:8000/viewer.html>: Sonic's, the springs' and the rings' animations playing with their original timing, the sprite atlas, Neo Green Hill Zone act 1 with its collision, and the zone's background.
 
 ## Contributing
 
@@ -203,13 +372,15 @@ flowchart LR
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/TRACKING.md](docs/TRACKING.md) before opening work. Bugs and ideas start as an [issue](https://github.com/NahuelGenchi/onsoku-advance/issues/new/choose). Never attach ROMs, save files or extracted game assets.
 
-## Acknowledgements
+## Thanks
 
 - The [SAT-R](https://github.com/SAT-R) decompilation of Sonic Advance, the reference for the game's data formats, physics and camera behavior. None of its code or data is copied into this repository.
 
 ## Legal
 
-Onsoku Advance is an unofficial fan project and is not affiliated with or endorsed by SEGA or Sonic Team. Sonic Advance and all related names, characters and assets belong to SEGA. This repository contains no copyrighted game assets: you need your own legally obtained ROM, and its graphics and sounds are extracted locally on your machine.
+Onsoku Advance is an unofficial fan project and is not affiliated with or endorsed by SEGA or Sonic Team. Sonic Advance, Sonic Rush and all related names, characters and artwork belong to SEGA.
+
+This repository holds no ROM and no data taken from one: you need your own legally obtained copy of the game, and its graphics and sounds are read from it on your own device. The short clips on this page (in [docs/assets/gameplay](docs/assets/gameplay)) are recordings of Onsoku Advance running, made to show the project; the characters and artwork in them remain SEGA's.
 
 The project's own code, documentation and artwork are licensed under [GPL-3.0-or-later](LICENSE).
 

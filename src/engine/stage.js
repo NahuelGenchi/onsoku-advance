@@ -2,10 +2,13 @@
 
 import { solidPixel } from './terrain.js';
 
-/** Animation frame of the stage's animated tiles after `n` steps of their counter (one every animDelay). */
+/**
+ * Animation frame of the stage's animated tiles after `n` steps of their counter (one every animDelay). Before the
+ * counter's first step (an act made from the course select is drawn before its camera has run) it is frame 0.
+ */
 export function stageAnimFrame(stage, n) {
   const frames = stage.atlas.slots.length;
-  return frames > 1 ? Math.floor(n / stage.animDelay) % frames : 0;
+  return frames > 1 && n > 0 ? Math.floor(n / stage.animDelay) % frames : 0;
 }
 
 /**

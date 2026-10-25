@@ -92,6 +92,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   const centreY = () => player.y;
 
   const world = {
+    // the level's number in the ROM's tables, and its zone (0 Neo Green Hill)
+    level: assets.stage.level, zone: assets.stage.zone,
     get tick() { return state.tick; },
     get cameraY() { return Math.floor(state.cam.y); },
     terrain,

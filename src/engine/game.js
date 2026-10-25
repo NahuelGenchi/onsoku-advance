@@ -30,6 +30,10 @@ const ITEM_TIME = 1200;   // invincibility and speed shoes last 20 seconds
 const RANDOM_RING_PRIZES = [1, 5, 10, 20, 30, 40];   // ItemBox_RingAmountTable
 const SPEED_UP_TEMPO = 0x200, NORMAL_TEMPO = 0x100;
 const MAX_COURSE_TIME = 10 * 3600;
+// gFrameCount, the frames since the GBA was switched on, which counts up as each frame starts: on the act's first
+// frame it is 3838 when the act is started straight from the course select (the Egg Ball seeds the random numbers
+// with it)
+const START_FRAME_COUNT = 3838;
 // what Sonic reads while the title card holds him: the jump and attack buttons InitializePlayer leaves held, never pressed
 const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
 // and while an object holds his controls (the forced slide): nothing, as it clears his input
@@ -54,6 +58,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
     animal: 0,   // gTrappedAnimalVariant: the next defeat's animal
     seed: 0,     // gPseudoRandom: the game's random numbers, one sequence for the whole game, from 0
+    frameCount: START_FRAME_COUNT - 1,   // gFrameCount: every frame counts, the title card's and restarts' too
     palettes: palettes.map(a => a.shown),   // the frame each palette animation has loaded (palettes.js)
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
@@ -138,6 +143,9 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // the end-of-act flow builds it
     bossDefeated(x, y) {},
     random,
+    get frameCount() { return state.frameCount; },
+    // gPseudoRandom set (the Egg Ball sets it to gFrameCount)
+    setSeed(value) { state.seed = value >>> 0; },
     // an item box's prize (Task_Itembox2)
     prize(kind) {
       switch (kind) {
@@ -205,6 +213,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     attack: (s, x, y) => attackTest(s, x, y, ctx),
     projectile: (s, x, y) => projectileTest(s, x, y, ctx),
     add: (task, priority) => tasks.add(task, priority),
+    removeTasks: (from, to) => tasks.removeRange(from, to),
   };
 
   function updateEffect(e) {
@@ -377,6 +386,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
 
   function step() {
     input.poll?.();
+    state.frameCount = (state.frameCount + 1) >>> 0;
     if (loading) { loading = false; return; }
     state.sprites = [];
     tasks.run(ctx);

@@ -18,6 +18,8 @@ export const SONG = {
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
   ENEMY_DEFEAT: 138,       // SE_ITEM_BOX: an enemy is defeated
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
+  BOSS_HIT: 143,           // SE_BOSS_HIT
+  EXPLOSION: 144,          // SE_EXPLOSION: a boss is beaten
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
   CHECKPOINT: 169,

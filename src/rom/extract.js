@@ -118,7 +118,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
 
   onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
-  const sprites = extractSprites(rom, tables);
+  const sprites = extractSprites(rom, tables, info.sprites);
   onProgress(`Decoding ${info.name}…`);
   const stage = extractStage(rom, offsets, tables, info);
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
@@ -135,7 +135,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   };
 }
 
-function extractSprites(rom, tables) {
+function extractSprites(rom, tables, levelSprites = {}) {
   const sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
   const springPalette = animationPalette(rom, tables, SPRING_ANIM);
   const yellowPalette = springPalette.slice();
@@ -152,6 +152,12 @@ function extractSprites(rom, tables) {
       palette: animationPalette(rom, tables, Number(anim)),
     })),
   ];
+  // the level's own look for objects every zone has (levels.js: the ROM picks their animation by gCurrentLevel,
+  // and their hitboxes come with it), each with its animation's palette
+  for (const group of groups) group.list = Object.fromEntries(Object.entries(group.list).filter(([name]) => !(name in levelSprites)));
+  for (const [name, [anim, variant]] of Object.entries(levelSprites)) {
+    groups.push({ list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, anim) });
+  }
 
   const images = [], byKey = new Map(), anims = {};
   for (const { list, palette, skipPalette } of groups) {

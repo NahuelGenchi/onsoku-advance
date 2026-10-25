@@ -6,6 +6,7 @@ import { rlDecompress } from './entities.js';
 import { findMusicPlayers } from './sound.js';
 import { findUiGraphics } from './hud.js';
 import { findTitleCard } from './titlecard.js';
+import { findIntroGraphics, findIntroTables } from './intro.js';
 
 const MIN_CMD = -12;   // animation commands are -1 … -12
 const LEVEL_COUNT = 18;   // 14 single-player stages, then four multiplayer stages
@@ -118,6 +119,8 @@ export function locateTables(rom, known) {
     musicPlayers: findMusicPlayers(rom),
     uiGraphics: findUiGraphics(rom),
     titleCard: findTitleCard(rom),
+    introGraphics: findIntroGraphics(rom),
+    introTables: findIntroTables(rom),
   };
   const missing = Object.entries(offsets).filter(([, v]) => v === null).map(([k]) => k);
   if (missing.length) {

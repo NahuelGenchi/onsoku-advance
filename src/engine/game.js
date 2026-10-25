@@ -36,7 +36,7 @@ const NO_INPUT = { left: false, right: false, up: false, down: false, jump: fals
 
 const SILENT = {
   play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
-  playerState() {}, stopAll() {},
+  playerState() {}, stopAll() {}, musicState() {},
 };
 
 export function createGame(canvas, assets, input, sound = SILENT) {
@@ -114,6 +114,19 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // Sonic's attack box destroyed an enemy at (x, y)
     defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
     playSound: song => sound.play(song),
+    // a boss's music state (gMusicManagerState.unk1), which the music manager reads (synth.js)
+    musicState: value => sound.musicState(value),
+    // INCREMENT_SCORE_A: points, with a life every 50000 but without the jingle
+    addScore(points) {
+      const before = state.score;
+      state.score += points;
+      if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) state.lives = (state.lives + 1) & 0xFF;
+    },
+    // a boss is beaten at (x, y), where the original makes the capsule that ends the act (CreateBossCapsule);
+    // the end-of-act flow builds it
+    bossDefeated(x, y) {},
+    // Mecha Knuckles' arena: rising scattered rings bounce off ceilings too, until the act starts over
+    scatterOffCeilings() { scatter.ceilings = true; },
     random,
     // an item box's prize (Task_Itembox2)
     prize(kind) {
@@ -153,12 +166,13 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       state.cam.scroll = RUSH_BOOST.scrollDelay;
     },
     shake() { state.shake = 0; },
-    // brake dust stays where it appeared, flipped by the game's random numbers
-    spawnBrakeDust() {
+    // brake dust stays where it appeared, flipped by the game's random numbers (CreateBrakingDustEffect)
+    brakeDust(x, y) {
       if (state.effects.filter(e => e.kind === 'brake').length >= MAX_BRAKE_DUST) return;
       const r = random();
-      spawn('brake', 'brakeDust', player.x, feetY(), (r & 0x400) !== 0, (r & 0x800) !== 0);
+      spawn('brake', 'brakeDust', x, y, (r & 0x400) !== 0, (r & 0x800) !== 0);
     },
+    spawnBrakeDust() { world.brakeDust(player.x, feetY()); },
     // spin dash dust follows Sonic's feet while he charges, bigger while the charge is above 2.0
     spawnDashDust() { spawn('dash', 'dashDust', player.x, feetY(), player.facing > 0); },
     // the insta-shield's flash follows Sonic, facing the way he faced when it started

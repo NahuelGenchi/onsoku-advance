@@ -20,7 +20,8 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
 //         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
-//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hurt | dead
+//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | react (taken
+//         aback as Mecha Knuckles wakes up) | hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -53,6 +54,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     front: false,      // drawn in front of the front layer (his sprite's priority 1), as on a grind rail
     halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js)
     ignoreInput: false, // MOVESTATE_IGNORE_INPUT: an object holds his controls, as the forced slide does
+    scripted: false,   // MOVESTATE_800000: an object sets his state, which walking, standing and landing leave alone
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,
@@ -198,7 +200,7 @@ function walk(p, dir, world) {
     }
     p.gsp = g;
     // on a half-pipe he keeps the state it gives him
-    if (p.state !== 'turn' && !p.halfPipe) p.state = 'walk';
+    if (p.state !== 'turn' && !p.halfPipe && !p.scripted) p.state = 'walk';
   } else {
     let g = p.gsp + K.deceleration * pace(p) * dir;
     if (g * dir > 0) g = K.reverseKick * dir;
@@ -222,13 +224,16 @@ function walkInput(p, c, world) {
   else if (!c.sideways) {
     if (p.gsp !== 0) {
       if (p.state === 'brake' || p.state === 'idle') p.state = 'walk';
-    } else if (p.state === 'crouch') p.state = 'crouchEnd';
-    else if (p.state === 'lookUp') p.state = 'lookUpEnd';
-    else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+    } else if (!p.scripted) {
+      if (p.state === 'crouch') p.state = 'crouchEnd';
+      else if (p.state === 'lookUp') p.state = 'lookUpEnd';
+      else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+    }
   }
-  // standing still on level ground stops the push, and at an edge he balances
+  // standing still on level ground stops the push, and at an edge he balances (unless an object sets his state)
   if (!((p.rotation + 0x20) & 0xC0) && p.gsp === 0) {
     p.pushing = false;
+    if (p.scripted) return;
     if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
     if (p.onObject) balanceOnObject(p);
     else balanceOnTerrain(p, world.terrain);
@@ -541,10 +546,13 @@ function airStep(p, c, world) {
   airCollision(p, world.terrain, () => land(p));
 }
 
-/** Touching down on the ground or an object (sub_8021BE0); the caller sets the ground speed. */
+/**
+ * Touching down on the ground or an object (sub_8021BE0), walking unless an object sets his state; the caller
+ * sets the ground speed.
+ */
 export function land(p) {
   p.air = false; p.pushing = false;
-  p.state = 'walk';
+  if (!p.scripted) p.state = 'walk';
   if (p.curled) uncurl(p);
   p.offsetY = SPRITE_OFFSET_Y;   // set outright, even when something uncurled him without moving him
   p.airLock = false;

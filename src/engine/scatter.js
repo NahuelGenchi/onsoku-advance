@@ -5,7 +5,7 @@
 
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { SINE } from './trig.js';
-import { tileFloor } from './terrain.js';
+import { tileFloor, tileScan, PROBE_FLOOR } from './terrain.js';
 
 const SLOTS = 48;
 const LIFE = 256, PICKUP_AFTER = 224, BLINK_BELOW = 32;   // frames
@@ -45,10 +45,14 @@ export function createScatter(anims) {
   let rings = [];
 
   return {
+    // unk2B6 bit 0, which Mecha Knuckles sets: rising rings bounce off ceilings too
+    ceilings: false,
+
     /** Clears every slot, as a new stage task does. */
     reset() {
       rings = Array.from({ length: SLOTS }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, layer: 0, shown: false }));
       setAnim(anim, 'ring', true);
+      this.ceilings = false;
     },
 
     /** InitScatteringRings: up to 48 rings from (x, y), in the free slots; the rest are lost. */
@@ -65,8 +69,8 @@ export function createScatter(anims) {
 
     /**
      * One frame for every ring: it moves, may be picked up, bounces off the floor while falling (they go
-     * through walls and ceilings), falls, and ages. Returns the rings picked up, as { x, y }. `view` is what
-     * the screen shows (camera.js viewOf): only drawing depends on it.
+     * through walls, and through ceilings unless `ceilings` is set), falls, and ages. Returns the rings picked
+     * up, as { x, y }. `view` is what the screen shows (camera.js viewOf): only drawing depends on it.
      */
     update(player, view, terrain, tick) {
       tickAnim(anim, anims);
@@ -85,6 +89,11 @@ export function createScatter(anims) {
         if (r.vy > 0) {
           const d = tileFloor(terrain, rx, ry, r.layer);
           if (d <= 0) { r.y += d * 256; r.vy = (r.vy >> 2) - r.vy; }
+        }
+        // the ceiling's probe is 16 px above the ring's point, after the floor's bounce has turned it upward
+        if (this.ceilings && r.vy < 0) {
+          const d = tileScan(terrain, ry - 2 * TILE, rx, r.layer, -TILE, PROBE_FLOOR);
+          if (d <= 0) { r.y -= d * 256; r.vy = (r.vy >> 2) - r.vy; }
         }
         r.vy += GRAVITY;
         // drawn where it was before the bounce; blinking in its last 32 frames with Sonic's blink

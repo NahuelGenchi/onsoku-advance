@@ -21,10 +21,11 @@ export const LEVELS = {
     sprites: { thinPlatform: [535, 0], bounceBlock: [543, 0], waterSplash: [552, 0] },
   },
   // StageInit_Zone5Act2 (0x0803DE75): the same, with act 2's song; its mud slides' splash (gAnimSlideSplashes) is
-  // zone 5's own too
+  // zone 5's own too. Its boss, Mecha Knuckles, is the act's enemy 26 (`boss` names its animations in extract.js).
   9: {
     name: 'Angel Island Zone act 2', zone: 4, act: 1, paletteAnimations: [823], music: 21, clouds: 72,
     sprites: { thinPlatform: [535, 0], bounceBlock: [543, 0], waterSplash: [552, 0], slideSplash: [568, 0] },
+    boss: 'mechaKnuckles',
   },
 };
 

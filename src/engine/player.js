@@ -693,9 +693,14 @@ function afterAnimation(p, world) {
 // a hitbox under his facing, as the sprite system applies it when the box is set
 const flipBox = (box, flip) => (box && flip ? [-box[2], box[1], -box[0], box[3]] : box);
 
-// a new animation clears both his hitboxes until its script sets them (sub_802486C)
+// a new animation clears both his hitboxes until its script sets them (sub_802486C). Bouncing off a bounce
+// block shows the walk animation (4, variant 0): only a new animation or variant restarts the sprite, so
+// between the two states the cycle carries on where it was.
+const SAME_ANIMATION = { bounce: 'walk' };
 function choose(p, name, restart = false) {
-  if (p.anim.name !== name) p.boxes = [null, null];
+  const was = p.anim.name;
+  if (!restart && was !== name && (SAME_ANIMATION[was] ?? was) === (SAME_ANIMATION[name] ?? name)) { p.anim.name = name; return; }
+  if (was !== name) p.boxes = [null, null];
   setAnim(p.anim, name, restart);
 }
 

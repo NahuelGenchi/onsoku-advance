@@ -6,7 +6,7 @@ import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation } from './sprites.js';
-import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks } from './tilemaps.js';
+import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks, mapHoles } from './tilemaps.js';
 import { readCollision, readSpawn } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
@@ -105,8 +105,8 @@ const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebris
 const MAP = { front: 0, back: 1, background: 2 };
 
 /**
- * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
+ * Identifies and decodes `buffer`, with the level `level` (levels.js). `onProgress(message)` reports each stage.
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { level, zone, act, music, backgroundScroll, hudFlash, width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgroundHoles, backdrop, backgrounds }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
   const info = levelInfo(level);
@@ -235,7 +235,8 @@ function extractStage(rom, offsets, tables, info) {
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
     layers: { front: collision.layers[0], back: collision.layers[1] },
     atlas, animDelay: front.animDelay, collision,
-    level, zone: info.zone, act: info.act, music: info.music,
+    level, zone: info.zone, act: info.act, music: info.music, backgroundScroll: info.backgroundScroll ?? null,
+    hudFlash: info.hudFlash ?? 1,
     spawn: readSpawn(rom, offsets.spawns, level),
     interactables, layerToggles: layerToggles(interactables),
     rings: readRings(rom, offsets.rings, level),
@@ -244,6 +245,7 @@ function extractStage(rom, offsets, tables, info) {
     entityRegions: entityRegions(rom, offsets.interactables, level),
     paletteAnimations: animations.map(({ frames, loop }) => ({ delays: frames.map(f => f.delay), loop })),
     background: toCanvas(renderPlainMap(rom, background, palette)),
+    backgroundHoles: mapHoles(rom, background), backdrop: palette[0],
     backgrounds: { canvases: sky.palettes.map(p => toCanvas(renderPlainMap(rom, background, p))), follows: sky.follows },
   };
 }

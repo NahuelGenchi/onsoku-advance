@@ -7,6 +7,9 @@
 
 export const LEVELS = {
   0: { name: 'Neo Green Hill Zone act 1', zone: 0, act: 0, paletteAnimations: [814, 815], music: 12 },
+  // StageInit_Zone2Act1 (0x0803DD45 in the USA ROM): palette animations 819, 845 and 849 and MUS_SECRET_BASE.
+  // StageBgUpdate_Zone2Act1 scrolls the background (backgrounds.js); the spotlights are made after the init (acts.js)
+  2: { name: 'Secret Base Zone act 1', zone: 1, act: 0, paletteAnimations: [819, 845, 849], music: 14, backgroundScroll: 'secretBase1' },
   // StageInit_Zone4Act1 (0x0803DDCD in the USA ROM): CreateStageWaterTask(1546, 0x7F207F20, 0); the snow is
   // tilemap 71 (TM_ICE_PARADISE_SNOW) on BG0 (CreateStageBg_Zone4)
   6: { name: 'Ice Mountain Zone act 1', zone: 3, act: 0, paletteAnimations: [822, 821], music: 18, water: { level: 1546, blend: 0x7F207F20 }, snow: 71 },

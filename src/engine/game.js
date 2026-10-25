@@ -17,6 +17,7 @@ import { createScatter } from './scatter.js';
 import { createHud, updateHud } from './hud.js';
 import { createTitleCard, runTitleCard } from './titlecard.js';
 import { createPaletteAnimation } from './palettes.js';
+import { createActTasks } from './acts.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { SONG } from '../sound/songs.js';
@@ -61,11 +62,17 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
     rushFx: createRushFx(), // its trail, burst and aura (rushfx.js)
     shake: -1,            // the frame of the boost's screen shake showing, or -1; only drawing reads it
+    spotlights: null,     // Secret Base act 1's spotlights (spotlights.js) while they last; only drawing reads them
   };
   let viewW = SCREEN_W, viewH = SCREEN_H;   // the original screen, or the widescreen view's size
   state.view = viewOf(state.cam, viewW, viewH);
   const sparkles = new Set();   // the ring sparkles still running their animation
   let cardPad = [];   // the pad directions held on the title card's last frame
+  let firstCard = true;
+  // Act 1 starts from the character select. Any other act the level pick starts as the course select does: its
+  // task (0x2000) makes the act, so on that frame only the tasks after its priority run (the title card, Sonic,
+  // the clock), and the next frame is spent loading
+  let madeBy = assets.stage.level === 0 ? -1 : 0x2000;
   let extraLife = false, restart = false, loading = false, starMusic = false;
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
   const render = createRenderer(canvas, assets);
@@ -254,14 +261,20 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   }
 
   // the title card (sub_80550F8) plays from the act's first frame and after each restart, holding Sonic and
-  // the clock while it runs; the HUD's task is made only as it ends
-  function startCard() { state.card = createTitleCard(assets.titleCard); state.clockStopped = true; state.hud.sprites = []; }
+  // the clock while it runs; the HUD's task is made only as it ends. The tasks some acts add come after the
+  // stage's own (acts.js), from his checkpoint's x or the act's start.
+  function startCard() {
+    const act = createActTasks(assets.stage.level, (state.checkpoint ?? assets.stage.spawn).x);
+    for (const task of act.tasks) tasks.add(task, 0x2000);
+    state.spotlights = act.spotlights;
+    state.card = createTitleCard(assets.titleCard, act.cardBlank); state.clockStopped = true; state.hud.sprites = [];
+  }
   const hudTask = { run() { if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER); return true; } };
 
   // HandleLifeLost: a life less, and the act starts over with everything in it, keeping the score, the stage
   // clock and the last checkpoint passed. Sonic starts at that checkpoint, or at the act's start without one,
   // and the course time goes back to what it was there (to 0 if it had run out); the camera starts from him.
-  // The act's music starts again at once (StageInit_Zone1Act1), and loading the act takes the original the
+  // The act's music starts again at once (its stage init), and loading the act takes the original the
   // whole next frame, in which nothing runs. (The game over at no lives left is not built yet.)
   function restartAct() {
     if (state.lives > 0) state.lives--;
@@ -312,7 +325,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
       if (runTitleCard(state.card, pressed)) return;
       state.card = null; state.clockStopped = false;
-      state.hud = createHud();
+      state.hud = createHud(firstCard ? assets.stage.hudFlash : 1);
+      firstCard = false;
       tasks.add(hudTask, 0x2180);
     }],
     [0x3000, () => {
@@ -341,7 +355,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     input.poll?.();
     if (loading) { loading = false; return; }
     state.sprites = [];
-    tasks.run(ctx);
+    tasks.run(ctx, madeBy);
+    if (madeBy >= 0) { madeBy = -1; loading = true; }
     if (restart) { restart = false; restartAct(); }
   }
 

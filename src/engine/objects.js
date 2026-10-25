@@ -39,8 +39,9 @@ export function createTasks() {
       const at = list.findIndex(t => t.priority > priority);
       list.splice(at < 0 ? list.length : at, 0, task);
     },
-    run(ctx) {
-      for (let t = list[0]; t; t = next) {
+    // with `after`, only the tasks of a higher priority run, as on the frame a task of that priority makes the act
+    run(ctx, after = -1) {
+      for (let t = list.find(t => t.priority > after); t; t = next) {
         next = list[list.indexOf(t) + 1] ?? null;
         if (!t.run(ctx)) list.splice(list.indexOf(t), 1);
       }

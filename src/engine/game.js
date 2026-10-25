@@ -60,6 +60,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     palettes: palettes.map(a => a.shown),   // the frame each palette animation has loaded (palettes.js)
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
+    ringsStopped: false,  // STAGE_FLAG__2: past a beaten boss the rings manager neither takes nor draws rings, and
+                          // the entities manager spawns nothing
     card: null,           // the title card (titlecard.js) while it holds Sonic and the clock
     view: null,           // what the screen shows around the camera (camera.js viewOf); only drawing reads it
     rush: false,          // the Sonic Rush boost's setting (off unless chosen)
@@ -135,6 +137,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // a boss is beaten at (x, y), where the original makes the capsule that ends the act (CreateBossCapsule);
     // the end-of-act flow builds it
     bossDefeated(x, y) {},
+    // a beaten boss stops the clock, the rings and the entities (STAGE_FLAG__ACT_START and STAGE_FLAG__2)
+    stopStage() { state.clockStopped = true; state.ringsStopped = true; },
     random,
     get frameCount() { return state.frameCount; },
     // gPseudoRandom set (the Egg Ball sets it to gFrameCount)
@@ -258,6 +262,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // the act's rings can't be taken while Sonic is knocked back and blinking, or dead; with the magnetic
   // shield, those near him on screen fly at him
   function collectRings(ctx) {
+    if (state.ringsStopped) return;
     if (player.dead || (player.state === 'hurt' && player.invulnerable)) rings.update(null);
     else for (const ring of rings.update(player)) addRing(ring);
     if (player.shield !== 'magnetic') return;
@@ -306,6 +311,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
     state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
+    state.ringsStopped = false;
     startCard();
     sound.playStageMusic(assets.stage.music);
     loading = true; starMusic = false;
@@ -325,7 +331,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       ctx.view = state.view = viewOf(state.cam, viewW, viewH);
     }],
     [0x2000, ctx => collectRings(ctx)],
-    [0x2000, ctx => entities.manager.run(ctx)],
+    [0x2000, ctx => state.ringsStopped || entities.manager.run(ctx)],
     ...palettes.map(a => [0x2000, () => { a.run(); state.palettes = palettes.map(b => b.shown); }]),
     // a sparkle the scattered rings leave first runs on the next frame
     [0x2001, () => {
@@ -349,7 +355,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       tasks.add(hudTask, 0x2180);
     }],
     [0x3000, () => {
-      const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? NO_INPUT : input;
+      const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? player.heldInput ?? NO_INPUT : input;
       stepPlayer(player, held, world);
       animatePlayer(player, held, anims, world);
       // the boost's effects run after him, as Rush's objects run after its player

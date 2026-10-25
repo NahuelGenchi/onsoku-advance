@@ -16,6 +16,8 @@ export function createCamera(p, terrain) {
     x: Math.floor(p.x) - SCREEN_W / 2, y: centreY(p) - (SCREEN_H / 2 + 4),
     targetX: 0, targetY: 0, freeze: 0, locked: false, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
     minX: 0, minY: 0, maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false, shakeX: 0, shakeY: 0,
+    // the speed caps (unk8 and unkC), which a beaten boss can set to 0
+    speedX: C.maxSpeedX, speedY: C.maxSpeedY,
     // the Rush boost's lead: Sonic shown this far off the target's centre (8.8 px), what it eases toward, the
     // frames left of the delay after a boost starts, and where Sonic was at the last update
     leadX: 0, leadY: 0, leadTargetX: 0, leadTargetY: 0, scroll: 0, prevX: p.x, prevY: p.y,
@@ -95,13 +97,13 @@ export function updateCamera(cam, p) {
   const dx = cam.targetX - cam.x;
   // with a lead, it keeps to the target sideways as Rush's does, without a dead zone or a speed limit
   if (p.boost || cam.leadX || cam.scroll) cam.x = cam.targetX;
-  else if (dx > C.deadZoneX) cam.x += Math.min(C.maxSpeedX, dx - C.deadZoneX);
-  else if (dx < -C.deadZoneX) cam.x += Math.max(-C.maxSpeedX, dx + C.deadZoneX);
+  else if (dx > C.deadZoneX) cam.x += Math.min(cam.speedX, dx - C.deadZoneX);
+  else if (dx < -C.deadZoneX) cam.x += Math.max(-cam.speedX, dx + C.deadZoneX);
 
   cam.deadY = p.air ? Math.min(C.airDeadZoneY, cam.deadY + 4) : Math.max(0, cam.deadY - 4);
   const dy = cam.targetY - cam.y;
-  if (dy > cam.deadY) cam.y += Math.min(C.maxSpeedY, dy - cam.deadY);
-  else if (dy < -cam.deadY) cam.y += Math.max(-C.maxSpeedY, dy + cam.deadY);
+  if (dy > cam.deadY) cam.y += Math.min(cam.speedY, dy - cam.deadY);
+  else if (dy < -cam.deadY) cam.y += Math.max(-cam.speedY, dy + cam.deadY);
   clamp(cam);
   cam.x += cam.shakeX; cam.y += cam.shakeY;
 }

@@ -363,7 +363,7 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
+  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -378,7 +378,7 @@ export function createRenderer(canvas, assets) {
     // background.
     const frame = stageAnimFrame(stage, tick);
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
-    const shown = rings.visible(view);
+    const shown = ringsStopped ? { list: [] } : rings.visible(view);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
     const drawAll = behind => {
       for (const s of list) {

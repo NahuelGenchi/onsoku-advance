@@ -108,9 +108,18 @@ export const PIPE_ANIMATIONS = {
 // what bosses leave behind: the Egg Mobile and Eggman flying off in it (bosses_egg_mobile.c), the debris
 // (gUnknown_080BB41C) and the explosions (sub_8017540)
 export const BOSS_ANIMATIONS = {
-  693: { eggMobile: 0, eggMobileTurn: 1 }, 694: { eggman: 0, eggmanFlee: 4, eggmanTurn: 9 },
+  693: { eggMobile: 0, eggMobileTurn: 1 }, 694: { eggman: 0, eggmanFlee: 4, eggmanFly: 6, eggmanTaunt: 7, eggmanTurn: 9 },
   695: { boltMedium: 0, boltMedium2: 1 }, 696: { boltLarge: 0, boltLarge2: 1 }, 697: { boltSmall: 0, boltSmall2: 1 },
   611: { bossExplosion: 0 },
+};
+// Cosmic Angel's boss, the Egg Snake (boss_6_egg_snake.c): a segment of its body, Eggman in its head (open,
+// laughing, hit; then the same with the head shut), the spikes it loses, its head (closing, opening, open, shut),
+// the laser's flash and its shot
+export const EGG_SNAKE_ANIMATIONS = {
+  659: { eggSnakeSegment: 0 },
+  660: { eggSnakeEggmanOpen: 0, eggSnakeEggmanOpenLaugh: 1, eggSnakeEggmanOpenHit: 2, eggSnakeEggman: 3, eggSnakeEggmanLaugh: 4, eggSnakeEggmanHit: 5 },
+  661: { eggSnakeSpike: 0 }, 662: { eggSnakeClose: 0, eggSnakeOpen: 1, eggSnakeOpened: 2, eggSnakeHead: 3 },
+  663: { eggSnakeLaser: 0 }, 664: { eggSnakeShot: 0 },
 };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
@@ -119,8 +128,9 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block), and the boulders' debris; their frames also keep their OAM pieces as the hardware reads them
-const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge']);
+// block), the boulders' debris and the Egg Snake's spikes; their frames also keep their OAM pieces as the
+// hardware reads them
+const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge', 'eggSnakeSpike']);
 
 // each level's three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
 // background
@@ -172,7 +182,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...PIPE_ANIMATIONS, ...BOSS_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...PIPE_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_SNAKE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

@@ -3,6 +3,8 @@
 // 240 × 160 screen, where in the background map its first pixel comes from. Neo Green Hill's own scrolling is
 // in renderer.js.
 
+import { drawEggRocketBackground } from './eggrocket.js';
+
 const BELT_A = [120, 136], BELT_B = [176, 192];   // the conveyor belts' lines in Cosmic Angel's map
 
 export const BACKGROUND_SCROLL = {
@@ -17,4 +19,10 @@ export const BACKGROUND_SCROLL = {
     if (row >= BELT_B[0] && row < BELT_B[1]) return [((tick >> 1) + x) & 0x1FF, y];
     return [x, y];
   },
+};
+
+// The zones whose background is more than one map scrolled per line (two backgrounds, sizes that change,
+// blending): each draws all of it into the frame, from the act's state.bg
+export const BACKGROUND_DRAW = {
+  eggRocket: drawEggRocketBackground,
 };

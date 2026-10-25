@@ -14,8 +14,11 @@ export const LEVELS = {
   7: { name: 'Ice Mountain Zone act 2', zone: 3, act: 1, paletteAnimations: [822, 821], music: 19, water: { level: 1664, blend: 0x7F207F20 }, snow: 71 },
   // StageInit_Zone6Act1 (0x0803D9C5): 839 and 842 both step row 13 of the stage palette, 840 row 12 and 841 row
   // 10; the act's only, so its zone keeps act 1's index. Its background and its launch and stage separations
-  // are eggrocket.js's
-  10: { name: 'Egg Rocket Zone', zone: 5, act: 0, paletteAnimations: [839, 840, 841, 842], music: 22 },
+  // are eggrocket.js's. Picked from the course select, the HUD's task data lands on memory holding 0 (hud.js)
+  10: {
+    name: 'Egg Rocket Zone', zone: 5, act: 0, paletteAnimations: [839, 840, 841, 842], music: 22,
+    backgroundScroll: 'eggRocket', hudFlash: 0,
+  },
 };
 
 /** The entry of `level`, or an error for one this game can't load yet. */

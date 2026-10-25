@@ -13,7 +13,7 @@ import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './sta
 import { SINE } from './trig.js';
 import { rushObjEntries, rushTrailStrips, TRAIL_COLOR } from './rushfx.js';
 import { rasterizeStrips, objLayer as dsObjLayer, to6, out8 } from './dsdraw.js';
-import { BACKGROUND_SCROLL } from './backgrounds.js';
+import { BACKGROUND_SCROLL, BACKGROUND_DRAW } from './backgrounds.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
 const s16 = v => (v << 16) >> 16;
@@ -284,11 +284,15 @@ export function createRenderer(canvas, assets) {
   function loadPalette(p) {
     p.forEach(([r, g, b], i) => { pal32[i] = 0xFF000000 | (b << 16) | (g << 8) | r; });
   }
-  // a layer's pixels under the view into `out`, where they aren't transparent
-  function indexLayer(out, layer, vx, vy, frame) {
+  // a layer's pixels under the view into `out`, where they aren't transparent; `split` (an Egg Rocket stage
+  // separation's, on the back layer) leaves its rows from split.y a gap for split.shift rows, then shows the
+  // rows above moved down by that much
+  function indexLayer(out, layer, vx, vy, frame, split = null) {
     const { size, pixels, slots } = ix.metatiles, slot = slots[frame], map = stage.layers[layer];
     for (let y = 0; y < H; y++) {
-      const wy = vy + y, my = Math.floor(wy / size), row = (wy - my * size) * size;
+      let wy = vy + y;
+      if (split && wy >= split.y) { if (wy < split.y + split.shift) continue; wy -= split.shift; }
+      const my = Math.floor(wy / size), row = (wy - my * size) * size;
       if (wy < 0 || my >= stage.levelY) continue;
       for (let x = 0; x < W;) {
         const wx = vx + x, mx = Math.floor(wx / size), col = wx - mx * size, n = Math.min(size - col, W - x);
@@ -304,10 +308,12 @@ export function createRenderer(canvas, assets) {
     }
   }
   // the background through its scroll function, lined up with the original screen in the view's middle; the
-  // map wraps both ways and colour 0 is the backdrop
-  function indexBackground(out, tick, vx, vy, terrain) {
+  // map wraps both ways and colour 0 is the backdrop. A zone that draws its own (BACKGROUND_DRAW) does so from
+  // the act's state.bg
+  function indexBackground(out, tick, vx, vy, terrain, bgState) {
     const bg = ix.background, scroll = BACKGROUND_SCROLL[stage.backgroundScroll];
     const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, cx = vx + ox, cy = vy + oy;
+    if (BACKGROUND_DRAW[stage.backgroundScroll]) { BACKGROUND_DRAW[stage.backgroundScroll](out, pal32, bg, bgState, W, H, ox, oy); return; }
     for (let y = 0; y < H; y++) {
       const [bx, by] = scroll(y - oy, tick, cx, cy, terrain), row = (by + y - oy) & 0xFF;
       for (let x = 0; x < W; x++) {
@@ -322,7 +328,7 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, bgPalette, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
+  function render({ tick, rings, sprites, terrain, palettes, bgPalette, bg, backLines, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -336,12 +342,36 @@ export function createRenderer(canvas, assets) {
     // screen in the view's middle. Near the act's edges the view stops before the camera does, and so does the
     // background.
     const frame = stageAnimFrame(stage, tick);
+    // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
+    const shown = rings.visible(view);
+    const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
+    // the sprites whose background priority passes `test`: 3 behind both stage layers, 2 between them, 0 and 1
+    // in front
+    const drawAll = test => {
+      for (const s of list) {
+        if (!test(s.prio)) continue;
+        if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
+        else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
+        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+      }
+    };
+    // a layer drawn through the palette over what is drawn so far
+    const overLayer = (layer, split = null) => {
+      const out = new Uint32Array(ixFront.data.buffer);
+      out.fill(0);
+      indexLayer(out, layer, vx, vy, frame, split);
+      ixCanvas.getContext('2d').putImageData(ixFront, 0, 0);
+      ctx.drawImage(ixCanvas, 0, 0);
+    };
+    const deepest = list.some(s => s.prio === 3);
     if (ix) {
       loadPalette(bgPalette);
       const out = new Uint32Array(ixBack.data.buffer);
-      indexBackground(out, tick - 1, vx, vy, terrain);
-      indexLayer(out, 'back', vx, vy, frame);
+      indexBackground(out, tick - 1, vx, vy, terrain, bg);
+      if (!deepest) indexLayer(out, 'back', vx, vy, frame, backLines);
       ctx.putImageData(ixBack, 0, 0);
+      if (deepest) { drawAll(p => p === 3); overLayer('back', backLines); }
     } else {
       // Neo Green Hill's sea scrolls with where that screen would be; a taller view shows the map's lines below
       // it and repeats its top line above it
@@ -357,29 +387,13 @@ export function createRenderer(canvas, assets) {
           x += n;
         }
       }
+      drawAll(p => p === 3);
       drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
     }
-    // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
-    const shown = rings.visible(view);
-    const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
-    const drawAll = behind => {
-      for (const s of list) {
-        if ((s.prio >= 2) !== behind) continue;
-        if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
-        else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
-        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
-        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
-      }
-    };
-    drawAll(true);
-    if (ix) {
-      const out = new Uint32Array(ixFront.data.buffer);
-      out.fill(0);
-      indexLayer(out, 'front', vx, vy, frame);
-      ixCanvas.getContext('2d').putImageData(ixFront, 0, 0);
-      ctx.drawImage(ixCanvas, 0, 0);
-    } else drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
-    drawAll(false);
+    drawAll(p => p === 2);
+    if (ix) overLayer('front');
+    else drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
+    drawAll(p => p < 2);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
     if (!titleCard) return;

@@ -18,13 +18,15 @@ export const SONG = {
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
   ENEMY_DEFEAT: 138,       // SE_ITEM_BOX: an enemy is defeated
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
+  EXPLOSION: 144,          // SE_EXPLOSION: Egg Rocket's launch and stage separations
+  TIME_UP: 166,            // SE_TIME_UP: the course time ran out
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
   CHECKPOINT: 169,
   SPRING: 170,
   SPIKES: 171,             // SE_171: hurt by spikes
   BOOSTER: 172,            // SE_BOOSTER: every frame a booster sends Sonic on
-  CRUMBLING_PLATFORM: 173,
+  CRUMBLING_PLATFORM: 173, // SE_173: also an Egg Rocket stage separation's start
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
 };

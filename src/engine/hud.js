@@ -6,6 +6,7 @@
 const RED = 11, COLON = 10;            // the red glyphs follow the eleven white ones
 const FLASH = [0, RED, RED, 0];        // the zero-ring string, 8 frames per glyph: white, red, red, white
 const RED_AFTER = 9 * 3600, BEEP_AFTER = 9 * 3600 + 40 * 60, TIME_LIMIT = 10 * 3600;   // in frames
+const RED_BELOW = 3600, BEEP_BELOW = 20 * 60;   // counting down (Egg Rocket): under 1:00, and the last 20 seconds
 const GLYPH_W = 8;
 
 const digits = n => String(n).split('').map(Number);
@@ -23,7 +24,7 @@ export function createHud(flash = 1) {
  * Lays out this frame's HUD sprites as [what, x, y], back to front, where `what` is 'ring', 'face' or a
  * glyph number. Returns true on the frames the timer warning beeps.
  */
-export function updateHud(hud, { ringCount, score, lives, courseTime, stageTime }) {
+export function updateHud(hud, { ringCount, score, lives, courseTime, stageTime, timerReversed }) {
   const icons = [['ring', -2, -1], ['face', 2, 144]];
   const glyphs = [];
   const row = (list, x, y) => list.forEach((g, i) => glyphs.push([g, x + i * GLYPH_W, y]));
@@ -43,9 +44,9 @@ export function updateHud(hud, { ringCount, score, lives, courseTime, stageTime 
   const s = digits(score % 1e9);
   row(s, 81 - GLYPH_W * s.length, -2);
 
-  // the timer, M:SS:CC with CC in hundredths, red every other 16 frames after 9:00
-  // (10:00 and later read 9:59:99)
-  const red = courseTime > RED_AFTER && (stageTime & 0x10) ? RED : 0;
+  // the timer, M:SS:CC with CC in hundredths, red every other 16 frames after 9:00, or under 1:00 when it
+  // counts down (10:00 and later read 9:59:99)
+  const red = (timerReversed ? courseTime < RED_BELOW : courseTime > RED_AFTER) && (stageTime & 0x10) ? RED : 0;
   const sec = Math.floor(courseTime / 60) % 60, hundredths = Math.floor((courseTime % 60) * 100 / 60 + 0.5);   // gMillisUnpackTable
   const time = courseTime >= TIME_LIMIT ? [9, COLON, 5, 9, COLON, 9, 9]
     : [Math.floor(courseTime / 3600), COLON, Math.floor(sec / 10), sec % 10, COLON, Math.floor(hundredths / 10), hundredths % 10];
@@ -55,5 +56,6 @@ export function updateHud(hud, { ringCount, score, lives, courseTime, stageTime 
   row([lives > 9 ? 9 : lives === 0 ? 0 : lives - 1], 22, 143);
 
   hud.sprites = [...icons, ...glyphs];
+  if (timerReversed) return courseTime < BEEP_BELOW && courseTime % 60 === 0 && courseTime !== 0;
   return courseTime > BEEP_AFTER && courseTime < TIME_LIMIT && courseTime % 60 === 0;
 }

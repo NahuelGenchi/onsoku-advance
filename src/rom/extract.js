@@ -254,7 +254,7 @@ function extractStage(rom, offsets, tables, info) {
   const layerBanks = mapBanks(rom, front, count * front.xTiles * front.yTiles);
   const skyBanks = mapBanks(rom, background, background.xTiles * background.yTiles);
   if (variantCount(animations, layerBanks) > MAX_PALETTE_VARIANTS || variantCount(animations, skyBanks) > MAX_PALETTE_VARIANTS) {
-    // the colours each animation frame loads, which the renderer applies over the stage's own
+    // the colours each animation frame loads, which the game writes into the palette on the frames it steps
     const loads = animations.map(a => a.frames.map(f => f.loads.map(l => ({ insert: l.insert, colors: l.colors }))));
     stage.indexed = { palette, loads, metatiles: indexMetatiles(rom, front, count), background: indexPlainMap(rom, background) };
     stage.atlas = { slots: stage.indexed.metatiles.slots };

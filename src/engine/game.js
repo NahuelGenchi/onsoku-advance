@@ -47,12 +47,17 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   const rings = createRings(assets.stage.rings, anims), scatter = createScatter(anims);
   rings.reset(); scatter.reset();
   const palettes = assets.stage.paletteAnimations.map(createPaletteAnimation);
+  // an act drawn through its palette (stage.indexed) keeps the 256 background colours as the animations write
+  // them, each on the frames it steps
+  const live = assets.stage.indexed;
+  const loadColors = (k, frame) => { for (const l of live.loads[k][frame]) l.colors.forEach((c, i) => { state.bgPalette[l.insert + i] = c; }); };
   const state = {
     tick: 0, player, terrain, tasks, rings, scatter, cam: createCamera(player, terrain), effects: [], sprites: [],
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
     animal: 0,   // gTrappedAnimalVariant: the next defeat's animal
     seed: 0,     // gPseudoRandom: the game's random numbers, one sequence for the whole game, from 0
     palettes: palettes.map(a => a.shown),   // the frame each palette animation has loaded (palettes.js)
+    bgPalette: live?.palette.slice() ?? null,   // the background palette as loaded, for an act drawn through it
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
     card: null,           // the title card (titlecard.js) while it holds Sonic and the clock
@@ -281,6 +286,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear();
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
+    state.bgPalette = live?.palette.slice() ?? null;
     state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
     startCard();
     sound.playStageMusic(assets.stage.music);
@@ -302,7 +308,10 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     }],
     [0x2000, ctx => collectRings(ctx)],
     [0x2000, ctx => entities.manager.run(ctx)],
-    ...palettes.map(a => [0x2000, () => { a.run(); state.palettes = palettes.map(b => b.shown); }]),
+    ...palettes.map((a, k) => [0x2000, () => {
+      if (a.run() && live) loadColors(k, a.shown);
+      state.palettes = palettes.map(b => b.shown);
+    }]),
     // a sparkle the scattered rings leave first runs on the next frame
     [0x2001, () => {
       for (const ring of scatter.update(player, state.view, terrain, state.tick)) addRing(ring);

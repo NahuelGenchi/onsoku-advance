@@ -281,9 +281,7 @@ export function createRenderer(canvas, assets) {
   let ixBack = ix && new ImageData(W, H), ixFront = ix && new ImageData(W, H);
   const ixCanvas = document.createElement('canvas');
   ixCanvas.width = W; ixCanvas.height = H;
-  function loadPalette(shown) {
-    const p = ix.palette.slice();
-    ix.loads.forEach((frames, k) => { for (let f = 0; f <= shown[k]; f++) for (const l of frames[f]) l.colors.forEach((c, i) => { p[l.insert + i] = c; }); });
+  function loadPalette(p) {
     p.forEach(([r, g, b], i) => { pal32[i] = 0xFF000000 | (b << 16) | (g << 8) | r; });
   }
   // a layer's pixels under the view into `out`, where they aren't transparent
@@ -324,7 +322,7 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
+  function render({ tick, rings, sprites, terrain, palettes, bgPalette, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -339,7 +337,7 @@ export function createRenderer(canvas, assets) {
     // background.
     const frame = stageAnimFrame(stage, tick);
     if (ix) {
-      loadPalette(palettes);
+      loadPalette(bgPalette);
       const out = new Uint32Array(ixBack.data.buffer);
       indexBackground(out, tick - 1, vx, vy, terrain);
       indexLayer(out, 'back', vx, vy, frame);

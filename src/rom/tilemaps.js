@@ -101,3 +101,24 @@ export function renderPlainMap(rom, header, palette) {
   }
   return img;
 }
+
+/**
+ * A plain map's colour indices (palette bank × 16 + colour) with animation frame `animFrame`'s tiles, 0 where
+ * colour 0 leaves it clear, for a layer the renderer colours and blends itself.
+ */
+export function plainMapIndices(rom, header, animFrame = 0) {
+  const w = header.xTiles * 8, out = new Uint8Array(w * header.yTiles * 8);
+  for (let ty = 0; ty < header.yTiles; ty++) {
+    for (let tx = 0; tx < header.xTiles; tx++) {
+      const entry = rom.u16(header.map + (ty * header.xTiles + tx) * 2), at = tileAddress(header, entry & 0x3FF, animFrame);
+      const hflip = (entry >> 10) & 1, vflip = (entry >> 11) & 1, bank = entry >> 12;
+      for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
+          const b = rom.u8(at + y * 4 + (x >> 1)), c = x & 1 ? b >> 4 : b & 15;
+          if (c) out[(ty * 8 + (vflip ? 7 - y : y)) * w + tx * 8 + (hflip ? 7 - x : x)] = bank * 16 + c;
+        }
+      }
+    }
+  }
+  return out;
+}

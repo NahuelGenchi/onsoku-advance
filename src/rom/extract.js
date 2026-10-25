@@ -6,7 +6,7 @@ import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation } from './sprites.js';
-import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks } from './tilemaps.js';
+import { tilemapHeader, renderMetatileAtlas, renderPlainMap, plainMapIndices, mapBanks } from './tilemaps.js';
 import { readCollision, readSpawn } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
@@ -245,6 +245,19 @@ function extractStage(rom, offsets, tables, info) {
     paletteAnimations: animations.map(({ frames, loop }) => ({ delays: frames.map(f => f.delay), loop })),
     background: toCanvas(renderPlainMap(rom, background, palette)),
     backgrounds: { canvases: sky.palettes.map(p => toCanvas(renderPlainMap(rom, background, p))), follows: sky.follows },
+    snow: info.snow === undefined ? null : snowLayer(rom, tilemapHeader(rom, offsets.tilemaps, info.snow), palette, animations),
+  };
+}
+
+// Ice Mountain's falling snow (CreateStageBg_Zone4): a plain map over everything, whose tiles animate, in the
+// stage palette's rows, which the palette animations step. Each of its animation frames is kept as colour
+// indices, 0 where it is clear, with the palette under each state of those animations (`follows`).
+function snowLayer(rom, header, palette, animations) {
+  const { palettes, follows } = paletteVariants(palette, animations, mapBanks(rom, header, header.xTiles * header.yTiles));
+  return {
+    width: header.xTiles * 8, height: header.yTiles * 8, delay: header.animDelay,
+    frames: Array.from({ length: Math.max(1, header.animFrameCount) }, (_, f) => plainMapIndices(rom, header, f)),
+    palettes, follows,
   };
 }
 

@@ -13,6 +13,7 @@ import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './sta
 import { SINE } from './trig.js';
 import { rushObjEntries, rushTrailStrips, TRAIL_COLOR } from './rushfx.js';
 import { rasterizeStrips, objLayer as dsObjLayer, to6, out8 } from './dsdraw.js';
+import { ICE_MOUNTAIN, iceMountainScroll } from './icemountain.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
 const s16 = v => (v << 16) >> 16;
@@ -35,8 +36,8 @@ export function createRenderer(canvas, assets) {
   canvas.width = W; canvas.height = H;
   let ctx = canvas.getContext('2d', { alpha: false });   // the Rush boost borrows it for a moment (drawRushObjs)
   const { atlas, frames } = assets.sprites, hud = assets.hud, card = assets.titleCard;
-  const stage = assets.stage, { backgrounds } = stage;
-  const bgW = stage.background.width;
+  const stage = assets.stage, { backgrounds, snow } = stage;
+  const bgW = stage.background.width, bgH = stage.background.height;
 
   // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does
   function drawSprite(index, x, y, flipX, flipY = false) {
@@ -273,12 +274,39 @@ export function createRenderer(canvas, assets) {
     if (right > 0) ctx.drawImage(flip, 0, bgLine, right, 1, ox + n, line, right, 1);
   }
 
+  // One line of a background that wraps around its map both ways, the original screen's left edge at map column x
+  function drawWrapped(background, x, bgLine, line, ox) {
+    let off = mod(x - ox, bgW);
+    for (let at = 0; at < W; off = 0) {
+      const n = Math.min(bgW - off, W - at);
+      ctx.drawImage(background, off, mod(bgLine, bgH), n, 1, at, line, n, 1);
+      at += n;
+    }
+  }
+
+  // The snow (Ice Mountain) from map pixel (sx, sy) at the original screen's top left, in palette `colors`,
+  // added to what is under it or, with `opaque`, drawn over it
+  function drawSnow(frame, sx, sy, colors, opaque, ox, oy) {
+    const img = ctx.getImageData(0, 0, W, H), d = img.data, sw = snow.width, sh = snow.height;
+    for (let y = 0; y < H; y++) {
+      const row = mod(sy + y - oy, sh) * sw;
+      for (let x = 0; x < W; x++) {
+        const c = frame[row + mod(sx + x - ox, sw)];
+        if (!c) continue;
+        const k = (y * W + x) * 4, rgb = colors[c];
+        if (opaque) { d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2]; continue; }
+        d[k] = Math.min(255, d[k] + rgb[0]); d[k + 1] = Math.min(255, d[k + 1] + rgb[1]); d[k + 2] = Math.min(255, d[k + 2] + rgb[2]);
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
   // back to front: higher orders first, and the later entries of an order before the earlier ones
   function stack(list) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, cardOver, showCollision, rushFx, rushArt, shake }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -294,7 +322,9 @@ export function createRenderer(canvas, assets) {
     // below it and repeats its top line above it.
     const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, cx = vx + ox;
     const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
-    for (let line = 0; line < H; line++) {
+    const ice = stage.zone === ICE_MOUNTAIN ? iceMountainScroll(stage, cx, vy + oy, tick - 1, tick - 1) : null;
+    if (ice) for (let line = 0; line < H; line++) drawWrapped(background, ice.bgX, ice.bgY + line - oy, line, ox);
+    else for (let line = 0; line < H; line++) {
       const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
       if (STILL(bgLine)) { drawStill(background, bgLine, line, ox); continue; }
       let off = mod(backgroundOffset(bgLine, tick - 1, cx) - ox, bgW);
@@ -309,18 +339,24 @@ export function createRenderer(canvas, assets) {
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
     const shown = rings.visible(view);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
-    const drawAll = behind => {
+    // the sprites of BG priority `prio` (2 and 3 together, behind the front layer)
+    const drawAll = prio => {
       for (const s of list) {
-        if ((s.prio >= 2) !== behind) continue;
+        if (Math.min(s.prio, 2) !== prio) continue;
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
         else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
         else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
       }
     };
-    drawAll(true);
+    drawAll(2);
     drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
-    drawAll(false);
+    drawAll(1);
+    // the snow lies over everything but the sprites of priority 0; the title card's fade and its last frame show
+    // it as it is
+    const fading = titleCard ? titleCard.sprites.length > 0 && (titleCard.sprites[0].a0 & 0xC00) === 0x400 : cardOver;
+    if (ice && tick > 1) drawSnow(snow.frames[ice.snowFrame], ice.snowX, ice.snowY, snow.palettes[paletteVariant(stage, snow.follows, palettes)], fading, ox, oy);
+    drawAll(0);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
     if (!titleCard) return;

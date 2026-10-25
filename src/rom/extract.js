@@ -123,9 +123,9 @@ export const STONE_ANIMATIONS = {
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };
 // Neo Green Hill's wall pole (468): at rest, and bending as Sonic swings on it
 export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
-// Angel Island Zone's carriers: the lift's handle and a link of its chain (545) and the bowl (546, zone 5's look;
-// a level's `sprites` can give it another)
-export const CARRIER_ANIMATIONS = { 545: { liftHandle: 1, liftChain: 0 }, 546: { bowl: 0 } };
+// Angel Island Zone's carriers: the run wheel turning back and forward (542), the lift's handle and a link of
+// its chain (545) and the bowl (546, zone 5's look; a level's `sprites` can give it another)
+export const CARRIER_ANIMATIONS = { 542: { runWheelBack: 0, runWheel: 1 }, 545: { liftHandle: 1, liftChain: 0 }, 546: { bowl: 0 } };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };

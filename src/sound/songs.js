@@ -37,4 +37,7 @@ export const SONG = {
   BOWL: 206,               // SE_BOWL: a bowl catches Sonic; SE_BOWL_2 and SE_BOWL_3 follow 56 and 112 frames later
   BOWL_2: 207,
   BOWL_3: 208,
+  RUN_WHEEL_SLOW: 212,     // SE_RUN_WHEEL_A, B and C: a run wheel turning, by its speed
+  RUN_WHEEL_MEDIUM: 213,
+  RUN_WHEEL_FAST: 214,
 };

@@ -38,6 +38,7 @@ import { createHidingSpikes } from './hidingspikes.js';
 import { createSkatingStone } from './skatingstones.js';
 import { createLift } from './lifts.js';
 import { createBowl } from './bowls.js';
+import { createRunWheel } from './runwheels.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -170,6 +171,7 @@ function interactable(e, slot, anims, ctx) {
     ?? createTorch(e, slot) ?? createLava(e, slot) ?? createBoulderSpawner(e, slot, anims) ?? createFloat(e, slot) ?? createHidingSpikes(e, slot, anims)
     ?? createSkatingStone(e, slot, anims, ctx) ?? createLift(e, slot, anims)
     ?? createBowl(e, slot, anims)
+    ?? createRunWheel(e, slot, anims)
     ?? standIn(e, slot);
 }
 

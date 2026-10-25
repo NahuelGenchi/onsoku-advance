@@ -87,8 +87,12 @@ export const PLATFORM_ANIMATIONS = {
 export const FERRIS_WHEEL_ANIMATIONS = { 530: { ferrisHub: 0 }, 531: { ferrisSpoke: 0 } };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
-// Ice Mountain's objects: the block of ice (555) and the large and small pieces a broken one leaves (556, 557)
-export const ICE_MOUNTAIN_ANIMATIONS = { 555: { iceBlock: 0 }, 556: { iceShardsLarge: 0 }, 557: { iceShardsSmall: 0 } };
+// Ice Mountain's objects: the block of ice (555) and the large and small pieces a broken one leaves (556, 557),
+// and the underwater lava platform's pool (561), spurt (560) and platform (525)
+export const ICE_MOUNTAIN_ANIMATIONS = {
+  555: { iceBlock: 0 }, 556: { iceShardsLarge: 0 }, 557: { iceShardsSmall: 0 },
+  561: { lava: 0 }, 560: { lavaSpurt: 0 }, 525: { lavaPlatform: 0 },
+};
 // the breakable wall (559); some levels have their own (levels.js `sprites`)
 export const WALL_ANIMATIONS = { 559: { breakableWall: 0 } };
 // the moving spring at rest and throwing (540); Ice Mountain has its own (levels.js `sprites`)

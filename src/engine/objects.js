@@ -1,9 +1,9 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
 // platforms (thin, falling, sinking, rising and square), boulders, blocks of ice, breakable walls, moving
-// springs, ferris wheels, waterfalls, boosters, checkpoints, wall poles, grind rails, the incline ramp, the
-// half-pipe, the forced slide, item boxes, enemies, and a stand-in for each kind of act 1's that this game
-// doesn't build yet, so that every task keeps its place in the list.
+// springs, ferris wheels, underwater lava platforms, waterfalls, boosters, checkpoints, wall poles, grind
+// rails, the incline ramp, the half-pipe, the forced slide, item boxes, enemies, and a stand-in for each kind
+// of act 1's that this game doesn't build yet, so that every task keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
 // order, and the tasks of a priority in the order they were made. The original fetches the next task before
@@ -23,6 +23,7 @@ import { createMovingSpring } from './movingsprings.js';
 import { createSquarePlatform } from './squareplatforms.js';
 import { createSlowPlatform } from './slowplatforms.js';
 import { createFerrisWheel } from './ferriswheels.js';
+import { createLavaPlatform } from './lavaplatforms.js';
 import { createWaterfall } from './waterfalls.js';
 import { createBooster } from './boosters.js';
 import { createCheckpoint } from './checkpoints.js';
@@ -158,7 +159,8 @@ function interactable(e, slot, anims, ctx) {
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims)
     ?? createBreakableWall(e, slot, anims) ?? createMovingSpring(e, slot, anims) ?? createSquarePlatform(e, slot, anims)
-    ?? createSlowPlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createWaterfall(e, slot, anims) ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx)
+    ?? createSlowPlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createLavaPlatform(e, slot, anims)
+    ?? createWaterfall(e, slot, anims) ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx)
     ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot) ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? standIn(e, slot);
 }
 

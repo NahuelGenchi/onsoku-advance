@@ -27,5 +27,6 @@ export const SONG = {
   CRUMBLING_PLATFORM: 173,
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
+  LAVA_SPURT: 182,         // SE_LAVA_PLATFORM_SPURT
   ICE_BLOCK_BREAK: 193,    // SE_193: a block of ice breaks, after SE_ITEM_BOX
 };

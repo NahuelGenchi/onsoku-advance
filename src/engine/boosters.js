@@ -1,16 +1,19 @@
-// Neo Green Hill's speed boosters (SAT-R decompilation, src/game/sa1/stage/interactables/booster.c): the flat
-// one (kind 31) and the one on a slight slope up to the right (33). Running or rolling over one on the ground
-// sends Sonic its way at 12 px a frame, unless he is already going faster than 9 that way; it points right,
-// or left when d1 is set.
+// The speed boosters (SAT-R decompilation, src/game/sa1/stage/interactables/booster.c): Neo Green Hill's flat
+// one (kind 31) and the one on a slight slope up to the right (33), and Egg Rocket's on a wall (47) and on a
+// steep slope (100), which only look different. Running or rolling over one on the ground sends Sonic its way
+// at 12 px a frame, unless he is already going faster than 9 that way; it points right, or left when d1 is set.
 
 import { makeSprite, animate, offCam } from './objects.js';
 import { overlap } from './collide.js';
 import { endAttack } from './player.js';
 import { SONG } from '../sound/songs.js';
 
-export const BOOSTER = 31, BOOSTER_SLIGHT_LEFT = 32, BOOSTER_SLIGHT_RIGHT = 33;
-// the animation's variant for each kind
-const LOOKS = { [BOOSTER]: 'booster', [BOOSTER_SLIGHT_LEFT]: 'boosterSlightLeft', [BOOSTER_SLIGHT_RIGHT]: 'boosterSlightRight' };
+export const BOOSTER = 31, BOOSTER_SLIGHT_LEFT = 32, BOOSTER_SLIGHT_RIGHT = 33, BOOSTER_WALL = 47, BOOSTER_STEEP = 100;
+// the animation for each kind
+const LOOKS = {
+  [BOOSTER]: 'booster', [BOOSTER_SLIGHT_LEFT]: 'boosterSlightLeft', [BOOSTER_SLIGHT_RIGHT]: 'boosterSlightRight',
+  [BOOSTER_WALL]: 'boosterWall', [BOOSTER_STEEP]: 'boosterSteep',
+};
 const SOX = 6;   // Sonic's spriteOffsetX
 const BOOST = 12, BOOSTED = 9;
 // the character states a boost keeps: rolling and the spin dash; anything else becomes the walk

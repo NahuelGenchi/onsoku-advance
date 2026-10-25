@@ -97,8 +97,11 @@ export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // the splash under Sonic on a forced slide
 export const SLIDE_ANIMATIONS = { 474: { slideSplash: 0 } };
-// the speed boosters (471): flat, on a slight slope up to the right, and up to the left
-export const BOOSTER_ANIMATIONS = { 471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 } };
+// the speed boosters (471): flat, on a slight slope up to the right, and up to the left; on a wall (472) and on
+// a steep slope (571, SA1_ANIM_BOOSTER_STEEP_COUNTER_CLOCKWISE)
+export const BOOSTER_ANIMATIONS = {
+  471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 }, 472: { boosterWall: 0 }, 571: { boosterSteep: 0 },
+};
 // the checkpoints (452): waiting, spinning as Sonic passes (its script starts song 169, which the game plays,
 // src/engine/checkpoints.js), and passed
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };

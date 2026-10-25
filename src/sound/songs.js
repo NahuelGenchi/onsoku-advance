@@ -29,6 +29,7 @@ export const SONG = {
   CRUMBLING_PLATFORM: 173,
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
+  LIFT: 181,               // SE_LIFT: from a lift catching Sonic until it reaches the top
   ICE_BLOCK_BREAK: 193,    // SE_193: a block of ice breaks, after SE_ITEM_BOX
   SKATING_STONE: 198,      // SE_198: a skating stone sliding again after a drop
   WHIRLWIND: 200,          // SE_200: a whirlwind (player float toggle) first lifting Sonic

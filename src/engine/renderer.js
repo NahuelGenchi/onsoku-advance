@@ -390,7 +390,7 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake, spotlights, spriteRow, bgAnim }) {
+  function render({ tick, rings, sprites, terrain, palettes, objPalette, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake, spotlights, spriteRow, bgAnim }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -419,13 +419,19 @@ export function createRenderer(canvas, assets) {
     }
     // the ROM's counter (gStageBackgroundsRam.unk40, 0x0300593B in the USA ROM) is one behind the camera's runs
     const frame = stageAnimFrame(stage, bgAnim - 1);
-    drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
     const shown = rings.visible(view);
-    const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
-    const drawAll = behind => {
+    // each in the colours its row of the sprite palette has as the frame ends (extract.js's alts)
+    const recolour = s => {
+      const alt = assets.sprites.alts?.[s.frame]?.find(([row, key]) => objPalette?.[row] === key);
+      return alt ? { ...s, frame: alt[2] } : s;
+    };
+    const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites].map(recolour));
+    // the layers' priorities are 1 (front), 2 (back) and 3 (background), and a sprite goes in front of those
+    // whose priority is the same as its own or lower
+    const drawAll = level => {
       for (const s of list) {
-        if ((s.prio >= 2) !== behind || s.white) continue;
+        if (Math.min(Math.max(s.prio ?? 0, 1), 3) !== level || s.white) continue;
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
         else {
@@ -437,9 +443,11 @@ export function createRenderer(canvas, assets) {
         }
       }
     };
-    drawAll(true);
+    drawAll(3);
+    drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
+    drawAll(2);
     drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
-    drawAll(false);
+    drawAll(1);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
     for (const s of list) if (s.white) drawWhite(s, vx, vy);

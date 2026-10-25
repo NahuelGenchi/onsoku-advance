@@ -41,7 +41,8 @@ const SILENT = {
 };
 
 export function createGame(canvas, assets, input, sound = SILENT) {
-  const { anims } = assets.sprites;
+  // the animations, and which colours their palette loads last left in each row of the sprite palette (animator.js)
+  const anims = { ...assets.sprites.anims, objPalette: new Array(16).fill(-1) };
   const terrain = createTerrain(assets.stage.collision);
   const player = createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds });
   const tasks = createTasks(), entities = createEntities(assets.stage, anims, tasks);
@@ -54,6 +55,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     animal: 0,   // gTrappedAnimalVariant: the next defeat's animal
     seed: 0,     // gPseudoRandom: the game's random numbers, one sequence for the whole game, from 0
     palettes: palettes.map(a => a.shown),   // the frame each palette animation has loaded (palettes.js)
+    objPalette: anims.objPalette,           // the sprite palette's rows as the frame ends, which the screen shows
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
     card: null,           // the title card (titlecard.js) while it holds Sonic and the clock
@@ -193,7 +195,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   };
 
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
-  // background priority: 2 behind the front layer, 0 and 1 in front of it); `affine` sends it through the
+  // background priority: 3 behind both layers, 2 behind the front layer, 0 and 1 in front of it); `affine` sends it through the
   // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }. With
   // `white`, it is a window that turns everything in its shape white (a boss's hit flash).
   function draw(s, x, y, affine = null) {
@@ -268,10 +270,11 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // Sonic's sprite (OAM order 16): the walk and run frames go through the rotation hardware (matrix 0, normal
   // size) and follow the slope, mirrored with a negative scale when he faces right, which also moves him 1px
   // left; facing left, the original shifts the other frames 1px right. Dying or grinding puts him in front of
-  // the front layer.
+  // the front layer, and half of his swing round a rope behind both.
   // the Rush boost's sprite effects go just in front of him and its trail just behind (renderer.js)
   function drawSonic() {
-    const prio = player.death || player.front ? 1 : 2, fx = state.rushFx.list.length > 0 ? { rush: 'obj', order: 16, prio, sonic: null } : null;
+    player.prio = anims[player.anim.name]?.prio?.[player.anim.i] ?? player.prio;
+    const prio = player.death || player.front ? 1 : player.prio, fx = state.rushFx.list.length > 0 ? { rush: 'obj', order: 16, prio, sonic: null } : null;
     if (fx) state.sprites.push(fx);
     if (!player.hidden) {
       const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio };

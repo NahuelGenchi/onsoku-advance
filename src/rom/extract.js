@@ -1,5 +1,5 @@
 // Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects, the
-// springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, the title card, Neo Green Hill Zone act 1 with its collision, objects,
+// springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, the title card, the game over, Neo Green Hill Zone act 1 with its collision, objects,
 // enemies and rings, and the zone's background. Runs entirely in the browser.
 
 import { Rom } from './rom.js';
@@ -13,6 +13,9 @@ import { readColors } from './colors.js';
 import { soundLayout } from './sound.js';
 import { hudGraphics } from './hud.js';
 import { titleCardGraphics } from './titlecard.js';
+import { gameOverGraphics } from './gameover.js';
+import { createM4A } from '../sound/m4a.js';
+import { createApu } from '../sound/apu.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -89,6 +92,8 @@ export const BOOSTER_ANIMATIONS = { 471: { booster: 0, boosterSlightRight: 1, bo
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };
 // Neo Green Hill's wall pole (468): at rest, and bending as Sonic swings on it
 export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
+// GAME OVER and CONTINUE? (715): each word in two halves, drawn through the rotation hardware as they turn
+export const GAME_OVER_ANIMATIONS = { 715: { gameOverLeft: 0, gameOverRight: 1, continueLeft: 2, continueRight: 3 } };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -96,8 +101,9 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block), and the boulders' debris; their frames also keep their OAM pieces as the hardware reads them
-const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge']);
+// block), the boulders' debris and the game over's words; their frames also keep their OAM pieces as the
+// hardware reads them
+const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge', ...Object.keys(GAME_OVER_ANIMATIONS[715])]);
 
 // Neo Green Hill Zone act 1: level 0. Its tilemap entries are the front layer (drawn over Sonic), the back
 // layer (behind him) and the background.
@@ -109,7 +115,7 @@ const PALETTE_ANIMATIONS = [814, 815];
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, gameOver: { sheet, digits, ok, box, voices, hudSheet, song, songFrames }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
@@ -132,6 +138,7 @@ export async function extractAssets(buffer, onProgress = () => {}) {
     sprites, stage, physics: { spinDashSpeeds },
     hud: extractHud(rom, offsets.uiGraphics),
     titleCard: extractTitleCard(rom, offsets.uiGraphics, offsets.titleCard),
+    gameOver: extractGameOver(rom, offsets),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
   };
@@ -149,7 +156,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GAME_OVER_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
@@ -280,6 +287,19 @@ function extractHud(rom, tableAt) {
 function extractTitleCard(rom, uiAt, cardAt) {
   const { image, ...card } = titleCardGraphics(rom, uiAt, cardAt);
   return { sheet: toCanvas(image), ...card };
+}
+
+// the game over's song (MUS_GAME_OVER): the screen waits for it to end before it leaves, so the sound engine
+// plays it through here, without sound, to count its frames
+const GAME_OVER_SONG = 37;
+function extractGameOver(rom, offsets) {
+  const { image, palette, ...rest } = gameOverGraphics(rom, offsets.uiGraphics, offsets.titleCard);
+  const engine = createM4A(rom.bytes, soundLayout(rom, offsets.musicPlayers), createApu());
+  engine.songStart(GAME_OVER_SONG);
+  const player = engine.players.find(p => p.songHeader === engine.songHeader(GAME_OVER_SONG));
+  let songFrames = 0;
+  do { engine.frame(); songFrames++; } while ((player.status & 0xFFFF) !== 0 && songFrames < 60 * 60);
+  return { sheet: toCanvas(image), ...rest, hudSheet: toCanvas(hudGraphics(rom, offsets.uiGraphics, palette).image), song: GAME_OVER_SONG, songFrames };
 }
 
 function toCanvas(img) {

@@ -3,7 +3,7 @@
 // hand over to the next state when they end. (x, y) is Sonic's centre; on the ground he moves along the
 // surface's angle (`rotation`, 256 steps per turn) at ground speed `gsp`.
 
-import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y } from './constants.js';
+import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
 import { groundSensors, wallPush, airCollision, clearance, setOffsetY } from './sensors.js';
 import { LAYER_BACK, scan, PROBE_FLOOR } from './terrain.js';
@@ -57,6 +57,12 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,
     chain: 0,          // enemies defeated since he last touched the ground (defeatScoreIndex)
+    // Sonic Rush's boost, an extra that only runs with its setting on (world.rush)
+    boost: false,      // boosting
+    boostBox: null,    // its attack box, while it lasts
+    boostSlow: 0,      // grounded frames in a row he moved less than its minimum speed
+    boostCool: 0,      // frames before the next boost can start
+    lastX: x, lastY: y, // where he was a frame ago
     held: new Array(HISTORY).fill(0), pressed: new Array(HISTORY).fill(0),
   };
 }
@@ -348,6 +354,101 @@ function grindStep(p, c, input) {
   alongSurface(p);
 }
 
+// Sonic Rush's ObjSpdUpSet and ObjSpdDownSet on 8.8 speeds: add, capped only on the side it adds toward;
+// slow down toward 0 without crossing it
+const spdUp = (v, a, max) => { v += a; return a >= 0 ? Math.min(v, max) : Math.max(v, -max); };
+const spdDown = (v, d) => (v > 0 ? Math.max(0, v - d) : Math.min(0, v + d));
+const clampTo = (v, max) => Math.min(Math.max(v, -max), max);
+
+// the boost's acceleration, tapering off above jogging speed until 8/256 of it is left at the top speed
+function rushAcceleration(speed, top) {
+  const a = Math.abs(speed);
+  if (a <= R.jogSpeed) return R.acceleration;
+  const s = Math.min(0x100, Math.trunc((a - R.jogSpeed) * 0x100 / (top - R.jogSpeed)));
+  return R.acceleration - ((R.acceleration * ((s * 0xF800) >> 16)) >> 8);
+}
+
+// left or right held: right wins when both are, as in Rush
+const rushDir = c => c.dir || (c.sideways ? 1 : 0);
+
+// boosting on the ground (Rush's ground movement with the boost's numbers): a held direction turns him,
+// brakes against his motion and accelerates up to the top speed, which slopes raise; none keeps him under
+// the top speed and slows him on floors within 45° of level
+function rushWalk(p, c) {
+  const dir = rushDir(c), bonus = (R.slopeTop * sin8(p.rotation)) >> 8;
+  const top = R.topSpeed + Math.max(bonus, 0);
+  let g = q8(p.gsp);
+  if (!dir) {
+    g = clampTo(g, top);
+    if (((p.rotation + 0x20) & 0xFF) <= 0x40) g = spdDown(g, R.deceleration);
+  } else {
+    const acc = rushAcceleration(g, top);
+    p.facing = dir;
+    if (g * dir < 0) g = spdDown(g, R.deceleration);
+    g = spdUp(g, acc * dir, top);
+  }
+  p.gsp = g / 256;
+}
+
+// boosting in the air (Rush's air movement with the boost's numbers): the same, braking twice as hard, and
+// without a direction he slows down; the braking is a quarter as strong while he is tilted
+function rushAir(p, c) {
+  const dir = rushDir(c), top = R.topSpeed;
+  let v = q8(p.xsp), dec = R.deceleration;
+  if (((p.rotation + 0x20) & 0xC0) || p.rotation === 0xE0) dec >>= 2;
+  if (!dir) v = spdDown(clampTo(v, top), dec);
+  else {
+    const acc = rushAcceleration(v, top);
+    if (p.state !== 'bounce') p.facing = dir;
+    if (v * dir < 0) v = spdDown(v, dec * 2);
+    v = spdUp(v, acc * dir, top);
+  }
+  p.xsp = v / 256;
+}
+
+function boostWalkStep(p, c, world) {
+  rushWalk(p, c);
+  if (!p.halfPipe) p.state = 'walk';
+  lookInput(p, c, world);
+  alongSurface(p);
+  wallPush(p, world.terrain);
+}
+
+const canBoost = p => !p.air && !p.dead && !p.carried && !p.ignoreInput && !p.curled && !p.grinding && p.attack === 0
+  && !p.spinDashing && p.state !== 'hurt';
+
+// a press starts it on the ground: he turns to the held direction and runs at least 12 px a frame that way,
+// with Sonic Rush's boost sound, a screen shake and the camera falling behind (game.js boosted)
+function startBoost(p, c, world) {
+  if (c.dir) p.facing = c.dir;
+  p.boost = true; p.boostBox = R.box; p.boostSlow = 0;
+  p.gsp = p.facing * Math.max(Math.abs(q8(p.gsp)), R.startSpeed) / 256;
+  p.pushing = false;
+  if (!p.halfPipe) p.state = 'walk';
+  world.boosted();
+}
+
+function stopBoost(p) { p.boost = false; p.boostBox = null; p.boostCool = R.cooldown; }
+
+// Sonic Rush's boost (its HandleSuperBoost): it starts on a press, and lasts while the button is held, until
+// he has moved less than 6 px a frame on the ground for more than 8 frames, or is knocked out of it. Then
+// the next one can't start for 8 frames.
+function rushBoost(p, c, world) {
+  const moved = Math.abs(q8(p.x - p.lastX)) + Math.abs(q8(p.y - p.lastY));
+  p.lastX = p.x; p.lastY = p.y;
+  if (!p.boost) {
+    if (c.boostPressed && p.boostCool === 0 && canBoost(p)) startBoost(p, c, world);
+  } else {
+    let slow = false;
+    if (!p.air) {
+      if (moved >= R.minSpeed) p.boostSlow = 0;
+      else if (++p.boostSlow > R.slowFrames) slow = true;
+    }
+    if (slow || !c.boost || p.dead || p.carried || p.state === 'hurt') stopBoost(p);
+  }
+  if (p.boostCool > 0) p.boostCool--;
+}
+
 // on the frame a jump or a B move starts nothing else runs; while revving a spin dash Sonic stays put but
 // still follows the ground (Player_Sonic_80473AC)
 function groundStep(p, c, world, input) {
@@ -364,6 +465,11 @@ function groundStep(p, c, world, input) {
     p.x += p.xsp; p.y += p.ysp;
     followGround(p, t);
     return;
+  } else if (p.boost) {
+    // boosting, B does nothing
+    if (tryJump(p, c, world)) return;
+    slope(p);
+    boostWalkStep(p, c, world);
   } else if (p.attack !== 0) {
     slope(p);
     attackStep(p, c, world);
@@ -407,8 +513,9 @@ function airStep(p, c, world) {
     }
   } else if (p.ysp < -K.riseCap) p.ysp = -K.riseCap;
 
-  // air control and drag (Player_AirInputControls)
-  if (!p.airLock && c.dir) {
+  // air control and drag (Player_AirInputControls); boosting, Rush's air movement instead
+  if (p.boost) rushAir(p, c);
+  else if (!p.airLock && c.dir) {
     const dir = c.dir, acc = K.airAcceleration * pace(p), max = K.maxRunSpeed * pace(p);
     if (p.state !== 'bounce') p.facing = dir;   // off a bounce block he keeps facing the way he went up
     let v = p.xsp + acc * dir;
@@ -418,7 +525,7 @@ function airStep(p, c, world) {
     }
     p.xsp = v;
   }
-  if (p.ysp < 0) {
+  if (p.ysp < 0 && !p.boost) {
     const drag = Math.floor(p.xsp * 256 / 32) / 256;   // arithmetic shift of the 8.8 value
     p.xsp = p.xsp > 0 ? Math.max(0, p.xsp - drag) : p.xsp < 0 ? Math.min(0, p.xsp - drag) : 0;
   }
@@ -449,10 +556,10 @@ export function land(p) {
  * Hurts Sonic, unless he is invincible or still blinking from the last hit (Coll_DamagePlayer, without the
  * rings and the shield, which the caller handles): knocked up and away from the way he was moving, or facing when standing still, wherever
  * the hazard is. On a grind rail he leaves it for the layer he came from, unless that has less than 4 px of
- * room above him. Returns false when he is protected.
+ * room above him. Returns false when he is protected, as he is while boosting.
  */
 export function hurt(p, terrain) {
-  if (p.invulnerable > 0 || p.invincible > 0) return false;
+  if (p.invulnerable > 0 || p.invincible > 0 || p.boost) return false;
   p.invulnerable = K.invulnerable;
   p.xsp = p.xsp < 0 || (p.xsp === 0 && p.facing < 0) ? K.hurtSpeedX : -K.hurtSpeedX;
   p.ysp = -K.hurtSpeedY;
@@ -492,7 +599,8 @@ function deadStep(p, world) {
 
 /**
  * Advances the player one frame. `world` provides tick, cameraY, terrain, died(), lifeLost(), spawnDashDust(),
- * spawnInstaShield(), freezeCamera(), playSound(song) and playSoundPitched(song, pitch).
+ * spawnInstaShield(), freezeCamera(), playSound(song) and playSoundPitched(song, pitch), and for the Rush boost
+ * rush (its setting) and boosted().
  */
 export function stepPlayer(p, input, world) {
   const left = input.left, right = input.right, sideways = left || right;
@@ -505,9 +613,13 @@ export function stepPlayer(p, input, world) {
     dir: left && !right ? -1 : right && !left ? 1 : 0, sideways,
     up: input.up && !sideways, down: input.down && !sideways,
     jump: input.jump, jumpPressed: input.jumpPressed, attackPressed: input.attackPressed,
+    boost: input.boost, boostPressed: input.boostPressed,
   };
-  input.jumpPressed = false; input.attackPressed = false;
+  input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
   p.jumpPressed = c.jumpPressed;
+
+  if (world.rush) rushBoost(p, c, world);
+  else if (p.boost) stopBoost(p);
 
   if (p.dead) deadStep(p, world);
   else if (p.carried) return;
@@ -519,7 +631,7 @@ export function stepPlayer(p, input, world) {
 function chooseAnimation(p, input) {
   const a = p.anim, speed = Math.abs(p.gsp);
   a.speed = ANIMATION.normalSpeed;
-  if (p.gsp !== 0 || input.left || input.right || input.up || input.down || input.jump || input.attack) p.idleT = K.boredDelay;
+  if (p.gsp !== 0 || input.left || input.right || input.up || input.down || input.jump || input.attack || input.boost) p.idleT = K.boredDelay;
   if (p.pushing) p.state = 'push';
   switch (p.state) {
     case 'idle':

@@ -66,3 +66,24 @@ export const CAMERA = {
 // spriteOffsetY: the distance from Sonic's position (his centre) to the ground sensors, standing and
 // curled up. The surface starts on the row below, and the camera eases toward spriteOffsetY - 4.
 export const SPRITE_OFFSET_Y = 14, BALL_SPRITE_OFFSET_Y = 9;
+
+// Sonic Rush's boost, an optional extra (off unless chosen): Rush keeps speeds in the same 8.8 pixels a
+// frame at 60 frames a second, so its numbers carry over as they are. Read from Sonic Rush (USA): Sonic's
+// physics table and the boost's start, end, movement and camera code in the stage overlay, and checked in
+// an emulator. Speeds and accelerations in 1/256 px.
+export const RUSH_BOOST = {
+  acceleration: 0x30, deceleration: 0x50, topSpeed: 0xC00,   // while boosting, in place of Rush's 0x18, 0x40, 0x900
+  jogSpeed: 691,               // the acceleration tapers off above 30% of the normal top speed
+  slopeTop: 0x200,             // the top speed rises by up to 2.0 on slopes (by the angle's sine, when positive)
+  startSpeed: 0xC00,           // a press sets the ground speed to at least 12.0 the way Sonic faces
+  minSpeed: 0x600,             // moving less than 6 px a frame on the ground for more than 8 frames ends it
+  slowFrames: 8,
+  cooldown: 8,                 // frames before the next boost can start
+  box: [-32, -32, 32, 32],     // the attack box around his centre while boosting
+  // the camera: Sonic is shown off centre by a lead that eases toward a target. For 8 frames after the start
+  // the target grows with his movement, so the view falls behind, eased by 1/4; then it is 16 times the
+  // distance he moved ahead of him (8 times vertically), eased by 1/16, within these limits (8.8 px)
+  scrollDelay: 8, leadX: 0x5800, leadUp: -0x4800, leadDown: 0x1600, leadMinX: 0x1000, leadMinY: 0x2800,
+  // the screen shake at the start and on each hit: 8 frames of offsets, starting over on each
+  shake: [[-2, 2], [2, -4], [2, -4], [-4, 4], [4, -2], [4, -2], [-2, 0], [4, 2]],
+};

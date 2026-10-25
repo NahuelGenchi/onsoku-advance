@@ -3,9 +3,10 @@
 // the objects make fall in where the original's do. Each step also lists the sprites it shows, in the order
 // the original puts them in OAM, for the renderer.
 
-import { TICK_MS, CAMERA, PHYSICS, SCREEN_W, SCREEN_H } from './constants.js';
+import { TICK_MS, CAMERA, PHYSICS, SCREEN_W, SCREEN_H, RUSH_BOOST } from './constants.js';
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { createPlayer, stepPlayer, animatePlayer, hurt } from './player.js';
+import { createRushFx, startRushFx, stepRushFx } from './rushfx.js';
 import { createCamera, updateCamera, viewOf } from './camera.js';
 import { createRenderer } from './renderer.js';
 import { createTerrain } from './terrain.js';
@@ -19,6 +20,7 @@ import { createPaletteAnimation } from './palettes.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { SONG } from '../sound/songs.js';
+import { RUSH_BOOST_SE } from '../rom/rush.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
@@ -28,9 +30,9 @@ const RANDOM_RING_PRIZES = [1, 5, 10, 20, 30, 40];   // ItemBox_RingAmountTable
 const SPEED_UP_TEMPO = 0x200, NORMAL_TEMPO = 0x100;
 const MAX_COURSE_TIME = 10 * 3600;
 // what Sonic reads while the title card holds him: the jump and attack buttons InitializePlayer leaves held, never pressed
-const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, jumpPressed: false, attackPressed: false };
+const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
 // and while an object holds his controls (the forced slide): nothing, as it clears his input
-const NO_INPUT = { left: false, right: false, up: false, down: false, jump: false, attack: false, jumpPressed: false, attackPressed: false };
+const NO_INPUT = { left: false, right: false, up: false, down: false, jump: false, attack: false, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
 
 const SILENT = {
   play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
@@ -55,6 +57,10 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
     card: null,           // the title card (titlecard.js) while it holds Sonic and the clock
     view: null,           // what the screen shows around the camera (camera.js viewOf); only drawing reads it
+    rush: false,          // the Sonic Rush boost's setting (off unless chosen)
+    rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
+    rushFx: createRushFx(), // its trail, burst and aura (rushfx.js)
+    shake: -1,            // the frame of the boost's screen shake showing, or -1; only drawing reads it
   };
   let viewW = SCREEN_W, viewH = SCREEN_H;   // the original screen, or the widescreen view's size
   state.view = viewOf(state.cam, viewW, viewH);
@@ -134,6 +140,16 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     fadeOut: (player, speed) => sound.fadeOut(player, speed),
     playSoundPitched: (song, pitch) => sound.playPitched(song, pitch),
     freezeCamera() { state.cam.freeze = CAMERA.spinDashFreeze; },
+    // the Rush boost: whether it is on, its start (its effects, Sonic Rush's sound effect, a screen shake, and the
+    // camera's delay), and a hit's shake
+    get rush() { return state.rush; },
+    boosted() {
+      startRushFx(state.rushFx, player);
+      sound.playRush(RUSH_BOOST_SE);
+      state.shake = 0;
+      state.cam.scroll = RUSH_BOOST.scrollDelay;
+    },
+    shake() { state.shake = 0; },
     // brake dust stays where it appeared, flipped by the game's random numbers
     spawnBrakeDust() {
       if (state.effects.filter(e => e.kind === 'brake').length >= MAX_BRAKE_DUST) return;
@@ -222,13 +238,19 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // size) and follow the slope, mirrored with a negative scale when he faces right, which also moves him 1px
   // left; facing left, the original shifts the other frames 1px right. Dying or grinding puts him in front of
   // the front layer.
+  // the Rush boost's sprite effects go just in front of him and its trail just behind (renderer.js)
   function drawSonic() {
-    if (player.hidden) return;
-    const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio: player.death || player.front ? 1 : 2 };
-    if (player.state === 'walk' || player.state === 'bounce') {
-      const right = player.facing > 0;
-      draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.rotation << 2, scaleX: right ? -256 : 256, scaleY: 256, double: false });
-    } else draw(s, player.x + (player.facing < 0 ? 1 : 0), player.y);
+    const prio = player.death || player.front ? 1 : 2, fx = state.rushFx.list.length > 0 ? { rush: 'obj', order: 16, prio, sonic: null } : null;
+    if (fx) state.sprites.push(fx);
+    if (!player.hidden) {
+      const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio };
+      if (player.state === 'walk' || player.state === 'bounce') {
+        const right = player.facing > 0;
+        draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.rotation << 2, scaleX: right ? -256 : 256, scaleY: 256, double: false });
+      } else draw(s, player.x + (player.facing < 0 ? 1 : 0), player.y);
+      if (fx && s.frame >= 0) fx.sonic = state.sprites[state.sprites.length - 1];
+    }
+    if (fx) state.sprites.push({ rush: 'trail', order: 16, prio });
   }
 
   // the title card (sub_80550F8) plays from the act's first frame and after each restart, holding Sonic and
@@ -251,7 +273,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear();
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
-    state.ringCount = 0; state.effects = []; state.sprites = []; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
+    state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
     startCard();
     sound.playStageMusic(SONG.NEO_GREEN_HILL_1);
     loading = true; starMusic = false;
@@ -265,6 +287,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // the camera follows where Sonic was at the end of the last frame, and this frame is drawn with it; the
     // grind rails' ends (0x900) run before it and see the last frame's
     [0x0F00, () => {
+      if (state.shake >= 0 && ++state.shake >= RUSH_BOOST.shake.length) state.shake = -1;
       updateCamera(state.cam, player);
       ctx.cam = { x: Math.floor(state.cam.x), y: Math.floor(state.cam.y) };
       ctx.view = state.view = viewOf(state.cam, viewW, viewH);
@@ -286,7 +309,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       const pad = ['left', 'right', 'up', 'down'].filter(k => input[k]);
       const pressed = input.jumpPressed || input.attackPressed || pad.some(k => !cardPad.includes(k));
       cardPad = pad;
-      input.jumpPressed = false; input.attackPressed = false;
+      input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
       if (runTitleCard(state.card, pressed)) return;
       state.card = null; state.clockStopped = false;
       state.hud = createHud();
@@ -296,6 +319,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? NO_INPUT : input;
       stepPlayer(player, held, world);
       animatePlayer(player, held, anims, world);
+      // the boost's effects run after him, as Rush's objects run after its player
+      if (state.rushArt && (state.rush || state.rushFx.list.length > 0)) stepRushFx(state.rushFx, player, state.rushArt, player.boost);
       drawSonic();
       state.effects = state.effects.filter(updateEffect);
       for (const e of state.effects) draw({ frame: frameOf(e.anim, anims), flipX: e.flipX, flipY: e.flipY, order: 8, prio: 2 }, e.x, e.y);
@@ -339,6 +364,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       ctx.view = state.view = viewOf(state.cam, w, h);
       render.resize(w, h);
     },
+    /** Turns the Sonic Rush boost on (with `art`, what rush.js read from the Sonic Rush ROM) or off. */
+    setRushBoost(on, art = state.rushArt) { state.rushArt = art; state.rush = on && !!art; input.setRush?.(state.rush); },
     // the act's music starts with the act, as the stage's init does (StageInit_Zone1Act1)
     start() {
       input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);

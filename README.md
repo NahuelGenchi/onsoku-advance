@@ -99,8 +99,8 @@ flowchart LR
 
 1. **Extract.** You pick your ROM. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory. It is designed to run entirely in the browser: the ROM is read locally and nothing is uploaded.
 2. **Simulate.** The engine steps 60 times per second with the original game's rules: acceleration, braking, gravity, jump height, roll friction, spin dash speeds and the camera's dead zones.
-3. **Draw.** Sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view, off by default, draws up to 368 × 208 around the same screen and fills the window at the same whole-step scale; the game runs exactly as it does at 240 × 160.
-4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)).
+3. **Draw.** Sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view, off by default, draws up to 368 × 208 around the same screen and fills the window at the same whole-step scale; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds a trail and an aura around Sonic while it runs.
+4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The optional Sonic Rush boost's sound effect plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, added to the same output.
 
 ## Getting started
 
@@ -133,7 +133,8 @@ To see everything the extractor decodes, open <http://localhost:8000/viewer.html
 | Jump (A) | <kbd>Z</kbd> or <kbd>Space</kbd> | <kbd>A</kbd> |
 | Insta-shield | <kbd>Z</kbd> again in a jump, once the rise slows | <kbd>A</kbd> again |
 | Mid-air dash | Tap <kbd>←</kbd> <kbd>←</kbd> or <kbd>→</kbd> <kbd>→</kbd> in a jump | Tap left twice or right twice |
-| Attack (B): spin, then kick, then slide or backflip | <kbd>X</kbd>, <kbd>X</kbd>, then <kbd>X</kbd> or <kbd>Z</kbd> | <kbd>B</kbd> or <kbd>X</kbd>, again, then again or <kbd>A</kbd> |
+| Attack (B): spin, then kick, then slide or backflip | <kbd>X</kbd>, <kbd>X</kbd>, then <kbd>X</kbd> or <kbd>Z</kbd> | <kbd>B</kbd> or <kbd>X</kbd> (only <kbd>B</kbd> with the Rush boost on), again, then again or <kbd>A</kbd> |
+| Boost, with the [Rush boost](#sonic-rush-boost) on | <kbd>L</kbd> or <kbd>Shift</kbd> | <kbd>X</kbd> |
 | Crouch, or roll while moving | <kbd>↓</kbd> | Down |
 | Spin dash | <kbd>↓</kbd> + <kbd>Z</kbd> | Down + <kbd>A</kbd> |
 | Look up | <kbd>↑</kbd> | Up |
@@ -141,10 +142,46 @@ To see everything the extractor decodes, open <http://localhost:8000/viewer.html
 | Show or hide the collision | <kbd>C</kbd> | |
 | Sound on or off | <kbd>M</kbd> | |
 | Widescreen view on or off | <kbd>V</kbd> | |
+| Rush boost on or off | <kbd>R</kbd> | |
 
 The controller column follows the standard layout of an Xbox controller; other controllers the browser maps to that layout work the same way. Press a button once after the page loads so the browser lists the controller. On touch screens, on-screen buttons appear instead.
 
 </details>
+
+### Sonic Rush boost
+
+An optional extra on top of the original game: Sonic Rush's boost, its rules read from Sonic Rush (USA) for the
+Nintendo DS and checked in an emulator. It is off by default; <kbd>R</kbd> or the *Rush boost* button in the help
+panel turns it on, and the choice is remembered on the device. With it off, the game runs and draws exactly as
+without it. For now it has no limit: Sonic Rush's tension gauge, which the boost uses up, is not built.
+
+Its look and sound are Sonic Rush's own, so it needs your Sonic Rush ROM (`.nds`) as well: it is asked for the first
+time the boost is turned on, read in the browser like the Sonic Advance ROM and, like it, kept on this device only.
+Nothing from Sonic Rush is in this repository.
+
+- **Start.** Press the boost button while standing or running on the ground (not curled up, attacking or on a
+  grind rail). Sonic turns to the direction held and runs at least 12 px a frame that way at once, with Sonic
+  Rush's boost sound and a short screen shake.
+- **While held.** Rush's own movement rules replace Sonic Advance's: on the ground the top speed is 12, a little
+  more on slopes, with an acceleration of 48/256 that fades out as he nears it; holding the other way brakes by
+  80/256, and holding nothing slows him by 80/256 on floors. He keeps boosting through jumps, where holding a
+  direction keeps his speed with no air drag and holding nothing slows him down. A box 64 px square around him
+  destroys enemies and breaks boulders and item boxes, without bouncing him, and shakes the screen each time;
+  nothing can hurt him.
+- **End.** Letting go of the button ends it, and so does moving less than 6 px a frame on the ground for more
+  than 8 frames in a row (running into a wall, say). The next boost can start 8 frames later. Afterwards the
+  original rules take over, so he keeps the speed he has until he slows down.
+- **Camera.** As in Sonic Rush, the view falls behind him for the first 8 frames, then moves ahead of him by up
+  to 88 px in the direction he runs, and eases back once the boost is over.
+- **Look.** The burst at the start, the aura around Sonic and the blue trail behind him are Sonic Rush's, from
+  its sprites and its trail effect, placed, rotated, layered and blended the way the DS draws them: the sprites
+  through its rotation hardware and half transparent, the trail as translucent 3D polygons under them.
+- **Sound.** The boost's sound effect is played from Sonic Rush's sound archive by a port of the DS sound engine
+  (the sequencer, its channels and the sound hardware), which matches Sonic Rush in an emulator frame by frame.
+  It plays on top of the original game's sound at the same full volume, the two consoles' outputs matched.
+
+Where the port differs from the DS: the trail's polygons are not clipped at the screen's edges before they are
+drawn, and Sonic Advance's own sprites behind Sonic count as background when the boost's sprites blend over them.
 
 ## Roadmap
 

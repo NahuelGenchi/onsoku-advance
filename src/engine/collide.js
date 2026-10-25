@@ -119,11 +119,13 @@ export function platformTop(o, x, y, hb, p) {
 /**
  * Whether Sonic breaks a breakable object (sub_800C394): curled up and moving down with his side probe (a
  * pixel taller at each end) touching it, or his attack box on it while he isn't curled. A falling Sonic
- * bounces back up at the same speed. Rolling into it on level ground doesn't break it.
+ * bounces back up at the same speed. Rolling into it on level ground doesn't break it. The optional Rush
+ * boost's box breaks it too, without a bounce.
  */
 export function breaks(o, hb, p) {
   if (!hb || p.dead) return false;
   const [px, py] = at(p), probe = [-(SOX + 5), -(p.offsetY + 1), SOX + 5, p.offsetY + 1];
+  if (p.boostBox && overlap(o.x, o.y, hb, px, py, p.boostBox)) return true;
   if ((p.curled && p.ysp > 0 && overlap(o.x, o.y, hb, px, py, probe))
     || (p.boxes[1] && overlap(o.x, o.y, hb, px, py, p.boxes[1]) && !p.curled)) {
     if (p.ysp > 0) p.ysp = -p.ysp;

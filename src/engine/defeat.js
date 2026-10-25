@@ -19,12 +19,18 @@ const at = p => [Math.floor(p.x), Math.floor(p.y)];
 /**
  * Coll_Player_Enemy_Attack: Sonic's attack box on the enemy's box defeats it, bouncing him back up if he was
  * falling; otherwise his body on it hurts him, or defeats it while he is invincible, without the bounce.
- * Returns true when the enemy is defeated.
+ * The optional Rush boost's box around him defeats it first. Returns true when the enemy is defeated.
  */
 export function attackTest(s, x, y, ctx) {
   const p = ctx.player, hb = s.boxes[0];
   if (!hb || p.dead) return false;
   const [px, py] = at(p);
+  // the Rush boost's box destroys it without a bounce, and shakes the screen
+  if (p.boostBox && overlap(x, y, hb, px, py, p.boostBox)) {
+    ctx.world.defeat(x, y);
+    ctx.world.shake();
+    return true;
+  }
   if (p.boxes[1] && overlap(x, y, hb, px, py, p.boxes[1])) {
     if (p.ysp > 0) p.ysp = -p.ysp;
     ctx.world.defeat(x, y);

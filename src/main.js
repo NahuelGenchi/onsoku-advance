@@ -1,7 +1,9 @@
 // Game page: choose a ROM, extract its assets in the browser, then play.
 
 import { createRomPicker } from './ui/rom-picker.js';
+import { loadRememberedRom, rememberRom, RUSH_ROM } from './ui/rom-store.js';
 import { extractAssets } from './rom/extract.js';
+import { extractRush } from './rom/rush.js';
 import { createInput } from './engine/input.js';
 import { createGame } from './engine/game.js';
 import { createSound } from './sound/audio.js';
@@ -13,6 +15,9 @@ const screen = document.getElementById('screen');
 const help = document.getElementById('help');
 const stats = document.getElementById('stats');
 const wideButton = document.getElementById('wide');
+const rushButton = document.getElementById('rush');
+const rushStatus = document.getElementById('rush-status');
+const rushFile = document.getElementById('rush-file');
 const debug = new URLSearchParams(location.search).has('debug');
 
 const input = createInput();
@@ -31,6 +36,52 @@ function setWide(on) {
 }
 wideButton.addEventListener('click', () => { setWide(!wide); screen.focus(); });
 
+// Sonic Rush's boost, an extra on top of the original game: off unless chosen, like the widescreen view. Its
+// effects and sound come from the player's own Sonic Rush ROM, asked for the first time it is turned on and
+// then kept in this browser like the Sonic Advance ROM.
+const RUSH_KEY = 'onsoku.rushBoost';
+let rush = false, rushArt = null;
+try { rush = localStorage.getItem(RUSH_KEY) === '1'; } catch { /* storage blocked: the default stands */ }
+function setRush(on) {
+  if (on && !rushArt) { rushFile.click(); return; }   // turned on once the ROM is read
+  rush = on;
+  try { localStorage.setItem(RUSH_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
+  showRush();
+}
+function showRush() {
+  game?.setRushBoost(rush, rushArt);
+  rushButton.textContent = `Rush boost: ${rush ? 'on' : 'off'}`;
+  rushButton.setAttribute('aria-pressed', String(rush));
+}
+function useRush(buffer) {
+  rushArt = extractRush(buffer);
+  sound.loadRush(rushArt.sound);
+}
+rushButton.addEventListener('click', () => { setRush(!rush); screen.focus(); });
+rushFile.addEventListener('change', async () => {
+  const file = rushFile.files[0];
+  rushFile.value = '';
+  if (!file) return;
+  try {
+    const buffer = await file.arrayBuffer();
+    useRush(buffer);
+    rushStatus.textContent = '';
+    await rememberRom(file.name, buffer, RUSH_ROM);
+    setRush(true);
+  } catch (error) {
+    rushStatus.textContent = error.message || String(error);
+  }
+  screen.focus();
+});
+// with the setting on from an earlier visit, the remembered Sonic Rush ROM; without it the setting goes off
+(async () => {
+  const saved = await loadRememberedRom(RUSH_ROM);
+  try { if (saved) useRush(saved.buffer); } catch { /* not usable any more: asked for again */ }
+  if (rush && !rushArt) setRush(false);
+  showRush();
+})();
+showRush();
+
 createRomPicker(picker, {
   heading: 'Play in your browser',
   intro: 'Choose your Sonic Advance ROM. Its graphics are decoded on this device and the game starts right away.',
@@ -48,6 +99,7 @@ function start(assets) {
   picker.hidden = true;
   stage.hidden = false;
   fitScreen();
+  showRush();
   game.start();
   screen.focus();
   clearInterval(statsTimer);
@@ -68,6 +120,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyC' && game && !stage.hidden && !e.repeat) game.state.showCollision = !game.state.showCollision;
   if (e.code === 'KeyM' && !stage.hidden && !e.repeat) sound.muted = !sound.muted;
   if (e.code === 'KeyV' && !stage.hidden && !e.repeat) setWide(!wide);
+  if (e.code === 'KeyR' && !stage.hidden && !e.repeat) setRush(!rush);
 });
 
 function showStats() {

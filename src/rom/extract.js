@@ -51,9 +51,12 @@ export const OBJECT_ANIMATIONS = {
   springUp: [SPRING_ANIM, 0], springUpLaunch: [SPRING_ANIM, 1], springSide: [SPRING_ANIM, 2], springSideLaunch: [SPRING_ANIM, 3],
   springBig: [SPRING_ANIM, 4], springBigLaunch: [SPRING_ANIM, 5], springSmall: [SPRING_ANIM, 6], springSmallLaunch: [SPRING_ANIM, 7],
 };
-// the spikes (animation 454, palette 35): pointing up, and sideways (flipped to point left)
+// the spikes (animation 454, palette 35): pointing up, and sideways (flipped to point left); the hiding ones
+// hidden and half out
 export const SPIKES_ANIM = 454;
-export const SPIKE_ANIMATIONS = { spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3] };
+export const SPIKE_ANIMATIONS = {
+  spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3], spikesHiding: [SPIKES_ANIM, 0], spikesHalf: [SPIKES_ANIM, 1],
+};
 // act 1's enemies and their shots, the dust and points a defeat leaves and every zone's freed animals, by
 // animation; each loads its own palette
 export const ENEMY_ANIMATIONS = {

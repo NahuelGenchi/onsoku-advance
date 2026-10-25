@@ -10,7 +10,7 @@ import { createRushFx, startRushFx, stepRushFx } from './rushfx.js';
 import { createCamera, updateCamera, viewOf } from './camera.js';
 import { createRenderer } from './renderer.js';
 import { createTerrain } from './terrain.js';
-import { createTasks, createEntities } from './objects.js';
+import { createTasks, createEntities, PALETTE_SLOTS } from './objects.js';
 import { attackTest, projectileTest, defeatEffects } from './defeat.js';
 import { createRings } from './rings.js';
 import { createScatter } from './scatter.js';
@@ -41,7 +41,9 @@ const SILENT = {
 };
 
 export function createGame(canvas, assets, input, sound = SILENT) {
-  const { anims } = assets.sprites;
+  // the game's own view of the animations, with what its sprite palette slots hold (objects.js)
+  const anims = Object.create(assets.sprites.anims);
+  anims[PALETTE_SLOTS] = new Map();
   const terrain = createTerrain(assets.stage.collision);
   const player = createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds });
   const tasks = createTasks(), entities = createEntities(assets.stage, anims, tasks);
@@ -187,7 +189,15 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio });
+    state.sprites.push({ frame: s.frame, anim: s.anim?.name, i: s.anim?.i, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio });
+  }
+  // the end of the frame: each sprite of a slot that holds another animation's colours is drawn in them
+  function slotColors() {
+    const slots = anims[PALETTE_SLOTS];
+    for (const s of state.sprites) {
+      const def = s.anim && anims[s.anim], frames = def?.in?.[slots.get(def.load.slot)];
+      if (frames) s.frame = frames[s.i];
+    }
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
@@ -290,7 +300,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     if (state.courseTime >= MAX_COURSE_TIME && state.checkpoint) state.checkpoint.time = 0;
     state.cam = createCamera(player, terrain);
     state.view = viewOf(state.cam, viewW, viewH);
-    tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear();
+    tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear(); anims[PALETTE_SLOTS].clear();
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
     state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
@@ -369,6 +379,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     if (loading) { loading = false; return; }
     state.sprites = [];
     tasks.run(ctx);
+    slotColors();
     if (state.water) endFrame(state.water);
     if (restart) { restart = false; restartAct(); }
   }

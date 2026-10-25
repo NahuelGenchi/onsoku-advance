@@ -5,7 +5,7 @@
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
-import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation } from './sprites.js';
+import { spriteTables, parseScript, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation } from './sprites.js';
 import { tilemapHeader, renderMetatileAtlas, metatileIndices, renderPlainMap, plainMapIndices, mapBanks } from './tilemaps.js';
 import { readCollision, readSpawn } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
@@ -222,26 +222,50 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
   }
 
   // each image keeps how it was drawn, `src`, to be drawn again in the colours under water
-  const images = [], byKey = new Map(), anims = {};
+  const images = [], byKey = new Map(), anims = {}, made = {};
+  const atlasFrames = (name, anim, script, groupUnder, recolor = p => p) => script.frames.map(f => {
+    if (f.frame < 0) return [-1, f.delay];
+    // identical frames (same layout, tiles and palette) share one atlas entry
+    const palette = recolor(f.palette), key = `${anim}:${f.frame}:${f.tilesAt}:${palette.join()}`;
+    const src = [rom, tables, anim, f.frame, f.tilesAt, palette, f.eightBpp];
+    if (!byKey.has(key)) {
+      const { img, layout } = renderFrame(...src);
+      byKey.set(key, images.length);
+      images.push({ img, anchorX: layout.anchorX, anchorY: layout.anchorY, src, under: groupUnder });
+    }
+    const image = images[byKey.get(key)];
+    if (ROTATED.has(name) && !image.pieces) image.pieces = framePieces(...src);
+    // the hitboxes set just before a frame come with it
+    return f.boxes ? [byKey.get(key), f.delay, f.boxes] : [byKey.get(key), f.delay];
+  });
   for (const { list, palette, skipPalette, under: groupUnder = under } of groups) {
     for (const [name, [anim, variant]] of Object.entries(list)) {
       const script = animationFrames(rom, tables, anim, variant, palette, { skipPalette });
-      const frames = script.frames.map(f => {
-        if (f.frame < 0) return [-1, f.delay];
-        // identical frames (same layout, tiles and palette) share one atlas entry
-        const key = `${anim}:${f.frame}:${f.tilesAt}:${f.palette.join()}`;
-        const src = [rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp];
-        if (!byKey.has(key)) {
-          const { img, layout } = renderFrame(...src);
-          byKey.set(key, images.length);
-          images.push({ img, anchorX: layout.anchorX, anchorY: layout.anchorY, src, under: groupUnder });
-        }
-        const image = images[byKey.get(key)];
-        if (ROTATED.has(name) && !image.pieces) image.pieces = framePieces(...src);
-        // the hitboxes set just before a frame come with it
-        return f.boxes ? [byKey.get(key), f.delay, f.boxes] : [byKey.get(key), f.delay];
-      });
-      anims[name] = { frames, loop: script.loop };
+      anims[name] = { frames: atlasFrames(name, anim, script, groupUnder), loop: script.loop };
+      if (!skipPalette) made[name] = { anim, variant, script, groupUnder };
+    }
+  }
+  // A sprite palette slot shows the colours the animation that loaded it last left there, on every sprite drawn
+  // from it (animCmd_GetPalette). Each animation keeps its load (`load`: the slot, the palette and the frame
+  // shown after it, which the load comes with every time it shows), and where palettes whose colours differ
+  // share a slot, its frames in each of the others (`in`), for the engine to pick by what the slot holds.
+  const colorsOf = id => readColors(rom, tables.palettes + id * 32, 16);
+  const bySlot = new Map();
+  for (const [name, { anim, variant, script }] of Object.entries(made)) {
+    const steps = parseScript(rom, tables, anim, variant), load = steps.find(s => s.op === 'palette');
+    if (!load || load.count !== 16 || load.insert & 15) continue;
+    anims[name].load = { slot: load.insert >> 4, palette: load.palId, frame: script.frames.findIndex(f => f.at > load.at) };
+    if (!bySlot.has(load.insert >> 4)) bySlot.set(load.insert >> 4, new Map());
+    bySlot.get(load.insert >> 4).set(load.palId, colorsOf(load.palId).slice(1).join());
+  }
+  for (const [name, { anim, script, groupUnder }] of Object.entries(made)) {
+    const own = anims[name].load;
+    if (!own) continue;
+    const pals = bySlot.get(own.slot), mine = pals.get(own.palette), at = own.slot << 4;
+    for (const [id, colors] of pals) {
+      if (colors === mine) continue;
+      const swap = colorsOf(id), recolor = p => p.map((c, i) => (i > at && i < at + 16 ? swap[i - at] : c));
+      (anims[name].in ??= {})[id] = atlasFrames(name, anim, script, groupUnder, recolor).map(([i]) => i);
     }
   }
   const redrawn = new Map(), redraw = i => {

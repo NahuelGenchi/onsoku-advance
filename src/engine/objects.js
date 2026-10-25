@@ -91,12 +91,20 @@ export function startAnim(s, name, restart = false) {
 }
 
 /**
+ * The sprite palette slots of a game's animations (slot → palette): what each slot holds, as the animations
+ * that load it last left it. `anims[PALETTE_SLOTS]` is a Map; the game draws every sprite of a slot in it.
+ */
+export const PALETTE_SLOTS = Symbol('palette slots');
+
+/**
  * Steps the sprite's animation (UpdateSpriteAnimation). The hitboxes set before a frame take effect when it
- * appears, and the sprite keeps its last frame until the next animation shows its first. Returns true on
- * the tick a one-shot animation ends.
+ * appears, and the sprite keeps its last frame until the next animation shows its first. A palette its script
+ * loads before a frame goes into its slot when that frame comes. Returns true on the tick a one-shot animation
+ * ends.
  */
 export function animate(s, anims) {
-  const ended = tickAnim(s.anim, anims);
+  const ended = tickAnim(s.anim, anims), load = anims[s.anim.name].load;
+  if (load && s.anim.stepped && s.anim.i === load.frame) anims[PALETTE_SLOTS]?.set(load.slot, load.palette);
   if (s.anim.i !== s.shown) {
     s.shown = s.anim.i;
     const boxes = anims[s.anim.name].frames[s.anim.i][2];

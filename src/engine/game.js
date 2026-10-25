@@ -80,6 +80,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   const centreY = () => player.y;
 
   const world = {
+    level: assets.stage.level,
     get tick() { return state.tick; },
     get cameraY() { return Math.floor(state.cam.y); },
     terrain,

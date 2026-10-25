@@ -1,9 +1,9 @@
-// Neo Green Hill's platforms (SAT-R decompilation, src/game/sa1/stage/interactables/platform_thin.c,
-// platform_crumbling.c, trampoline.c and bounce_block.c). Sonic lands on the thin, falling and crumbling
-// platforms from above and passes through them from below. A thin platform swings to and fro with the stage
-// clock and carries him; a falling one drops half a second after he lands on it; a crumbling one falls apart
-// tile by tile. The thin and falling ones sag under him by up to 4 px. The trampoline and the bounce block
-// are solid and throw him up when he lands on them.
+// The platforms (SAT-R decompilation, src/game/sa1/stage/interactables/platform_thin.c, platform_crumbling.c,
+// trampoline.c, bounce_block.c and small_fall_block.c). Sonic lands on the thin, falling and crumbling
+// platforms and X Zone's falling bricks from above and passes through them from below. A thin platform swings
+// to and fro with the stage clock and carries him; a falling one or a brick drops half a second after he lands
+// on it; a crumbling one falls apart tile by tile. The thin and falling ones and the bricks sag under him by
+// up to 4 px. The trampoline and the bounce block are solid and throw him up when he lands on them.
 
 import { makeSprite, startAnim, animate, offCam, offDisplay } from './objects.js';
 import { platform, platformTop, LANDED } from './collide.js';
@@ -11,7 +11,11 @@ import { endAttack, standUp } from './player.js';
 import { SINE } from './trig.js';
 import { SONG } from '../sound/songs.js';
 
-export const THIN = 21, FALLING = 22, TRAMPOLINE = 23, CRUMBLING = 24, BOUNCE_BLOCK = 25;
+export const THIN = 21, FALLING = 22, TRAMPOLINE = 23, CRUMBLING = 24, BOUNCE_BLOCK = 25, FALLING_BRICK = 104;
+
+// the thin and falling platforms' art by level (sPlatformThinAnims): Neo Green Hill's, or X Zone's
+const THIN_ART = { 12: 'thinPlatformX' };
+const thinArt = ctx => THIN_ART[ctx.world.level] ?? 'thinPlatform';
 
 const s8 = v => (v << 24) >> 24, s16 = v => (v << 16) >> 16;
 const LEFT = 1, RIGHT = 2;   // Sonic's held d-pad bits (player.js)
@@ -29,8 +33,8 @@ function sagging(o, p) {
  * starts it half a swing on. It carries Sonic by what it moved this frame, plus 1 px down, which its top then
  * puts him back from.
  */
-function thin(e, slot, anims) {
-  const o = { ...makeSprite('thinPlatform'), sag: 0 };
+function thin(e, slot, anims, ctx) {
+  const o = { ...makeSprite(thinArt(ctx)), sag: 0 };
   animate(o, anims);
   const across = e.d[2] > e.d[3];
   const phase = s8(across ? e.d[0] : e.d[1]) < 0 ? 0x80 : 0, reach = (across ? e.d[2] : e.d[3]) << 11;
@@ -56,12 +60,13 @@ function thin(e, slot, anims) {
 }
 
 /**
- * A falling platform (Task_PlatformThin_Falling): 30 frames after Sonic lands on it, it falls, 42/256 px a
- * frame faster every frame, and takes him down with it for 32 frames; then it drops him, falling as fast as
- * it does, and falls through him. It comes back when its spawn point is uncovered again.
+ * A falling platform (Task_PlatformThin_Falling), or X Zone's falling brick (Task_SmallFallBlockMain), which
+ * does the same with its own sprite: 30 frames after Sonic lands on it, it falls, 42/256 px a frame faster
+ * every frame, and takes him down with it for 32 frames; then it drops him, falling as fast as it does, and
+ * falls through him. It comes back when its spawn point is uncovered again.
  */
-function falling(e, slot, anims) {
-  const o = { ...makeSprite('thinPlatform'), sag: 0, x: e.x };
+function falling(e, slot, anims, ctx, art = thinArt(ctx)) {
+  const o = { ...makeSprite(art), sag: 0, x: e.x };
   animate(o, anims);
   let phase = 'still', n = 0, vy = 0, q = 0;
   return {
@@ -220,9 +225,12 @@ function bounceBlock(e, slot, anims) {
   };
 }
 
-const KINDS = { [THIN]: thin, [FALLING]: falling, [TRAMPOLINE]: trampoline, [CRUMBLING]: crumbling, [BOUNCE_BLOCK]: bounceBlock };
+const KINDS = {
+  [THIN]: thin, [FALLING]: falling, [TRAMPOLINE]: trampoline, [CRUMBLING]: crumbling, [BOUNCE_BLOCK]: bounceBlock,
+  [FALLING_BRICK]: (e, slot, anims, ctx) => falling(e, slot, anims, ctx, 'fallingBrick'),
+};
 
 /** The task for a platform entity, or null when `e` is not one. */
-export function createPlatform(e, slot, anims) {
-  return KINDS[e.kind]?.(e, slot, anims) ?? null;
+export function createPlatform(e, slot, anims, ctx) {
+  return KINDS[e.kind]?.(e, slot, anims, ctx) ?? null;
 }

@@ -52,6 +52,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     carried: false,    // MOVESTATE_IA_OVERRIDE: an object moves him, and his own movement doesn't run
     grinding: false,   // MOVESTATE_1000000: on a grind rail, on the layer it put him on
     front: false,      // drawn in front of the front layer (his sprite's priority 1), as on a grind rail
+    prio: 2,           // his sprite's priority otherwise, as his animation's SetSpritePriority commands leave it
     halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js)
     ignoreInput: false, // MOVESTATE_IGNORE_INPUT: an object holds his controls, as the forced slide does
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next

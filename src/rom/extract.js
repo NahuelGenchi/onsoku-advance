@@ -191,26 +191,63 @@ function extractSprites(rom, tables, levelSprites = {}) {
     groups.push({ list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, anim) });
   }
 
-  const images = [], byKey = new Map(), anims = {};
+  // `made[i]` is how atlas entry i was drawn, and `rows` the sprite palette rows its animation loads
+  const images = [], byKey = new Map(), anims = {}, made = [], rowKeys = new Map();
+  const frameImage = (name, anim, f, palette, rows) => {
+    // identical frames (same layout, tiles and palette) share one atlas entry
+    const key = `${anim}:${f.frame}:${f.tilesAt}:${palette.join()}`;
+    if (!byKey.has(key)) {
+      const { img, layout } = renderFrame(rom, tables, anim, f.frame, f.tilesAt, palette, f.eightBpp);
+      byKey.set(key, images.length);
+      images.push({ img, anchorX: layout.anchorX, anchorY: layout.anchorY });
+      made.push({ name, anim, f, palette, rows });
+    }
+    const image = images[byKey.get(key)];
+    if (ROTATED.has(name) && !image.pieces) image.pieces = framePieces(rom, tables, anim, f.frame, f.tilesAt, palette, f.eightBpp);
+    return byKey.get(key);
+  };
   for (const { list, palette, skipPalette } of groups) {
     for (const [name, [anim, variant]] of Object.entries(list)) {
       const script = animationFrames(rom, tables, anim, variant, palette, { skipPalette });
+      const rows = new Set(script.frames.flatMap(f => f.loads.flatMap(paletteRows)).map(([row, key]) => {
+        if (!rowKeys.has(row)) rowKeys.set(row, new Set());
+        rowKeys.get(row).add(key);
+        return row;
+      }));
       const frames = script.frames.map(f => {
         if (f.frame < 0) return [-1, f.delay];
-        // identical frames (same layout, tiles and palette) share one atlas entry
-        const key = `${anim}:${f.frame}:${f.tilesAt}:${f.palette.join()}`;
-        if (!byKey.has(key)) {
-          const { img, layout } = renderFrame(rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp);
-          byKey.set(key, images.length);
-          images.push({ img, anchorX: layout.anchorX, anchorY: layout.anchorY });
-        }
-        const image = images[byKey.get(key)];
-        if (ROTATED.has(name) && !image.pieces) image.pieces = framePieces(rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp);
+        const i = frameImage(name, anim, f, f.palette, rows);
         // the hitboxes set just before a frame come with it
-        return f.boxes ? [byKey.get(key), f.delay, f.boxes] : [byKey.get(key), f.delay];
+        return f.boxes ? [i, f.delay, f.boxes] : [i, f.delay];
       });
       // the frames whose commands load colours, and whether going round does (animator.js)
-      anims[name] = { frames, loop: script.loop, loads: script.frames.map(f => f.loadAt >= 0), loopLoads: script.loopLoads };
+      anims[name] = { frames, loop: script.loop, loads: script.frames.map(f => f.loads.length > 0), loopLoads: script.loopLoads.length > 0 };
+      // the sprite palette rows each frame's loads set, and those going round sets again ([row, key])
+      const rowLoads = Object.fromEntries(script.frames.map((f, i) => [i, f.loads.flatMap(paletteRows)]).filter(([, l]) => l.length));
+      if (Object.keys(rowLoads).length) anims[name].rows = rowLoads;
+      if (script.loopLoads.length) anims[name].loopRows = script.loopLoads.flatMap(paletteRows);
+      // the sprite priority each frame's script has set (only Sonic's swing round a rope sets one)
+      if (script.frames.some(f => f.priority !== null)) anims[name].prio = script.frames.map(f => f.priority);
+    }
+  }
+  // Where animations load different colours into the same row, the screen shows the row as the last load left
+  // it (animCmd_GetPalette writes gObjPalette, which VBlank uploads), so each frame of theirs is also drawn in
+  // the others' colours: alts[i] lists [row, key, atlas entry] for the ones that look different.
+  const alts = {}, drawn = made.length;
+  for (const [row, keys] of rowKeys) {
+    if (keys.size < 2) continue;
+    for (const key of keys) {
+      const colors = readColors(rom, tables.palettes + (key >> 8) * 32 + (key & 0xFF) * 2, 16);
+      for (let i = 0; i < drawn; i++) {
+        const m = made[i];
+        if (!m.rows.has(row)) continue;
+        const palette = m.palette.slice();
+        colors.forEach((c, k) => { palette[row * 16 + k] = c; });
+        const j = frameImage(m.name, m.anim, m.f, palette, m.rows);
+        if (j === i) continue;
+        if (images[j].img.data.every((v, k) => v === images[i].img.data[k])) continue;
+        (alts[i] ??= []).push([row, key, j]);
+      }
     }
   }
   // the crumbling platform draws its 64 × 32 frame as 32 tiles of 8 × 8, and the breakable wall its 32 × 64
@@ -237,7 +274,15 @@ function extractSprites(rom, tables, levelSprites = {}) {
     frames: [...new Set(Object.keys(SONIC_ANIMATIONS).flatMap(name => anims[name].frames.map(f => f[0]).filter(i => i >= 0)))],
     colors: sonicPalette.slice(0, 16),
   };
-  return { atlas: canvas, frames: rects, anims, tiles, sonic };
+  return { atlas: canvas, frames: rects, anims, tiles, sonic, alts };
+}
+
+// the sprite palette rows a palette load fills, each as [row, key]: the key (palId * 256 + the colour of that
+// palette the row starts at) names the colours it gets
+function paletteRows({ palId, insert, count }) {
+  const rows = [];
+  for (let r = Math.ceil(insert / 16); (r + 1) * 16 <= insert + count && r < 16; r++) rows.push([r, palId * 256 + r * 16 - insert]);
+  return rows;
 }
 
 // shelf packing with a 1px gap; rects are [x, y, w, h, anchorX, anchorY]

@@ -27,10 +27,20 @@ export function tickAnim(a, anims) {
     if (def.loop === null) { a.i = def.frames.length - 1; a.done = true; return true; }   // one-shot: hold the last frame
     a.i = def.loop;
     a.loaded = !!def.loopLoads;
-  } else a.loaded = !!def.loads?.[a.i];
+    load(anims, def.loopRows);
+  } else {
+    a.loaded = !!def.loads?.[a.i];
+    load(anims, def.rows?.[a.i]);
+  }
   if (a.loaded) spritePalette.update = true;
   a.q += def.frames[a.i][1] * 256 - a.speed * 16;
   return false;
+}
+
+// the palette loads the commands before a frame run ([row, key] each, extract.js), which leave the sprite
+// palette's rows in their colours
+function load(anims, loads) {
+  if (loads && anims.objPalette) for (const [row, key] of loads) anims.objPalette[row] = key;
 }
 
 /** Index into the atlas of the frame on screen, or -1 for none. */

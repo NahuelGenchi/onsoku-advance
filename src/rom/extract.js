@@ -37,8 +37,8 @@ export const SONIC_ANIMATIONS = {
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
   halfPipeLow: [36, 0], halfPipeMid: [36, 1], halfPipeHigh: [36, 2],
-  // hanging from a hook rail or a swinging hook (charState 38)
-  hook: [43, 0],
+  // hanging from a hook rail or a swinging hook (charState 38) and swinging round a rope (34)
+  hook: [43, 0], swingRope: [40, 1],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],

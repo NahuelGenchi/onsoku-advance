@@ -74,10 +74,10 @@ export const ENEMY_ANIMATIONS = {
   441: { animalMole: 0 }, 442: { animalParrot: 0 }, 443: { animalPenguin: 0 }, 444: { animalRabbit: 0 },
   445: { animalOtter: 0 }, 446: { animalDeer: 0 }, 447: { animalSkunk: 0 }, 448: { animalRobin: 0 },
   449: { animalKangaroo: 0 }, 450: { animalKoala: 0 }, 451: { animalElephant: 0 },
-  // Casino Paradise's: Hanabii walking and launching, its shot and the firework it bursts into, and Slot
-  // walking and shooting, its coin and the coin's pieces
+  // Casino Paradise's: Hanabii walking and launching, its shot and the firework it bursts into, Slot
+  // walking and shooting, its coin and the coin's pieces, and Pierrot on its ball
   415: { hanabiiWalk: 0, hanabiiLaunch: 1 }, 419: { hanabiiShot: 0 }, 416: { hanabiiFirework: 0 },
-  417: { slotWalk: 0, slotShoot: 1 }, 420: { slotCoin: 0 }, 421: { slotPiece: 0 },
+  417: { slotWalk: 0, slotShoot: 1 }, 420: { slotCoin: 0 }, 421: { slotPiece: 0 }, 418: { pierrot: 0 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their

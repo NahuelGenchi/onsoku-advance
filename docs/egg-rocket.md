@@ -26,6 +26,15 @@ The act's three checkpoints (kind 7) have no post and no sprite. `d0` numbers th
 - **The screen shake** (`CreateScreenShake`) is a task just before the camera's. Each frame it sets an offset of its amplitude times the sine of a stepping angle, or times a random factor, and the camera adds that after keeping itself inside its bounds, so the view shakes past the act's edges.
 - **The countdown:** the HUD's time turns red under 1:00 on alternate 16-frame stretches and beeps every second through the last 20 seconds. At 0:00 Sonic dies with a screen shake and song 166. After a death the act starts again from the last checkpoint with the rocket as it was: launched, its stages gone, and a fresh 5:00.
 
+## The end of the act
+
+The act ends at the rocket's top through the stage goal (kind 0, `stage_goal.c`), the same entity as the other acts' goal post, with three Egg Rocket branches. This game doesn't build it here yet: it is left to the act clear's work ([#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69)), and until then the goals stay stand-ins.
+
+- Three goals sit on the act's top edge, at (2144, 0), (2160, 0) and (2176, 0), with `d1` = 1. A fourth at (2080, 168) has `d1` = 0, so only multiplayer makes it; in Egg Rocket, multiplayer skips the `d1` = 1 ones instead.
+- A goal fires once Sonic's centre is right of its point and his body's box (hitbox 0) holds the point. Elsewhere being right of it is enough.
+- No goal sound plays (`SE_GOAL` is skipped, there is no post), and Sonic isn't made to run right. He is held where he is (`MOVESTATE_IA_OVERRIDE`) and the camera's `shiftY` isn't touched.
+- 121 frames later the goal's task ends and `CreateStageResults` runs, without waiting for Sonic's goal pose (`CHARSTATE_28`) as the other acts do. There is no early `Task_ShowResults` either.
+
 ## The background
 
 `StageBgUpdate_Zone6Act1` (`zone_6.inc.c`) scrolls BG3 over three screens of the background map. Before the launch it shows the tower at sunset, scrolled sideways a little with the camera. After it, the sky scrolls down 2 px a frame. After the second separation the view climbs to the top of the atmosphere and then into space, where BG0 comes on over BG3. There BG3's stars drift down slowly and BG0's faster, and BG0 is lightened on some lines by an HBlank callback.
@@ -64,4 +73,4 @@ Each case was recorded in mGBA 0.10.5 with the course select's start, Sonic and 
 - flipped gravity through two toggles onto the ceiling (420), square platforms and whirlwinds (400), a ferris wheel (397), the Mirror (400), a wall bumper (360), a breakable wall broken by a spin dash (360),
 - an Oct defeat (360), and a death after the launch with the restart in the launched rocket (1250 frames, pixels identical).
 
-Not checked: the conveyor belts (69) and the Mole (enemy 15), which this game doesn't build yet; what the countdown's time over shows, since the game has no *TIME OVER* screen yet (it restarts at once); the end of the act (the stage goals at the top, kind 0).
+Not checked: the conveyor belts (69) and the Mole (enemy 15), which this game doesn't build yet; what the countdown's time over shows, since the game has no *TIME OVER* screen yet (it restarts at once); the end of the act ([above](#the-end-of-the-act), read in the code only).

@@ -14,6 +14,7 @@ import { SINE } from './trig.js';
 import { rushObjEntries, rushTrailStrips, TRAIL_COLOR } from './rushfx.js';
 import { rasterizeStrips, objLayer as dsObjLayer, to6, out8 } from './dsdraw.js';
 import { BACKGROUND_SCROLL } from './backgrounds.js';
+import { bgr555ToRgb } from '../rom/colors.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
 const s16 = v => (v << 16) >> 16;
@@ -48,15 +49,43 @@ export function createRenderer(canvas, assets) {
     if (index < 0) return;
     const [sx, sy, w, h, ax, ay] = frames[index];
     const px = Math.floor(x), py = Math.floor(y);   // the integer part, like the original's I(qWorldX)
-    if (!flipX && !flipY) { ctx.drawImage(atlas, sx, sy, w, h, px - ax, py - ay, w, h); return; }
+    if (!flipX && !flipY) { ctx.drawImage(sheet, sx, sy, w, h, px - ax, py - ay, w, h); return; }
     ctx.save(); ctx.translate(px, py);
     ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-    ctx.drawImage(atlas, sx, sy, w, h, -ax, -ay, w, h);
+    ctx.drawImage(sheet, sx, sy, w, h, -ax, -ay, w, h);
     ctx.restore();
   }
 
   // the rotation hardware's sprites are put together here pixel by pixel, then drawn over the frame
   const atlasPixels = atlas.getContext('2d').getImageData(0, 0, atlas.width, atlas.height).data;
+  // what the sprites are drawn from: the atlas, or for Sonic, the atlas with his colours as the sprite palette
+  // shows them when something wrote over them (game.js, spriteRow)
+  let sheet = atlas, sheetPixels = atlasPixels, tinted = null, tintedKey = null;
+  function tint(shown) {
+    const key = shown.join();
+    if (key === tintedKey) return tinted;
+    const { frames: sonicFrames, colors } = assets.sprites.sonic;
+    const px = atlasPixels.slice(), from = new Map();
+    shown.forEach((v, c) => { if (v !== null) from.set(colors[c].join(), bgr555ToRgb(v)); });
+    const recolor = (x0, y0, w, h) => {
+      for (let y = y0; y < y0 + h; y++) {
+        for (let k = (y * atlas.width + x0) * 4, end = k + w * 4; k < end; k += 4) {
+          const to = px[k + 3] && from.get(`${px[k]},${px[k + 1]},${px[k + 2]}`);
+          if (to) { px[k] = to[0]; px[k + 1] = to[1]; px[k + 2] = to[2]; }
+        }
+      }
+    };
+    for (const i of sonicFrames) {
+      const [sx, sy, w, h, , , pieces] = frames[i];
+      recolor(sx, sy, w, h);
+      for (const [, , pw, ph, ax, ay] of pieces ?? []) recolor(ax, ay, pw, ph);
+    }
+    tinted ??= { canvas: document.createElement('canvas') };
+    tinted.canvas.width = atlas.width; tinted.canvas.height = atlas.height;
+    tinted.canvas.getContext('2d').putImageData(new ImageData(px, atlas.width, atlas.height), 0, 0);
+    tinted.pixels = px; tintedKey = key;
+    return tinted;
+  }
   let objLayer = new ImageData(W, H);
   const objCanvas = document.createElement('canvas');
   objCanvas.width = W; objCanvas.height = H;
@@ -124,8 +153,8 @@ export function createRenderer(canvas, assets) {
         const lx = xAcc >> 8, ly = yAcc >> 8;
         if (lx < 0 || lx >= pw || ly < 0 || ly >= ph) break;
         const k = ((ty + ly) * atlas.width + tx + lx) * 4, o = (line * W + outX) * 4;
-        if (!atlasPixels[k + 3] || px[o + 3]) continue;
-        px[o] = atlasPixels[k]; px[o + 1] = atlasPixels[k + 1]; px[o + 2] = atlasPixels[k + 2]; px[o + 3] = 255;
+        if (!sheetPixels[k + 3] || px[o + 3]) continue;
+        px[o] = sheetPixels[k]; px[o + 1] = sheetPixels[k + 1]; px[o + 2] = sheetPixels[k + 2]; px[o + 3] = 255;
         if (outX < box[0]) box[0] = outX;
         if (line < box[1]) box[1] = line;
         if (outX > box[2]) box[2] = outX;
@@ -344,7 +373,7 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake, spotlights }) {
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake, spotlights, spriteRow }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -381,8 +410,13 @@ export function createRenderer(canvas, assets) {
         if ((s.prio >= 2) !== behind) continue;
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
-        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
-        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+        else {
+          const own = s.sonicRow && spriteRow?.shown ? tint(spriteRow.shown) : null;
+          if (own) { sheet = own.canvas; sheetPixels = own.pixels; }
+          if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+          else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+          sheet = atlas; sheetPixels = atlasPixels;
+        }
       }
     };
     drawAll(true);

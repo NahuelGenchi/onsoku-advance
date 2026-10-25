@@ -175,7 +175,8 @@ function extractSprites(rom, tables) {
         // the hitboxes set just before a frame come with it
         return f.boxes ? [byKey.get(key), f.delay, f.boxes] : [byKey.get(key), f.delay];
       });
-      anims[name] = { frames, loop: script.loop };
+      // the frames whose commands load colours, and whether going round does (animator.js)
+      anims[name] = { frames, loop: script.loop, loads: script.frames.map(f => f.loadAt >= 0), loopLoads: script.loopLoads };
     }
   }
   // the crumbling platform draws its 64 × 32 frame as 32 tiles of 8 × 8, left to right and top to bottom,
@@ -195,7 +196,12 @@ function extractSprites(rom, tables) {
     (rects[p.frame][6] ??= []).push([p.x, p.y, w, h, ax, ay]);
   });
   rects.length = images.length;
-  return { atlas: canvas, frames: rects, anims, tiles };
+  // Sonic's frames and his row of colours, for drawing them with colours written over (renderer.js)
+  const sonic = {
+    frames: [...new Set(Object.keys(SONIC_ANIMATIONS).flatMap(name => anims[name].frames.map(f => f[0]).filter(i => i >= 0)))],
+    colors: sonicPalette.slice(0, 16),
+  };
+  return { atlas: canvas, frames: rects, anims, tiles, sonic };
 }
 
 // shelf packing with a 1px gap; rects are [x, y, w, h, anchorX, anchorY]

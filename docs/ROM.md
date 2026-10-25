@@ -56,7 +56,7 @@ Some sprites go through the GBA's rotation and scaling (affine) OBJ mode instead
 - A tile entry packs the tile index (bits 0–9), horizontal and vertical flips (bits 10–11) and the palette bank (bits 12–15).
 - The tilemap table has three entries per level: the front layer, the back layer and the background. Neo Green Hill Zone act 1 is entries 0, 1 and 2; its background is a 256 × 256 px plain map.
 - The front layer is drawn over Sonic (hardware background 1, priority 1), the back layer behind him (background 2, priority 2, the same as his sprite), the background behind both.
-- The front layer's header also describes animated tiles: the first `animTileSize` bytes of the tileset (`0x1C0`, 14 tiles in act 1) are replaced by the next of `animFrameCount` frames every `animDelay` frames. Frame 0 is the tileset itself and frame *k* is the *k*-th block stored after it. Both layers share the tileset, so the animation shows on both.
+- The front layer's header also describes animated tiles: the first `animTileSize` bytes of the tileset (`0x1C0`, 14 tiles in act 1) are replaced by the next of `animFrameCount` frames every `animDelay` frames. Frame 0 is the tileset itself and frame *k* is the *k*-th block stored after it. Both layers share the tileset, so the animation shows on both. The frame shown comes from a counter the camera's task moves on (`gStageBackgroundsRam.unk40`, `0x0300593B` in the USA ROM), which is one behind the camera's runs and 0 before its first: an act made from the course select is drawn once before the camera has run, and its tiles change a frame later than the camera's count says.
 - **Palette animations.** The act's stage init makes two tasks (priority `0x2000`, after the rings and entities managers) that each run an animation whose commands only load colours into the background palette: animation `814` loads sprite palettes 190–193 into row 15 (colours 240–255), each shown for 16 frames, and `815` loads palettes 194–201 into row 10 (colours 160–175), one a frame. Each palette is the one before it turned by one place, so the colours cycle. Row 10 colours the waterfalls in the stage's layers (five metatiles use it) and row 15 the sea in the background. The tasks step their animation as any background animation is stepped, at speed `0x10`: on the act's first frame each loads its first palette, which then shows for its delay. When the act starts over, it loads the stage's own colours again and both animations start from the beginning. The extractor renders the layers' metatiles that use those rows, and the background, once for each state, and the renderer picks the one the tasks have loaded.
 
 ### Collision
@@ -550,6 +550,7 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Sound | Song | Player | When |
 | :--- | ---: | ---: | :--- |
 | Neo Green Hill Zone act 1 | 12 | 0 | The act starts, and starts over after a life is lost |
+| Secret Base Zone act 1 | 14 | 0 | The same, in Secret Base act 1 |
 | Jump | 116 | 2 | A jump from the ground, and the combo's backflip |
 | Spin | 109 | 3 | Spin dash start, rolling, the combo's first hit. Each spin dash rev plays it again, raised by the decayed charge (`charge & ~0x7F` in 1/256 semitones). |
 | Spin dash release | 110 | 2 | Letting go of down |
@@ -574,6 +575,8 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Wall pole | 175 | 2 | A wall pole catches Sonic |
 | Grinding | 114 | 2 | A grind rail's start takes Sonic; it loops until he jumps or is thrown off, or another sound takes player 2 |
 | Trampoline | 176 | 2 | Every bounce |
+| Hook rail | 180 | 2 | While a hook rail carries Sonic |
+| Crane claw | 181 | 2 | While a crane claw lifts Sonic |
 | Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |
 | Rings from a box | 117 | 3 | The ring prizes, once for the lot |
 
@@ -587,3 +590,72 @@ Sounds on the same player cut each other off, as in the original. There is no la
 - *The final output:* the DirectSound part of the port's audio lines up with mGBA's recorded output. The PSG part matches mGBA's in pitch, level and envelope (median spectrum correlation 0.98), but not sample for sample: a Game Boy channel's waveform phase depends on the exact CPU cycle the engine writes its registers, which the port does not model.
 
 The port mixes at the GBA's 65536 Hz, averages that down to the browser's output rate, removes the DC offset the unipolar PSG channels add, and plays at half of the GBA's full scale. The game itself still steps at 60 Hz while the sound engine keeps the GBA's 59.7275 frames per second, so a sound starts within one frame of the move that plays it.
+
+## Secret Base Zone act 1
+
+Level 2 in the ROM's per-level tables (`?level=2`): tilemap entries 6, 7 and 8, collision entry 2, start (104, 126). It is 10368 × 1536 px, 108 × 16 metatiles. Its stage init, `StageInit_Zone2Act1` (`0x0803DD45` in the USA ROM), makes three palette loader tasks (`0x2000`), for animations `819`, `845` and `849` in that order, and starts song 14. Picked from the course select, the HUD's zero-ring flash counter starts at 56 (what the memory at `0x03002794` holds when the HUD is made), not at the 1 the title card leaves in Neo Green Hill.
+
+USA addresses used to check it: `gCurrentLevel` `0x0300514C`, `gPlayer` `0x03005A20` (its `moveState` at `+0x10`), the camera's x and y `0x030059D0` and `0x030059D2`, `gStageTime` `0x03005120`, `gFlags` `0x03001100`, `gObjPalette` `0x03001920`.
+
+### Background
+
+`StageBgUpdate_Zone2Act1` sets BG3's scroll once a frame. Outside, while the camera is left of x 1488, the whole map scrolls a 78th of the camera's way across and shows its bottom 160 rows (the map repeats every 512). From x 1488 on it is the inside (`StageBgUpdate_Zone2_Interior`), set line by line through the HBlank table: the wall, rows 0–63 of the map, scrolls a quarter of the camera's way and repeats every 64 lines; three bars of 16 lines (rows 64–79) scroll half its way, and a bigger one of 24 lines (rows 80–103) two thirds, each 256 lines from the next of its kind, the later ones covering the earlier ones ([`src/engine/backgrounds.js`](../src/engine/backgrounds.js)).
+
+### Spotlights
+
+The act starts dark, with two beams of light sweeping across the screen (`spot_lights_manager.c`, `spot_light_beam_task.c`; the SA1 beam task from its asm). Windows 0 and 1, whose left and right edges the beams set line by line, keep out the brightness decrease that darkens everything else but the backdrop. The darkness eases from 16 sixteenths to 8, a quarter a frame. Once Sonic is past x 1368 it eases off to nothing; past x 1488, or when he dies, the spotlights go at once. They are made after the stage init only while his checkpoint is at or before x 1368, and while they are there the title card doesn't fade the screen in.
+
+The edges are kept in a table with 4 bytes for each screen line (WIN0H's right and left edges, then WIN1H's), which the HBlank DMA copies into the registers. A frame writes one of two such tables (`gBgOffsetsBuffer`) while the other is shown. A beam leaves its half of the lines, and WIN0V or WIN1V, as they were on the frames it doesn't draw.
+
+**An original-game bug.** The beams write past their table: line 160 of the second table lands just past `gBgOffsetsBuffer`'s end, in `gObjPalette[1]`, Sonic's colour 1 (his outline). `animCmd_GetPalette` sets bit `0x2` of `gFlags`, and the VBlank copies `gObjPalette` to the screen's sprite palette only on frames where some sprite's script ran a palette command, so his outline takes the beam's edge values on those frames (odd frames 81–143 and from 531 on in a run from the start), until his own palette commands put `0x5AD6` back. The engine does the same.
+
+### Sprite palette rows and priorities
+
+`animCmd_GetPalette` writes `gObjPalette`, so every sprite drawn from a palette row shows the colours the last palette command left in it, whichever sprite ran it. The extractor records which palette each frame's commands load into which row, and renders an alternative frame for each other palette a row can hold; the renderer draws the one that matches what the row holds that frame. Command `-11` (`SetSpritePriority`) sets a sprite's priority from its script; a sprite at priority 3 is drawn behind the back layer. In Neo Green Hill this recolours a boulder (palette 35) after an enemy's dust cloud (palette 20), which shares row 9.
+
+### Secret Base's enemies
+
+| Kind | Enemy | Count | Animations | What it does |
+| ---: | :--- | ---: | :--- | :--- |
+| 5 | Senbon | 3 | `411` | A pincushion that walks 0.625 px a frame between (d0 + 1) × 8 and (d0 + d2 − 1) × 8 px right of its spawn point, turning at either end. Away from the ends, when Sonic is up to 80 px ahead of it, it stops and puts out its spikes for 60 frames, then walks on and doesn't do it again for 120 frames spent walking between the ends. With its spikes out it can't be destroyed, and touching their box hurts Sonic. |
+| 6 | Tentou | 2 | `412`, shots `410` | A ladybird that flies a loop round its spawn point for 64 frames, d2 tiles across and d3 up, then hovers for up to 60 frames. If Sonic comes within 80 px while it hovers, it fires two shots, one each way, on its 15th frame of firing, and flies on after 33. Its sprite is a left half, drawn again mirrored. |
+| 7 | Fireball | 1 | `413`, sparks `414` | A spawner that, on every frame of the stage clock that is a multiple of 240, throws a fireball up from 24 px below it at 6 px a frame, slowing by a quarter of a pixel a frame. At the top it bursts into two sparks that fly off either way and fall, and the fireball shrinks as it falls back, until it is gone at 2 px a frame. The fireball and the sparks can't be destroyed; touching them hurts Sonic. |
+| 15 | Mole | 5 | `434` | A mole in a mound that pops up every 60 frames, facing Sonic, and ducks back after 60 more. Only while it is up can it be destroyed or hurt him. Destroyed, it sinks into its mound for good. |
+
+Senbon's and Tentou's main tasks follow the asm (`Task_SenbonInit`, `Task_TentouMain`, `sub_8074928`), which the decompilation's C doesn't match. Tentou keeps its loop's offsets in 1/256 px but places its sprite by how far they moved in the frame (a 32nd of it across and a 16th up), and while hovering by minus the last offset across; up, it takes the frame's move modulo 64 to draw it and leaves it unmoved on a remainder of 63, but tests its box with the whole move. The engine does the same.
+
+**The act's copy of its entities.** The entities are decompressed into EWRAM when the stage starts, and a task that changes its entity's data changes that copy until the act starts over. A destroyed Mole clears its `d1`, so it doesn't come up again even after it is spawned anew. The engine keeps those changed bytes with the entity's slot and clears them on the restart.
+
+The zone's freed animals are the mole (`441`), the skunk (`447`, hops) and the robin (`448`, flies).
+
+### Secret Base's objects
+
+| Kind | Object | Count | What it does |
+| ---: | :--- | ---: | :--- |
+| 5 | Hiding spikes | 3 | Come and go with the stage clock, 128 frames a turn (see [`src/engine/hidingspikes.js`](../src/engine/hidingspikes.js)) |
+| 66 | Marble track pipe | 1 | Carries Sonic through its track at a smaller size through the rotation hardware ([`src/engine/marbletrack.js`](../src/engine/marbletrack.js)) |
+| 69 | Conveyor belt | 2 | A box d2 by d3 tiles from its spawn point. On every frame Sonic's position is in it and he is on the ground, it carries him 0.625 px, right when d0 is set and left otherwise, then pushes him out of any wall 8 px ahead of or behind his centre (`Task_ConveyorBeltMvt`). Ice Mountain uses the same kind for its snow. |
+| 70 | Visibility toggle | 2 | On every frame Sonic's position is in its box (d2 by d3 tiles), it makes him invisible when d0 is set (`MOVESTATE_100000`) and visible again otherwise; the act hides him inside its pipe this way. Dead, he is made visible. Its task's priority is `0x2000` + d3. |
+| 75 | Hook rail | 6 | A hook that takes Sonic when his body touches it and slides down its rail, picking up speed (song 180 while it carries him); d0 picks the rail: 1 runs 480 px down to the right, 2 to the left, 0 climbs left, drops onto a lower rail and comes back ([`src/engine/hookrails.js`](../src/engine/hookrails.js)) |
+| 76 | Swinging hook | 3 | A hook on a chain of three links swinging on the stage clock; jump throws Sonic off ([`src/engine/swinginghooks.js`](../src/engine/swinginghooks.js)) |
+| 77 | Security gate | 4 | A shutter that drops shut behind Sonic once his position is in a zone d2 tiles wide and d3 tall (ending 10 px right of the gate with d0 0, starting there otherwise): 6 px a frame for 8 frames, then solid from its sides (`Coll_Player_Gate` without its attack test) until it leaves the camera's range |
+| 78 | Swing rope | 3 | [`src/engine/swingropes.js`](../src/engine/swingropes.js) |
+| 80 | Crane claw | 1 | Song 181 while it lifts Sonic ([`src/engine/craneclaws.js`](../src/engine/craneclaws.js)) |
+| 96 | Pipe curler | 1 | At the mouth of the pipe: on every frame Sonic's position is within 8 px of its spawn point, it curls him into a ball (character state 4) |
+| 105 | Lava | 2 | An invisible box that hurts Sonic, or kills him with d0 set ([`src/engine/lava.js`](../src/engine/lava.js)) |
+| 106, 110, 111 | Tubes | 12 | Pipe entrances, tracks and exits that carry Sonic ([`src/engine/pipes.js`](../src/engine/pipes.js)) |
+
+The zone has its own look for some objects every zone has, picked by level: its thin platforms (`506`, `sPlatformThinAnims`), crumbling platforms (`502`, `sPlatformCrumblingAnims`), trampolines (`505`) and bounce blocks (`499`, `sBounceBlockAnims`).
+
+**Sonic's animation carries on.** The original restarts a sprite's script only when its animation or variant changes. Sonic's walk and the tumble after a bounce block are both animation 4, variant 0, so walking onto a bounce block carries his walk cycle on.
+
+**Another original-game bug.** On a swinging hook's first frame its task calls `TransformSprite` before `UpdateSpriteAnimation` has set the sprite's frame size, so the transform reads the size through whatever pointer the task's memory held and places the hook somewhere else for that one frame. What that memory holds depends on earlier tasks, so the engine draws the hook where it belongs.
+
+### How Secret Base act 1 was checked
+
+mGBA 0.10.5 recorded the act from a savestate made just after the course select creates it, with IWRAM and the screen dumped after every frame; the engine plays the same keys from the same frame.
+
+- *Start to the goal:* one run of 4,600 frames (1:14 on the act's clock, 89 rings) goes from the start, through the spotlights, the hook rails, the pipe, the conveyor belts, the swinging hooks, the crane claw and every checkpoint, to past the goal. Sonic's position matches the original's to the 1/256 px on every frame. Every frame matches pixel for pixel until the goal comes on screen, apart from a few pixels at the spotlights' beam edges and at the screen's left column, where mGBA draws a window's edge differently from its registers (31 frames, all before x 1488).
+- *Each object and enemy:* fourteen shorter runs, each starting with Sonic moved to it, match on every frame, pixels included: the Moles (one hit), the Tentous, the Senbons, the fireball, the conveyor belts, the bounce blocks, the trampolines, the crumbling and thin platforms, the pipe with its curler and visibility toggles, and the tubes. The other differences are a frame at a restart after a death (the whole screen, the frame the act is loaded again) and the swinging hook's first frame (the bug above).
+- *Neo Green Hill act 1:* plays to the same state and the same picture on every frame of a 3,000-frame run before and after.
+- *Read in the code only:* the goal (kind 0) and the end of the act, which [#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69) builds; the hiding spikes, the lava and the tubes beyond the places the runs above pass through, which other acts check; and a death in the lava.

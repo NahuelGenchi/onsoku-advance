@@ -589,12 +589,13 @@ export function hurt(p, terrain) {
 }
 
 // dead (Task_PlayerMain's death block, then Task_PlayerDied and Task_PlayerHandleDeath): on the first frame he
-// stops moving sideways and the camera and clock stop; then he falls through everything until he is 80 px
-// below the screen (above it under flipped gravity), and the act restarts 61 frames later
+// stops moving sideways (his ground speed stays as it was) and the camera and clock stop; then he falls through
+// everything until he is 80 px below the screen (above it under flipped gravity), and the act restarts 61
+// frames later
 function deadStep(p, world) {
   if (!p.death) {
     p.death = 'falling'; p.state = 'dead';
-    p.xsp = 0; p.gsp = 0; p.invulnerable = 2; p.onObject = null; p.pushing = false;
+    p.xsp = 0; p.invulnerable = 2; p.onObject = null; p.pushing = false;
     endAttack(p);
     world.died();
     return;

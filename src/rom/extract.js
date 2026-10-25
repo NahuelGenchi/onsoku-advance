@@ -5,7 +5,7 @@
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
-import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation } from './sprites.js';
+import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation, frameLayout } from './sprites.js';
 import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks, mapHoles } from './tilemaps.js';
 import { readCollision, readSpawn } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
@@ -106,13 +106,18 @@ export const HOOK_RAIL_ANIMATIONS = { 504: { hookRail: 0 } };
 export const SECURITY_GATE_ANIMATIONS = { 534: { securityGate: 0 } };
 // Secret Base act 2's steam exhaust: the vent and its lid (501), and the vent blowing steam and the steam's end (567)
 export const STEAM_EXHAUST_ANIMATIONS = { 501: { steamExhaust: 0, steamExhaustLid: 2 }, 567: { steamExhaustBlow: 0, steamExhaustBlowEnd: 1 } };
-// what bosses leave behind: the Egg Mobile and Eggman flying off in it (bosses_egg_mobile.c), the debris
-// (gUnknown_080BB41C) and the explosions (sub_8017540)
+// the Egg Press (boss_2_egg_press.c) and what bosses leave behind: the Egg Mobile and Eggman flying off in it
+// (bosses_egg_mobile.c), the debris (gUnknown_080BB41C) and the explosions (sub_8017540)
 export const BOSS_ANIMATIONS = {
+  617: { eggPressBase: 0 }, 618: { eggPressEggman: 0, eggPressEggmanLaugh: 1, eggPressEggmanHurt: 2 }, 619: { eggPressSpring: 0 },
+  620: { eggPress: 0, eggPressSquash: 1, eggPressStomp: 2 }, 621: { eggPressNoSpring: 0 },
   693: { eggMobile: 0, eggMobileTurn: 1 }, 694: { eggman: 0, eggmanFlee: 4, eggmanTurn: 9 },
   695: { boltMedium: 0, boltMedium2: 1 }, 696: { boltLarge: 0, boltLarge2: 1 }, 697: { boltSmall: 0, boltSmall2: 1 },
   611: { bossExplosion: 0 },
 };
+// the animations whose frames' first OAM entry (their dimensions' oamIndex) the game reads: the Egg Press's,
+// which places Eggman by it
+const OAM_INDEXED = new Set([620]);
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -120,9 +125,9 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block), and the boulders' and the ice blocks' debris; their frames also keep their OAM pieces as the
-// hardware reads them
-const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge']);
+// block), the boulders' and the ice blocks' debris, and the Egg Press's spring and base; their frames also keep
+// their OAM pieces as the hardware reads them
+const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge', 'eggPressSpring', 'eggPressBase']);
 
 // each level's three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
 // background
@@ -203,6 +208,7 @@ function extractSprites(rom, tables, levelSprites = {}) {
       });
       // the frames whose commands load colours, and whether going round does (animator.js)
       anims[name] = { frames, loop: script.loop, loads: script.frames.map(f => f.loadAt >= 0), loopLoads: script.loopLoads };
+      if (OAM_INDEXED.has(anim)) anims[name].oamIndex = script.frames.map(f => (f.frame < 0 ? -1 : frameLayout(rom, tables, anim, f.frame).oamIndex));
     }
   }
   // the crumbling platform draws its 64 × 32 frame as 32 tiles of 8 × 8, and the breakable wall its 32 × 64

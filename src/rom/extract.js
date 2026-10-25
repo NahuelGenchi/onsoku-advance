@@ -37,7 +37,7 @@ export const SONIC_ANIMATIONS = {
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
   halfPipeLow: [36, 0], halfPipeMid: [36, 1], halfPipeHigh: [36, 2],
-  // hanging from a hook rail or a swinging hook (charState 38) and swinging round a rope (34)
+  // hanging from a hook rail, a swinging hook or a crane claw (charState 38) and swinging round a rope (34)
   hook: [43, 0], swingRope: [40, 1],
 };
 export const EFFECT_ANIMATIONS = {
@@ -115,9 +115,11 @@ export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
 export const HOOK_RAIL_ANIMATIONS = { 504: { hookRail: 0, swingingHook: 1 } };
 // the security gate's shutter (534)
 export const SECURITY_GATE_ANIMATIONS = { 534: { securityGate: 0 } };
-// the swinging hook's chain (503: the trolley a crane claw runs on, a link and the anchor)
+// the swinging hook's chain (503: the trolley a crane claw runs on, a link and the anchor), and the crane claw
+// (498: open, closing, opening, and a piece of its cable)
 export const HOOK_ANIMATIONS = {
   503: { craneTrolley: 0, hookLink: 1, hookAnchor: 2 },
+  498: { craneClaw: 0, craneClawClose: 1, craneClawOpen: 2, craneCable: 3 },
 };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)

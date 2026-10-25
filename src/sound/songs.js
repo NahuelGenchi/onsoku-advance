@@ -28,5 +28,6 @@ export const SONG = {
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
   HOOK_RAIL: 180,          // SE_HOOK_RAIL: while a hook rail carries Sonic
+  LIFT: 181,               // SE_LIFT: a crane claw carries Sonic
   ICE_BLOCK_BREAK: 193,    // SE_193: a block of ice breaks, after SE_ITEM_BOX
 };

@@ -33,6 +33,8 @@ export const SONIC_ANIMATIONS = {
   hurt: [19, 0], dead: [21, 0],
   // hanging from a wall pole (charState 31)
   pole: [38, 0],
+  // hanging from a hang bar, still and moving along it (charStates 35 and 36)
+  hang: [41, 0], hangMove: [41, 1],
   // grinding (charState 16; variant 1 on a rail's steep parts) and jumping off a rail before its end (20)
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)

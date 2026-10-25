@@ -8,6 +8,12 @@ export const LEVELS = {
   // StageInit_Zone1Act1: palette animations 814 (the sea, every 16 frames) and 815 (the waterfalls, every
   // frame), MUS_NEO_GREEN_HILL__ACT_1
   0: { name: 'Neo Green Hill Zone act 1', paletteAnimations: [814, 815], music: 12, background: 'neoGreenHill' },
+  // StageInit_Zone3Act1 (0x0803D854 in the USA ROM): act 2's eleven palette animations, in the same order,
+  // then MUS_CASINO_PARADISE__ACT_1
+  4: {
+    name: 'Casino Paradise Zone act 1', paletteAnimations: [816, 817, 818, 824, 825, 827, 827, 828, 843, 844, 826],
+    music: 16, background: 'casinoParadise',
+  },
   // StageInit_Zone3Act2 (0x0803D90C in the USA ROM): eleven palette animations, each cycling one row of the
   // background palette (827 twice, two tasks loading the same colours together), then
   // MUS_CASINO_PARADISE__ACT_2; StageBgUpdate_Zone3Acts12 scrolls the 256 × 256 background in bands

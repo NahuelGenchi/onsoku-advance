@@ -35,6 +35,7 @@ import { createTubeJunction } from './junctions.js';
 import { createBarrelOfDoomMini } from './barrels.js';
 import { createTube } from './pipes.js';
 import { createConveyor } from './conveyors.js';
+import { createHidingSpikes } from './hidingspikes.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -166,7 +167,8 @@ function interactable(e, slot, anims, ctx, level) {
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createPartyBalloon(e, slot, anims) ?? createMarbleTrack(e, slot, anims, level)
     ?? createBumper(e, slot, anims) ?? createFlipper(e, slot, anims) ?? createSegaSonicLetter(e, slot, anims)
     ?? createTeleportOrb(e, slot) ?? createTubeJunction(e, slot) ?? createBarrelOfDoomMini(e, slot, anims)
-    ?? createTube(e, slot, anims, ctx.level) ?? createConveyor(e, slot, ctx) ?? standIn(e, slot);
+    ?? createTube(e, slot, anims, ctx.level) ?? createConveyor(e, slot, ctx)
+    ?? createHidingSpikes(e, slot, anims) ?? standIn(e, slot);
 }
 
 /**

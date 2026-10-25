@@ -76,6 +76,8 @@ export const ENEMY_ANIMATIONS = {
   434: { moleDown: 0, moleUp: 1 },
   // Secret Base's Tentou hovering, flying and firing (its shots are GamiGami's)
   412: { tentouHover: 0, tentouFly: 1, tentouFire: 2 },
+  // and its Senbon walking and with its spikes out
+  411: { senbonWalk: 0, senbonSpikes: 1 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their

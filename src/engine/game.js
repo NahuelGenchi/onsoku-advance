@@ -132,6 +132,15 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     playSound: song => sound.play(song),
     // a boss's music state (gMusicManagerState.unk1), which the music manager reads (synth.js)
     musicState: value => sound.musicState(value),
+    // INCREMENT_SCORE_A: points with a life every 50000, without the jingle
+    addScore(points) {
+      const before = state.score;
+      state.score += points;
+      if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) state.lives = (state.lives + 1) & 0xFF;
+    },
+    // a boss is beaten at (x, y), where the original makes the capsule that ends the act (CreateBossCapsule);
+    // the end-of-act flow builds it
+    bossDefeated(x, y) {},
     random,
     // an item box's prize (Task_Itembox2)
     prize(kind) {
@@ -185,10 +194,11 @@ export function createGame(canvas, assets, input, sound = SILENT) {
 
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
   // background priority: 2 behind the front layer, 0 and 1 in front of it); `affine` sends it through the
-  // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }
+  // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }. With
+  // `white`, it is a window that turns everything in its shape white (a boss's hit flash).
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio });
+    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, white: s.white });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {

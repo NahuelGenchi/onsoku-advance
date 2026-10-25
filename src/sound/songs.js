@@ -30,4 +30,5 @@ export const SONG = {
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
   WHIRLWIND: 200,          // SE_200: a whirlwind (player float toggle) first lifting Sonic
+  TUBE: 202,               // SE_202: a tube's track takes Sonic
 };

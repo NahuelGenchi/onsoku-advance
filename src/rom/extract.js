@@ -101,6 +101,8 @@ export const conveyorObjectAnimations = level => level & 1
   : { 508: { conveyorWide: 0, conveyorWideB: 1 }, 509: { conveyorSlim: 0, conveyorSlimB: 1 } };
 // Egg Rocket's spiked barrel (516): spikes on top, turning, underneath, turning back
 export const BARREL_ANIMATIONS = { 516: { spikedBarrel: 0, spikedBarrel1: 1, spikedBarrel2: 2, spikedBarrel3: 3 } };
+// Egg Rocket's propeller (515)
+export const PROPELLER_ANIMATIONS = { 515: { propeller: 0 } };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // the splash at Sonic's feet in a waterfall
@@ -182,7 +184,7 @@ function extractSprites(rom, tables, level) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...conveyorObjectAnimations(level), ...BARREL_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...NUTS_AND_BOLTS_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...conveyorObjectAnimations(level), ...BARREL_ANIMATIONS, ...PROPELLER_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...NUTS_AND_BOLTS_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

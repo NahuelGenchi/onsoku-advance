@@ -126,6 +126,8 @@ export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
 // Angel Island Zone's carriers: the run wheel turning back and forward (542), the lift's handle and a link of
 // its chain (545) and the bowl (546, zone 5's look; a level's `sprites` can give it another)
 export const CARRIER_ANIMATIONS = { 542: { runWheelBack: 0, runWheel: 1 }, 545: { liftHandle: 1, liftChain: 0 }, 546: { bowl: 0 } };
+// the three kinds of debris rising in Angel Island Zone's whirlwinds (564 to 566)
+export const UPDRAFT_ANIMATIONS = { 564: { debrisA: 0 }, 565: { debrisB: 0 }, 566: { debrisC: 0 } };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -186,7 +188,7 @@ function extractSprites(rom, tables, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...TORCH_ANIMATIONS, ...STONE_ANIMATIONS, ...CARRIER_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...TORCH_ANIMATIONS, ...STONE_ANIMATIONS, ...CARRIER_ANIMATIONS, ...UPDRAFT_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

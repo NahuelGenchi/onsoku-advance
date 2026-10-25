@@ -2,7 +2,8 @@
 // sprites behind the front layer, the front layer, the sprites in front of it, and the HUD or the title card on
 // top, the background and the layers in the colours the act's palette animations have loaded. The
 // sprites are the act's rings and the step's list, stacked as the GBA stacks OAM entries: a lower OAM order
-// in front, and within an order the one put in first. While the title card fades the screen in, everything but
+// in front, and within an order the one put in first. A boss's hit flash turns the background and the layers
+// white inside its sprite's shape. While the title card fades the screen in, everything but
 // its semi-transparent sprites is darkened. The widescreen view shows more of the act around the original
 // screen, which sits in its middle unless an edge of the act is near; the HUD keeps to the view's corners and
 // the title card to its middle. The optional Sonic Rush boost adds its screen shake and its effects around
@@ -190,23 +191,6 @@ export function createRenderer(canvas, assets) {
     ctx.putImageData(img, x0, y0);
   }
 
-  // A sprite in OBJ window mode with every layer brightened to full inside the window (a boss's hit flash):
-  // the sprite itself isn't drawn, and everything in its shape, whatever is in front, turns white.
-  function drawWhite(s, vx, vy) {
-    const main = ctx;
-    ctx = maskCtx;
-    maskCtx.imageSmoothingEnabled = false;
-    maskCtx.clearRect(0, 0, W, H);
-    if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
-    else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
-    ctx = main;
-    maskCtx.globalCompositeOperation = 'source-in';
-    maskCtx.fillStyle = '#fff';
-    maskCtx.fillRect(0, 0, W, H);
-    maskCtx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(maskCanvas, 0, 0);
-  }
-
   // debug overlay: the collision under the view, drawn through a scratch canvas so it blends
   const overlay = document.createElement('canvas');
   overlay.width = W; overlay.height = H;
@@ -314,8 +298,8 @@ export function createRenderer(canvas, assets) {
         if (wx >= 0 && mx < stage.levelX) {
           const block = slot[map[my * stage.levelX + mx]] * size * size + row + col;
           for (let i = 0; i < n; i++) {
-            const c = pixels[block + i];
-            if (c) out[y * W + x + i] = pal32[c];
+            const c = pixels[block + i], k = y * W + x + i;
+            if (c) out[k] = flash?.[k] ? WHITE : pal32[c];
           }
         }
         x += n;
@@ -330,10 +314,48 @@ export function createRenderer(canvas, assets) {
     for (let y = 0; y < H; y++) {
       const [bx, by] = scroll(y - oy, tick, cx, cy, terrain), row = (by + y - oy) & 0xFF;
       for (let x = 0; x < W; x++) {
-        const c = row < bg.height ? bg.pixels[row * bg.width + mod(bx + x - ox, bg.width)] : 0;
-        out[y * W + x] = pal32[c];
+        const c = row < bg.height ? bg.pixels[row * bg.width + mod(bx + x - ox, bg.width)] : 0, k = y * W + x;
+        out[k] = c && flash?.[k] ? WHITE : pal32[c];
       }
     }
+  }
+
+  // A boss's hit flash makes its sprite (`white`) an OBJ window, unseen itself, inside which the background and
+  // the layers are brightened to white. mGBA (the reference) leaves the sprites there as they are, and the
+  // backdrop, since only the window brightens and nothing is a second target. `flash` is 1 wherever the window is.
+  let flash = null;
+  const WHITE = 0xFFFFFFFF;
+  function flashWindow(list, vx, vy) {
+    const shapes = list.filter(s => s.white);
+    if (!shapes.length) return null;
+    const main = ctx;
+    ctx = maskCtx;
+    maskCtx.imageSmoothingEnabled = false;
+    maskCtx.clearRect(0, 0, W, H);
+    for (const s of shapes) {
+      if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+      else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+    }
+    ctx = main;
+    const a = maskCtx.getImageData(0, 0, W, H).data, win = new Uint8Array(W * H);
+    for (let k = 0; k < win.length; k++) win[k] = a[k * 4 + 3] ? 1 : 0;
+    return win;
+  }
+  // the pixels of `img` inside the window that aren't transparent turn white
+  function whiten(img) {
+    const p = new Uint32Array(img.data.buffer);
+    for (let k = 0; k < p.length; k++) if (flash[k] && p[k] >>> 24) p[k] = WHITE;
+  }
+  // a layer of an act drawn as tiles, over the frame (white inside the window, through ixCanvas)
+  function layerOver(name, vx, vy, frame, palettes) {
+    if (!flash) { drawLayer(ctx, stage, name, vx, vy, W, H, frame, palettes); return; }
+    const g = ixCanvas.getContext('2d');
+    g.clearRect(0, 0, W, H);
+    drawLayer(g, stage, name, vx, vy, W, H, frame, palettes);
+    const img = g.getImageData(0, 0, W, H);
+    whiten(img);
+    g.putImageData(img, 0, 0);
+    ctx.drawImage(ixCanvas, 0, 0);
   }
 
   // back to front: higher orders first, and the later entries of an order before the earlier ones
@@ -355,6 +377,19 @@ export function createRenderer(canvas, assets) {
     // screen in the view's middle. Near the act's edges the view stops before the camera does, and so does the
     // background.
     const frame = stageAnimFrame(stage, tick);
+    // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
+    const shown = rings.visible(view);
+    const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
+    const drawAll = behind => {
+      for (const s of list) {
+        if ((s.prio >= 2) !== behind || s.white) continue;
+        if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
+        else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
+        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+      }
+    };
+    flash = flashWindow(list, vx, vy);
     if (ix) {
       loadPalette(palettes);
       const out = new Uint32Array(ixBack.data.buffer);
@@ -376,20 +411,9 @@ export function createRenderer(canvas, assets) {
           x += n;
         }
       }
-      drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
+      if (flash) { const img = ctx.getImageData(0, 0, W, H); whiten(img); ctx.putImageData(img, 0, 0); }
+      layerOver('back', vx, vy, frame, palettes);
     }
-    // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
-    const shown = rings.visible(view);
-    const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
-    const drawAll = behind => {
-      for (const s of list) {
-        if ((s.prio >= 2) !== behind || s.white) continue;
-        if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
-        else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
-        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
-        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
-      }
-    };
     drawAll(true);
     if (ix) {
       const out = new Uint32Array(ixFront.data.buffer);
@@ -397,11 +421,10 @@ export function createRenderer(canvas, assets) {
       indexLayer(out, 'front', vx, vy, frame);
       ixCanvas.getContext('2d').putImageData(ixFront, 0, 0);
       ctx.drawImage(ixCanvas, 0, 0);
-    } else drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
+    } else layerOver('front', vx, vy, frame, palettes);
     drawAll(false);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
-    for (const s of list) if (s.white) drawWhite(s, vx, vy);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
     // behind keeps them out of the fade

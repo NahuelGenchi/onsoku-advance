@@ -185,7 +185,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
   // background priority: 2 behind the front layer, 0 and 1 in front of it); `affine` sends it through the
   // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }. With
-  // `white`, it is a window that turns everything in its shape white (a boss's hit flash).
+  // `white`, it is an unseen window that turns the background and the layers in its shape white (a boss's hit
+  // flash).
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
     state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, white: s.white });

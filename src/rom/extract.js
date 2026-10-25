@@ -76,6 +76,10 @@ export const ENEMY_ANIMATIONS = {
   // snapping its claws
   424: { drisame: 0 }, 573: { drisameIce: 0 }, 579: { drisameDebrisLarge: 0 }, 580: { drisameDebrisSmall: 0 },
   425: { kuraaWalk: 0, kuraaSnap: 1 },
+  // Yukimaru on the ground and on a wall, walking and throwing, and its snowball (the Pen's first snowball
+  // animation); the Pen walking and throwing, its snowball and the snowball's pieces
+  422: { yukimaruThrow: 0, yukimaruWalk: 1 }, 423: { yukimaruWallThrow: 0, yukimaruWallWalk: 1 }, 427: { yukimaruSnowball: 0 },
+  426: { penWalk: 0, penThrow: 1 }, 428: { penSnowball: 0 }, 429: { penSnowballPiece: 0 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their

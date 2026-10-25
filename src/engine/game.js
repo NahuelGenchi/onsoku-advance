@@ -126,7 +126,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // Sonic passed checkpoint `index`: the act starts over with his centre at (x, y) and the clock at this time
     passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.courseTime }; },
     // Sonic's attack box destroyed an enemy at (x, y)
-    defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
+    defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }, assets.stage.level >> 1); },
     playSound: song => sound.play(song),
     random,
     // an item box's prize (Task_Itembox2)

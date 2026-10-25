@@ -225,7 +225,7 @@ Other controllers that your browser maps to the Xbox layout work the same way. P
 ## Where it's at
 
 > [!NOTE]
-> **Early days: the first act is playable.** You can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets. The act has no ending yet (no goal signpost or score tally), and there is no game over yet.
+> **Early days: the first act is playable.** You can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets. **Secret Base Zone act 1** is in too, from its start to its goal, with its spotlights, enemies and gadgets. The act has no ending yet (no goal signpost or score tally), and there is no game over yet.
 
 Here's the road through the rest of the game. Each step has its own issue, so you can follow along.
 
@@ -235,7 +235,7 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 </thead>
 <tbody>
 <tr><td><b>Neo Green Hill</b></td><td>🟢 Playable now<br><sub>Next up: <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/69">its ending, then on to act 2</a></sub></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/83">Act 2 and the Egg Hammer Tank</a></td></tr>
-<tr><td><b>Secret Base</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/79">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/73">Act 2 and the Egg Press</a></td></tr>
+<tr><td><b>Secret Base</b></td><td>🟢 Playable now, at <code>?level=2</code><br><sub>Its ending comes with <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/69">act 1's</a></sub></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/73">Act 2 and the Egg Press</a></td></tr>
 <tr><td><b>Casino Paradise</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/81">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/76">Act 2 and the Egg Ball</a></td></tr>
 <tr><td><b>Ice Mountain</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/71">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/72">Act 2 and the Egg Spider</a></td></tr>
 <tr><td><b>Angel Island</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/77">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/80">Act 2 and Mecha Knuckles</a></td></tr>
@@ -357,7 +357,7 @@ cd onsoku-advance
 python -m http.server 8000
 ```
 
-Then open <http://localhost:8000> and choose your ROM to play.
+Then open <http://localhost:8000> and choose your ROM to play. To start another act, add its number in the game's level list: <http://localhost:8000/?level=2> is Secret Base Zone act 1.
 
 To see everything the extractor decodes, open <http://localhost:8000/viewer.html>: Sonic's, the springs' and the rings' animations playing with their original timing, the sprite atlas, Neo Green Hill Zone act 1 with its collision, and the zone's background.
 

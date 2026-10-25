@@ -275,7 +275,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     state.palettes = palettes.map(a => a.shown);
     state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
     startCard();
-    sound.playStageMusic(SONG.NEO_GREEN_HILL_1);
+    sound.playStageMusic(assets.stage.music);
     loading = true; starMusic = false;
   }
 
@@ -366,10 +366,10 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     },
     /** Turns the Sonic Rush boost on (with `art`, what rush.js read from the Sonic Rush ROM) or off. */
     setRushBoost(on, art = state.rushArt) { state.rushArt = art; state.rush = on && !!art; input.setRush?.(state.rush); },
-    // the act's music starts with the act, as the stage's init does (StageInit_Zone1Act1)
+    // the act's music starts with the act, as the stage's init does (StageInit_ZoneNActM)
     start() {
       input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);
-      sound.playStageMusic(SONG.NEO_GREEN_HILL_1);
+      sound.playStageMusic(assets.stage.music);
     },
     stop() { input.enabled = false; input.release(); cancelAnimationFrame(frame); sound.stopAll(); },
   };

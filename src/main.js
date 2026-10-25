@@ -18,7 +18,10 @@ const wideButton = document.getElementById('wide');
 const rushButton = document.getElementById('rush');
 const rushStatus = document.getElementById('rush-status');
 const rushFile = document.getElementById('rush-file');
-const debug = new URLSearchParams(location.search).has('debug');
+const params = new URLSearchParams(location.search);
+const debug = params.has('debug');
+// `?level=N` starts the level the ROM's tables number N (6 is Ice Mountain Zone act 1) instead of the first
+const firstLevel = Number(params.get('level') ?? 0) | 0;
 
 const input = createInput();
 input.bindTouch(document.getElementById('touch'));
@@ -86,12 +89,22 @@ createRomPicker(picker, {
   heading: 'Play in your browser',
   intro: 'Choose your Sonic Advance ROM. Its graphics are decoded on this device and the game starts right away.',
   async onRom(buffer, name, setStatus) {
-    const assets = await extractAssets(buffer, setStatus);
+    romBuffer = buffer;
+    const assets = await extractAssets(buffer, setStatus, { level: firstLevel });
     setStatus('');
     sound.load(buffer, assets.sound).catch(err => console.warn('No sound:', err));
     start(assets);
   },
 });
+
+let romBuffer = null;
+/**
+ * Decodes level `level` from the ROM already chosen and starts it: the way on to another act (the end of an
+ * act's flow, issue #69, calls it with the next level).
+ */
+async function playLevel(level) {
+  start(await extractAssets(romBuffer, () => {}, { level }));
+}
 
 function start(assets) {
   game?.stop();
@@ -104,7 +117,7 @@ function start(assets) {
   screen.focus();
   clearInterval(statsTimer);
   statsTimer = setInterval(showStats, 100);
-  if (debug) globalThis.onsoku = { game, assets, input, sound };
+  if (debug) globalThis.onsoku = { game, assets, input, sound, playLevel };
 }
 
 document.getElementById('change-rom').addEventListener('click', () => {

@@ -6,7 +6,7 @@ import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation } from './sprites.js';
-import { tilemapHeader, renderMetatileAtlas, renderPlainMap, plainMapIndices, mapBanks } from './tilemaps.js';
+import { tilemapHeader, renderMetatileAtlas, metatileIndices, renderPlainMap, plainMapIndices, mapBanks } from './tilemaps.js';
 import { readCollision, readSpawn } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
@@ -103,6 +103,8 @@ const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebris
 // each level's three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
 // background
 const MAP = { front: 0, back: 1, background: 2 };
+// past this many states of the palette animations a level's metatiles are kept as colour indices
+const MAX_ATLAS_PALETTES = 16;
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
@@ -225,10 +227,14 @@ function extractStage(rom, offsets, tables, info) {
   const palette = readColors(rom, front.palette, 256);
   const interactables = readInteractables(rom, offsets.interactables, level);
   const animations = info.paletteAnimations.map(anim => paletteAnimation(rom, tables, anim));
-  // the two layers share one tileset and its animated tiles, so one atlas serves both
+  // the two layers share one tileset and its animated tiles, so one atlas serves both. With many states of the
+  // palette animations, more than a canvas holds, it keeps the metatiles' colour indices instead, and the
+  // layers are coloured as they are drawn (stage.js).
   const count = collision.metatiles.length / 144;
   const tiles = paletteVariants(palette, animations, mapBanks(rom, front, count * front.xTiles * front.yTiles));
-  const atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.rows), follows: tiles.follows };
+  const atlas = tiles.palettes.length > MAX_ATLAS_PALETTES
+    ? { indexed: true, size: front.xTiles * 8, frames: metatileIndices(rom, front, count), palettes: tiles.palettes, follows: tiles.follows }
+    : { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.rows), follows: tiles.follows };
   const sky = paletteVariants(palette, animations, mapBanks(rom, background, background.xTiles * background.yTiles));
 
   return {

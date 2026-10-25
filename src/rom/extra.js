@@ -6,6 +6,7 @@
 import { tilemapHeader } from './tilemaps.js';
 import { readColors } from './colors.js';
 import { animationFrames, renderFrame } from './sprites.js';
+import { ENDING_SPRITES, findTrueEnding, trueEndingArt } from './ending.js';
 
 // [animation, variant] by the name the engine draws them by. Super Sonic's state table (gUnknown_084AE1B0,
 // 0x084A70AC in the USA ROM) picks his animation by charState: 0 the first frame's 398, 1 dying (Sonic's own 21,
@@ -27,6 +28,8 @@ export const EXTRA_SPRITES = {
   groundFire: [672, 0], rockBig: [676, 0], rockMid: [677, 0], rockSmall: [678, 0],
   // the nuts and bolts a beaten robot spills (611, the bosses' own)
   roboBlast: [611, 0],
+  // and the true ending's (ending.js)
+  ...ENDING_SPRITES,
 };
 
 // the robot's body (666): an 8bpp background sprite, loading its colours into background palette row 10
@@ -36,7 +39,8 @@ const BODY_ANIM = 666;
  * The extra stage's art that isn't in the sprite atlas: `body`, the robot's body as background sprite frames
  * ({ img, anchorX, anchorY } in the background's colours) and its animation ({ frames: [index, delay, boxes],
  * loop }); `facePalette`, the colours the HUD's face shows in, Super Sonic's (his animations load them into the
- * sprite palette row the face uses).
+ * sprite palette row the face uses); `ending`, the true ending's backgrounds (ending.js), or null when this ROM
+ * version's aren't found.
  */
 export function extraStageArt(rom, offsets, tables, level) {
   const front = tilemapHeader(rom, offsets.tilemaps, level * 3);
@@ -48,5 +52,7 @@ export function extraStageArt(rom, offsets, tables, level) {
     return f.boxes ? [images.length - 1, f.delay, f.boxes] : [images.length - 1, f.delay];
   });
   const fly = animationFrames(rom, tables, ...EXTRA_SPRITES.superFly, palette).frames[0].palette;
-  return { body: { images, anim: { frames, loop: script.loop } }, facePalette: fly.slice(0, 16) };
+  const endingAt = offsets.trueEnding ?? findTrueEnding(rom);
+  const ending = endingAt === null ? null : trueEndingArt(rom, tables, endingAt);
+  return { body: { images, anim: { frames, loop: script.loop } }, facePalette: fly.slice(0, 16), ending };
 }

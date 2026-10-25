@@ -117,16 +117,16 @@ export function createExtraRenderer(canvas, assets) {
   }
 
   function render(state) {
-    const { tick, view, sprites, windows, body, hud, card, display, scrollX } = state;
+    const { tick, view, sprites, windows, body, hud, card, display, scrollX, hblank = true } = state;
     const W = parts.w, H = parts.h, ctx = parts.ctx;
     ctx.imageSmoothingEnabled = false;
     const vx = view.x, vy = view.y, ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1;
-    // BG1: each line from 91 down scrolls by the offset the camera task wrote with this frame's stage time; its
-    // map is 256 px wide and repeats
+    // BG1: each line from 91 down scrolls by the offset the camera task wrote with this frame's stage time (when
+    // the HBlank interrupt sets it); its map is 256 px wide and repeats
     const t = tick - 1;
     for (let line = 0; line < H; line++) {
       const sy = line - oy, bgLine = Math.min(Math.max(sy, 0), background.height - 1);
-      let off = (sy >= STILL_LINES && sy < SCREEN_H ? bg1Offset(sy - STILL_LINES, t) : 0) - ox;
+      let off = (hblank && sy >= STILL_LINES && sy < SCREEN_H ? bg1Offset(sy - STILL_LINES, t) : 0) - ox;
       off = ((off % 256) + 256) % 256;
       for (let x = 0; x < W;) {
         const n = Math.min(256 - off, W - x);
@@ -160,6 +160,8 @@ export function createExtraRenderer(canvas, assets) {
     if (semi) parts.drawCard(card.sprites);
   }
 
+  // what the true ending's renderer (endingrender.js) draws with
+  render.parts = parts;
   render.resize = (w, h) => {
     base.resize(w, h);
     bodyCanvas = scratch(); winCanvas = scratch(); topCanvas = scratch();

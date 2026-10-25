@@ -5,7 +5,8 @@
 // spill. The title card is act 1's without an act number; as it ends, the HUD comes up and a WARNING sign
 // flashes, and on the WARNING's 128th frame the robot starts to move. Super Sonic starts with 50 rings, which
 // run down by one a second; at none he dies, and the stage starts over. Beating the robot fades the screen
-// to white and goes on to the true ending (`onEnding`).
+// to white and goes on to the true ending (trueending.js), which ends where the staff credits start
+// (`onCredits`).
 
 import { TICK_MS, SCREEN_W, SCREEN_H } from './constants.js';
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
@@ -16,6 +17,8 @@ import { createScatter } from './scatter.js';
 import { createHud, updateHud } from './hud.js';
 import { createTitleCard, runTitleCard } from './titlecard.js';
 import { createExtraRenderer } from './extrarender.js';
+import { createTrueEnding } from './trueending.js';
+import { createEndingRenderer } from './endingrender.js';
 import { SINE } from './trig.js';
 import {
   createSuperSonic, superSonicTask, groundScroll, resetSparkles, START_RINGS, IGNORE_INPUT,
@@ -32,6 +35,10 @@ const SCATTER_GRAVITY = 7;     // the scattered rings' fall on the extra stage (
 // the display registers as StageInit_Zone7Act2 leaves them: BG0 to BG2 and the sprites on
 const DISPCNT = 0x1F41;
 const SUPER_EGG_ROBO = 31;     // the robot's entity kind
+// CreateExtraStageResults writes the save game with interrupts off. mGBA 0.10.5 goes on showing the last frame
+// meanwhile, 14 frames without the HBlank interrupt and one with it back on, then the ending's white screen for
+// two before its first frame runs.
+const SAVE_FRAMES = 16;
 const SINE8 = a => SINE[a & 1023] >> 6;   // SIN_24_8
 
 const SILENT = {
@@ -39,10 +46,11 @@ const SILENT = {
 };
 
 /**
- * The Moon Zone, with the same interface as createGame (game.js). `onEnding(results)` is called on the frame
- * the fade to white ends, with what the results screen needs: { score, lives, rings, courseTime }.
+ * The Moon Zone, with the same interface as createGame (game.js). On the true ending's 30th frame
+ * `stageResults({ rings, courseTime, level })` puts up the results' tally (#69's), and `onCredits()` is called
+ * on the frame the staff credits take over from the ending.
  */
-export function createExtraStage(canvas, assets, input, sound = SILENT, { onEnding = () => {}, difficulty = 0 } = {}) {
+export function createExtraStage(canvas, assets, input, sound = SILENT, { stageResults, onCredits = () => {}, difficulty = 0 } = {}) {
   const { anims } = assets.sprites;
   const stage = assets.stage, terrain = createTerrain(stage.collision);
   const bodyAnims = { roboBody: stage.extra.body.anim };
@@ -50,6 +58,14 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { onEndi
   const scatter = createScatter(anims, { gravity: SCATTER_GRAVITY, floorX: groundScroll });
   scatter.reset();
   const render = createExtraRenderer(canvas, assets);
+  let renderEnding = null, shown = null;   // what the last frame showed, which the screen holds during the save
+  const drawFrame = () => {
+    if (!state.ending) { render(state); return; }
+    // the screen keeps the frame before; with the HBlank interrupt off BG1's lines from 91 down don't scroll
+    if (state.saving > 1) { render({ ...state, ...shown, hblank: state.saving === 2 }); return; }
+    renderEnding ??= createEndingRenderer(render.parts, stage.extra.ending);
+    renderEnding(state.ending.state);
+  };
   const freshDisplay = () => ({ dispcnt: DISPCNT, winIn: 0, winOut: 0, bldCnt: 0, bldY: 0, win0: null, win0Lines: null });
   const player = createSuperSonic(stage.spawn);
   const state = {
@@ -58,6 +74,8 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { onEndi
     ringCount: START_RINGS, lives: START_LIVES, score: 0, courseTime: 0,
     actStart: true,        // STAGE_FLAG__ACT_START: the title card, a death or the robot's defeat stop the clock
     hud: createHud(), card: null, display: freshDisplay(), seed: 0, ended: false,
+    ending: null,          // the true ending, once the robot is beaten
+    saving: 0,             // the frames the save game still takes before it
   };
   let viewW = SCREEN_W, viewH = SCREEN_H;
   state.view = viewOf(state.cam, viewW, viewH);
@@ -107,11 +125,14 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { onEndi
     body(sprite, sx, sy, rotation) { state.body = { frame: sprite.frame, sx, sy, rotation }; },
     scatterRings(x, y, n) { scatter.launchCapsule(x, y, n, player.layer, random); },
     brakeDust(x, y, dx) { if (brakeDust > 0) { brakeDust--; tasks.add(dust(x, y, dx), BRAKE_DUST); } },
-    // the fade has reached white: TasksDestroyAll, and the results take over (CreateExtraStageResults)
+    // the fade has reached white: TasksDestroyAll, and the true ending takes over (CreateExtraStageResults);
+    // without its art (a ROM version where it isn't found) the credits come straight on
     defeated() {
       tasks.stop();
       state.ended = true;
-      onEnding({ score: state.score, lives: state.lives, rings: state.ringCount, courseTime: state.courseTime });
+      if (!stage.extra.ending) { onCredits(); return; }
+      state.ending = createTrueEnding(anims, sound, { rings: state.ringCount, courseTime: state.courseTime, stageResults, onCredits });
+      state.saving = SAVE_FRAMES;
     },
   };
 
@@ -248,8 +269,14 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { onEndi
 
   function step() {
     input.poll?.();
+    if (state.ending) {
+      if (state.saving > 0) state.saving--;
+      else state.ending.step();
+      return;
+    }
     if (state.ended) return;
     if (loading) { loading = false; return; }
+    shown = { tick: state.tick, view: state.view, scrollX: state.scrollX, sprites: state.sprites, windows: state.windows, body: state.body, hud: { sprites: state.hud.sprites }, display: { ...state.display } };
     state.sprites = []; state.windows = []; state.body = null;
     tasks.run({});
     if (restart) { restart = false; restartStage(); }
@@ -260,13 +287,13 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { onEndi
     pending += Math.min(100, now - last);
     last = now;
     while (pending >= TICK_MS) { step(); pending -= TICK_MS; }
-    if (!state.ended) render(state);
+    if (!state.ended || state.ending) drawFrame();
     frame = requestAnimationFrame(loop);
   }
 
   return {
     state, step, world: w,
-    draw: () => render(state),
+    draw: drawFrame,
     setView(wd, ht) {
       if (wd === viewW && ht === viewH) return;
       viewW = wd; viewH = ht;

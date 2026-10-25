@@ -32,6 +32,7 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 | UI graphics | `0x680A38` | 28-byte entries of two ROM pointers and five words; the first is the 8 × 16 font `{2, 0, 2, 1, 2}` and the sixth the HUD ring `{16, 2, 0, 4, 4}` |
 | Title card tables | `0x681274` | The pieces' texts, 56 bytes at +`0x34` that are the same in every version (see [Title card](#title-card)) |
 | Music players and songs | `0x6D767C`, `0x6D76AC` | Four music player entries (two EWRAM pointers, a track count of 1–16, a zero byte, a 16-bit field), followed at once by song entries of a ROM pointer and the player's number twice |
+| True ending art | `0x6B4B10` | The code that loads the sky holds the addresses of its tiles, its palette and its map one after the other, the tiles `0x200` and the map `0x2980` bytes after the palette (see [The true ending](#the-true-ending)) |
 
 ### Sprites
 
@@ -587,3 +588,46 @@ Sounds on the same player cut each other off, as in the original. There is no la
 - *The final output:* the DirectSound part of the port's audio lines up with mGBA's recorded output. The PSG part matches mGBA's in pitch, level and envelope (median spectrum correlation 0.98), but not sample for sample: a Game Boy channel's waveform phase depends on the exact CPU cycle the engine writes its registers, which the port does not model.
 
 The port mixes at the GBA's 65536 Hz, averages that down to the browser's output rate, removes the DC offset the unipolar PSG channels add, and plays at half of the GBA's full scale. The game itself still steps at 60 Hz while the sound engine keeps the GBA's 59.7275 frames per second, so a sound starts within one frame of the move that plays it.
+
+### The Moon Zone
+
+The Moon Zone is the extra stage, level 13 (`LEVEL_INDEX(ZONE_7, ACT_THE_MOON)`, `?level=13`): 3072 × 288 px (32 × 3 metatiles), spawn (56, 224), 5 × 2 regions, no rings, interactables or item boxes. Its one entity is enemy kind 31, the Super Egg Robo, at (288, 248). Tilemap entries 39–41: the front layer goes unused (the stage draws only its back layer, BG0), and the background (BG1, 32 × 20 tiles) uses the front layer's palette. `StageInit_Zone7Act2` only plays MUS_EXTRA_BOSS (26); there are no palette animations. The title card is act 1's without an act number (`Task_8055904` draws one only for levels up to 11), and as it ends a WARNING sign flashes (`sub_804A5D8`, four pieces squashed every 32 frames for 192 frames). The robot starts to move on its 128th frame.
+
+**The ground.** The stage scrolls BG0 8 px a frame further than the camera (`RenderMetatileLayers`), so Super Sonic and the robot read the ground where the scrolling has put it. BG1 shows its top 91 lines still and scrolls each line below by its own offset (`StageBgUpdate_Zone7Act2`, set per line by `HBlankCallback_803F92C`): bands of stars drifting slower toward the top, then 31 lines each faster than the last.
+
+**Super Sonic** (`player_super_sonic.c`) is the stage's own player, with his own 8.8 physics: he flies with the pad (36 a frame to speed up, 96 to slow down, 2 px a frame at most), jumps with A (1088, gravity 32) and dashes with B (4 px a frame, slowing by 64). He starts with 50 rings, which run down by one a second while the robot stands; with none he dies and the stage starts over. A hit throws him back instead of taking rings. His animations are 398 (the first frame), 21 (dying) and 399 (flying, dashing, thrown back), picked by charState from `gUnknown_084AE1B0` (`0x084A70AC`); his colours also go into the HUD's face.
+
+**The Super Egg Robo** (`boss_xtra_super_egg_robot.c`). Its body (animation 666) is an 8bpp background sprite drawn on the rotating background BG2. A background sprite's OAM tile numbers count whole 8bpp tiles, because `sub_80039E4` writes them straight into the background's map, and its frame goes into BG2's 256 × 256 texture with its left edge rounded down to a multiple of 16 and its top to a whole tile. The head, arms and legs are 18 sprites and a knee, each a task hanging from the one before it in its limb and turned by its own angle on top of its parent's. The hand eases toward the opposite of its *parent's* angle (`sub_8051604`'s assembly), not its own as the decompilation's C has it. The robot walks, raises an arm and swings it, digs with its hands (throwing up rocks), sweeps its laser over the ground and throws ring capsules. The laser's beam is window 0's triangle, brightened by 14/16; its edges are walked line by line by `sub_8006DB4`. Only a dash into the head hurts it: 8 hits on normal, 6 on easy, each flashing the head white for 32 frames inside the OBJ window. A capsule holds Super Sonic for 4 seconds, 20 frames less for each press of left or right.
+
+**The defeat.** The robot falls back spilling nuts and bolts. Two seconds after the last hit the screen fades to white, 1/16 every 4 frames. At 16/16, `CreateExtraStageResults` takes over: it stops the music and writes the save with interrupts off. Through mGBA 0.10.5 that takes 16 frames. For 14 of them the screen keeps the last frame with BG1's lower lines unscrolled (the HBlank interrupt is off), for one more with them scrolled again, and then the ending's white screen shows for two frames before its first frame runs.
+
+### The true ending
+
+`CreateExtraStageResults` (`extra_stage_results.c`) sets the save's first unlocked level to 15. One main task (priority `0x2100`) then counts each scene's frames and runs the fades, and the sprites' tasks (`0x2120`) read its count. A fade (`sub_805423C`) works through window 1 over the whole screen. Its level goes up `0x80` a frame to `0x2000`, so it lasts 64 frames, and the brightness change is its level ÷ 512 sixteenths. A semi-transparent sprite is alpha-blended at full weight (BLDALPHA 16) instead, so the fades leave it alone.
+
+1. **The night scene**, coming in from white. Three 256-colour backgrounds share one palette: BG0 `0x8583`, BG1 `0x9E86` and BG2 `0x9B89`. On the 30th frame `CreateStageResults` puts up the tally (MUS_EXTRA_CLEAR, 36). It returns how long the scene lasts: the larger of the ring bonus and the time bonus ÷ 100, plus 75 + 285 frames. On that frame MUS_CUTSCENE_A_FEW_DAYS_LATER (39) starts, and four twinkles (731) come one after another, 16 frames each. A second later the three layers slide down by 85, 96 and 192 /256 px a frame, to 71, 80 and 160. 540 frames after the tally's end the scene fades to black.
+2. **"A few days later"** (783, semi-transparent) on black for 600 frames, then 64 more frames of black.
+3. **The sky** (BG0 `0x9B83`, scrolled down 296 px), for 822 frames. Four clouds (790–793) drift right. They share sprite palette row 12, and the last of them loads 790's colours over 792's, so the third cloud shows in the others' colours. A sparkle (732) crosses from the fourth second. The Tornado (736) bobs with Tails (805 variant 1; 191 is Tails turning his head, at frames 120 and 480). At frame 700 it turns to face the screen (735, never animated past its first frame) and flies off to the upper right, turning and shrinking from 1.5 times its size.
+4. **Four pictures** (733 variants 0 and 1, then 734 variants 0 and 1), 400 frames each, coming in from black and fading out at 336. As they start, the sky's map is cleared from its top (the first `0xA00` bytes), which leaves black around them. In the third, from frame 179, colours 2–15 of sprite palette row 14 turn from palette 143 into palette 144 (`gUiPaletteSoundTestBox3` and `4`), a step every 16 frames. The third doesn't fade out. Over the fourth, the three lines of 785 scroll up 3 px a frame from y 180, starting 330, 480 and 484 frames on (`gUnknown_0868B4BE`, `0x086843BA`) and stopping at y 16, 128 and 144 (`gUnknown_0868B4B8`, `0x086843B4`). These are three-entry tables; the decompilation declares two.
+5. Then `CreateStaffCredits`.
+
+The art's four backgrounds (each a 256-colour palette, then its tiles and its map) follow each other from `0x6B4B10`:
+
+| Background | Palette | Tiles | Map |
+| :--- | :--- | :--- | :--- |
+| The sky | `0x6B4B10` | `0x6B4D10` (`0x2980` bytes) | `0x6B7690` (`0x1000`) |
+| Night, front (BG2) | `0x6B8690` | `0x6B8890` (`0x57C0`) | `0x6BE050` (`0xA00`) |
+| Night, back (BG0) | `0x6BEA50` | `0x6BEC50` (`0x1EC0`) | `0x6C0B10` (`0xA00`) |
+| Night, middle (BG1) | `0x6C1510` | `0x6C1710` (`0x3540`) | `0x6C2C50` (`0xA00`) |
+
+These are the decompilation's EU addresses less `0x7124`.
+
+**Opening the Moon.** The ROM's own test is the same in Egg X's defeat (`boss_x3_egg_x.c`, which then goes to the Moon instead of the normal ending), in `CreateStageResults` and in the course select (`course_select.c`). It passes when:
+
+- the character is Sonic;
+- the level is 12 or later;
+- the save has all seven Chaos Emeralds (`0x7F`);
+- all four characters' unlocked levels are past 12;
+- and not both of: the first unlocked level is 15, and the course select started on level 12.
+
+[`src/engine/unlock.js`](../src/engine/unlock.js) has it as `theMoonOpens(…)`. Nothing calls it yet; `?level=13` starts the Moon Zone directly.

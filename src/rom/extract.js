@@ -156,7 +156,10 @@ function extractSprites(rom, tables, levelSprites = {}) {
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
-    ...Object.entries(levelSprites).map(([name, [anim, variant]]) => ({ list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, anim) })),
+    // a third number is the animation whose colours it shows in, where another loads over its own
+    ...Object.entries(levelSprites).map(([name, [anim, variant, colors]]) => ({
+      list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, colors ?? anim), skipPalette: colors !== undefined,
+    })),
   ];
 
   const images = [], byKey = new Map(), anims = {};

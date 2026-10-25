@@ -164,7 +164,7 @@ function interactable(e, slot, anims, ctx) {
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createMovingSpring(e, slot, anims) ?? createSquarePlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
-    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createToggleGravity(e, slot, ctx) ?? createTube(e, slot, anims, ctx.level) ?? createHidingSpikes(e, slot, anims) ?? createFloat(e, slot) ?? createConveyor(e, slot, ctx) ?? createTorch(e, slot) ?? standIn(e, slot);
+    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createToggleGravity(e, slot, ctx) ?? createTube(e, slot, anims, ctx.level) ?? createHidingSpikes(e, slot, anims) ?? createFloat(e, slot) ?? createConveyor(e, slot, ctx) ?? createTorch(e, slot, ctx.world) ?? standIn(e, slot);
 }
 
 /**

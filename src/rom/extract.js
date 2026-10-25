@@ -120,8 +120,8 @@ export const SLIDE_ANIMATIONS = { 474: { slideSplash: 0 } };
 export const BOOSTER_ANIMATIONS = {
   471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 }, 472: { boosterWall: 0 }, 571: { boosterSteep: 0 },
 };
-// Angel Island's torches (558)
-export const TORCH_ANIMATIONS = { 558: { torch: 0 } };
+// Angel Island's torches (558), and Cosmic Angel's antigravity units, one (511) and two (512)
+export const TORCH_ANIMATIONS = { 558: { torch: 0 }, 511: { antigravity: 0 }, 512: { antigravityDouble: 0 } };
 // the checkpoints (452): waiting, spinning as Sonic passes (its script starts song 169, which the game plays,
 // src/engine/checkpoints.js), and passed
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };

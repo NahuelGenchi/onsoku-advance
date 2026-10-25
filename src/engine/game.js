@@ -113,6 +113,9 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     get checkpointIndex() { return state.checkpointIndex; },
     // Sonic passed checkpoint `index`: the act starts over with his centre at (x, y) and the clock at this time
     passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.courseTime }; },
+    // the camera itself, for the tasks that move or bound it, and the bounds Sonic is kept inside
+    get camera() { return state.cam; },
+    get edges() { const c = state.cam; return { minX: c.minX, minY: c.minY, maxX: c.maxX + SCREEN_W, maxY: c.maxY + SCREEN_H }; },
     // Sonic's attack box destroyed an enemy at (x, y)
     defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
     playSound: song => sound.play(song),

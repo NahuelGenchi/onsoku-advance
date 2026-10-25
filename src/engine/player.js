@@ -106,13 +106,13 @@ function alongSurface(p) {
   p.ysp = ((g * sin8(p.rotation)) >> 8) / 256;
 }
 
-// the act's edges (sub_80232D0): Sonic stops at the sides, and falling out of the bottom kills him, thrown
-// up as high as a jump
+// the camera's bounds, the act's edges unless the act narrows them (sub_80232D0): Sonic stops at the sides,
+// and falling out of the bottom kills him, thrown up as high as a jump
 function bounds(p, world) {
-  const t = world.terrain, maxX = t.width - 1 / 256, maxY = t.height - 1 / 256;
+  const e = world.edges, maxX = e.maxX - 1 / 256, maxY = e.maxY - 1 / 256;
   if (p.y >= maxY && !p.dead) { p.dead = true; p.ysp = -K.jumpSpeed; p.y = maxY; }
-  if (p.x < 0 || p.x > maxX) { p.x = Math.min(Math.max(p.x, 0), maxX); p.xsp = 0; p.gsp = 0; }
-  if (p.y < 0) { p.y = 0; p.ysp = 0; p.gsp = 0; }
+  if (p.x < e.minX || p.x > maxX) { p.x = Math.min(Math.max(p.x, e.minX), maxX); p.xsp = 0; p.gsp = 0; }
+  if (p.y < e.minY) { p.y = e.minY; p.ysp = 0; p.gsp = 0; }
 }
 
 // walls, ceilings and steep slopes drop Sonic when he is too slow for them, and lock his controls for

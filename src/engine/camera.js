@@ -1,5 +1,7 @@
 // The original camera: a target derived from Sonic's position, approached with dead zones and speed caps,
 // a look up / look down pan, a short freeze after a spin dash release, and a still target once Sonic dies. It never shows past the act's edges.
+// An act can narrow its bounds (minX, minY, maxX, maxY), shift its target down (shiftY), and a screen shake
+// (screenshake.js) moves it by shakeX and shakeY after it is kept inside them, as UpdateCamera does.
 // While the optional Sonic Rush boost runs, it leads him the way Rush's camera does.
 
 import { SCREEN_W, SCREEN_H, CAMERA as C, RUSH_BOOST as R } from './constants.js';
@@ -12,7 +14,8 @@ export function createCamera(p, terrain) {
   const cam = {
     x: Math.floor(p.x) - SCREEN_W / 2, y: centreY(p) - (SCREEN_H / 2 + 4),
     targetX: 0, targetY: 0, freeze: 0, locked: false, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
-    maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false,
+    minX: 0, minY: 0, maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false,
+    shiftY: 0, shakeX: 0, shakeY: 0,
     // the Rush boost's lead: Sonic shown this far off the target's centre (8.8 px), what it eases toward, the
     // frames left of the delay after a boost starts, and where Sonic was at the last update
     leadX: 0, leadY: 0, leadTargetX: 0, leadTargetY: 0, scroll: 0, prevX: p.x, prevY: p.y,
@@ -22,8 +25,8 @@ export function createCamera(p, terrain) {
 }
 
 function clamp(cam) {
-  cam.x = Math.min(Math.max(cam.x, 0), cam.maxX);
-  cam.y = Math.min(Math.max(cam.y, 0), cam.maxY);
+  cam.x = Math.min(Math.max(cam.x, cam.minX), cam.maxX);
+  cam.y = Math.min(Math.max(cam.y, cam.minY), cam.maxY);
 }
 
 // hold up or down while standing still for 120 frames, then pan 2px per frame; ease back otherwise
@@ -71,8 +74,8 @@ export function updateCamera(cam, p) {
   if (!cam.started) { cam.started = true; return; }
   // it moves from where it was, kept a pixel further in from the far edges than it may end up: at the
   // bottom of the act, a dead zone can leave it a pixel up
-  cam.x = Math.min(Math.max(cam.x, 0), cam.maxX - 1);
-  cam.y = Math.min(Math.max(cam.y, 0), cam.maxY - 1);
+  cam.x = Math.min(Math.max(cam.x, cam.minX), cam.maxX - 1);
+  cam.y = Math.min(Math.max(cam.y, cam.minY), cam.maxY - 1);
   updateLook(cam, p);
   updateLead(cam, p);
   // a dead Sonic leaves the target where it was (unk50 bits 0–1); the view still eases onto it
@@ -83,7 +86,7 @@ export function updateCamera(cam, p) {
     const want = p.offsetY - 4;
     if (cam.offsetY < want) cam.offsetY = Math.min(want, cam.offsetY + 5);
     else if (cam.offsetY > want) cam.offsetY = Math.max(want, cam.offsetY - 5);
-    cam.targetY = centreY(p) - SCREEN_H / 2 + cam.look + cam.offsetY - (cam.leadY >> 8);
+    cam.targetY = centreY(p) + cam.shiftY - SCREEN_H / 2 + cam.look + cam.offsetY - (cam.leadY >> 8);
   }
   const dx = cam.targetX - cam.x;
   // with a lead, it keeps to the target sideways as Rush's does, without a dead zone or a speed limit
@@ -96,6 +99,7 @@ export function updateCamera(cam, p) {
   if (dy > cam.deadY) cam.y += Math.min(C.maxSpeedY, dy - cam.deadY);
   else if (dy < -cam.deadY) cam.y += Math.max(-C.maxSpeedY, dy + cam.deadY);
   clamp(cam);
+  cam.x += cam.shakeX; cam.y += cam.shakeY;
 }
 
 /**
@@ -104,8 +108,10 @@ export function updateCamera(cam, p) {
  * the act too. `x` and `y` are its top left corner in the act.
  */
 export function viewOf(cam, w = SCREEN_W, h = SCREEN_H) {
-  const cx = Math.min(Math.max(Math.floor(cam.x), 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y), 0), cam.maxY);
+  // a screen shake moves the view with the camera, past the edges it is otherwise kept inside
+  const sx = cam.shakeX, sy = cam.shakeY;
+  const cx = Math.min(Math.max(Math.floor(cam.x) - sx, 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y) - sy, 0), cam.maxY);
   const x = Math.max(0, Math.min(cx - ((w - SCREEN_W) >> 1), cam.maxX + SCREEN_W - w));
   const y = Math.max(0, Math.min(cy - ((h - SCREEN_H) >> 1), cam.maxY + SCREEN_H - h));
-  return { x, y, w, h };
+  return { x: x + sx, y: y + sy, w, h };
 }

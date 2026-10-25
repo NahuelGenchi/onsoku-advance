@@ -51,7 +51,7 @@ The act ends at the rocket's top through the stage goal (kind 0, `stage_goal.c`)
 | 103 | Propeller | 515 | Only spins, at its spawn point, OAM order 18. Sprite flag 18 skips its script's palette load; in Egg Rocket the bank (11) already holds the same colours |
 | enemy 14 | Oct | | Waits until Sonic is within 120 px sideways, patrols at 0.75 px a frame, overshooting each end on a half sine over 30 frames, and drops a shot every 60 frames |
 
-The other kinds the act uses are shared with other zones and documented with them: gravity toggles (109) and flipped gravity, tubes (106, 110, 111), whirlwinds (90), square platforms (55), moving springs (81), iron balls (82), ferris wheels (91), breakable walls (114), wall bumpers (71) and the Mirror (enemy 12). Egg Rocket's own looks for them come from the ROM's per-level tables and `CreateEntity_` code:
+The other kinds the act uses are shared with other zones and documented with them: gravity toggles (109) and flipped gravity, tubes (106, 110, 111), whirlwinds (90), square platforms (55), moving springs (81), iron balls (82), ferris wheels (91), breakable walls (114), wall bumpers (71), conveyor belts (69), the Mirror (enemy 12) and the Mole (enemy 15). Egg Rocket's own looks for them come from the ROM's per-level tables and `CreateEntity_` code:
 
 | Object | Egg Rocket's look | Where the ROM picks it |
 | :--- | :--- | :--- |
@@ -70,7 +70,7 @@ Each case was recorded in mGBA 0.10.5 with the course select's start, Sonic and 
 - the launch (737 frames), both separations (737 and 1337, into space),
 - the steep boosters through a tube (500), the wall booster under ceiling spikes (330),
 - the hang bar (420), the ceiling spikes with a death and restart (420), a spiked barrel ride (400), a propeller (300),
-- flipped gravity through two toggles onto the ceiling (420), square platforms and whirlwinds (400), a ferris wheel (397), the Mirror (400), a wall bumper (360), a breakable wall broken by a spin dash (360),
+- flipped gravity through two toggles onto the ceiling (420), square platforms and whirlwinds (400), a ferris wheel with a Mole that hits Sonic (400), the conveyor belts and their rollers (200), the Mirror (400), a wall bumper (360), a breakable wall broken by a spin dash (360),
 - an Oct defeat (360), and a death after the launch with the restart in the launched rocket (1250 frames, pixels identical).
 
-Not checked: the conveyor belts (69) and the Mole (enemy 15), which this game doesn't build yet; what the countdown's time over shows, since the game has no *TIME OVER* screen yet (it restarts at once); the end of the act ([above](#the-end-of-the-act), read in the code only).
+Not checked: what the countdown's time over shows, since the game has no *TIME OVER* screen yet (it restarts at once); the end of the act ([above](#the-end-of-the-act), read in the code only).

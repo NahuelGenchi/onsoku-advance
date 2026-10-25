@@ -37,7 +37,7 @@ const NO_INPUT = { left: false, right: false, up: false, down: false, jump: fals
 
 const SILENT = {
   play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
-  playerState() {}, stopAll() {},
+  playerState() {}, stopAll() {}, musicState() {},
 };
 
 export function createGame(canvas, assets, input, sound = SILENT) {
@@ -126,6 +126,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) { state.lives = (state.lives + 1) & 0xFF; extraLife = true; }
     },
     playSound: song => sound.play(song),
+    // a boss's music state (gMusicManagerState.unk1), which the music manager reads (synth.js)
+    musicState: value => sound.musicState(value),
     random,
     // an item box's prize (Task_Itembox2)
     prize(kind) {

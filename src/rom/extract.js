@@ -5,7 +5,7 @@
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
-import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation } from './sprites.js';
+import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation, frameLayout } from './sprites.js';
 import { tilemapHeader, renderMetatileAtlas, metatileIndices, renderPlainMap, plainMapIndices, mapBanks } from './tilemaps.js';
 import { readCollision, readSpawn } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
@@ -132,9 +132,12 @@ export const BOOSTER_ANIMATIONS = { 471: { booster: 0, boosterSlightRight: 1, bo
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };
 // Neo Green Hill's wall pole (468): at rest, and bending as Sonic swings on it
 export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
-// what bosses leave behind: the Egg Mobile and Eggman flying off in it (bosses_egg_mobile.c), the debris
-// (gUnknown_080BB41C) and the explosions (sub_8017540)
+// the Egg Spider (boss_4_egg_spider.c: walking, dropping icicles and still; Eggman still, laughing and wincing; what
+// is left of it once beaten, the parts it loses and its icicles) and what bosses leave behind: the Egg Mobile and
+// Eggman flying off in it (bosses_egg_mobile.c), the debris (gUnknown_080BB41C) and the explosions (sub_8017540)
 export const BOSS_ANIMATIONS = {
+  628: { eggSpider: 0, eggSpiderDrop: 1, eggSpiderStill: 2 }, 629: { eggSpiderEggman: 0, eggSpiderEggmanLaugh: 1, eggSpiderEggmanHit: 2 },
+  626: { eggSpiderBody: 0 }, 627: { eggSpiderPart: 0, eggSpiderLeg: 1 }, 630: { icicle: 0 },
   693: { eggMobile: 0, eggMobileTurn: 1 }, 694: { eggman: 0, eggmanFlee: 4, eggmanTurn: 9 },
   695: { boltMedium: 0, boltMedium2: 1 }, 696: { boltLarge: 0, boltLarge2: 1 }, 697: { boltSmall: 0, boltSmall2: 1 },
   611: { bossExplosion: 0 },
@@ -148,10 +151,14 @@ const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
 // block), the boulders', the ice blocks' and the skating stones' debris, and the bubbles Sonic lets out under
 // water and the drowning countdown's numbers, which grow to full size; their frames also keep their OAM pieces
-// as the hardware reads them
+// as the hardware reads them, as do the Egg Spider's parts
 const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge',
   'stoneDebrisSmall', 'stoneDebrisLarge', 'iceStoneDebrisSmall', 'iceStoneDebrisLarge',
-  'bubblesSmall', 'bubblesGroup', ...[0, 1, 2, 3, 4, 5].map(n => `drownCountdown${n}`)]);
+  'bubblesSmall', 'bubblesGroup', ...[0, 1, 2, 3, 4, 5].map(n => `drownCountdown${n}`),
+  'eggSpiderPart', 'eggSpiderLeg']);
+// the animations whose frames' first OAM entry (their dimensions' oamIndex) the game reads: the Egg Spider's,
+// which places Eggman by it
+const OAM_INDEXED = new Set([628]);
 // the sprite palette that fills the whole OBJ palette when an act with water starts, and that the colours
 // under water are made from (LoadPalette423Anim, InitWaterPalettes)
 const UNDERWATER_OBJ_PALETTE = 423;
@@ -245,6 +252,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
         return f.boxes ? [byKey.get(key), f.delay, f.boxes] : [byKey.get(key), f.delay];
       });
       anims[name] = { frames, loop: script.loop };
+      if (OAM_INDEXED.has(anim)) anims[name].oamIndex = script.frames.map(f => (f.frame < 0 ? -1 : frameLayout(rom, tables, anim, f.frame).oamIndex));
     }
   }
   const redrawn = new Map(), redraw = i => {

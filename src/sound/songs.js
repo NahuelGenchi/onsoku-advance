@@ -21,6 +21,7 @@ export const SONG = {
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
   BOSS_HIT: 143,           // SE_BOSS_HIT: also a skating stone breaking
   EXPLOSION: 144,          // SE_EXPLOSION: a boss is beaten
+  IMPACT: 145,             // SE_IMPACT: the Egg Spider dropping an icicle
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
   CHECKPOINT: 169,

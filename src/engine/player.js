@@ -47,7 +47,9 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     shield: null,      // 'normal' or 'magnetic' (the itemEffect shield bits)
     invincible: 0,     // frames of invincibility left (timerInvincibility)
     speedUp: 0,        // frames of speed shoes left (timerSpeedup)
-    hidden: false,     // left out of this frame's drawing: blinking, or gone below the screen after dying
+    hidden: false,     // left out of this frame's drawing: blinking, hidden by an object, or gone below the screen
+                       // after dying
+    invisible: false,  // MOVESTATE_100000: an object hides him, as inside Casino Paradise's tubes (visibility.js)
     dead: false,       // MOVESTATE_DEAD
     carried: false,    // MOVESTATE_IA_OVERRIDE: an object moves him, and his own movement doesn't run
     grinding: false,   // MOVESTATE_1000000: on a grind rail, on the layer it put him on
@@ -720,8 +722,8 @@ function stepAnim(p, anims) {
 
 /**
  * Picks and steps Sonic's animation after his frame of movement, like the original sprite update, then
- * decides whether he is drawn: after a hit he blinks, 2 frames hidden and 2 shown in step with the stage
- * clock, and the blink timer runs down once he has landed. Then the speed shoes and invincibility count down.
+ * decides whether he is drawn: alive, he isn't while an object hides him, and after a hit he blinks, 2 frames
+ * hidden and 2 shown in step with the stage clock; the blink timer runs down once he has landed. Then the speed shoes and invincibility count down.
  */
 export function animatePlayer(p, input, anims, world) {
   if (p.death === 'gone') return;
@@ -736,7 +738,7 @@ export function animatePlayer(p, input, anims, world) {
     choose(p, chooseAnimation(p, input));
   }
   p.prevState = p.state;
-  p.hidden = !p.dead && p.invulnerable > 0 && (world.tick & 2) !== 0;
+  p.hidden = !p.dead && (p.invisible || (p.invulnerable > 0 && (world.tick & 2) !== 0));
   // dead, the timers count down only on the frame he dies: the tasks that take over from then on leave them
   if (p.dead && p.invulnerable === 1) return;
   if (p.state !== 'hurt' && p.invulnerable > 0) p.invulnerable--;

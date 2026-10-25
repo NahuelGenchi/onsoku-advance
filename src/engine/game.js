@@ -137,7 +137,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     stopClock(stopped = true) { state.clockStopped = stopped; },
     countDown(time) { state.timerReversed = true; state.courseTime = time; },
     // Sonic's attack box destroyed an enemy at (x, y)
-    defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
+    defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }, assets.stage.level >> 1); },
     playSound: song => sound.play(song),
     random,
     // an item box's prize (Task_Itembox2)

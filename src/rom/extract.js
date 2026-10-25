@@ -52,8 +52,8 @@ export const OBJECT_ANIMATIONS = {
 // the spikes (animation 454, palette 35): pointing up, and sideways (flipped to point left)
 export const SPIKES_ANIM = 454;
 export const SPIKE_ANIMATIONS = { spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3] };
-// act 1's enemies and their shots, the dust and points a defeat leaves and the freed animals, by animation;
-// each loads its own palette
+// act 1's enemies and their shots, the dust and points a defeat leaves and every zone's freed animals, by
+// animation; each loads its own palette
 export const ENEMY_ANIMATIONS = {
   401: { kikiBob: 1, kikiThrow: 2 }, 408: { coconut: 0 }, 402: { coconutPiece: 0 },
   403: { buzzerFly: 0, buzzerShoot: 1, buzzerTurn: 2 }, 409: { buzzerShot: 0 },
@@ -62,7 +62,10 @@ export const ENEMY_ANIMATIONS = {
   406: { keroJump: 0, keroCroak: 1 },
   407: { dustCloud: 0 },
   709: { score0: 0, score1: 1, score2: 2, score3: 3, score4: 4 },
-  445: { animalOtter: 0 }, 450: { animalKoala: 0 }, 449: { animalKangaroo: 0 },
+  437: { animalSeal: 0 }, 438: { animalGorilla: 0 }, 439: { animalPeacock: 0 }, 440: { animalLion: 0 },
+  441: { animalMole: 0 }, 442: { animalParrot: 0 }, 443: { animalPenguin: 0 }, 444: { animalRabbit: 0 },
+  445: { animalOtter: 0 }, 446: { animalDeer: 0 }, 447: { animalSkunk: 0 }, 448: { animalRobin: 0 },
+  449: { animalKangaroo: 0 }, 450: { animalKoala: 0 }, 451: { animalElephant: 0 },
   // Egg Rocket's Oct, patrolling and shooting, and its shot
   433: { oct: 0, octShoot: 1 }, 436: { octShot: 0 },
 };

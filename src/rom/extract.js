@@ -63,6 +63,10 @@ export const ENEMY_ANIMATIONS = {
   407: { dustCloud: 0 },
   709: { score0: 0, score1: 1, score2: 2, score3: 3, score4: 4 },
   445: { animalOtter: 0 }, 450: { animalKoala: 0 }, 449: { animalKangaroo: 0 },
+  // Ice Mountain's: Drisame, its block of ice and the block's large and small pieces, and Kuraa walking and
+  // snapping its claws
+  424: { drisame: 0 }, 573: { drisameIce: 0 }, 579: { drisameDebrisLarge: 0 }, 580: { drisameDebrisSmall: 0 },
+  425: { kuraaWalk: 0, kuraaSnap: 1 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their

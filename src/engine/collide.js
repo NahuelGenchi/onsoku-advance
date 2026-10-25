@@ -117,6 +117,21 @@ export function platformTop(o, x, y, hb, p) {
 }
 
 /**
+ * A skating stone at rest (Coll_Player_SkatingStone): Coll_Player_Platform without its sides. An airborne
+ * Sonic, or one standing on it, is tested from above and below and, failing that, once more; one on the ground
+ * once. A dead one falls through.
+ */
+export function skatingStone(o, hb, p) {
+  const res = { flags: 0 };
+  if (!hb || p.dead) return 0;
+  const stoodHere = p.onObject === o;
+  if (stoodHere) p.onObject = null;
+  const done = ((p.air || stoodHere) && vertical(o, hb, p, body(p), stoodHere, res)) || vertical(o, hb, p, body(p), stoodHere, res);
+  if (!done && stoodHere && !p.onObject) { p.air = true; p.pushing = false; }
+  return res.flags;
+}
+
+/**
  * Whether Sonic breaks a breakable object (sub_800C394): curled up and moving down with his side probe (a
  * pixel taller at each end) touching it, or his attack box on it while he isn't curled. A falling Sonic
  * bounces back up at the same speed. Rolling into it on level ground doesn't break it. The optional Rush

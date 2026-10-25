@@ -113,6 +113,11 @@ export const UNDERWATER_ANIMATIONS = {
 };
 // the splash under Sonic on a forced slide
 export const SLIDE_ANIMATIONS = { 474: { slideSplash: 0 } };
+// the skating stone (547) and its large and small pieces (548, 549); Ice Mountain's are 529, 553 and 554
+export const STONE_ANIMATIONS = {
+  547: { skatingStone: 0 }, 548: { stoneDebrisLarge: 0 }, 549: { stoneDebrisSmall: 0 },
+  529: { iceStone: 0 }, 553: { iceStoneDebrisLarge: 0 }, 554: { iceStoneDebrisSmall: 0 },
+};
 // the speed boosters (471): flat, on a slight slope up to the right, and up to the left
 export const BOOSTER_ANIMATIONS = { 471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 } };
 // the checkpoints (452): waiting, spinning as Sonic passes (its script starts song 169, which the game plays,
@@ -127,10 +132,11 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block), the boulders' and the ice blocks' debris, and the bubbles Sonic lets out under water and the
-// drowning countdown's numbers, which grow to full size; their frames also keep their OAM pieces as the
-// hardware reads them
+// block), the boulders', the ice blocks' and the skating stones' debris, and the bubbles Sonic lets out under
+// water and the drowning countdown's numbers, which grow to full size; their frames also keep their OAM pieces
+// as the hardware reads them
 const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge',
+  'stoneDebrisSmall', 'stoneDebrisLarge', 'iceStoneDebrisSmall', 'iceStoneDebrisLarge',
   'bubblesSmall', 'bubblesGroup', ...[0, 1, 2, 3, 4, 5].map(n => `drownCountdown${n}`)]);
 // the sprite palette that fills the whole OBJ palette when an act with water starts, and that the colours
 // under water are made from (LoadPalette423Anim, InitWaterPalettes)
@@ -194,7 +200,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true, under: underYellow },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...(water ? UNDERWATER_ANIMATIONS : {}) }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...STONE_ANIMATIONS, ...(water ? UNDERWATER_ANIMATIONS : {}) }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

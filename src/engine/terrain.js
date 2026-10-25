@@ -112,6 +112,18 @@ export function tileFloor(terrain, x, y, layer) {
   return v > 0 ? v - 1 - r : v + r;
 }
 
+/**
+ * The one-tile probe along either axis and either way (sub_801F07C): the distance from p0 to the surface within
+ * the tile holding p0, negative inside it, with the tile's angle (undefined in an empty tile). Its arguments are
+ * scan()'s.
+ */
+export function probeTile(terrain, p0, p1, layer, step, probe) {
+  const { v, rot } = probe(terrain, p0, p1, layer), r = p0 & 7;
+  if (v === 0) return { d: step > 0 ? 8 - r : r + 1, rot: undefined };
+  if (v === 8) return { d: step > 0 ? -1 - r : r - 8, rot };
+  return { d: v > 0 ? v - 1 - r : v + r, rot };
+}
+
 /** True when the pixel (px, py) is inside the solid part of its column, by the floor heights. */
 export function solidPixel(terrain, px, py, layer) {
   const v = terrain.columnHeight(px, py, layer), row = py & 7;

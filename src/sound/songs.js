@@ -19,6 +19,7 @@ export const SONG = {
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
   ENEMY_DEFEAT: 138,       // SE_ITEM_BOX: an enemy is defeated
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
+  BOSS_HIT: 143,           // SE_BOSS_HIT: also a skating stone breaking
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
   CHECKPOINT: 169,
@@ -32,4 +33,5 @@ export const SONG = {
   AIR_BUBBLE: 191,         // SE_AIR_BUBBLE: a breath from an air bubble
   DROWNED: 192,            // SE_DROWNED: Sonic drowns, in place of SE_LIFE_LOST
   ICE_BLOCK_BREAK: 193,    // SE_193: a block of ice breaks, after SE_ITEM_BOX
+  SKATING_STONE: 198,      // SE_198: a skating stone sliding again after a drop
 };

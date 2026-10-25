@@ -116,7 +116,7 @@ const MAX_PALETTE_VARIANTS = 64;
 
 /**
  * Identifies and decodes `buffer`, with the level `level` (levels.js). `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { level, zone, act, music, backgroundScroll, width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds, indexed }, physics, sound }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { level, zone, act, music, backgroundScroll, hudFlash, width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds, indexed }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
   const info = levelInfo(level);
@@ -238,6 +238,7 @@ function extractStage(rom, offsets, tables, info) {
   const count = collision.metatiles.length / 144;
   const stage = {
     level, zone: info.zone, act: info.act, music: info.music, backgroundScroll: info.backgroundScroll ?? null,
+    hudFlash: info.hudFlash ?? 1,
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
     layers: { front: collision.layers[0], back: collision.layers[1] },
     animDelay: front.animDelay, collision,

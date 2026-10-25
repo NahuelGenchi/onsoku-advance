@@ -66,6 +66,11 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   state.view = viewOf(state.cam, viewW, viewH);
   const sparkles = new Set();   // the ring sparkles still running their animation
   let cardPad = [];   // the pad directions held on the title card's last frame
+  let firstCard = true;
+  // Act 1 starts from the character select. Any other act the level pick starts as the course select does: its
+  // task (0x2000) makes the act, so on that frame only the tasks after its priority run (the title card, Sonic,
+  // the clock), and the next frame is spent loading
+  let madeBy = assets.stage.level === 0 ? -1 : 0x2000;
   let extraLife = false, restart = false, loading = false, starMusic = false;
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
   const render = createRenderer(canvas, assets);
@@ -312,7 +317,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
       if (runTitleCard(state.card, pressed)) return;
       state.card = null; state.clockStopped = false;
-      state.hud = createHud();
+      state.hud = createHud(firstCard ? assets.stage.hudFlash : 1);
+      firstCard = false;
       tasks.add(hudTask, 0x2180);
     }],
     [0x3000, () => {
@@ -341,7 +347,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     input.poll?.();
     if (loading) { loading = false; return; }
     state.sprites = [];
-    tasks.run(ctx);
+    tasks.run(ctx, madeBy);
+    if (madeBy >= 0) { madeBy = -1; loading = true; }
     if (restart) { restart = false; restartAct(); }
   }
 

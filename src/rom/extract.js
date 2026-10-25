@@ -87,17 +87,20 @@ export const ITEM_ANIMATIONS = {
   750: { shield: 0 }, 751: { magneticShield: 0 }, 752: { stars: 0, starSparkle: 1 },
 };
 // The platforms each level draws, from the ROM's per-level tables (USA ROM): the thin one, which the falling
-// one shares (sPlatformThinAnims, 0x0B8504), the crumbling one (sPlatformCrumblingAnims, 0x0B8528) and the
-// bounce block (sBounceBlockAnims, 0x6C8C20). CreateEntity_Trampoline picks its own in code: 505 in zones 2
-// and 6 and on Chao Hunt B and D, 461 elsewhere, at rest and bouncing.
+// one shares (sPlatformThinAnims, 0x0B8504) and a ferris wheel's seat repeats (gUnknown_086CEE2C), the
+// crumbling one (sPlatformCrumblingAnims, 0x0B8528) and the bounce block (sBounceBlockAnims, 0x6C8C20).
+// CreateEntity_Trampoline picks its own in code: 505 in zones 2 and 6 and on Chao Hunt B and D, 461
+// elsewhere, at rest and bouncing.
 const THIN_PLATFORMS = [463, 463, 506, 506, 495, 495, 523, 523, 535, 535, 517, 598, 605, 517, 463, 506, 495, 598];
 const CRUMBLING_PLATFORMS = [904, 904, 502, 502, 502, 502, 527, 527, 551, 551, 513, 602, 513, 513, 904, 502, 502, 602];
 const BOUNCE_BLOCKS = [462, 462, 499, 499, 543, 543, 543, 543, 543, 543, 507, 601, 507, 507, 462, 499, 543, 601];
 const TRAMPOLINES = [461, 461, 505, 505, 461, 461, 461, 461, 461, 461, 505, 505, 461, 461, 461, 505, 461, 505];
 export const platformAnimations = level => ({
-  [THIN_PLATFORMS[level]]: { thinPlatform: 0 }, [TRAMPOLINES[level]]: { trampoline: 0, trampolineBounce: 1 },
+  [THIN_PLATFORMS[level]]: { thinPlatform: 0, ferrisSeat: 0 }, [TRAMPOLINES[level]]: { trampoline: 0, trampolineBounce: 1 },
   [BOUNCE_BLOCKS[level]]: { bounceBlock: 0 }, [CRUMBLING_PLATFORMS[level]]: { crumblingPlatform: 0 },
 });
+// a ferris wheel's hub (530) and spokes (531)
+export const FERRIS_WHEEL_ANIMATIONS = { 530: { ferrisHub: 0 }, 531: { ferrisSpoke: 0 } };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // the breakable wall (559); some levels have their own (levels.js `sprites`)
@@ -207,7 +210,7 @@ function extractSprites(rom, tables, level, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...ROCK_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...PIPE_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_SNAKE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...ROCK_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...PIPE_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_SNAKE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

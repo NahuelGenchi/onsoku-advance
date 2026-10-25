@@ -142,6 +142,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     },
     // the act starts over: the original destroys every task, so nothing after Sonic's runs this frame
     lifeLost() { restart = true; tasks.stop(); },
+    get level() { return state.level; },   // gCurrentLevel, which the goal's rules depend on
     // the goal (goal.js): the clock and the rings stop (STAGE_FLAG__ACT_START and STAGE_FLAG__2), and it holds
     // the camera and, once Sonic is in his act-clear run, hands over to the results (CreateStageResults): the
     // act-clear jingle and no more music manager, and the results' task, which first runs this frame

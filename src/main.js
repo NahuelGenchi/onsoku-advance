@@ -3,6 +3,7 @@
 import { createRomPicker } from './ui/rom-picker.js';
 import { loadRememberedRom, rememberRom, RUSH_ROM } from './ui/rom-store.js';
 import { extractAssets } from './rom/extract.js';
+import { levelFromQuery } from './rom/levels.js';
 import { extractRush } from './rom/rush.js';
 import { createInput } from './engine/input.js';
 import { createGame } from './engine/game.js';
@@ -19,6 +20,8 @@ const rushButton = document.getElementById('rush');
 const rushStatus = document.getElementById('rush-status');
 const rushFile = document.getElementById('rush-file');
 const debug = new URLSearchParams(location.search).has('debug');
+// the act to play: ?level=N, N being the ROM's level index (src/rom/levels.js); Neo Green Hill act 1 without it
+const level = levelFromQuery(location.search);
 
 const input = createInput();
 input.bindTouch(document.getElementById('touch'));
@@ -86,7 +89,7 @@ createRomPicker(picker, {
   heading: 'Play in your browser',
   intro: 'Choose your Sonic Advance ROM. Its graphics are decoded on this device and the game starts right away.',
   async onRom(buffer, name, setStatus) {
-    const assets = await extractAssets(buffer, setStatus);
+    const assets = await extractAssets(buffer, setStatus, { level });
     setStatus('');
     sound.load(buffer, assets.sound).catch(err => console.warn('No sound:', err));
     start(assets);

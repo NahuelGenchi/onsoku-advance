@@ -1,18 +1,19 @@
 // Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects, the
-// springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, the title card, Neo Green Hill Zone act 1 with its collision, objects,
-// enemies and rings, and the zone's background. Runs entirely in the browser.
+// springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, the title card, an act (Neo Green Hill Zone act 1
+// unless another is asked for) with its collision, objects, enemies and rings, and the zone's background. Runs entirely in the browser.
 
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation } from './sprites.js';
-import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks } from './tilemaps.js';
+import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks, indexMetatiles, indexPlainMap } from './tilemaps.js';
 import { readCollision, readSpawn } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
 import { soundLayout } from './sound.js';
 import { hudGraphics } from './hud.js';
 import { titleCardGraphics } from './titlecard.js';
+import { LEVELS } from './levels.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -99,19 +100,18 @@ const YELLOW_SPRING_PALETTE = 36;
 // block), and the boulders' debris; their frames also keep their OAM pieces as the hardware reads them
 const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge']);
 
-// Neo Green Hill Zone act 1: level 0. Its tilemap entries are the front layer (drawn over Sonic), the back
-// layer (behind him) and the background.
-const LEVEL = 0;
-const NGH = { front: 0, back: 1, background: 2 };
-// the act's palette animations, which stage tasks run (StageInit_Zone1Act1): 814 steps the background's
-// colours in palette row 15 every 16 frames, 815 the waterfalls' in row 10 every frame
-const PALETTE_ANIMATIONS = [814, 815];
+// Each level has three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
+// background. Its palette animations and music are in levels.js.
+const LAYER = { front: 0, back: 1, background: 2 };
+// the most palette states the atlas is rendered for; past that, the layers are kept as colour indices and
+// drawn through the palette the animations have loaded (Cosmic Angel's eight animations have 972,000)
+const MAX_PALETTE_VARIANTS = 64;
 
 /**
- * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
+ * Identifies and decodes `buffer`, with the act of `level` (levels.js). `onProgress(message)` reports each stage.
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { level, zone, name, music, width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds, indexed }, physics, sound }
  */
-export async function extractAssets(buffer, onProgress = () => {}) {
+export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
   const rom = new Rom(buffer);
   onProgress('Checking the ROM…');
   const id = await identify(rom);
@@ -121,8 +121,8 @@ export async function extractAssets(buffer, onProgress = () => {}) {
   onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
   const sprites = extractSprites(rom, tables);
-  onProgress('Decoding Neo Green Hill…');
-  const stage = extractStage(rom, offsets, tables);
+  onProgress(`Decoding ${LEVELS[level].name}…`);
+  const stage = extractStage(rom, offsets, tables, level);
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
   // indexes into those in the original, so both are read
   const spinDashSpeeds = Array.from({ length: 18 }, (_, i) => rom.s16(offsets.spinDashSpeeds + i * 2) / 256);
@@ -131,7 +131,7 @@ export async function extractAssets(buffer, onProgress = () => {}) {
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },
     sprites, stage, physics: { spinDashSpeeds },
     hud: extractHud(rom, offsets.uiGraphics),
-    titleCard: extractTitleCard(rom, offsets.uiGraphics, offsets.titleCard),
+    titleCard: extractTitleCard(rom, offsets.uiGraphics, offsets.titleCard, level),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
   };
@@ -212,40 +212,58 @@ function packAtlas(images, width = 512) {
   return { canvas, rects };
 }
 
-function extractStage(rom, offsets, tables) {
-  const front = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.front);
-  const back = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.back);
-  const background = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.background);
+function extractStage(rom, offsets, tables, level) {
+  const def = LEVELS[level];
+  const front = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYER.front);
+  const back = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYER.back);
+  const background = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYER.background);
   if (front.xTiles !== 12 || front.metatileMap === null || front.palette === null) {
-    throw new Error('Neo Green Hill Zone data is not where this version keeps it.');
+    throw new Error(`${def.name} data is not where this version keeps it.`);
   }
-  const collision = readCollision(rom, offsets.collision, LEVEL);
+  const collision = readCollision(rom, offsets.collision, level);
   if (collision.layers[0].length !== front.mapWidth * front.mapHeight || collision.levelX !== back.mapWidth) {
-    throw new Error('Neo Green Hill Zone collision does not match its map.');
+    throw new Error(`${def.name} collision does not match its map.`);
   }
   const palette = readColors(rom, front.palette, 256);
-  const interactables = readInteractables(rom, offsets.interactables, LEVEL);
-  const animations = PALETTE_ANIMATIONS.map(anim => paletteAnimation(rom, tables, anim));
-  // the two layers share one tileset and its animated tiles, so one atlas serves both
+  const interactables = readInteractables(rom, offsets.interactables, level);
+  const animations = def.paletteAnimations.map(anim => paletteAnimation(rom, tables, anim));
   const count = collision.metatiles.length / 144;
-  const tiles = paletteVariants(palette, animations, mapBanks(rom, front, count * front.xTiles * front.yTiles));
-  const atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.rows), follows: tiles.follows };
-  const sky = paletteVariants(palette, animations, mapBanks(rom, background, background.xTiles * background.yTiles));
-
-  return {
+  const stage = {
+    level, zone: level >> 1, name: def.name, music: def.music, backgroundScroll: def.background,
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
     layers: { front: collision.layers[0], back: collision.layers[1] },
-    atlas, animDelay: front.animDelay, collision,
-    spawn: readSpawn(rom, offsets.spawns, LEVEL),
+    animDelay: front.animDelay, collision,
+    spawn: readSpawn(rom, offsets.spawns, level),
     interactables, layerToggles: layerToggles(interactables),
-    rings: readRings(rom, offsets.rings, LEVEL),
-    itemBoxes: readItemBoxes(rom, offsets.itemBoxes, LEVEL),
-    enemies: readInteractables(rom, offsets.enemies, LEVEL, 'enemies'),
-    entityRegions: entityRegions(rom, offsets.interactables, LEVEL),
+    rings: readRings(rom, offsets.rings, level),
+    itemBoxes: readItemBoxes(rom, offsets.itemBoxes, level),
+    enemies: readInteractables(rom, offsets.enemies, level, 'enemies'),
+    entityRegions: entityRegions(rom, offsets.interactables, level),
     paletteAnimations: animations.map(({ frames, loop }) => ({ delays: frames.map(f => f.delay), loop })),
-    background: toCanvas(renderPlainMap(rom, background, palette)),
-    backgrounds: { canvases: sky.palettes.map(p => toCanvas(renderPlainMap(rom, background, p))), follows: sky.follows },
+    atlas: null, background: null, backgrounds: null, indexed: null,
   };
+  const layerBanks = mapBanks(rom, front, count * front.xTiles * front.yTiles);
+  const skyBanks = mapBanks(rom, background, background.xTiles * background.yTiles);
+  if (variantCount(animations, layerBanks) > MAX_PALETTE_VARIANTS || variantCount(animations, skyBanks) > MAX_PALETTE_VARIANTS) {
+    // the colours each animation frame loads, which the renderer applies over the stage's own
+    const loads = animations.map(a => a.frames.map(f => f.loads.map(l => ({ insert: l.insert, colors: l.colors }))));
+    stage.indexed = { palette, loads, metatiles: indexMetatiles(rom, front, count), background: indexPlainMap(rom, background) };
+    stage.atlas = { slots: stage.indexed.metatiles.slots };
+    return stage;
+  }
+  // the two layers share one tileset and its animated tiles, so one atlas serves both
+  const tiles = paletteVariants(palette, animations, layerBanks);
+  stage.atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.rows), follows: tiles.follows };
+  const sky = paletteVariants(palette, animations, skyBanks);
+  stage.background = toCanvas(renderPlainMap(rom, background, palette));
+  stage.backgrounds = { canvases: sky.palettes.map(p => toCanvas(renderPlainMap(rom, background, p))), follows: sky.follows };
+  return stage;
+}
+
+// how many palettes paletteVariants() would render for the rows in `banks`
+const rowsOf = a => new Set(a.frames.flatMap(f => f.loads.flatMap(l => l.colors.map((_, i) => (l.insert + i) >> 4))));
+function variantCount(animations, banks) {
+  return animations.reduce((n, a) => ([...rowsOf(a)].some(r => banks.has(r)) ? n * (a.frames.length + 1) : n), 1);
 }
 
 /**
@@ -255,7 +273,6 @@ function extractStage(rom, offsets, tables) {
  * one), and `rows` holds the rows they change.
  */
 function paletteVariants(base, animations, banks) {
-  const rowsOf = a => new Set(a.frames.flatMap(f => f.loads.flatMap(l => l.colors.map((_, i) => (l.insert + i) >> 4))));
   const follows = [], rows = new Set();
   let palettes = [base];
   animations.forEach((a, k) => {
@@ -277,8 +294,8 @@ function extractHud(rom, tableAt) {
   return { sheet: toCanvas(image), ...rects };
 }
 
-function extractTitleCard(rom, uiAt, cardAt) {
-  const { image, ...card } = titleCardGraphics(rom, uiAt, cardAt);
+function extractTitleCard(rom, uiAt, cardAt, level) {
+  const { image, ...card } = titleCardGraphics(rom, uiAt, cardAt, level);
   return { sheet: toCanvas(image), ...card };
 }
 

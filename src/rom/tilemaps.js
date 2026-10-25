@@ -91,6 +91,58 @@ export function renderMetatileAtlas(rom, header, palettes, count, varying = new 
   return { canvas, size, slots };
 }
 
+// a tile's colour indices into `out` (row stride `stride`): bank × 16 + colour, 0 where the colour is 0
+function indexTile(out, stride, rom, tileAt, bank, x0, y0, hflip, vflip) {
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      const b = rom.u8(tileAt + y * 4 + (x >> 1)), c = x & 1 ? b >> 4 : b & 15;
+      if (c) out[(y0 + (vflip ? 7 - y : y)) * stride + x0 + (hflip ? 7 - x : x)] = bank * 16 + c;
+    }
+  }
+}
+
+/**
+ * Metatiles 0 … count-1 of a stage layer as colour indices into the 256-colour background palette (0 where a
+ * pixel is transparent), for drawing through whatever palette the palette animations have loaded: one block
+ * of size × size per metatile, plus one for each further animation frame of those that use animated tiles.
+ * @returns {{ size: number, pixels: Uint8Array, slots: Int32Array[] }} slots[frame][id] is the block's number
+ */
+export function indexMetatiles(rom, header, count) {
+  const size = header.xTiles * 8, perMetatile = header.xTiles * header.yTiles;
+  const animTiles = header.animTileSize / TILE_BYTES, frames = Math.max(1, header.animFrameCount);
+  const entry = (id, i) => rom.u16(header.map + (id * perMetatile + i) * 2);
+  const slots = [], jobs = [];
+  for (let f = 0; f < frames; f++) {
+    const slot = slots[f] = new Int32Array(count);
+    for (let id = 0; id < count; id++) {
+      let animated = false;
+      for (let i = 0; f > 0 && i < perMetatile && !animated; i++) animated = (entry(id, i) & 0x3FF) < animTiles;
+      if (f === 0 || animated) { slot[id] = jobs.length; jobs.push([id, f]); } else slot[id] = slots[0][id];
+    }
+  }
+  const pixels = new Uint8Array(jobs.length * size * size);
+  jobs.forEach(([id, f], n) => {
+    const block = pixels.subarray(n * size * size, (n + 1) * size * size);
+    for (let i = 0; i < perMetatile; i++) {
+      const e = entry(id, i);
+      indexTile(block, size, rom, tileAddress(header, e & 0x3FF, f), e >> 12, (i % header.xTiles) * 8, Math.floor(i / header.xTiles) * 8, (e >> 10) & 1, (e >> 11) & 1);
+    }
+  });
+  return { size, pixels, slots };
+}
+
+/** A plain background map as colour indices (0 where the backdrop shows): { width, height, pixels }. */
+export function indexPlainMap(rom, header) {
+  const width = header.xTiles * 8, height = header.yTiles * 8, pixels = new Uint8Array(width * height);
+  for (let ty = 0; ty < header.yTiles; ty++) {
+    for (let tx = 0; tx < header.xTiles; tx++) {
+      const e = rom.u16(header.map + (ty * header.xTiles + tx) * 2);
+      indexTile(pixels, width, rom, tileAddress(header, e & 0x3FF, 0), e >> 12, tx * 8, ty * 8, (e >> 10) & 1, (e >> 11) & 1);
+    }
+  }
+  return { width, height, pixels };
+}
+
 /** Renders a plain (non-metatile) background map, with colour 0 opaque like the GBA backdrop. */
 export function renderPlainMap(rom, header, palette) {
   const img = new ImageData(header.xTiles * 8, header.yTiles * 8);

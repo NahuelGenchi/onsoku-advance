@@ -92,9 +92,14 @@ export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, 
 export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
 // the fireworks in Casino Paradise's background, big and small (482, 483)
 export const BACKGROUND_ANIMATIONS = { 482: { firework: 0 }, 483: { fireworkSmall: 0 } };
-// the bosses: the Egg Mobile flying off after a boss and Eggman in it (693, 694), the explosions (611) and the
-// nuts, plates and bolts a wrecked boss sheds (695, 696, 697)
+// the bosses: Casino Paradise's Egg Ball, its pipes (593: in the floor and the ceiling, and in the walls), Eggman
+// in it (622: still, laughing and wincing), the star disc it loses when beaten (623), the mobile itself (624) and
+// its spike ball (625); the Egg Mobile flying off after a boss and Eggman in it (693, 694), the explosions (611)
+// and the nuts, plates and bolts a wrecked boss sheds (695, 696, 697)
 export const BOSS_ANIMATIONS = {
+  593: { eggBallPipe: 0, eggBallPipeSide: 1 },
+  622: { eggBallEggman: 0, eggBallEggmanLaugh: 1, eggBallEggmanHit: 2 },
+  623: { eggBallStarDisc: 0 }, 624: { eggBallMobile: 0 }, 625: { eggBallSpikeBall: 0 },
   693: { eggMobile: 0, eggMobileTurn: 1 }, 694: { eggman: 0, eggmanFlee: 4, eggmanX: 8, eggmanTurn: 9 },
   611: { bossExplosion: 0 },
   695: { debrisNut0: 0, debrisNut1: 1 }, 696: { debrisPlate0: 0, debrisPlate1: 1 }, 697: { debrisBolt0: 0, debrisBolt1: 1 },
@@ -106,8 +111,9 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block), and the boulders' debris; their frames also keep their OAM pieces as the hardware reads them
-const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge']);
+// block), the boulders' debris and the Egg Ball's star disc; their frames also keep their OAM pieces as the
+// hardware reads them
+const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge', 'eggBallStarDisc']);
 
 // Each level has three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
 // background. Its palette animations and music are in levels.js.

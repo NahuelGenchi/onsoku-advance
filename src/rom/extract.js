@@ -87,11 +87,13 @@ export const ITEM_ANIMATIONS = {
   706: { icon0: 0, icon4: 4, icon5: 5, icon6: 6, icon7: 7, icon8: 8, icon9: 9, icon10: 10 },
   750: { shield: 0 }, 751: { magneticShield: 0 }, 752: { stars: 0, starSparkle: 1 },
 };
-// Neo Green Hill's platforms: the thin one (463), which the falling one shares, the trampoline at rest and
-// bouncing (461), the bounce block (462) and the crumbling platform (904)
+// Neo Green Hill's platforms: the thin one (463), which the falling one and a ferris wheel's seat share, the
+// trampoline at rest and bouncing (461), the bounce block (462) and the crumbling platform (904)
 export const PLATFORM_ANIMATIONS = {
-  463: { thinPlatform: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 }, 904: { crumblingPlatform: 0 },
+  463: { thinPlatform: 0, ferrisSeat: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 }, 904: { crumblingPlatform: 0 },
 };
+// a ferris wheel's seat (463; other levels have their own, levels.js `sprites`), hub (530) and spokes (531)
+export const FERRIS_WHEEL_ANIMATIONS = { 530: { ferrisHub: 0 }, 531: { ferrisSpoke: 0 } };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // the breakable wall (559); some levels have their own (levels.js `sprites`)
@@ -223,7 +225,7 @@ function extractSprites(rom, tables, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WALL_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...BUMPER_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...BARREL_ANIMATIONS, ...PIPE_ANIMATIONS, ...RED_FLAG_ANIMATIONS, ...SHIP_SWING_ANIMATIONS, ...SPIKED_PLATFORM_ANIMATIONS, ...BOWL_ANIMATIONS, ...PANEL_GATE_ANIMATIONS, ...CAROUSEL_ANIMATIONS, ...BOSS_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WALL_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...BUMPER_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...BARREL_ANIMATIONS, ...PIPE_ANIMATIONS, ...RED_FLAG_ANIMATIONS, ...SHIP_SWING_ANIMATIONS, ...SPIKED_PLATFORM_ANIMATIONS, ...BOWL_ANIMATIONS, ...PANEL_GATE_ANIMATIONS, ...CAROUSEL_ANIMATIONS, ...BOSS_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

@@ -96,6 +96,11 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // the camera and its bounds, which a boss's arena changes (bosses.js) and Sonic's edges follow
     get camera() { return state.cam; },
     terrain,
+    // the rings Sonic drops (scatter.js), which a boss lets bounce off ceilings
+    scatter,
+    // InitWaterPalettes: the colours under the water line taken from the stage's as they are now (a boss's task
+    // does it every frame)
+    initWaterPalettes() { if (state.water) state.water.shown = state.palettes.slice(); },
     // a hazard touched Sonic (Coll_DamagePlayer): a shield takes the hit, or with rings he drops them all, up
     // to 48 of them scattering, and without any he dies; returns false while he is invincible or still
     // blinking from the last hit

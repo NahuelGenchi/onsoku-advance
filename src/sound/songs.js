@@ -30,4 +30,5 @@ export const SONG = {
   BUMPER_A: 183,           // SE_BUMPER_A: a hexagonal or round bumper
   BUMPER_B: 184,           // SE_BUMPER_B: a triangular bumper
   BALLOON_POP: 189,        // a party balloon pops
+  TUBE: 202,               // SE_202: a tube's track takes Sonic
 };

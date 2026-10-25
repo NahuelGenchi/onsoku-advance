@@ -190,6 +190,23 @@ export function createRenderer(canvas, assets) {
     ctx.putImageData(img, x0, y0);
   }
 
+  // A sprite in OBJ window mode with every layer brightened to full inside the window (a boss's hit flash):
+  // the sprite itself isn't drawn, and everything in its shape, whatever is in front, turns white.
+  function drawWhite(s, vx, vy) {
+    const main = ctx;
+    ctx = maskCtx;
+    maskCtx.imageSmoothingEnabled = false;
+    maskCtx.clearRect(0, 0, W, H);
+    if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+    else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+    ctx = main;
+    maskCtx.globalCompositeOperation = 'source-in';
+    maskCtx.fillStyle = '#fff';
+    maskCtx.fillRect(0, 0, W, H);
+    maskCtx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(maskCanvas, 0, 0);
+  }
+
   // debug overlay: the collision under the view, drawn through a scratch canvas so it blends
   const overlay = document.createElement('canvas');
   overlay.width = W; overlay.height = H;
@@ -355,7 +372,7 @@ export function createRenderer(canvas, assets) {
     // layer, 0 and 1 in front of it
     const drawAll = (...prios) => {
       for (const s of list) {
-        if (!prios.includes(s.prio)) continue;
+        if (!prios.includes(s.prio) || s.white) continue;
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
         else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
@@ -394,6 +411,7 @@ export function createRenderer(canvas, assets) {
     drawAll(0, 1);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
+    for (const s of list) if (s.white) drawWhite(s, vx, vy);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
     // behind keeps them out of the fade

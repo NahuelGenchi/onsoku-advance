@@ -63,6 +63,9 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     rushFx: createRushFx(), // its trail, burst and aura (rushfx.js)
     shake: -1,            // the frame of the boost's screen shake showing, or -1; only drawing reads it
     spotlights: null,     // Secret Base act 1's spotlights (spotlights.js) while they last; only drawing reads them
+    // how many times the camera's task has run since the act started, which sets the layers' animated tiles
+    // (UpdateBgAnimationTiles); only drawing reads it
+    bgAnim: 0,
     // Sonic's row of the sprite palette, which the spotlights' tables run over (spotlights.js): the bytes written
     // over his colours since his script last loaded them (`written`, a bit for each colour), and the colours
     // the screen shows, copied at the end of each frame on which a sprite's script loaded colours (`shown`,
@@ -294,7 +297,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear();
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
-    state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
+    state.ringCount = 0; state.effects = []; state.sprites = []; state.bgAnim = 0; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
     startCard();
     sound.playStageMusic(assets.stage.music);
     loading = true; starMusic = false;
@@ -310,6 +313,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     [0x0F00, () => {
       if (state.shake >= 0 && ++state.shake >= RUSH_BOOST.shake.length) state.shake = -1;
       updateCamera(state.cam, player);
+      state.bgAnim++;
       ctx.cam = { x: Math.floor(state.cam.x), y: Math.floor(state.cam.y) };
       ctx.view = state.view = viewOf(state.cam, viewW, viewH);
     }],

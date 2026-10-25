@@ -373,7 +373,7 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake, spotlights, spriteRow }) {
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake, spotlights, spriteRow, bgAnim }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -400,7 +400,8 @@ export function createRenderer(canvas, assets) {
         x += n;
       }
     }
-    const frame = stageAnimFrame(stage, tick);
+    // the ROM's counter (gStageBackgroundsRam.unk40, 0x0300593B in the USA ROM) is one behind the camera's runs
+    const frame = stageAnimFrame(stage, bgAnim - 1);
     drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
     const shown = rings.visible(view);

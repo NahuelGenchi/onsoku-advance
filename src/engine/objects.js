@@ -28,6 +28,7 @@ import { createPartyBalloon } from './balloons.js';
 import { createMarbleTrack } from './marbletrack.js';
 import { createBumper } from './bumpers.js';
 import { createFlipper } from './flippers.js';
+import { createSegaSonicLetter } from './segaletters.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -156,7 +157,7 @@ function interactable(e, slot, anims, ctx, level) {
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createPartyBalloon(e, slot, anims) ?? createMarbleTrack(e, slot, anims, level)
-    ?? createBumper(e, slot, anims) ?? createFlipper(e, slot, anims) ?? standIn(e, slot);
+    ?? createBumper(e, slot, anims) ?? createFlipper(e, slot, anims) ?? createSegaSonicLetter(e, slot, anims) ?? standIn(e, slot);
 }
 
 /**

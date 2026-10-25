@@ -123,13 +123,14 @@ export function framePieces(rom, tables, anim, frame, tilesAt, palette, eightBpp
 
 /**
  * Runs an animation script and returns the frames it shows, each with the tiles and palette
- * active at that moment and the hitboxes its commands set (`boxes`, by slot), plus where the script
- * loops. `skipPalette` ignores the script's palette commands, like the sprite flag some objects set.
+ * active at that moment, the hitboxes its commands set (`boxes`, by slot) and where the last palette command
+ * before it is (`loadAt`, -1 for none), plus where the script loops and whether going round runs a palette
+ * command (`loopLoads`). `skipPalette` ignores the script's palette commands, like the sprite flag some objects set.
  */
 export function animationFrames(rom, tables, anim, variant, basePalette, { skipPalette = false } = {}) {
   const steps = parseScript(rom, tables, anim, variant);
   const palette = basePalette.slice();
-  let tilesAt = null, eightBpp = false, boxes = null;
+  let tilesAt = null, eightBpp = false, boxes = null, loadAt = -1;
   const frames = [];
   for (const s of steps) {
     if (s.op === 'tiles') {
@@ -137,22 +138,25 @@ export function animationFrames(rom, tables, anim, variant, basePalette, { skipP
       tilesAt = eightBpp ? tables.tiles8 + (s.tileIndex & 0x7FFFFFFF) * 64 : tables.tiles4 + s.tileIndex * 32;
     } else if (s.op === 'palette' && !skipPalette) {
       readColors(rom, tables.palettes + s.palId * 32, s.count).forEach((c, i) => { palette[s.insert + i] = c; });
+      loadAt = s.at;
     } else if (s.op === 'hitbox') {
       (boxes ??= {})[s.slot] = s.box;
     } else if (s.op === 'show') {
       frames.push(s.frame < 0 || tilesAt === null
-        ? { delay: s.delay, frame: -1, at: s.at, boxes }
-        : { delay: s.delay, frame: s.frame, tilesAt, eightBpp, palette: palette.slice(), at: s.at, boxes });
-      boxes = null;
+        ? { delay: s.delay, frame: -1, at: s.at, boxes, loadAt }
+        : { delay: s.delay, frame: s.frame, tilesAt, eightBpp, palette: palette.slice(), at: s.at, boxes, loadAt });
+      boxes = null; loadAt = -1;
     }
   }
   const last = steps[steps.length - 1];
-  let loop = null;
+  let loop = null, loopLoads = false;
   if (last?.op === 'jump') {
     loop = frames.findIndex(f => f.at >= last.to);
     if (loop < 0) loop = 0;
+    // going round again runs the commands from the jump's target: a palette load there, or after the last frame
+    loopLoads = loadAt >= 0 || (frames[loop]?.loadAt ?? -1) >= last.to;
   }
-  return { frames, loop, end: last?.op ?? null };
+  return { frames, loop, loopLoads, end: last?.op ?? null };
 }
 
 /**

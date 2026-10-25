@@ -9,7 +9,10 @@
 // The game keeps the edges in a table with an entry of 4 bytes for each screen line, WIN0H's then WIN1H's,
 // each its right edge then its left, which the HBlank DMA copies into the two registers. A frame writes one of
 // two such tables (gBgOffsetsBuffer) while the other is shown. A beam leaves its half of the lines and WIN0V or
-// WIN1V as they were on the frames it doesn't draw, and lines past the 160th run into the other table.
+// WIN1V as they were on the frames it doesn't draw, and lines past the 160th run into the other table, or,
+// past the second, into the sprite palette that follows it in memory: the right beam's 160th line of the
+// second table ends up in Sonic's colour 1, his outline, on the frames the screen gets the sprite palette
+// (an original-game bug).
 
 import { SINE } from './trig.js';
 
@@ -25,11 +28,15 @@ const tan = a => div((SINE[a] >> 6) << 8, SINE[a + 256] >> 6);
 const mul8 = (a, b) => Math.imul(s16(a), b) >> 8;
 
 // a writer of window `half`'s edges into the table at `base`: put(line, 0, v) its right edge, put(line, 1, v)
-// its left
-function writer(buf, base, half) {
+// its left; past both tables it writes over Sonic's colours (game.js, spriteRow)
+function writer(buf, base, half, row) {
   return (line, k, v) => {
     const at = base + line * 4 + half * 2 + k;
     if (at >= 0 && at < buf.length) buf[at] = v & 0xFF;
+    else if (at >= buf.length && at < buf.length + 32) {
+      row.bytes[at - buf.length] = v & 0xFF;
+      row.written |= 1 << ((at - buf.length) >> 1);
+    }
   };
 }
 
@@ -112,8 +119,9 @@ function triangle(put, p) {
 
 // One beam's frame (Task_SpotlightBeam). `b` is { swing (unk0), accel (unk2), speed (unk4), x (unk6),
 // y (unk8), half (bg & 1), spread (unkB) }, the point (x, y) below the screen it shines from and the angle it
-// swings to; it writes its half of the table and its WIN0V or WIN1V into `blend`.
-function beamStep(b, blend) {
+// swings to; it writes its half of the table and its WIN0V or WIN1V into `blend`, and what runs past the
+// tables into Sonic's palette row `row`.
+function beamStep(b, blend, row) {
   b.speed = s16(b.swing <= 0x1FF ? b.speed - b.accel : b.accel + b.speed);
   b.swing = ((b.speed >> 8) + b.swing) & 0x3FF;
   const a = (b.swing + b.spread) & 0x3FF;
@@ -135,7 +143,7 @@ function beamStep(b, blend) {
   p[4] = s14[0]; p[5] = s14[1];
   p[6] = mul8(tan(c), b.y - 160) + (b.x & 0xFF);
   p[7] = 160;
-  const put = writer(blend.buf, blend.base, b.half);
+  const put = writer(blend.buf, blend.base, b.half, row);
   if (b.swing <= 0x1FF) {
     if (s14[1] > 159) return;
     blend.v[b.half] = (p[5] << 8) | 160;
@@ -156,8 +164,9 @@ function beamStep(b, blend) {
  * `blend`, what the renderer reads of them while they last (null once they're gone): { bldY, windows,
  * v: [WIN0V, WIN1V], h: [WIN0H, WIN1H], buf, base, drawn }. `buf` holds both tables and `base` is where the
  * one shown starts, used when a beam drew this frame (`drawn`); `h` is what the windows show otherwise.
+ * `spriteRow` is Sonic's row of the sprite palette (game.js).
  */
-export function createSpotlights() {
+export function createSpotlights(spriteRow) {
   const out = {
     // the window registers as the title card's fade leaves them when it is made (as mGBA shows them)
     blend: { bldY: 16, windows: false, v: [0x00A0, 0x00A0], h: [0x00F0, 0x00F0], buf: new Uint8Array(2 * TABLE), base: 0, drawn: false },
@@ -193,7 +202,7 @@ export function createSpotlights() {
   out.tasks.push(manager, ...beams.map(b => ({
     run() {
       if (!out.blend) return false;
-      beamStep(b, blend);
+      beamStep(b, blend, spriteRow);
       return true;
     },
   })));

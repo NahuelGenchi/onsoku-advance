@@ -4,7 +4,7 @@
 // the original puts them in OAM, for the renderer.
 
 import { TICK_MS, CAMERA, PHYSICS, SCREEN_W, SCREEN_H, RUSH_BOOST } from './constants.js';
-import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
+import { makeAnimator, setAnim, tickAnim, frameOf, spritePalette } from './animator.js';
 import { createPlayer, stepPlayer, animatePlayer, hurt } from './player.js';
 import { createRushFx, startRushFx, stepRushFx } from './rushfx.js';
 import { createCamera, updateCamera, viewOf } from './camera.js';
@@ -63,6 +63,11 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     rushFx: createRushFx(), // its trail, burst and aura (rushfx.js)
     shake: -1,            // the frame of the boost's screen shake showing, or -1; only drawing reads it
     spotlights: null,     // Secret Base act 1's spotlights (spotlights.js) while they last; only drawing reads them
+    // Sonic's row of the sprite palette, which the spotlights' tables run over (spotlights.js): the bytes written
+    // over his colours since his script last loaded them (`written`, a bit for each colour), and the colours
+    // the screen shows, copied at the end of each frame on which a sprite's script loaded colours (`shown`,
+    // null while they are his own); only drawing reads `shown`
+    spriteRow: { bytes: new Uint8Array(32), written: 0, shown: null, uploaded: false },
   };
   let viewW = SCREEN_W, viewH = SCREEN_H;   // the original screen, or the widescreen view's size
   state.view = viewOf(state.cam, viewW, viewH);
@@ -255,6 +260,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
         const right = player.facing > 0;
         draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.rotation << 2, scaleX: right ? -256 : 256, scaleY: 256, double: false });
       } else draw(s, player.x + (player.facing < 0 ? 1 : 0), player.y);
+      if (s.frame >= 0) state.sprites[state.sprites.length - 1].sonicRow = true;   // palette row 0, his
       if (fx && s.frame >= 0) fx.sonic = state.sprites[state.sprites.length - 1];
     }
     if (fx) state.sprites.push({ rush: 'trail', order: 16, prio });
@@ -264,7 +270,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // the clock while it runs; the HUD's task is made only as it ends. The tasks some acts add come after the
   // stage's own (acts.js), from his checkpoint's x or the act's start.
   function startCard() {
-    const act = createActTasks(assets.stage.level, (state.checkpoint ?? assets.stage.spawn).x);
+    const act = createActTasks(assets.stage.level, (state.checkpoint ?? assets.stage.spawn).x, state.spriteRow);
     for (const task of act.tasks) tasks.add(task, 0x2000);
     state.spotlights = act.spotlights;
     state.card = createTitleCard(assets.titleCard, act.cardBlank); state.clockStopped = true; state.hud.sprites = [];
@@ -333,6 +339,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? NO_INPUT : input;
       stepPlayer(player, held, world);
       animatePlayer(player, held, anims, world);
+      if (player.anim.loaded) state.spriteRow.written = 0;
       // the boost's effects run after him, as Rush's objects run after its player
       if (state.rushArt && (state.rush || state.rushFx.list.length > 0)) stepRushFx(state.rushFx, player, state.rushArt, player.boost);
       drawSonic();
@@ -351,11 +358,21 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   for (const [priority, run] of STAGE_TASKS) tasks.add({ run: ctx => { run(ctx); return true; } }, priority, true);
   startCard();
 
+  // the VBlank copy of the sprite palette, on the frames a script loaded colours into it
+  function endFrame() {
+    const row = state.spriteRow;
+    row.uploaded = spritePalette.update;
+    if (!spritePalette.update) return;
+    spritePalette.update = false;
+    row.shown = row.written ? Array.from({ length: 16 }, (_, c) => (row.written >> c & 1 ? row.bytes[c * 2] | row.bytes[c * 2 + 1] << 8 : null)) : null;
+  }
+
   function step() {
     input.poll?.();
     if (loading) { loading = false; return; }
     state.sprites = [];
     tasks.run(ctx, madeBy);
+    endFrame();
     if (madeBy >= 0) { madeBy = -1; loading = true; }
     if (restart) { restart = false; restartAct(); }
   }

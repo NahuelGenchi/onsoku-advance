@@ -56,6 +56,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
     card: null,           // the title card (titlecard.js) while it holds Sonic and the clock
+    cardEnded: false,     // the card ended this frame, switching the blending off (gBldRegs.bldCnt = 0)
     view: null,           // what the screen shows around the camera (camera.js viewOf); only drawing reads it
     rush: false,          // the Sonic Rush boost's setting (off unless chosen)
     rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
@@ -311,7 +312,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       cardPad = pad;
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
       if (runTitleCard(state.card, pressed)) return;
-      state.card = null; state.clockStopped = false;
+      state.card = null; state.clockStopped = false; state.cardEnded = true;
       state.hud = createHud();
       tasks.add(hudTask, 0x2180);
     }],
@@ -340,7 +341,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   function step() {
     input.poll?.();
     if (loading) { loading = false; return; }
-    state.sprites = [];
+    state.sprites = []; state.cardEnded = false;
     tasks.run(ctx);
     if (restart) { restart = false; restartAct(); }
   }

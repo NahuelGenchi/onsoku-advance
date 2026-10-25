@@ -19,10 +19,11 @@ export const LEVELS = {
   },
   // StageInit_Zone6Act1 (0x0803D9C5): 839 and 842 both step row 13 of the stage palette, 840 row 12 and 841 row
   // 10; the act's only, so its zone keeps act 1's index. Its background and its launch and stage separations
-  // are eggrocket.js's. Picked from the course select, the HUD's task data lands on memory holding 0 (hud.js)
+  // are eggrocket.js's. Picked from the course select, the HUD's task data lands on memory holding 0 (hud.js).
+  // The breakable wall is 596 (gUnknown_080BB544)
   10: {
     name: 'Egg Rocket Zone', zone: 5, act: 0, paletteAnimations: [839, 840, 841, 842], music: 22,
-    backgroundScroll: 'eggRocket', hudFlash: 0,
+    backgroundScroll: 'eggRocket', hudFlash: 0, sprites: { breakableWall: [596, 0] },
   },
 };
 

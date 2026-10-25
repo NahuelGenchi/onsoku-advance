@@ -44,7 +44,7 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 
 ### Rotation hardware
 
-Some sprites go through the GBA's rotation and scaling (affine) OBJ mode instead of plain flips: Sonic's walk and run frames (and the walk frames he tumbles in after a bounce block, character state 23) and the boulders' debris. The extractor keeps those frames' OAM pieces as their tiles hold them, and the renderer draws them pixel by pixel ([`src/engine/renderer.js`](../src/engine/renderer.js)).
+Some sprites go through the GBA's rotation and scaling (affine) OBJ mode instead of plain flips: Sonic's walk and run frames (and the walk frames he tumbles in after a bounce block, character state 23) the boulders' debris, the Egg Hammer Tank's arm segments, hammer and belt pieces, and the boss capsule while it rises, its shell's halves and the birds that fly out of it. The extractor keeps those frames' OAM pieces as their tiles hold them, and the renderer draws them pixel by pixel ([`src/engine/renderer.js`](../src/engine/renderer.js)).
 
 - **Matrix** (`TransformSprite`): from the rotation `r` (0–1023 per turn) and the 8.8 scales `sx`, `sy`, with `c = COS_24_8(r)` and `s = SIN_24_8(r)` (the sine table's Q2.14 values shifted right 6), PA = `c × Div(0x10000, sx) >> 8`, PB = `s × Div(0x10000, sx) >> 8`, PC = `−s × Div(0x10000, sy) >> 8`, PD = `c × Div(0x10000, sy) >> 8`, each kept to 16 bits. A negative scale mirrors the sprite.
 - **Placement:** the transform moves the sprite so its anchor stays at (x, y) once turned. With `ax` the anchor X (or `width − ax` when `sx` is negative), `ay` likewise, and the half-sizes `hw`, `hh`, it subtracts `(c|sx| × (ax − hw) − s|sx| × (ay − hh) + hw × 256) >> 8` from x and `(s|sy| × (ax − hw) + c|sy| × (ay − hh) + hh × 256) >> 8` from y (each product `>> 8` first). `DisplaySprite` then places each OAM piece at its own offset in the frame, ignoring the frame's flip; with the double-size flag it first moves the sprite up and left by half the frame's size. The hardware reads a rotated entry's flip bits as part of its matrix number, so the pieces keep their tiles' orientation.
@@ -493,9 +493,46 @@ Only goal entities (kind 0) with `d1` set spawn in single player: act 1 has one 
 
 ### The next act
 
-The screen keeps its last frame for 16 frames while the original saves and loads (as long as mGBA takes); act 2's music (song 13) starts 2 frames before its first frame. Sonic starts at (104, 684) with no rings, the course clock at 0 and no checkpoint; the score, the lives and the game's random numbers carry on. The first time act 2's title card plays, its white bar starts as the results' band (x −16, y 42) and drops 9 px a frame to y 126. In single player act 2's camera and Sonic stop 768 px short of its right edge (`StageInit_Zone1Act2`). Its boss, the Egg Hammer Tank (enemy kinds 21 and 22), is not built yet.
+The screen keeps its last frame for 16 frames while the original saves and loads (as long as mGBA takes); act 2's music (song 13) starts 2 frames before its first frame. Sonic starts at (104, 684) with no rings, the course clock at 0 and no checkpoint; the score, the lives and the game's random numbers carry on. The first time act 2's title card plays, its white bar starts as the results' band (x −16, y 42) and drops 9 px a frame to y 126. In single player act 2's camera and Sonic stop 768 px short of its right edge (`StageInit_Zone1Act2`). Its boss is the Egg Hammer Tank (enemy kinds 21 and 22, see [The Egg Hammer Tank](#the-egg-hammer-tank)).
 
 **How it was checked.** mGBA 0.10.5 recorded a run from act 1's first frame through the goal, the results and act 2's card into act 2. The engine matches Sonic, the camera, the rings, the score, the lives and the clocks on every frame compared (1762), and its frames match the screenshots pixel for pixel from the goal to 600 frames into act 2. 21 more recordings in act 2 cover the spikes and a death on them, the hiding spikes, both mini loops (one pressing A and B inside), the water bridge three ways and the bushes; the whole game matches all of them on every frame, and seven of them pixel for pixel, the splashes and the leaves included.
+
+### Bosses
+
+What the bosses share is in `bosses_misc.c`, `bosses_egg_mobile.c`, `nuts_and_bolts_task.c` and `screen_shake.c`:
+
+- **The arena.** A boss sets the camera's bounds (`Bosses_SetCamBounds`). The right edge goes to its place at once. The top, bottom and left edges start at the screen's and move 1 px a frame to theirs (`Task_8017244`); a bottom edge that is to end lower than the screen's starts 160 px below it instead. The camera is kept inside them as `CLAMP` does: below the least it is the least, even when that is more than the most. Sonic's sides and top follow the camera's bounds, not the act's.
+- **The screen shake** (`CreateScreenShake(p0, p1, p2, p3, flags)`, a task at `0xEFF`, just before the camera's) moves the camera after the camera keeps it inside its bounds. Each frame the offset is `p0` (in 1/256 px) times the sine of an angle that steps by `p2`, or times a random factor (flag `0x10`). `p0` then drops by `p1`. It lasts `p3` frames, or until `p0` runs out when `p3` is −1. Flag `0x40` moves the camera across and `0x80` up and down.
+- **The music.** A boss sets `gMusicManagerState.unk1`, which the music manager reads on its next frame. `0x10` plus an index into `sBossSongIndices` (29, 30, 31, 32, 49, 50, 25) starts that song in the stage music's place, `0x30` stops it and brings the stage music back, and after every boss but Egg Wrecker and Egg Drillster the manager then switches itself off for the rest of the act. The Egg Hammer Tank's intro is `0x11` (song 30) and its fight `0x10` (song 29).
+- **A beaten boss** throws debris every 8 frames: a piece (animations `695`–`697`) flung up at 6 px a frame at a random angle, falling 40/256 px a frame faster each frame, and an explosion (`611`, flipped either way at random) up to 63 px above it and 32 px either side. Its parts fly off through the rotation hardware at double size (`sub_80168F0`), falling the same way and turning. Then **the Egg Mobile** (`CreatePostBossEggMobile`, animations `693` and `694`) sits 32 px above the boss for 46 frames, rises 1 px a frame to 80 px up, turns round and flies off to the right at 4 px a frame.
+
+### The Egg Hammer Tank
+
+Neo Green Hill's boss (`boss_1_egg_hammer_tank.c`) is two enemies near the end of act 2:
+
+- **Kind 21, the intro.** When its spawn point comes into range, the camera's left edge follows the screen, its right edge stops 64 px past the spawn point, and its top and bottom close in on the arena. Once the spawn point is 176 px into the screen, Sonic stops and loses his controls, and the intro's song plays while Eggman taunts him from the Egg Mobile. The Egg Mobile then turns and flies off to the right at 2 px a frame. Once it is 64 px off the screen, Sonic gets his controls back and the right edge goes back to the act's end.
+- **Kind 22, the tank** (animation `607`, its two scripts alternating, Eggman `610`). The camera's target moves 56 px up, its bounds become the 360 px up to 64 px short of the spawn point, and the boss song starts. 121 frames later the tank rolls in from the right at 1 px a frame and turns 64 px past either bound. Its hammer (`609`) swings over it on five arm segments (`608`), 16 px apart and 96 px from a pivot 36 px above the tank. Every time the hammer reaches either end of its swing it hits the ground, playing song 145 and shaking the screen (`0x800, 0x40, 0x100, −1`, up and down). All six parts share rotation matrix 16, so each is drawn with the hammer's matrix, the last one written, but placed by its own.
+- **Hits** (`Coll_Player_Boss_1`). While Sonic attacks, the body's box 1 on his body hurts him, and his attack box on its box 0 hits it and reverses both his speeds. Otherwise his body on box 0 hurts him. The hammer hurts him when his own rectangle touches its first frame's box, unless the tank is flashing. Each time the tank or the hammer touches him, Eggman laughs (`610` variant 1), even while Sonic blinks and can't be hurt. A hit plays song 143 and the tank flashes white for 32 frames. After the fifth hit the hammer swings faster with each one. The seventh starts its last phase, in which the hammer swings right round and the tank vaults over it.
+- **The eighth hit** beats it: 1000 points and song 144, and the camera holds still. The belt's four pieces (`613`–`616`) fly off for 60 frames, the front ones the way the tank faces. The arms and the hammer fly off for 181 frames with an explosion every 8 frames. The tank (`612`) falls, bouncing until it settles, smoking and throwing debris. 241 frames after the eighth hit the Egg Mobile flies off, the music goes back to the stage's (`0x30`) and the capsule rises from the tank.
+
+### The boss capsule
+
+`CreateBossCapsule` (a task at `0x2000`) starts at the beaten boss. It rises small (`578`, 64 × 64) through matrix 16 at a quarter size, growing 8/256 and turning 16 steps a frame, from 8 px a frame up, slowing 16/256 px a frame each frame. Past 224 px up it shows full size (`575` variant 0, with its switch `576`) and drops into the middle of the screen (x 120) as it falls back. Once it is 96 px into the screen and meets the floor (8 px below its centre), it lands there: song 136 and a screen shake (`0x800, 0x40, 0x100, −1`, up and down). A Sonic touching it then is put beside it and knocked 2 px a frame away from the screen's middle and `0x4E0`/256 px a frame up (`0x2A0` in water, which Neo Green Hill doesn't have), in his hurt state and blinking for 120 frames, but keeping his rings.
+
+Shut, the capsule is solid (`Coll_Player_Platform`). A Sonic pushed down by it or below it is put at its bottom left corner. When he lands on the switch, the clock and the rings stop, song 137 plays, his ground speed goes to 0 and his controls are taken. The switch sinks 4 px and the capsule opens (variant 1). He walks to whichever side of the screen he is on until 200 px or 40 px from its left (`sub_801766C`), then stands facing left in his act-clear pose (character state 29, animation `23`). The capsule then shows open (variant 2) and stays solid. Its shell's halves (`577`, the right one mirrored) fly off for 60 frames at 1 px a frame across and 2 px a frame up, turning 4 steps a frame. Then the animals come out (`Task_8016B6C`), four every 4 frames for four lots, the last one without the first kind of each pair, every other lot the other way:
+
+- **Hoppers** (`sub_8016D80`), the zone's first two kinds in `gUnknown_080BB43C` (USA `0x0B8444`; Neo Green Hill's are `438`, the gorilla, and `449`, the kangaroo). Each jumps from 32 px above the capsule at `−4 + (r & 0x1F00) / 4096` px a frame up and `1 + (r & 0xFF) / 256` across, with `r` one of the game's random numbers. It falls 40/256 px a frame faster each frame, jumps again from the floor, and turns back 32 px out either way.
+- **Birds** (`sub_8016F44`), the robin (`448`) and the parrot (`442`). Each circles 64 px either side of the capsule at `1 + (r & 7)` steps a frame (the parrot uses `(r >> 8) & 7` of the robin's number), bobbing 16 px up and down. They are drawn at double size and scaled with how near they are, in front of Sonic on the near half and behind him on the far one. Each sinks or rises 1 px a frame to 32 px above where Sonic was when it came out.
+
+The results (song 34) start 60 frames after his pose has played through, or after 240 frames if it never does (`Task_8017400`).
+
+**How it was checked.** mGBA 0.10.5 recorded act 2 from a save state at its start, with the same inputs played into the engine:
+
+- A run through the intro into the fight, with the hammer hitting Sonic, 4400 frames.
+- A run that beats the tank in eight hits without being hurt, waits for the capsule, jumps onto its switch and lets the results play out, 6000 frames.
+- A run in which the tank's body runs into Sonic, 4400 frames.
+
+The engine matches Sonic and the camera on every frame of all three, up to the results' end. It also matches the tank's own state in its task's memory (position, swing, speed, timer, hits, flash, fall, animation and frame) on every frame until the task ends, and every rotation-hardware piece of the arms, the hammer and the belt, with matrix 16, through the defeat. Every OAM piece of the capsule, its switch, its shell's halves and the animals matches, with their matrices, on 865 of 878 frames. The other 13 come after the results end: there the original keeps the previous frame's sprites while it goes on to act 3, which isn't built yet, and the engine keeps its last frame. Which songs play, and when, was read in the code and the sound calls, not compared with mGBA's audio. The capsule landing on Sonic was only read in the code: in the recordings it lands beside him. The widescreen view was checked by eye on the same inputs.
 
 ### Start positions
 
@@ -589,6 +626,13 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Goal | 135 | 3 | Sonic passes the goal signpost |
 | Act clear | 33 | 0 | The results start (34 after a zone's second act) |
 | Results count | 140, 141 | 2, 3 | Every fourth frame of the count, and its end |
+| Boss intro | 30 | 0 | The Egg Hammer Tank's intro (music state `0x11`) |
+| Boss | 29 | 0 | The Egg Hammer Tank's fight (music state `0x10`) |
+| Boss hit | 143 | 1 | The tank is hit |
+| Boss beaten | 144 | 3 | The eighth hit |
+| Hammer | 145 | 3 | The hammer hits the ground |
+| Capsule lands | 136 | 3 | The boss capsule lands |
+| Capsule opens | 137 | 3 | Sonic lands on its switch |
 | Water bridge | 177 | 2 | The bridge takes Sonic |
 | Bush | 178 | 2 | Sonic goes into a bush |
 | Jump | 116 | 2 | A jump from the ground, and the combo's backflip |

@@ -35,6 +35,7 @@ import { createSwingingHook } from './swinginghooks.js';
 import { createSwingRope } from './swingropes.js';
 import { createVisibilityToggle } from './visibility.js';
 import { createCurler } from './curlers.js';
+import { createMarbleTrack } from './marbletrack.js';
 import { createCraneClaw } from './craneclaws.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
@@ -158,8 +159,8 @@ function standIn(e, slot, kind = e.kind) {
   };
 }
 
-// what an interactable spawns as
-function interactable(e, slot, anims, ctx) {
+// what an interactable spawns as, in act `level`
+function interactable(e, slot, anims, ctx, level) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createWaterfall(e, slot, anims)
@@ -167,7 +168,7 @@ function interactable(e, slot, anims, ctx) {
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createHookRail(e, slot, anims) ?? createSecurityGate(e, slot, anims)
     ?? createConveyor(e, slot, ctx) ?? createSwingingHook(e, slot, anims)
     ?? createSwingRope(e, slot) ?? createCraneClaw(e, slot, anims) ?? createVisibilityToggle(e, slot) ?? createCurler(e, slot)
-    ?? standIn(e, slot);
+    ?? createMarbleTrack(e, slot, anims, level) ?? standIn(e, slot);
 }
 
 /**
@@ -187,7 +188,7 @@ export function createEntities(stage, anims, tasks) {
   const regions = Array.from({ length: regionsX * regionsY }, () => []);
   const slot = (e, spawn) => ({ e, live: null, gone: false, d: null, spawn });
   for (const [list, spawn] of [
-    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx)],
+    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx, stage.level)],
     [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
     [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s, -1)],
   ]) {

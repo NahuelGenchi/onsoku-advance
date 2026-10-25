@@ -255,18 +255,22 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   }
   // Sonic's sprite (OAM order 16): the walk and run frames go through the rotation hardware (matrix 0, normal
   // size) and follow the slope, mirrored with a negative scale when he faces right, which also moves him 1px
-  // left; facing left, the original shifts the other frames 1px right. Dying or grinding puts him in front of
+  // left; facing left, the original shifts the other frames 1px right. In a marble track he goes through it
+  // too, at his scale, keeping the rotation he was last drawn with. Dying or grinding puts him in front of
   // the front layer, and half of his swing round a rope behind both.
   // the Rush boost's sprite effects go just in front of him and its trail just behind (renderer.js)
   function drawSonic() {
     player.prio = anims[player.anim.name]?.prio?.[player.anim.i] ?? player.prio;
     const prio = player.death || player.front ? 1 : player.prio, fx = state.rushFx.list.length > 0 ? { rush: 'obj', order: 16, prio, sonic: null } : null;
+    const affine = player.state === 'walk' || player.state === 'bounce' || player.state === 'marbleTrack';
+    if (!affine) player.drawRotation = 0;
+    else if (player.state !== 'marbleTrack') player.drawRotation = player.rotation << 2;
     if (fx) state.sprites.push(fx);
     if (!player.hidden) {
       const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio };
-      if (player.state === 'walk' || player.state === 'bounce') {
-        const right = player.facing > 0;
-        draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.rotation << 2, scaleX: right ? -256 : 256, scaleY: 256, double: false });
+      if (affine) {
+        const right = player.facing > 0, scale = player.scale;
+        draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.drawRotation, scaleX: right ? -scale : scale, scaleY: scale, double: false });
       } else draw(s, player.x + (player.facing < 0 ? 1 : 0), player.y);
       if (s.frame >= 0) state.sprites[state.sprites.length - 1].sonicRow = true;   // palette row 0, his
       if (fx && s.frame >= 0) fx.sonic = state.sprites[state.sprites.length - 1];

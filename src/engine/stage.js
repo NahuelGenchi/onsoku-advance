@@ -18,10 +18,10 @@ export function paletteVariant(stage, follows, shown) {
 
 /**
  * Draws `layer` ('front' or 'back') with the view's top-left corner at world (x, y), in the colours the
- * palette animations' frames `shown` give it.
+ * palette animations' frames `shown` give it, and below the water line in `under`'s (drawIndexedLayer).
  */
-export function drawLayer(ctx, stage, layer, x, y, w, h, animFrame = 0, shown = []) {
-  if (stage.atlas.indexed) { drawIndexedLayer(ctx, stage, layer, x, y, w, h, animFrame, shown); return; }
+export function drawLayer(ctx, stage, layer, x, y, w, h, animFrame = 0, shown = [], under = null) {
+  if (stage.atlas.indexed) { drawIndexedLayer(ctx, stage, layer, x, y, w, h, animFrame, shown, under); return; }
   const { canvas, size, slots, follows } = stage.atlas, map = stage.layers[layer];
   const slot = slots[animFrame][shown.length ? paletteVariant(stage, follows, shown) : 0];
   const mx0 = Math.max(0, Math.floor(x / size)), mx1 = Math.min(stage.levelX - 1, Math.floor((x + w - 1) / size));

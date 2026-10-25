@@ -1,7 +1,7 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
 // platforms, boulders, waterfalls, boosters, checkpoints, wall poles, grind rails, the incline ramp, the
-// half-pipe, the forced slide, item boxes, enemies, and a stand-in for each kind of act 1's that this game
+// half-pipe, the forced slide, the deep snow, the air bubbles, item boxes, enemies, and a stand-in for each kind of act 1's that this game
 // doesn't build yet, so that every task keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
@@ -25,6 +25,7 @@ import { createRamp } from './ramps.js';
 import { createHalfPipe } from './halfpipes.js';
 import { createSlide } from './slides.js';
 import { createSnow } from './snow.js';
+import { createAirBubbles } from './airbubbles.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -152,7 +153,7 @@ function interactable(e, slot, anims, ctx) {
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
-    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createSnow(e, slot, ctx) ?? standIn(e, slot);
+    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createSnow(e, slot, ctx) ?? createAirBubbles(e, slot, anims) ?? standIn(e, slot);
 }
 
 /**

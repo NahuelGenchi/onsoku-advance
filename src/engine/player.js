@@ -503,11 +503,13 @@ function groundStep(p, c, world, input) {
 }
 
 function airStep(p, c, world) {
-  // knocked back, he flies on as he was thrown: no moves, no control and no drag (Player_AirInputControls)
+  // knocked back, he flies on as he was thrown: no moves, no control and no drag (Player_AirInputControls), but
+  // his tilt still eases back
   if (p.state === 'hurt') {
     bounds(p, world);
     move(p);
     p.ysp += K.gravity;
+    tumble(p);
     airCollision(p, world.terrain, () => land(p));
     return;
   }
@@ -548,12 +550,16 @@ function airStep(p, c, world) {
   bounds(p, world);
   move(p);
   p.ysp += K.gravity;
-  // the angle he left the ground at eases back to upright; off a bounce block he tumbles the way he faces
-  // instead (Player_8047224)
+  tumble(p);
+  airCollision(p, world.terrain, () => land(p));
+}
+
+// the angle he left the ground at eases back to upright; off a bounce block he tumbles the way he faces
+// instead (Player_8047224)
+function tumble(p) {
   const r = s8(p.rotation);
   if (p.state === 'bounce') p.rotation = (p.rotation + 4 * p.facing) & 0xFF;
   else p.rotation = (r > 0 ? Math.max(0, r - 2) : Math.min(0, r + 2)) & 0xFF;
-  airCollision(p, world.terrain, () => land(p));
 }
 
 /** Touching down on the ground or an object (sub_8021BE0); the caller sets the ground speed. */

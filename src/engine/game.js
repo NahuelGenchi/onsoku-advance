@@ -17,6 +17,7 @@ import { createScatter } from './scatter.js';
 import { createHud, updateHud } from './hud.js';
 import { createTitleCard, runTitleCard } from './titlecard.js';
 import { createPaletteAnimation } from './palettes.js';
+import { WATER_TASK, createWater, waterTask, endFrame, surfaceSplash, drownCountdown, bubble, bubblesAfterDrowning } from './water.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { SONG } from '../sound/songs.js';
@@ -40,7 +41,7 @@ const NO_INPUT = { left: false, right: false, up: false, down: false, jump: fals
 
 const SILENT = {
   play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
-  playerState() {}, stopAll() {}, musicState() {},
+  drowning() {}, playerState() {}, stopAll() {}, musicState() {},
 };
 
 export function createGame(canvas, assets, input, sound = SILENT) {
@@ -61,11 +62,13 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
     card: null,           // the title card (titlecard.js) while it holds Sonic and the clock
+    cardOver: false,      // the frame the title card ended
     view: null,           // what the screen shows around the camera (camera.js viewOf); only drawing reads it
     rush: false,          // the Sonic Rush boost's setting (off unless chosen)
     rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
     rushFx: createRushFx(), // its trail, burst and aura (rushfx.js)
     shake: -1,            // the frame of the boost's screen shake showing, or -1; only drawing reads it
+    water: createWater(assets.stage.water),   // the act's water (water.js), or null
   };
   let viewW = SCREEN_W, viewH = SCREEN_H;   // the original screen, or the widescreen view's size
   state.view = viewOf(state.cam, viewW, viewH);
@@ -73,6 +76,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   let cardPad = [];   // the pad directions held on the title card's last frame
   let extraLife = false, restart = false, loading = false, starMusic = false;
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
+  const addTask = entry => { if (entry) tasks.add(...entry); };
   const render = createRenderer(canvas, assets);
 
   function spawn(kind, name, x, y, flipX, flipY = false) {
@@ -107,10 +111,24 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       } else player.dead = true;
       return true;
     },
-    // the frame Sonic dies the camera's target and the clock stop; the music plays on
-    died() {
+    // the frame Sonic dies the camera's target and the clock stop; the music plays on, but not invincibility's
+    // song or the drowning music, and drowning has its own sound
+    died(drowned) {
       state.cam.locked = true; state.clockStopped = true;
-      sound.play(SONG.LIFE_LOST);
+      sound.stop(SONG.INVINCIBILITY); sound.stop(SONG.DROWNING);
+      sound.play(drowned ? SONG.DROWNED : SONG.LIFE_LOST);
+    },
+    // the act's water (water.js): its line, -1 without any; Sonic going in or out, the drowning countdown,
+    // the bubbles he lets out, and drowning
+    get water() { return state.water; },
+    get waterLevel() { return state.water ? state.water.level : -1; },
+    surfaceSplash(x) { addTask(surfaceSplash(state.water, x)); sound.play(SONG.SURFACE_HIT); },
+    drownCountdown(n) { addTask(drownCountdown(player, ctx.cam, n)); },
+    drowningMusic() { sound.drowning(); },
+    breathOut(x, y) { addTask(bubble(state.water, world, Math.round(x * 256), Math.round(y * 256), 0, false)); },
+    drowned() {
+      addTask(bubble(state.water, world, Math.round(player.x * 256), Math.round((player.y - 12) * 256), 0, true));
+      addTask(bubblesAfterDrowning(state.water, world, player, addTask));
     },
     // the act starts over: the original destroys every task, so nothing after Sonic's runs this frame
     lifeLost() { restart = true; tasks.stop(); },
@@ -118,7 +136,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // Sonic passed checkpoint `index`: the act starts over with his centre at (x, y) and the clock at this time
     passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.courseTime }; },
     // Sonic's attack box destroyed an enemy at (x, y)
-    defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
+    defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }, assets.stage.level >> 1); },
     playSound: song => sound.play(song),
     // a boss's music state (gMusicManagerState.unk1), which the music manager reads (synth.js)
     musicState: value => sound.musicState(value),
@@ -299,6 +317,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
     state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
+    if (state.water) Object.assign(state.water, createWater(assets.stage.water));
     startCard();
     sound.playStageMusic(assets.stage.music);
     loading = true; starMusic = false;
@@ -330,13 +349,17 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // pad is pressed from its 36th to its 214th, Sonic takes the controls and the clock starts; the buttons he
     // held when it ends aren't presses. The HUD's task (0x2180) it makes then first runs on the next frame.
     [0x2100, () => {
+      state.cardOver = false;
       if (state.card === null) return;
+      // the colours under water are taken from the stage's as they are on each of its frames (InitWaterPalettes)
+      if (state.water) state.water.shown = state.palettes.slice();
       const pad = ['left', 'right', 'up', 'down'].filter(k => input[k]);
       const pressed = input.jumpPressed || input.attackPressed || pad.some(k => !cardPad.includes(k));
       cardPad = pad;
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
       if (runTitleCard(state.card, pressed)) return;
       state.card = null; state.clockStopped = false;
+      state.cardOver = true;   // its last frame, which clears the blend it set
       state.hud = createHud();
       tasks.add(hudTask, 0x2180);
     }],
@@ -358,6 +381,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       if (extraLife) { extraLife = false; sound.oneUp(); }
     }],
     [0xFF00, () => { if (!state.clockStopped) state.courseTime++; state.tick++; }],
+    // the water's (water.js), after the clock has ticked
+    ...(state.water ? [[WATER_TASK, (run => ctx => run(ctx))(waterTask(state.water, () => state.tick).run)]] : []),
   ];
   for (const [priority, run] of STAGE_TASKS) tasks.add({ run: ctx => { run(ctx); return true; } }, priority, true);
   startCard();
@@ -368,6 +393,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     if (loading) { loading = false; return; }
     state.sprites = [];
     tasks.run(ctx);
+    if (state.water) endFrame(state.water);
     if (restart) { restart = false; restartAct(); }
   }
 

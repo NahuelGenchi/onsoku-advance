@@ -3,6 +3,7 @@
 // the music manager's, in synth.js.
 export const SONG = {
   NEO_GREEN_HILL_1: 12,
+  DROWNING: 27,            // MUS_DROWNING: the countdown music under water
   INVINCIBILITY: 28,       // MUS_INVINCIBILITY
   SPIN: 109,               // SE_SPIN_ATTACK: spin dash start and revs, rolling, the combo's first hit
   SPIN_DASH_RELEASE: 110,
@@ -18,7 +19,7 @@ export const SONG = {
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
   ENEMY_DEFEAT: 138,       // SE_ITEM_BOX: an enemy is defeated
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
-  BOSS_HIT: 143,           // SE_BOSS_HIT
+  BOSS_HIT: 143,           // SE_BOSS_HIT: also a skating stone breaking
   EXPLOSION: 144,          // SE_EXPLOSION: a boss is beaten
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
@@ -30,5 +31,9 @@ export const SONG = {
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
   LAVA_SPURT: 182,         // SE_LAVA_PLATFORM_SPURT
+  SURFACE_HIT: 190,        // SE_WATERFALL_SURFACE_HIT: Sonic goes into the water or out of it
+  AIR_BUBBLE: 191,         // SE_AIR_BUBBLE: a breath from an air bubble
+  DROWNED: 192,            // SE_DROWNED: Sonic drowns, in place of SE_LIFE_LOST
   ICE_BLOCK_BREAK: 193,    // SE_193: a block of ice breaks, after SE_ITEM_BOX
+  SKATING_STONE: 198,      // SE_198: a skating stone sliding again after a drop
 };

@@ -63,6 +63,8 @@ export function createSound() {
     tempo(tempo) { call('tempoControl', 0, tempo); },
     /** The music manager's invincibility: its song in place of the music */
     invincibility() { call('invincibility'); },
+    /** The music manager's drowning countdown (gMusicManagerState.unk4): its music in place of the stage's */
+    drowning() { call('drowning'); },
     /** What the music manager reads of Sonic each frame */
     playerState(invincible, speedUp, alive) { call('playerState', invincible, speedUp, alive); },
     /** A boss's music state for the music manager (gMusicManagerState.unk1) */

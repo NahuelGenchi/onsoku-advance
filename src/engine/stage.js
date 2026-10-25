@@ -4,7 +4,7 @@ import { solidPixel } from './terrain.js';
 
 /** Animation frame of the stage's animated tiles at `tick` (one step every animDelay frames). */
 export function stageAnimFrame(stage, tick) {
-  const frames = stage.atlas.slots.length;
+  const frames = stage.atlas.indexed ? stage.atlas.frames.length : stage.atlas.slots.length;
   return frames > 1 ? Math.floor(tick / stage.animDelay) % frames : 0;
 }
 
@@ -18,9 +18,10 @@ export function paletteVariant(stage, follows, shown) {
 
 /**
  * Draws `layer` ('front' or 'back') with the view's top-left corner at world (x, y), in the colours the
- * palette animations' frames `shown` give it.
+ * palette animations' frames `shown` give it, and below the water line in `under`'s (drawIndexedLayer).
  */
-export function drawLayer(ctx, stage, layer, x, y, w, h, animFrame = 0, shown = []) {
+export function drawLayer(ctx, stage, layer, x, y, w, h, animFrame = 0, shown = [], under = null) {
+  if (stage.atlas.indexed) { drawIndexedLayer(ctx, stage, layer, x, y, w, h, animFrame, shown, under); return; }
   const { canvas, size, slots, follows } = stage.atlas, map = stage.layers[layer];
   const slot = slots[animFrame][shown.length ? paletteVariant(stage, follows, shown) : 0];
   const mx0 = Math.max(0, Math.floor(x / size)), mx1 = Math.min(stage.levelX - 1, Math.floor((x + w - 1) / size));
@@ -52,4 +53,62 @@ export function collisionImage(terrain, x0, y0, w, h) {
     }
   }
   return img;
+}
+
+// a palette as the 32-bit pixels ImageData holds (RGBA in memory order), opaque
+const packed = new WeakMap();
+export function packPalette(colors) {
+  let out = packed.get(colors);
+  if (!out) {
+    out = new Uint32Array(colors.length);
+    colors.forEach(([r, g, b], i) => { out[i] = (0xFF000000 | (b << 16) | (g << 8) | r) >>> 0; });
+    packed.set(colors, out);
+  }
+  return out;
+}
+
+// what an indexed layer is put together in before it goes onto the frame, in blocks of at most this size
+const BLOCK = 1024;
+let scratch = null;
+
+/**
+ * Draws a layer kept as colour indices (an indexed atlas) in the colours of the palette animations' frames
+ * `shown`. From view line `under.line` down it takes the colours `under.colors` (256 packed colours) instead.
+ */
+export function drawIndexedLayer(ctx, stage, layer, x, y, w, h, animFrame = 0, shown = [], under = null) {
+  const { size, frames, palettes, follows } = stage.atlas, map = stage.layers[layer], src = frames[animFrame] ?? frames[0];
+  const colors = packPalette(palettes[shown.length ? paletteVariant(stage, follows, shown) : 0]);
+  const levelW = stage.levelX * size, levelH = stage.levelY * size;
+  scratch ??= document.createElement('canvas');
+  for (let by = 0; by < h; by += BLOCK) {
+    for (let bx = 0; bx < w; bx += BLOCK) {
+      const bw = Math.min(BLOCK, w - bx), bh = Math.min(BLOCK, h - by);
+      const img = new ImageData(bw, bh), out = new Uint32Array(img.data.buffer);
+      let any = false;
+      for (let row = 0; row < bh; row++) {
+        const wy = y + by + row;
+        if (wy < 0 || wy >= levelH) continue;
+        const my = Math.floor(wy / size), line = (wy - my * size) * size, o = row * bw;
+        const pal = under && by + row >= under.line ? under.colors : colors;
+        for (let col = 0; col < bw;) {
+          const wx = x + bx + col;
+          if (wx < 0) { col = Math.min(bw, -x - bx); continue; }
+          if (wx >= levelW) break;
+          const mx = Math.floor(wx / size), px = wx - mx * size, n = Math.min(size - px, bw - col);
+          const at = map[my * stage.levelX + mx] * size * size + line + px;
+          for (let k = 0; k < n; k++) {
+            const c = src[at + k];
+            if (c) { out[o + col + k] = pal[c]; any = true; }
+          }
+          col += n;
+        }
+      }
+      if (!any) continue;
+      if (scratch.width < bw || scratch.height < bh) { scratch.width = Math.max(scratch.width, bw); scratch.height = Math.max(scratch.height, bh); }
+      const g = scratch.getContext('2d');
+      g.clearRect(0, 0, bw, bh);
+      g.putImageData(img, 0, 0);
+      ctx.drawImage(scratch, 0, 0, bw, bh, bx, by, bw, bh);
+    }
+  }
 }

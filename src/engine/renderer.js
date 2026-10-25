@@ -6,13 +6,16 @@
 // its semi-transparent sprites is darkened. The widescreen view shows more of the act around the original
 // screen, which sits in its middle unless an edge of the act is near; the HUD keeps to the view's corners and
 // the title card to its middle. The optional Sonic Rush boost adds its screen shake and its effects around
-// Sonic, drawn as the Nintendo DS draws them.
+// Sonic, drawn as the Nintendo DS draws them. In an act with water the screen below its line is drawn again in
+// the water's colours (water.js): the background wavers there and the snow is gone.
 
 import { SCREEN_W, SCREEN_H, RUSH_BOOST } from './constants.js';
-import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './stage.js';
+import { drawLayer, drawIndexedLayer, stageAnimFrame, paletteVariant, collisionImage, packPalette } from './stage.js';
 import { SINE } from './trig.js';
 import { rushObjEntries, rushTrailStrips, TRAIL_COLOR } from './rushfx.js';
 import { rasterizeStrips, objLayer as dsObjLayer, to6, out8 } from './dsdraw.js';
+import { ICE_MOUNTAIN, iceMountainScroll } from './icemountain.js';
+import { underColors, waveOffsets } from './water.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
 const s16 = v => (v << 16) >> 16;
@@ -34,9 +37,11 @@ export function createRenderer(canvas, assets) {
   let W = SCREEN_W, H = SCREEN_H;
   canvas.width = W; canvas.height = H;
   let ctx = canvas.getContext('2d', { alpha: false });   // the Rush boost borrows it for a moment (drawRushObjs)
-  const { atlas, frames } = assets.sprites, hud = assets.hud, card = assets.titleCard;
-  const stage = assets.stage, { backgrounds } = stage;
-  const bgW = stage.background.width;
+  const { frames } = assets.sprites, hud = assets.hud, card = assets.titleCard;
+  // the sprites' atlas, or the one in the colours under water while the screen below the water line is drawn
+  let atlas = assets.sprites.atlas;
+  const stage = assets.stage, { backgrounds, snow } = stage;
+  const bgW = stage.background.width, bgH = stage.background.height;
 
   // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does
   function drawSprite(index, x, y, flipX, flipY = false) {
@@ -51,7 +56,9 @@ export function createRenderer(canvas, assets) {
   }
 
   // the rotation hardware's sprites are put together here pixel by pixel, then drawn over the frame
-  const atlasPixels = atlas.getContext('2d').getImageData(0, 0, atlas.width, atlas.height).data;
+  const pixelsOf = a => a && a.getContext('2d').getImageData(0, 0, a.width, a.height).data;
+  const abovePixels = pixelsOf(atlas), underPixels = pixelsOf(assets.sprites.under);
+  let atlasPixels = abovePixels;
   let objLayer = new ImageData(W, H);
   const objCanvas = document.createElement('canvas');
   objCanvas.width = W; objCanvas.height = H;
@@ -139,14 +146,17 @@ export function createRenderer(canvas, assets) {
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = W; maskCanvas.height = H;
   const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
-  function drawRushTrail(fx, vx, vy) {
+  // `rows` are the screen's lines they go on, [first, end)
+  function drawRushTrail(fx, vx, vy, rows) {
     trailBox = null;
     const strips = rushTrailStrips(fx, vx, vy);
     if (strips.length === 0) return;
     trailBuf.fill(0);
     trailBox = rasterizeStrips(strips, W, H, trailBuf);
     if (!trailBox) return;
-    const [x0, y0, x1, y1] = trailBox, w = x1 - x0 + 1, h = y1 - y0 + 1;
+    const [x0, , x1] = trailBox, y0 = Math.max(trailBox[1], rows[0]), y1 = Math.min(trailBox[3], rows[1] - 1);
+    if (y1 < y0) return;
+    const w = x1 - x0 + 1, h = y1 - y0 + 1;
     const img = ctx.getImageData(x0, y0, w, h), d = img.data;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -158,10 +168,11 @@ export function createRenderer(canvas, assets) {
     }
     ctx.putImageData(img, x0, y0);
   }
-  function drawRushObjs(fx, art, vx, vy, sonic) {
+  function drawRushObjs(fx, art, vx, vy, sonic, rows) {
     const layer = dsObjLayer(rushObjEntries(fx, art, vx, vy), W, H);
     if (!layer) return;
-    const { x0, y0, w, h, colors } = layer;
+    const { x0, y0, w, colors } = layer, h = Math.min(layer.h, rows[1] - y0);
+    if (h <= 0) return;
     let mask = null;
     if (trailBox && sonic) {
       // where Sonic covers the trail, his sprite is what is below
@@ -175,7 +186,7 @@ export function createRenderer(canvas, assets) {
       mask = maskCtx.getImageData(x0, y0, w, h).data;
     }
     const img = ctx.getImageData(x0, y0, w, h), d = img.data;
-    for (let y = 0; y < h; y++) {
+    for (let y = Math.max(0, rows[0] - y0); y < h; y++) {
       for (let x = 0; x < w; x++) {
         const o = y * w + x, color = colors[o];
         if (color < 0) continue;
@@ -216,10 +227,10 @@ export function createRenderer(canvas, assets) {
 
   // the HUD's sprites have priority 0: in front of the layers and every other sprite. The lives keep to the
   // bottom of a taller view.
-  function drawHud(sprites) {
+  function drawHud(sprites, sheet) {
     for (const [what, x, y] of sprites) {
       const [sx, sy, w, h] = what === 'ring' ? hud.ring : what === 'face' ? hud.face : hud.glyphs[what];
-      ctx.drawImage(hud.sheet, sx, sy, w, h, x, y < SCREEN_H / 2 ? y : y + H - SCREEN_H, w, h);
+      ctx.drawImage(sheet, sx, sy, w, h, x, y < SCREEN_H / 2 ? y : y + H - SCREEN_H, w, h);
     }
   }
 
@@ -230,7 +241,7 @@ export function createRenderer(canvas, assets) {
   // along the bottom keep to it, the act number and the Japanese name to the right, and the white bar and the
   // zone's name go on to the right edge: the bar with more of itself, the name with its next letters. Those two
   // slide in from the original screen's right edge, so their way in is stretched to start from the view's.
-  function drawCard(sprites) {
+  function drawCard(sprites, sheet) {
     const wider = W - SCREEN_W, taller = H - SCREEN_H, wide = wider > 0 || taller > 0, more = Math.ceil(wider / 32);
     const last = {}, shift = {};
     sprites.forEach((s, i) => { last[s.slot] = i; });
@@ -242,8 +253,8 @@ export function createRenderer(canvas, assets) {
     const index = new Map(sprites.map((s, i) => [s, i]));
     const put = (s, glyph, x, y) => {
       const { w, h, glyphs } = card.slots[s.slot], [sx, sy] = glyphs[glyph];
-      if (wide) ctx.drawImage(card.sheet, sx, sy, w, h, x, y, w, h);
-      else for (const dx of [x, x - 512]) for (const dy of [y, y - 256]) ctx.drawImage(card.sheet, sx, sy, w, h, dx, dy, w, h);
+      if (wide) ctx.drawImage(sheet, sx, sy, w, h, x, y, w, h);
+      else for (const dx of [x, x - 512]) for (const dy of [y, y - 256]) ctx.drawImage(sheet, sx, sy, w, h, dx, dy, w, h);
     };
     for (const s of stack(sprites)) {
       if ((s.a0 & 0x300) === 0x200) continue;   // hidden
@@ -290,12 +301,71 @@ export function createRenderer(canvas, assets) {
     if (right > 0) ctx.drawImage(flip, 0, bgLine, right, 1, ox + n, line, right, 1);
   }
 
+  // One line of a background that wraps around its map both ways, the original screen's left edge at map column x
+  function drawWrapped(background, x, bgLine, line, ox) {
+    let off = mod(x - ox, bgW);
+    for (let at = 0; at < W; off = 0) {
+      const n = Math.min(bgW - off, W - at);
+      ctx.drawImage(background, off, mod(bgLine, bgH), n, 1, at, line, n, 1);
+      at += n;
+    }
+  }
+
+  // The snow (Ice Mountain) from map pixel (sx, sy) at the original screen's top left, in palette `colors`,
+  // added to what is under it or, with `opaque`, drawn over it, on the screen's lines above `end`
+  function drawSnow(frame, sx, sy, colors, opaque, ox, oy, end) {
+    if (end <= 0) return;
+    const img = ctx.getImageData(0, 0, W, end), d = img.data, sw = snow.width, sh = snow.height;
+    for (let y = 0; y < end; y++) {
+      const row = mod(sy + y - oy, sh) * sw;
+      for (let x = 0; x < W; x++) {
+        const c = frame[row + mod(sx + x - ox, sw)];
+        if (!c) continue;
+        const k = (y * W + x) * 4, rgb = colors[c];
+        if (opaque) { d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2]; continue; }
+        d[k] = Math.min(255, d[k] + rgb[0]); d[k + 1] = Math.min(255, d[k + 1] + rgb[1]); d[k + 2] = Math.min(255, d[k + 2] + rgb[2]);
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
   // back to front: higher orders first, and the later entries of an order before the earlier ones
   function stack(list) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
+  // The background below the water line, from screen line `first` down: its colour indices in `colors`, each
+  // line from `waves` on moved by the waves (waveOffsets) from the background's scroll (bgX, bgY)
+  let waterImg = null;
+  function drawUnderBackground(bgX, bgY, colors, tick, first, waves, ox, oy) {
+    const { width: bw, height: bh, indices } = stage.water.background;
+    if (!waterImg || waterImg.width !== W || waterImg.height !== H) waterImg = new ImageData(W, H);
+    const out = new Uint32Array(waterImg.data.buffer);
+    for (let line = first; line < H; line++) {
+      const [hofs, vofs] = line < waves ? [bgX, bgY] : waveOffsets(bgX, bgY, line - oy, tick);
+      const row = mod(vofs + line - oy, bh) * bw, o = line * W;
+      for (let x = 0; x < W; x++) out[o + x] = colors[indices[row + mod(hofs + x - ox, bw)]];
+    }
+    ctx.putImageData(waterImg, 0, 0, 0, first, W, H - first);
+  }
+
+  // `draw(below, first, end)` once for each part of the screen, the lines [first, end): above the water line
+  // and below it, where the sprites, the HUD and the title card take their colours under water
+  let parts = [[0, SCREEN_H, false]];
+  function byPart(draw) {
+    if (parts.length === 1 && !parts[0][2]) { draw(false, 0, H); return; }
+    for (const [first, end, below] of parts) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, first, W, end - first); ctx.clip();
+      atlas = below ? assets.sprites.under : assets.sprites.atlas;
+      atlasPixels = below ? underPixels : abovePixels;
+      draw(below, first, end);
+      ctx.restore();
+    }
+    atlas = assets.sprites.atlas; atlasPixels = abovePixels;
+  }
+
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, cardOver, showCollision, rushFx, rushArt, shake, water }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -305,49 +375,66 @@ export function createRenderer(canvas, assets) {
       vx = Math.max(0, Math.min(vx + dx, terrain.width - W));
       vy = Math.max(0, Math.min(vy + dy, terrain.height - H));
     }
+    // the view's lines from `line` down are under water. The VCount interrupt on the line before it loads the
+    // colours under water and turns the snow off in time for that line too (`split`), and starts the waves from
+    // the line itself; with the line at the top the VBlank does both for the whole screen (water.js).
+    const line = water ? Math.max(0, Math.min(H, water.level - vy)) : H;
+    const split = line > 0 && line < H ? line - 1 : line;
+    parts = [[0, split, false], [split, H, true]].filter(([first, end]) => end > first);
     // the background is fixed to the view, as the original's is to its screen: it lines up with a 240 × 160
     // screen in the view's middle, and the sea scrolls with where that screen would be. Near the act's edges
     // the view stops before the camera does, and so does the background. A taller view shows the map's lines
     // below it and repeats its top line above it.
     const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, cx = vx + ox;
     const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
-    for (let line = 0; line < H; line++) {
-      const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
-      if (STILL(bgLine)) { drawStill(background, bgLine, line, ox); continue; }
+    const ice = stage.zone === ICE_MOUNTAIN ? iceMountainScroll(stage, cx, vy + oy, tick - 1, tick - 1) : null;
+    const under = split < H ? { line: split, colors: underColors(stage, water, palettes) } : null;
+    if (ice) for (let y = 0; y < split; y++) drawWrapped(background, ice.bgX, ice.bgY + y - oy, y, ox);
+    else for (let y = 0; y < H; y++) {
+      const bgLine = Math.min(Math.max(y - oy, 0), background.height - 1);
+      if (STILL(bgLine)) { drawStill(background, bgLine, y, ox); continue; }
       let off = mod(backgroundOffset(bgLine, tick - 1, cx) - ox, bgW);
       for (let x = 0; x < W; off = 0) {
         const n = Math.min(bgW - off, W - x);
-        ctx.drawImage(background, off, bgLine, n, 1, x, line, n, 1);
+        ctx.drawImage(background, off, bgLine, n, 1, x, y, n, 1);
         x += n;
       }
     }
+    if (ice && under) drawUnderBackground(ice.bgX, ice.bgY, under.colors, tick, split, line, ox, oy);
     const frame = stageAnimFrame(stage, tick);
-    drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
+    drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes, under);
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
     const shown = rings.visible(view);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
-    const drawAll = behind => {
+    // the sprites of BG priority `prio` (2 and 3 together, behind the front layer)
+    const drawAll = prio => byPart((below, first, end) => {
       for (const s of list) {
-        if ((s.prio >= 2) !== behind || s.white) continue;
-        if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
-        else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
+        if (Math.min(s.prio, 2) !== prio || s.white) continue;
+        if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy, [first, end]);
+        else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic, [first, end]);
         else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
         else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
       }
-    };
-    drawAll(true);
-    drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
-    drawAll(false);
+    });
+    drawAll(2);
+    drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes, under);
+    drawAll(1);
+    // the snow lies over everything but the sprites of priority 0; the title card's fade and its last frame show
+    // it as it is. Above the water it is off while the water line was at the screen's top the frame before.
+    const fading = titleCard ? titleCard.sprites.length > 0 && (titleCard.sprites[0].a0 & 0xC00) === 0x400 : cardOver;
+    if (ice && tick > 1 && (!water || water.snow)) drawSnow(snow.frames[ice.snowFrame], ice.snowX, ice.snowY, snow.palettes[paletteVariant(stage, snow.follows, palettes)], fading, ox, oy, split);
+    drawAll(0);
     if (showCollision) drawCollision(terrain, vx, vy);
-    drawHud(hudState.sprites);
+    byPart(below => drawHud(hudState.sprites, below ? hud.under : hud.sheet));
     for (const s of list) if (s.white) drawWhite(s, vx, vy);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
     // behind keeps them out of the fade
     const semi = titleCard.sprites.length > 0 && (titleCard.sprites[0].a0 & 0xC00) === 0x400;
-    if (!semi) drawCard(titleCard.sprites);
+    const cardSprites = () => byPart(below => drawCard(titleCard.sprites, below ? card.under : card.sheet));
+    if (!semi) cardSprites();
     if (titleCard.fade.bldY) darken(titleCard.fade.bldY);
-    if (semi) drawCard(titleCard.sprites);
+    if (semi) cardSprites();
   }
 
   /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */

@@ -18,6 +18,7 @@ export const SONG = {
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
   ENEMY_DEFEAT: 138,       // SE_ITEM_BOX: an enemy is defeated
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
+  BOSS_HIT: 143,           // SE_BOSS_HIT: also a skating stone breaking
   EXPLOSION: 144,          // SE_EXPLOSION: a rolling boulder breaks on the screen
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
@@ -29,6 +30,7 @@ export const SONG = {
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
   ICE_BLOCK_BREAK: 193,    // SE_193: a block of ice breaks, after SE_ITEM_BOX
+  SKATING_STONE: 198,      // SE_198: a skating stone sliding again after a drop
   WHIRLWIND: 200,          // SE_200: a whirlwind (player float toggle) first lifting Sonic
   WATERFALL: 201,          // SE_201: Angel Island's waterfalls, from when one first holds Sonic
 };

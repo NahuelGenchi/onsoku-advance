@@ -42,9 +42,9 @@ export function createPanelGate(e, slot, anims) {
       if (px >= from && px <= to) {
         if (flip || px <= e.x) {
           if (flip ? p.xsp < 0 : p.xsp > 0) opens(ctx);
-          else gate(o, o.boxes[0], p, t);
+          else gate(o, o.boxes[0], p, t, false);
         } else if (p.xsp < 0) {
-          gate(o, o.boxes[0], p, t);
+          gate(o, o.boxes[0], p, t, false);
           p.gsp = 0; p.xsp = 0;
         }
       }
@@ -76,7 +76,7 @@ export function createPanelGate(e, slot, anims) {
         // only coming back is stopped
         if (flat) {
           if (touches(p, e.x, flip ? e.y + 5 : e.y - 5) && (flip ? p.ysp > 0 : p.ysp < 0)) platform(o, o.boxes[0], p, t);
-        } else if (touches(p, flip ? e.x - 6 : e.x + 6, e.y) && (flip ? p.xsp > 0 : p.xsp < 0)) gate(o, o.boxes[0], p, t);
+        } else if (touches(p, flip ? e.x - 6 : e.x + 6, e.y) && (flip ? p.xsp > 0 : p.xsp < 0)) gate(o, o.boxes[0], p, t, false);
       }
       if (--open === 0) startAnim(o, shut);
       animate(o, anims);

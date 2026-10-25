@@ -17,6 +17,7 @@ import { createItemBox } from './itembox.js';
 import { createPlatform } from './platforms.js';
 import { createBoulder } from './boulders.js';
 import { createSquarePlatform } from './squareplatforms.js';
+import { createBreakableWall } from './breakablewalls.js';
 import { createWaterfall } from './waterfalls.js';
 import { createBooster } from './boosters.js';
 import { createCheckpoint } from './checkpoints.js';
@@ -171,7 +172,7 @@ function interactable(e, slot, anims, ctx, level, zone) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createSquarePlatform(e, slot, anims)
-    ?? createWaterfall(e, slot, anims)
+    ?? createBreakableWall(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createPartyBalloon(e, slot, anims) ?? createMarbleTrack(e, slot, anims, level)
     ?? createBumper(e, slot, anims) ?? createFlipper(e, slot, anims) ?? createSegaSonicLetter(e, slot, anims)

@@ -25,6 +25,7 @@ import { createRamp } from './ramps.js';
 import { createHalfPipe } from './halfpipes.js';
 import { createSlide } from './slides.js';
 import { createTorch } from './torches.js';
+import { createLava } from './lava.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -152,7 +153,8 @@ function interactable(e, slot, anims, ctx) {
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createWaterfall(e, slot, anims, ctx)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
-    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createTorch(e, slot) ?? standIn(e, slot);
+    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createTorch(e, slot)
+    ?? createLava(e, slot) ?? standIn(e, slot);
 }
 
 /**

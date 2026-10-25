@@ -56,6 +56,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
     card: null,           // the title card (titlecard.js) while it holds Sonic and the clock
+    cardOver: false,      // the frame the title card ended
     view: null,           // what the screen shows around the camera (camera.js viewOf); only drawing reads it
     rush: false,          // the Sonic Rush boost's setting (off unless chosen)
     rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
@@ -307,6 +308,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // pad is pressed from its 36th to its 214th, Sonic takes the controls and the clock starts; the buttons he
     // held when it ends aren't presses. The HUD's task (0x2180) it makes then first runs on the next frame.
     [0x2100, () => {
+      state.cardOver = false;
       if (state.card === null) return;
       const pad = ['left', 'right', 'up', 'down'].filter(k => input[k]);
       const pressed = input.jumpPressed || input.attackPressed || pad.some(k => !cardPad.includes(k));
@@ -314,6 +316,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
       if (runTitleCard(state.card, pressed)) return;
       state.card = null; state.clockStopped = false;
+      state.cardOver = true;   // its last frame, which clears the blend it set
       state.hud = createHud();
       tasks.add(hudTask, 0x2180);
     }],

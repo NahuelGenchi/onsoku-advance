@@ -79,11 +79,18 @@ export const ITEM_ANIMATIONS = {
   706: { icon0: 0, icon4: 4, icon5: 5, icon6: 6, icon7: 7, icon8: 8, icon9: 9, icon10: 10 },
   750: { shield: 0 }, 751: { magneticShield: 0 }, 752: { stars: 0, starSparkle: 1 },
 };
-// Neo Green Hill's platforms: the thin one (463), which the falling one shares, the trampoline at rest and
-// bouncing (461), the bounce block (462) and the crumbling platform (904)
-export const PLATFORM_ANIMATIONS = {
-  463: { thinPlatform: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 }, 904: { crumblingPlatform: 0 },
-};
+// The platforms each level draws, from the ROM's per-level tables (USA ROM): the thin one, which the falling
+// one shares (sPlatformThinAnims, 0x0B8504), the crumbling one (sPlatformCrumblingAnims, 0x0B8528) and the
+// bounce block (sBounceBlockAnims, 0x6C8C20). CreateEntity_Trampoline picks its own in code: 505 in zones 2
+// and 6 and on Chao Hunt B and D, 461 elsewhere, at rest and bouncing.
+const THIN_PLATFORMS = [463, 463, 506, 506, 495, 495, 523, 523, 535, 535, 517, 598, 605, 517, 463, 506, 495, 598];
+const CRUMBLING_PLATFORMS = [904, 904, 502, 502, 502, 502, 527, 527, 551, 551, 513, 602, 513, 513, 904, 502, 502, 602];
+const BOUNCE_BLOCKS = [462, 462, 499, 499, 543, 543, 543, 543, 543, 543, 507, 601, 507, 507, 462, 499, 543, 601];
+const TRAMPOLINES = [461, 461, 505, 505, 461, 461, 461, 461, 461, 461, 505, 505, 461, 461, 461, 505, 461, 505];
+export const platformAnimations = level => ({
+  [THIN_PLATFORMS[level]]: { thinPlatform: 0 }, [TRAMPOLINES[level]]: { trampoline: 0, trampolineBounce: 1 },
+  [BOUNCE_BLOCKS[level]]: { bounceBlock: 0 }, [CRUMBLING_PLATFORMS[level]]: { crumblingPlatform: 0 },
+});
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // the splash at Sonic's feet in a waterfall
@@ -153,7 +160,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
 
   onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
-  const sprites = extractSprites(rom, tables);
+  const sprites = extractSprites(rom, tables, level);
   onProgress(`Decoding ${info.name}…`);
   const stage = extractStage(rom, offsets, tables, info);
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
@@ -170,7 +177,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   };
 }
 
-function extractSprites(rom, tables) {
+function extractSprites(rom, tables, level) {
   const sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
   const springPalette = animationPalette(rom, tables, SPRING_ANIM);
   const yellowPalette = springPalette.slice();
@@ -182,7 +189,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...PIPE_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_SNAKE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...PIPE_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_SNAKE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

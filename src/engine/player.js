@@ -11,7 +11,7 @@ import { sin8, cos8, s8 } from './trig.js';
 import { SONG } from '../sound/songs.js';
 
 // d-pad bits for the input history the mid-air dash reads
-const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
+export const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
 const HISTORY = 16;
 const SOX = 6;   // spriteOffsetX, half his width
 
@@ -58,6 +58,10 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     scale: 0x100,      // unk80 and unk82: his size through the rotation hardware (8.8), smaller in a marble track
     drawRotation: 0,   // the rotation his sprite was last drawn with, which a marble track keeps
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
+    heldDirs: 0,       // the d-pad his last frame read (heldInput): up and down dropped while left or right is held
+    pressedDirs: 0,    // the directions it found newly pressed against the frame before's heldDirs (frameInput): up
+                       // and down dropped when left or right is among them, so holding down with right or left
+                       // presses down again every frame
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,
     chain: 0,          // enemies defeated since he last touched the ground (defeatScoreIndex)
@@ -611,6 +615,13 @@ export function stepPlayer(p, input, world) {
   const bits = (left ? LEFT : 0) | (right ? RIGHT : 0) | (input.up ? UP : 0) | (input.down ? DOWN : 0);
   p.pressed.pop(); p.pressed.unshift(bits & ~p.held[0]);
   p.held.pop(); p.held.unshift(bits);
+  // Player_HandleInputs: while an object holds his controls heldInput stays as it was and nothing is pressed
+  if (p.ignoreInput) p.pressedDirs = 0;
+  else {
+    const mask = v => v & (LEFT | RIGHT) ? v & ~(UP | DOWN) : v;
+    p.pressedDirs = mask(bits & ~p.heldDirs);
+    p.heldDirs = mask(bits);
+  }
 
   // holding left or right hides up and down from the movement code
   const c = {

@@ -30,6 +30,7 @@ import { createBumper } from './bumpers.js';
 import { createFlipper } from './flippers.js';
 import { createSegaSonicLetter } from './segaletters.js';
 import { createTeleportOrb } from './teleportorbs.js';
+import { createTubeJunction } from './junctions.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -159,7 +160,7 @@ function interactable(e, slot, anims, ctx, level) {
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createPartyBalloon(e, slot, anims) ?? createMarbleTrack(e, slot, anims, level)
     ?? createBumper(e, slot, anims) ?? createFlipper(e, slot, anims) ?? createSegaSonicLetter(e, slot, anims)
-    ?? createTeleportOrb(e, slot) ?? standIn(e, slot);
+    ?? createTeleportOrb(e, slot) ?? createTubeJunction(e, slot) ?? standIn(e, slot);
 }
 
 /**

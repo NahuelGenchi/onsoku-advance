@@ -17,7 +17,7 @@ export const LEVELS = {
     name: 'Ice Mountain Zone act 1', zone: 3, act: 0, paletteAnimations: [822, 821], music: 18, water: { level: 1546, blend: 0x7F207F20 }, snow: 71,
     sprites: {
       thinPlatform: [523, 0], sinkingPlatform: [528, 0], squarePlatform: [524, 0], ferrisSeat: [523, 0], breakableWall: [594, 0],
-      movingSpring: [526, 1], movingSpringLaunch: [526, 0],
+      movingSpring: [526, 1], movingSpringLaunch: [526, 0], hookRail: [569, 0],
     },
   },
   // StageInit_Zone4Act2 (0x0803DE11): the same, with the water line at 1664 and act 2's song
@@ -25,7 +25,7 @@ export const LEVELS = {
     name: 'Ice Mountain Zone act 2', zone: 3, act: 1, paletteAnimations: [822, 821], music: 19, water: { level: 1664, blend: 0x7F207F20 }, snow: 71,
     sprites: {
       thinPlatform: [523, 0], sinkingPlatform: [528, 0], squarePlatform: [524, 0], ferrisSeat: [523, 0], breakableWall: [594, 0],
-      movingSpring: [526, 1], movingSpringLaunch: [526, 0],
+      movingSpring: [526, 1], movingSpringLaunch: [526, 0], hookRail: [569, 0],
     },
   },
 };

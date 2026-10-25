@@ -28,6 +28,7 @@ import { createTorch } from './torches.js';
 import { createLava } from './lava.js';
 import { createBoulderSpawner } from './boulderspawners.js';
 import { createFloat } from './floats.js';
+import { createHidingSpikes } from './hidingspikes.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -156,7 +157,7 @@ function interactable(e, slot, anims, ctx) {
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createWaterfall(e, slot, anims, ctx)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createTorch(e, slot)
-    ?? createLava(e, slot) ?? createBoulderSpawner(e, slot, anims) ?? createFloat(e, slot) ?? standIn(e, slot);
+    ?? createLava(e, slot) ?? createBoulderSpawner(e, slot, anims) ?? createFloat(e, slot) ?? createHidingSpikes(e, slot, anims) ?? standIn(e, slot);
 }
 
 /**

@@ -33,6 +33,8 @@ export const SONIC_ANIMATIONS = {
   hurt: [19, 0], dead: [21, 0],
   // hanging from a wall pole (charState 31), and swinging round a red flag (30)
   pole: [38, 0], flagSwing: [37, 0],
+  // holding on to a carousel (charState 33)
+  carouselRide: [40, 0],
   // grinding (charState 16; variant 1 on a rail's steep parts) and jumping off a rail before its end (20)
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
@@ -110,6 +112,8 @@ export const SHIP_SWING_ANIMATIONS = { 491: { shipSwing: 0 }, 490: { shipSwingHo
 export const SPIKED_PLATFORM_ANIMATIONS = { 521: { spikedPlatform: 0 }, 538: { spikedPlatformUp: 0 }, 539: { spikedPlatformDown: 0 } };
 // zone 3's bowl (486), whose two frames turn faster as it spins
 export const BOWL_ANIMATIONS = { 486: { bowl: 0 } };
+// zone 3's carousel (487), whose frames turn faster as it spins, and its pole (583)
+export const CAROUSEL_ANIMATIONS = { 487: { carousel: 0 }, 583: { carouselPole: 0 } };
 // zone 3's panel gates: the one Sonic runs through (496: shut, and spinning open) and the one he falls through
 // (497: spinning open, and shut)
 export const PANEL_GATE_ANIMATIONS = { 496: { panelGate: 0, panelGateOpen: 1 }, 497: { panelGateFloorOpen: 0, panelGateFloor: 1 } };
@@ -203,7 +207,7 @@ function extractSprites(rom, tables, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...BUMPER_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...BARREL_ANIMATIONS, ...PIPE_ANIMATIONS, ...RED_FLAG_ANIMATIONS, ...SHIP_SWING_ANIMATIONS, ...SPIKED_PLATFORM_ANIMATIONS, ...BOWL_ANIMATIONS, ...PANEL_GATE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...BUMPER_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...BARREL_ANIMATIONS, ...PIPE_ANIMATIONS, ...RED_FLAG_ANIMATIONS, ...SHIP_SWING_ANIMATIONS, ...SPIKED_PLATFORM_ANIMATIONS, ...BOWL_ANIMATIONS, ...PANEL_GATE_ANIMATIONS, ...CAROUSEL_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

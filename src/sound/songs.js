@@ -35,4 +35,7 @@ export const SONG = {
   BOWL: 206,               // SE_BOWL: a bowl catches Sonic
   BOWL_2: 207,             // SE_BOWL_2 and SE_BOWL_3: 56 and 112 frames later
   BOWL_3: 208,
+  CAROUSEL_A: 209,         // SE_CAROUSEL_A, _B and _C: a carousel takes Sonic, and turns slowly, faster or fast
+  CAROUSEL_B: 210,
+  CAROUSEL_C: 211,
 };

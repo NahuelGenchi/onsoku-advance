@@ -242,7 +242,7 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 <tr><td><b>Egg Rocket</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/78">Planned</a></td></tr>
 <tr><td><b>Cosmic Angel</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/74">The zone and the Egg Snake</a></td></tr>
 <tr><td><b>X Zone</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/82">Its three bosses and the normal ending</a></td></tr>
-<tr><td><b>Moon Zone</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/85">The Super Egg Robo and the true ending</a></td></tr>
+<tr><td><b>Moon Zone</b></td><td colspan="2">🟢 The Super Egg Robo and the true ending, playable now: add <code>?level=13</code> to the address<br><sub>It will open the way the game opens it, with all seven <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/75">Chaos Emeralds</a>, once the special stages are in</sub></td></tr>
 </tbody>
 </table>
 

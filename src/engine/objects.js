@@ -2,8 +2,9 @@
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
 // platforms, boulders, blocks of ice, breakable walls, waterfalls, boosters, checkpoints, wall poles, grind
 // rails, the incline ramp, the half-pipe, the forced slide, the hook rails, the security gates, the conveyor
-// belts, item boxes, enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that
-// every task keeps its place in the list.
+// belts, the swinging hooks, swing ropes and crane claws, the visibility toggles, Secret Base's pipe curler,
+// item boxes, enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that every
+// task keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
 // order, and the tasks of a priority in the order they were made. The original fetches the next task before
@@ -32,6 +33,8 @@ import { createSecurityGate } from './securitygates.js';
 import { createConveyor } from './conveyors.js';
 import { createSwingingHook } from './swinginghooks.js';
 import { createSwingRope } from './swingropes.js';
+import { createVisibilityToggle } from './visibility.js';
+import { createCurler } from './curlers.js';
 import { createCraneClaw } from './craneclaws.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
@@ -163,7 +166,8 @@ function interactable(e, slot, anims, ctx) {
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createHookRail(e, slot, anims) ?? createSecurityGate(e, slot, anims)
     ?? createConveyor(e, slot, ctx) ?? createSwingingHook(e, slot, anims)
-    ?? createSwingRope(e, slot) ?? createCraneClaw(e, slot, anims) ?? standIn(e, slot);
+    ?? createSwingRope(e, slot) ?? createCraneClaw(e, slot, anims) ?? createVisibilityToggle(e, slot) ?? createCurler(e, slot)
+    ?? standIn(e, slot);
 }
 
 /**

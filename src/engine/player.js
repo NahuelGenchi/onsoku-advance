@@ -48,6 +48,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     invincible: 0,     // frames of invincibility left (timerInvincibility)
     speedUp: 0,        // frames of speed shoes left (timerSpeedup)
     hidden: false,     // left out of this frame's drawing: blinking, or gone below the screen after dying
+    invisible: false,  // MOVESTATE_100000: made invisible, inside a pipe (visibility.js); never while dead
     dead: false,       // MOVESTATE_DEAD
     carried: false,    // MOVESTATE_IA_OVERRIDE: an object moves him, and his own movement doesn't run
     grinding: false,   // MOVESTATE_1000000: on a grind rail, on the layer it put him on
@@ -725,7 +726,7 @@ export function animatePlayer(p, input, anims, world) {
     choose(p, chooseAnimation(p, input));
   }
   p.prevState = p.state;
-  p.hidden = !p.dead && p.invulnerable > 0 && (world.tick & 2) !== 0;
+  p.hidden = !p.dead && (p.invisible || (p.invulnerable > 0 && (world.tick & 2) !== 0));
   // dead, the timers count down only on the frame he dies: the tasks that take over from then on leave them
   if (p.dead && p.invulnerable === 1) return;
   if (p.state !== 'hurt' && p.invulnerable > 0) p.invulnerable--;

@@ -3,7 +3,8 @@
 // never shows past its bounds: the act's edges, unless a boss narrows them. `minX` and `minY` are the lowest
 // its top-left corner goes and `maxX` and `maxY` the highest (the original's gCamera.maxX - 240 and
 // maxY - 160); `width` and `height` stay the act's. A screen shake (screenshake.js) moves it by shakeX and
-// shakeY after it is kept inside them, as UpdateCamera does, and `shiftX` moves where it aims, off Sonic.
+// shakeY after it is kept inside them, as UpdateCamera does, and `shiftX` and `shiftY` move where it aims,
+// off Sonic.
 // While the optional Sonic Rush boost runs, it leads him the way Rush's camera does.
 
 import { SCREEN_W, SCREEN_H, CAMERA as C, RUSH_BOOST as R } from './constants.js';
@@ -17,7 +18,7 @@ export function createCamera(p, terrain) {
     x: Math.floor(p.x) - SCREEN_W / 2, y: centreY(p) - (SCREEN_H / 2 + 4),
     targetX: 0, targetY: 0, freeze: 0, locked: false, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
     minX: 0, minY: 0, maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false,
-    width: terrain.width, height: terrain.height, shakeX: 0, shakeY: 0, shiftX: 0,
+    width: terrain.width, height: terrain.height, shakeX: 0, shakeY: 0, shiftX: 0, shiftY: 0,
     // the Rush boost's lead: Sonic shown this far off the target's centre (8.8 px), what it eases toward, the
     // frames left of the delay after a boost starts, and where Sonic was at the last update
     leadX: 0, leadY: 0, leadTargetX: 0, leadTargetY: 0, scroll: 0, prevX: p.x, prevY: p.y,
@@ -92,7 +93,7 @@ export function updateCamera(cam, p) {
     const want = p.offsetY - 4;
     if (cam.offsetY < want) cam.offsetY = Math.min(want, cam.offsetY + 5);
     else if (cam.offsetY > want) cam.offsetY = Math.max(want, cam.offsetY - 5);
-    cam.targetY = centreY(p) - SCREEN_H / 2 + cam.look + cam.offsetY - (cam.leadY >> 8);
+    cam.targetY = centreY(p) + cam.shiftY - SCREEN_H / 2 + cam.look + cam.offsetY - (cam.leadY >> 8);
   }
   const dx = cam.targetX - cam.x;
   // with a lead, it keeps to the target sideways as Rush's does, without a dead zone or a speed limit

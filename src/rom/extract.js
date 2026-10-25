@@ -14,7 +14,8 @@ import { readColors } from './colors.js';
 import { soundLayout } from './sound.js';
 import { hudGraphics } from './hud.js';
 import { titleCardGraphics } from './titlecard.js';
-import { LEVELS } from './levels.js';
+import { levelInfo } from './levels.js';
+import { extraStageArt } from './extra.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -139,9 +140,9 @@ const YELLOW_SPRING_PALETTE = 36;
 // block), and the boulders' debris; their frames also keep their OAM pieces as the hardware reads them
 const ROTATED = new Set(['walk', 'run', 'bounce', 'grabbed', 'rockDebrisSmall', 'rockDebrisLarge', 'eggXHand0', 'eggXHand1', 'eggXHand2', 'eggXBall0']);
 
-// Each level has three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
-// background.
-const LAYER = { front: 0, back: 1, background: 2 };
+// each level's three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
+// background
+const MAP = { front: 0, back: 1, background: 2 };
 
 /**
  * Identifies and decodes `buffer`, with `level` (the ROM's level index, src/rom/levels.js) as the stage.
@@ -149,6 +150,7 @@ const LAYER = { front: 0, back: 1, background: 2 };
  * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text, level }, stage: { level, zone, music, hudFlash, width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
+  const info = levelInfo(level);
   const rom = new Rom(buffer);
   onProgress('Checking the ROM…');
   const id = await identify(rom);
@@ -157,9 +159,11 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
 
   onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
-  const sprites = extractSprites(rom, tables);
-  onProgress(`Decoding ${LEVELS[level].name}…`);
-  const stage = extractStage(rom, offsets, tables, level);
+  const sprites = extractSprites(rom, tables, info.sprites);
+  onProgress(`Decoding ${info.name}…`);
+  const stage = extractStage(rom, offsets, tables, info);
+  // the extra stage's robot body and the colours Super Sonic gives the HUD's face
+  if (info.extra) stage.extra = extraStageArt(rom, offsets, tables, level);
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
   // indexes into those in the original, so both are read
   const spinDashSpeeds = Array.from({ length: 18 }, (_, i) => rom.s16(offsets.spinDashSpeeds + i * 2) / 256);
@@ -167,14 +171,16 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   return {
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },
     sprites, stage, physics: { spinDashSpeeds },
-    hud: extractHud(rom, offsets.uiGraphics),
+    hud: extractHud(rom, offsets.uiGraphics, stage.extra?.facePalette),
     titleCard: extractTitleCard(rom, offsets.uiGraphics, offsets.titleCard, level),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
   };
 }
 
-function extractSprites(rom, tables) {
+// `levelSprites` are the level's own animations, { name: [anim, variant] }, each in its own colours and with its
+// OAM pieces kept for the rotation hardware
+function extractSprites(rom, tables, levelSprites = {}) {
   const sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
   const springPalette = animationPalette(rom, tables, SPRING_ANIM);
   const yellowPalette = springPalette.slice();
@@ -189,6 +195,10 @@ function extractSprites(rom, tables) {
     ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...X_ZONE_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_WRECKER_ANIMATIONS, ...EGG_DRILLSTER_ANIMATIONS, ...EGG_X_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
+    })),
+    // a third number is the animation whose colours it shows in, where another loads over its own
+    ...Object.entries(levelSprites).map(([name, [anim, variant, colors]]) => ({
+      list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, colors ?? anim), skipPalette: colors !== undefined,
     })),
   ];
 
@@ -206,7 +216,7 @@ function extractSprites(rom, tables) {
           images.push({ img, anchorX: layout.anchorX, anchorY: layout.anchorY });
         }
         const image = images[byKey.get(key)];
-        if (ROTATED.has(name) && !image.pieces) image.pieces = framePieces(rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp);
+        if ((ROTATED.has(name) || name in levelSprites) && !image.pieces) image.pieces = framePieces(rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp);
         // the hitboxes set just before a frame come with it
         return f.boxes ? [byKey.get(key), f.delay, f.boxes] : [byKey.get(key), f.delay];
       });
@@ -249,22 +259,22 @@ function packAtlas(images, width = 512) {
   return { canvas, rects };
 }
 
-function extractStage(rom, offsets, tables, level) {
-  const { name, paletteAnimations, hudFlash = 1 } = LEVELS[level];
-  const front = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYER.front);
-  const back = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYER.back);
-  const background = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYER.background);
+function extractStage(rom, offsets, tables, info) {
+  const { level } = info;
+  const front = tilemapHeader(rom, offsets.tilemaps, level * 3 + MAP.front);
+  const back = tilemapHeader(rom, offsets.tilemaps, level * 3 + MAP.back);
+  const background = tilemapHeader(rom, offsets.tilemaps, level * 3 + MAP.background);
   if (front.xTiles !== 12 || front.metatileMap === null || front.palette === null) {
-    throw new Error(`${name} data is not where this version keeps it.`);
+    throw new Error(`${info.name}'s data is not where this version keeps it.`);
   }
   const collision = readCollision(rom, offsets.collision, level);
   if (collision.layers[0].length !== front.mapWidth * front.mapHeight || collision.levelX !== back.mapWidth) {
-    throw new Error(`${name} collision does not match its map.`);
+    throw new Error(`${info.name}'s collision does not match its map.`);
   }
   // the background has no palette of its own: it draws in the stage's, which the front layer loads
   const palette = readColors(rom, front.palette, 256);
   const interactables = readInteractables(rom, offsets.interactables, level);
-  const animations = paletteAnimations.map(anim => paletteAnimation(rom, tables, anim));
+  const animations = info.paletteAnimations.map(anim => paletteAnimation(rom, tables, anim));
   // the two layers share one tileset and its animated tiles, so one atlas serves both
   const count = collision.metatiles.length / 144;
   const tiles = paletteVariants(palette, animations, mapBanks(rom, front, count * front.xTiles * front.yTiles));
@@ -272,8 +282,8 @@ function extractStage(rom, offsets, tables, level) {
   const sky = paletteVariants(palette, animations, mapBanks(rom, background, background.xTiles * background.yTiles));
 
   return {
-    // the zone (0–6), and the song the stage init starts, from the ROM's song per level (gLevelSongs)
-    level, zone: level >> 1, music: rom.u16(offsets.levelSongs + level * 2), hudFlash,
+    // the zone (0–6) and act, and the song the stage init starts, from the ROM's song per level (gLevelSongs)
+    level, zone: info.zone, act: info.act, music: rom.u16(offsets.levelSongs + level * 2), hudFlash: info.hudFlash ?? 1,
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
     layers: { front: collision.layers[0], back: collision.layers[1] },
     atlas, animDelay: front.animDelay, collision,
@@ -313,8 +323,8 @@ function paletteVariants(base, animations, banks) {
   return { palettes, follows, rows };
 }
 
-function extractHud(rom, tableAt) {
-  const { image, ...rects } = hudGraphics(rom, tableAt);
+function extractHud(rom, tableAt, facePalette) {
+  const { image, ...rects } = hudGraphics(rom, tableAt, facePalette);
   return { sheet: toCanvas(image), ...rects };
 }
 

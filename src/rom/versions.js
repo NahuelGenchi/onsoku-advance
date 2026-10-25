@@ -21,6 +21,7 @@ export const KNOWN_VERSIONS = [
       uiGraphics: 0x680A38,
       titleCard: 0x681274,
       levelSongs: 0x4A69E4,
+      trueEnding: 0x6B4B10,
     },
   },
 ];

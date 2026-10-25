@@ -43,9 +43,10 @@ function paint(img, x, y, tiles, first, wide, high, palette) {
 }
 
 /**
- * The card for `level` (0 is Neo Green Hill act 1) and Sonic: { image, slots, text }. Each slot has the OAM
+ * The card for `level` (0 is Neo Green Hill act 1) and Sonic: { image, slots, text, act }. Each slot has the OAM
  * shape and size of its sprites, their width and height in pixels, and its glyphs' [x, y] on the sheet; text
- * maps each piece to its glyph numbers.
+ * maps each piece to its glyph numbers. `act` is false past Cosmic Angel act 2 (level 11), where Task_8055904 draws
+ * no act number.
  */
 export function titleCardGraphics(rom, uiAt, cardAt, level = 0, character = 0) {
   const entry = i => {
@@ -103,5 +104,5 @@ export function titleCardGraphics(rom, uiAt, cardAt, level = 0, character = 0) {
     text[name] = [...bytes(cardAt + at, n)].map(c => c - 32);
   }
   text.zone.push(...Array(ZONE_PADDING).fill(-32));
-  return { image, slots, text };
+  return { image, slots, text, act: level <= 11 };
 }

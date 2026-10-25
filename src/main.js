@@ -21,7 +21,8 @@ const rushStatus = document.getElementById('rush-status');
 const rushFile = document.getElementById('rush-file');
 const params = new URLSearchParams(location.search);
 const debug = params.has('debug');
-// `?level=N` starts the ROM's level N (src/rom/levels.js) instead of Neo Green Hill act 1
+// `?level=N` starts the ROM's level N (src/rom/levels.js: 12 is X Zone, 13 the Moon Zone) instead of Neo
+// Green Hill act 1
 const level = playableLevel(Number(params.get('level'))) ? Number(params.get('level')) : 0;
 
 const input = createInput();
@@ -90,12 +91,22 @@ createRomPicker(picker, {
   heading: 'Play in your browser',
   intro: 'Choose your Sonic Advance ROM. Its graphics are decoded on this device and the game starts right away.',
   async onRom(buffer, name, setStatus) {
+    romBuffer = buffer;
     const assets = await extractAssets(buffer, setStatus, { level });
     setStatus('');
     sound.load(buffer, assets.sound).catch(err => console.warn('No sound:', err));
     start(assets);
   },
 });
+
+let romBuffer = null;
+/**
+ * Decodes level `level` from the ROM already chosen and starts it: the way on to another act (the end of an
+ * act's flow, issue #69, calls it with the next level).
+ */
+async function playLevel(level) {
+  start(await extractAssets(romBuffer, () => {}, { level }));
+}
 
 function start(assets) {
   game?.stop();
@@ -108,7 +119,7 @@ function start(assets) {
   screen.focus();
   clearInterval(statsTimer);
   statsTimer = setInterval(showStats, 100);
-  if (debug) globalThis.onsoku = { game, assets, input, sound };
+  if (debug) globalThis.onsoku = { game, assets, input, sound, playLevel };
 }
 
 document.getElementById('change-rom').addEventListener('click', () => {

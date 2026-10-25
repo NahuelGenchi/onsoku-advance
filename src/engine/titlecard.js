@@ -182,6 +182,7 @@ export function runTitleCard(card, pressed) {
     // the act number's task draws nothing past Egg Rocket (level 11): X Zone's card has no act
     if (name === 'act' && card.gfx.level > LAST_ACT_LEVEL) continue;
     p.text ??= card.gfx.text[name];
+    if (name === 'act' && card.gfx.act === false) continue;
     for (const draw of TASKS[name](p, k)) put(card, p, draw, semi);
   }
   return true;

@@ -21,6 +21,7 @@ import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS,
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { SONG } from '../sound/songs.js';
 import { RUSH_BOOST_SE } from '../rom/rush.js';
+import { createExtraStage } from './extra.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
@@ -43,7 +44,9 @@ const SILENT = {
   playerState() {}, stopAll() {}, musicState() {},
 };
 
-export function createGame(canvas, assets, input, sound = SILENT, hooks = {}) {
+export function createGame(canvas, assets, input, sound = SILENT, options = {}) {
+  // the extra stage runs its own player and stage (extra.js)
+  if (assets.stage.extra) return createExtraStage(canvas, assets, input, sound, options);
   const { anims } = assets.sprites;
   const terrain = createTerrain(assets.stage.collision);
   const player = createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds });
@@ -119,7 +122,7 @@ export function createGame(canvas, assets, input, sound = SILENT, hooks = {}) {
     // TasksDestroyInPriorityRange
     destroyTasks(lo, hi) { tasks.destroyRange(lo, hi); },
     // CreateStageResults with Sonic's rings and time, at the end of the last act
-    stageResults(rings, time) { hooks.stageResults?.(rings, time); },
+    stageResults(rings, time) { options.stageResults?.(rings, time); },
     terrain,
     // a hazard touched Sonic (Coll_DamagePlayer): a shield takes the hit, or with rings he drops them all, up
     // to 48 of them scattering, and without any he dies; returns false while he is invincible or still

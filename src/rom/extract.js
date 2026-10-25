@@ -72,11 +72,18 @@ export const ITEM_ANIMATIONS = {
   706: { icon0: 0, icon4: 4, icon5: 5, icon6: 6, icon7: 7, icon8: 8, icon9: 9, icon10: 10 },
   750: { shield: 0 }, 751: { magneticShield: 0 }, 752: { stars: 0, starSparkle: 1 },
 };
-// Neo Green Hill's platforms: the thin one (463), which the falling one shares, the trampoline at rest and
-// bouncing (461), the bounce block (462) and the crumbling platform (904)
-export const PLATFORM_ANIMATIONS = {
-  463: { thinPlatform: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 }, 904: { crumblingPlatform: 0 },
-};
+// The platforms each level draws, from the ROM's per-level tables (USA ROM): the thin one, which the falling
+// one shares (sPlatformThinAnims, 0x0B8504), the crumbling one (sPlatformCrumblingAnims, 0x0B8528) and the
+// bounce block (sBounceBlockAnims, 0x6C8C20). CreateEntity_Trampoline picks its own in code: 505 in zones 2
+// and 6 and on Chao Hunt B and D, 461 elsewhere, at rest and bouncing.
+const THIN_PLATFORMS = [463, 463, 506, 506, 495, 495, 523, 523, 535, 535, 517, 598, 605, 517, 463, 506, 495, 598];
+const CRUMBLING_PLATFORMS = [904, 904, 502, 502, 502, 502, 527, 527, 551, 551, 513, 602, 513, 513, 904, 502, 502, 602];
+const BOUNCE_BLOCKS = [462, 462, 499, 499, 543, 543, 543, 543, 543, 543, 507, 601, 507, 507, 462, 499, 543, 601];
+const TRAMPOLINES = [461, 461, 505, 505, 461, 461, 461, 461, 461, 461, 505, 505, 461, 461, 461, 505, 461, 505];
+export const platformAnimations = level => ({
+  [THIN_PLATFORMS[level]]: { thinPlatform: 0 }, [TRAMPOLINES[level]]: { trampoline: 0, trampolineBounce: 1 },
+  [BOUNCE_BLOCKS[level]]: { bounceBlock: 0 }, [CRUMBLING_PLATFORMS[level]]: { crumblingPlatform: 0 },
+});
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // the splash at Sonic's feet in a waterfall
@@ -103,6 +110,9 @@ const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebris
 // each level's three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
 // background
 const MAP = { front: 0, back: 1, background: 2 };
+// the most palette states the atlas is rendered for: past that (Egg Rocket's four animations have 450), the
+// layers keep the stage's own colours
+const MAX_PALETTE_VARIANTS = 64;
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
@@ -118,7 +128,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
 
   onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
-  const sprites = extractSprites(rom, tables);
+  const sprites = extractSprites(rom, tables, level);
   onProgress(`Decoding ${info.name}…`);
   const stage = extractStage(rom, offsets, tables, info);
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
@@ -135,7 +145,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   };
 }
 
-function extractSprites(rom, tables) {
+function extractSprites(rom, tables, level) {
   const sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
   const springPalette = animationPalette(rom, tables, SPRING_ANIM);
   const yellowPalette = springPalette.slice();
@@ -147,7 +157,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
@@ -225,11 +235,13 @@ function extractStage(rom, offsets, tables, info) {
   const palette = readColors(rom, front.palette, 256);
   const interactables = readInteractables(rom, offsets.interactables, level);
   const animations = info.paletteAnimations.map(anim => paletteAnimation(rom, tables, anim));
+  const states = animations.reduce((n, a) => n * (a.frames.length + 1), 1);
+  const shown = states <= MAX_PALETTE_VARIANTS ? animations : [];
   // the two layers share one tileset and its animated tiles, so one atlas serves both
   const count = collision.metatiles.length / 144;
-  const tiles = paletteVariants(palette, animations, mapBanks(rom, front, count * front.xTiles * front.yTiles));
+  const tiles = paletteVariants(palette, shown, mapBanks(rom, front, count * front.xTiles * front.yTiles));
   const atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.rows), follows: tiles.follows };
-  const sky = paletteVariants(palette, animations, mapBanks(rom, background, background.xTiles * background.yTiles));
+  const sky = paletteVariants(palette, shown, mapBanks(rom, background, background.xTiles * background.yTiles));
 
   return {
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,

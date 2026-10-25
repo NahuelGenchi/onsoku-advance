@@ -10,15 +10,15 @@ export const LEVELS = {
   0: { name: 'Neo Green Hill Zone act 1', zone: 0, act: 0, paletteAnimations: [814, 815], music: 12 },
   // StageInit_Zone4Act1 (0x0803DDCD in the USA ROM): CreateStageWaterTask(1546, 0x7F207F20, 0); the snow is
   // tilemap 71 (TM_ICE_PARADISE_SNOW) on BG0 (CreateStageBg_Zone4); zone 4's breakable wall is 594
-  // (gUnknown_080BB544, 0x080B854C) and its moving spring 526 (CreateEntity_MovingSpring)
+  // (gUnknown_080BB544, 0x080B854C), its moving spring 526 and its square platform 524 (their CreateEntity_)
   6: {
     name: 'Ice Mountain Zone act 1', zone: 3, act: 0, paletteAnimations: [822, 821], music: 18, water: { level: 1546, blend: 0x7F207F20 }, snow: 71,
-    sprites: { breakableWall: [594, 0], movingSpring: [526, 1], movingSpringLaunch: [526, 0] },
+    sprites: { breakableWall: [594, 0], movingSpring: [526, 1], movingSpringLaunch: [526, 0], squarePlatform: [524, 0] },
   },
   // StageInit_Zone4Act2 (0x0803DE11): the same, with the water line at 1664 and act 2's song
   7: {
     name: 'Ice Mountain Zone act 2', zone: 3, act: 1, paletteAnimations: [822, 821], music: 19, water: { level: 1664, blend: 0x7F207F20 }, snow: 71,
-    sprites: { breakableWall: [594, 0], movingSpring: [526, 1], movingSpringLaunch: [526, 0] },
+    sprites: { breakableWall: [594, 0], movingSpring: [526, 1], movingSpringLaunch: [526, 0], squarePlatform: [524, 0] },
   },
 };
 

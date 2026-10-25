@@ -1,8 +1,9 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
-// platforms, boulders, blocks of ice, breakable walls, moving springs, waterfalls, boosters, checkpoints, wall
-// poles, grind rails, the incline ramp, the half-pipe, the forced slide, item boxes, enemies, and a stand-in
-// for each kind of act 1's that this game doesn't build yet, so that every task keeps its place in the list.
+// platforms, square platforms, boulders, blocks of ice, breakable walls, moving springs, waterfalls, boosters,
+// checkpoints, wall poles, grind rails, the incline ramp, the half-pipe, the forced slide, item boxes, enemies,
+// and a stand-in for each kind of act 1's that this game doesn't build yet, so that every task keeps its place
+// in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
 // order, and the tasks of a priority in the order they were made. The original fetches the next task before
@@ -19,6 +20,7 @@ import { createBoulder } from './boulders.js';
 import { createIceBlock } from './iceblocks.js';
 import { createBreakableWall } from './breakablewalls.js';
 import { createMovingSpring } from './movingsprings.js';
+import { createSquarePlatform } from './squareplatforms.js';
 import { createWaterfall } from './waterfalls.js';
 import { createBooster } from './boosters.js';
 import { createCheckpoint } from './checkpoints.js';
@@ -152,7 +154,8 @@ function standIn(e, slot, kind = e.kind) {
 function interactable(e, slot, anims, ctx) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
-  return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createMovingSpring(e, slot, anims) ?? createWaterfall(e, slot, anims)
+  return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims)
+    ?? createBreakableWall(e, slot, anims) ?? createMovingSpring(e, slot, anims) ?? createSquarePlatform(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? standIn(e, slot);
 }

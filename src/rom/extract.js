@@ -113,6 +113,8 @@ export const FLIPPER_ANIMATIONS = {
 // the SEGA SONIC letters (492): four variants for each of its eight letters, named by their number as the
 // letters pick them (letter × 4 + 0..3)
 export const LETTER_ANIMATIONS = { 492: Object.fromEntries(Array.from({ length: 32 }, (_, v) => [`segaLetter${v}`, v])) };
+// the small Barrel of Doom (493)
+export const BARREL_ANIMATIONS = { 493: { barrelMini: 0 } };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -172,7 +174,7 @@ function extractSprites(rom, tables, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...BUMPER_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...BUMPER_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...BARREL_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

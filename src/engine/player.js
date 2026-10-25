@@ -58,6 +58,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     scale: 0x100,      // unk80 and unk82: his size through the rotation hardware (8.8), smaller in a marble track
     drawRotation: 0,   // the rotation his sprite was last drawn with, which a marble track keeps
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
+    attackPressed: false, // and its attack press
     heldDirs: 0,       // the d-pad his last frame read (heldInput): up and down dropped while left or right is held
     pressedDirs: 0,    // the directions it found newly pressed against the frame before's heldDirs (frameInput): up
                        // and down dropped when left or right is among them, so holding down with right or left
@@ -631,7 +632,7 @@ export function stepPlayer(p, input, world) {
     boost: input.boost, boostPressed: input.boostPressed,
   };
   input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
-  p.jumpPressed = c.jumpPressed;
+  p.jumpPressed = c.jumpPressed; p.attackPressed = c.attackPressed;
 
   if (world.rush) rushBoost(p, c, world);
   else if (p.boost) stopBoost(p);

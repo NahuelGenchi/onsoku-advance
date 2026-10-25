@@ -137,14 +137,15 @@ export function breaks(o, hb, p) {
 /**
  * A breakable wall (Coll_Player_Gate, its attack test on): while Sonic's attack box is out, it or his flank
  * touching the wall's box breaks it (LANDED), bouncing him back up if he was falling. Otherwise the wall only
- * pushes him out of its sides. The optional Rush boost's box breaks it too, without a bounce.
+ * pushes him out of its sides. The optional Rush boost's box breaks it too, without a bounce. With `attack`
+ * false (a security gate's), it only pushes him out.
  */
-export function gate(o, hb, p, terrain) {
+export function gate(o, hb, p, terrain, attack = true) {
   const res = { flags: 0 };
   if (!hb || p.dead) return 0;
   const [px, py] = at(p);
-  if (p.boostBox && overlap(o.x, o.y, hb, px, py, p.boostBox)) return LANDED;
-  if (p.boxes[1] && (overlap(o.x, o.y, hb, px, py, p.boxes[1]) || overlap(o.x, o.y, hb, px, py, flank(p)))) {
+  if (attack && p.boostBox && overlap(o.x, o.y, hb, px, py, p.boostBox)) return LANDED;
+  if (attack && p.boxes[1] && (overlap(o.x, o.y, hb, px, py, p.boxes[1]) || overlap(o.x, o.y, hb, px, py, flank(p)))) {
     if (p.air && p.ysp > 0) p.ysp = -p.ysp;
     return LANDED;
   }

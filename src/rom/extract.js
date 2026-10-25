@@ -127,6 +127,8 @@ export const TORCH_ANIMATIONS = { 558: { torch: 0 }, 511: { antigravity: 0 }, 51
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };
 // Neo Green Hill's wall pole (468): at rest, and bending as Sonic swings on it
 export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
+// the special spring (specialspring.js): waiting, and its launch
+export const SPECIAL_SPRING_ANIMATIONS = { 572: { specialSpring: 1, specialSpringLaunch: 0 } };
 // the tubes' pipe ends (pipe.c): entrances and exits standing up and lying across, the other levels' and zone 6's
 // two acts' own (Cosmic Angel, Egg Rocket); and Cosmic Angel's air corners (maze_air_corner.c)
 export const PIPE_ANIMATIONS = {
@@ -214,7 +216,7 @@ function extractSprites(rom, tables, level, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...ROCK_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...TORCH_ANIMATIONS, ...PIPE_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_SNAKE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...ROCK_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...TORCH_ANIMATIONS, ...SPECIAL_SPRING_ANIMATIONS, ...PIPE_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_SNAKE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

@@ -1,7 +1,7 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
 // platforms, square platforms, boulders, breakable walls, moving springs, ferris wheels, waterfalls, boosters, checkpoints, wall poles, grind rails,
-// the incline ramp, the half-pipe, the forced slide, the conveyor belts, item boxes, enemies, and a stand-in for each kind
+// the incline ramp, the half-pipe, the forced slide, the conveyor belts, the special spring, item boxes, enemies, and a stand-in for each kind
 // of act 1's that this game doesn't build yet, so that every task keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
@@ -34,6 +34,7 @@ import { createHidingSpikes } from './hidingspikes.js';
 import { createFloat } from './floats.js';
 import { createConveyor } from './conveyors.js';
 import { createTorch } from './torches.js';
+import { createSpecialSpring } from './specialspring.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -164,7 +165,7 @@ function interactable(e, slot, anims, ctx) {
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createMovingSpring(e, slot, anims) ?? createSquarePlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
-    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createToggleGravity(e, slot, ctx) ?? createTube(e, slot, anims, ctx.level) ?? createHidingSpikes(e, slot, anims) ?? createFloat(e, slot) ?? createConveyor(e, slot, ctx) ?? createTorch(e, slot, ctx.world) ?? standIn(e, slot);
+    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createToggleGravity(e, slot, ctx) ?? createTube(e, slot, anims, ctx.level) ?? createHidingSpikes(e, slot, anims) ?? createFloat(e, slot) ?? createConveyor(e, slot, ctx) ?? createTorch(e, slot, ctx.world) ?? createSpecialSpring(e, slot, anims) ?? standIn(e, slot);
 }
 
 /**

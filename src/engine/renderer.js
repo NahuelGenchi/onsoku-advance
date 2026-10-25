@@ -5,11 +5,14 @@
 // in front, and within an order the one put in first. While the title card fades the screen in, everything but
 // its semi-transparent sprites is darkened. The widescreen view shows more of the act around the original
 // screen, which sits in its middle unless an edge of the act is near; the HUD keeps to the view's corners and
-// the title card to its middle.
+// the title card to its middle. The optional Sonic Rush boost adds its screen shake and its effects around
+// Sonic, drawn as the Nintendo DS draws them.
 
-import { SCREEN_W, SCREEN_H } from './constants.js';
+import { SCREEN_W, SCREEN_H, RUSH_BOOST } from './constants.js';
 import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './stage.js';
 import { SINE } from './trig.js';
+import { rushObjEntries, rushTrailStrips, TRAIL_COLOR } from './rushfx.js';
+import { rasterizeStrips, objLayer as dsObjLayer, to6, out8 } from './dsdraw.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
 const s16 = v => (v << 16) >> 16;
@@ -30,7 +33,7 @@ const STILL = line => line >= 40 && line < 88;
 export function createRenderer(canvas, assets) {
   let W = SCREEN_W, H = SCREEN_H;
   canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d', { alpha: false });
+  let ctx = canvas.getContext('2d', { alpha: false });   // the Rush boost borrows it for a moment (drawRushObjs)
   const { atlas, frames } = assets.sprites, hud = assets.hud, card = assets.titleCard;
   const stage = assets.stage, { backgrounds } = stage;
   const bgW = stage.background.width;
@@ -126,6 +129,66 @@ export function createRenderer(canvas, assets) {
     }
   }
 
+  // The Rush boost's effects, drawn the DS's way (dsdraw.js) over what is already in the frame. The trail is a
+  // translucent polygon of the DS's 3D layer, blended with what is below it by its alpha. The burst and the
+  // aura are semi-transparent sprites in front of it, blended at 12/16 over 14/16 of what is below them: the
+  // trail's own colour where it shows, as the 3D layer is what is under them there, otherwise the frame.
+  // Sonic stands between the two, as his sprite does between them in Rush.
+  let trailBuf = new Uint8Array(W * H), trailBox = null;
+  const trailRgb = [TRAIL_COLOR & 31, (TRAIL_COLOR >> 5) & 31, (TRAIL_COLOR >> 10) & 31].map(c => (c ? (c << 1) + 1 : 0));
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = W; maskCanvas.height = H;
+  const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+  function drawRushTrail(fx, vx, vy) {
+    trailBox = null;
+    const strips = rushTrailStrips(fx, vx, vy);
+    if (strips.length === 0) return;
+    trailBuf.fill(0);
+    trailBox = rasterizeStrips(strips, W, H, trailBuf);
+    if (!trailBox) return;
+    const [x0, y0, x1, y1] = trailBox, w = x1 - x0 + 1, h = y1 - y0 + 1;
+    const img = ctx.getImageData(x0, y0, w, h), d = img.data;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const eva = trailBuf[(y + y0) * W + x + x0];   // the alpha + 1
+        if (!eva) continue;
+        const k = (y * w + x) * 4;
+        for (let c = 0; c < 3; c++) d[k + c] = out8((trailRgb[c] * eva + to6(d[k + c]) * (32 - eva) + 16) >> 5);
+      }
+    }
+    ctx.putImageData(img, x0, y0);
+  }
+  function drawRushObjs(fx, art, vx, vy, sonic) {
+    const layer = dsObjLayer(rushObjEntries(fx, art, vx, vy), W, H);
+    if (!layer) return;
+    const { x0, y0, w, h, colors } = layer;
+    let mask = null;
+    if (trailBox && sonic) {
+      // where Sonic covers the trail, his sprite is what is below
+      const main = ctx;
+      ctx = maskCtx;
+      maskCtx.imageSmoothingEnabled = false;
+      maskCtx.clearRect(0, 0, W, H);
+      if (sonic.affine) drawAffine(sonic.frame, sonic.x - vx, sonic.y - vy, sonic.affine);
+      else drawSprite(sonic.frame, sonic.x - vx, sonic.y - vy, sonic.flipX, sonic.flipY);
+      ctx = main;
+      mask = maskCtx.getImageData(x0, y0, w, h).data;
+    }
+    const img = ctx.getImageData(x0, y0, w, h), d = img.data;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const o = y * w + x, color = colors[o];
+        if (color < 0) continue;
+        const k = o * 4, trail = trailBox && trailBuf[(y + y0) * W + x + x0] && !(mask && mask[k + 3]);
+        for (let c = 0; c < 3; c++) {
+          const below = trail ? trailRgb[c] : to6(d[k + c]);
+          d[k + c] = out8(Math.min(63, (((color >> (5 * c)) & 31) * 2 * 12 + below * 14 + 8) >> 4));
+        }
+      }
+    }
+    ctx.putImageData(img, x0, y0);
+  }
+
   // debug overlay: the collision under the view, drawn through a scratch canvas so it blends
   const overlay = document.createElement('canvas');
   overlay.width = W; overlay.height = H;
@@ -215,11 +278,16 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision }) {
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
-    // screen black then, and the view is kept inside
-    const { x: vx, y: vy } = view;
+    // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
+    let { x: vx, y: vy } = view;
+    if (shake >= 0) {
+      const [dx, dy] = RUSH_BOOST.shake[shake];
+      vx = Math.max(0, Math.min(vx + dx, terrain.width - W));
+      vy = Math.max(0, Math.min(vy + dy, terrain.height - H));
+    }
     // the background is fixed to the view, as the original's is to its screen: it lines up with a 240 × 160
     // screen in the view's middle, and the sea scrolls with where that screen would be. Near the act's edges
     // the view stops before the camera does, and so does the background. A taller view shows the map's lines
@@ -244,7 +312,9 @@ export function createRenderer(canvas, assets) {
     const drawAll = behind => {
       for (const s of list) {
         if ((s.prio >= 2) !== behind) continue;
-        if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+        if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
+        else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
+        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
         else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
       }
     };
@@ -265,9 +335,10 @@ export function createRenderer(canvas, assets) {
   /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */
   render.resize = (w, h) => {
     W = w; H = h;
-    canvas.width = objCanvas.width = overlay.width = w;
-    canvas.height = objCanvas.height = overlay.height = h;
+    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = w;
+    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = h;
     objLayer = new ImageData(w, h);
+    trailBuf = new Uint8Array(w * h);
   };
   return render;
 }

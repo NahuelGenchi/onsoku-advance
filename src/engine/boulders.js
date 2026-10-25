@@ -19,6 +19,7 @@ export function createBoulder(e, slot, anims) {
     run(ctx) {
       const p = ctx.player, cam = ctx.cam;
       if (breaks(o, o.boxes[0], p)) {
+        if (p.boostBox) ctx.world.shake();
         ctx.add(dustCloud(e.x, e.y));
         if (p.onObject === o) { p.onObject = null; p.air = true; }
         ctx.world.playSound(SONG.ITEM_BOX_BREAK);

@@ -5,7 +5,7 @@
 // 30 frames more. A broken box never comes back until the act starts over.
 
 import { makeSprite, animate } from './objects.js';
-import { platform, itemBox as boxTest, FROM_BELOW, LANDED, PUSHING } from './collide.js';
+import { platform, itemBox as boxTest, overlap, FROM_BELOW, LANDED, PUSHING } from './collide.js';
 import { tileFloor } from './terrain.js';
 import { dustCloud } from './defeat.js';
 import { SONG } from '../sound/songs.js';
@@ -54,10 +54,13 @@ export function createItemBox(e, slot, anims) {
       box.y = e.y + dy;
       // standing on it, or without his attack box, it is only solid: he can stand on it or bump it from
       // below, but not break it (the original checks slot 1 here, where the decompiled C reads slot 0)
-      const solid = p.onObject === box || !p.boxes[1];
-      const res = solid ? platform(box, box.boxes[0], p, ctx.world.terrain) : boxTest(box, box.boxes[0], p);
+      // the optional Rush boost's box breaks it, shaking the screen
+      const boosted = !!p.boostBox && !p.dead && overlap(box.x, box.y, box.boxes[0], Math.floor(p.x), Math.floor(p.y), p.boostBox);
+      const solid = !boosted && (p.onObject === box || !p.boxes[1]);
+      const res = boosted ? 0 : solid ? platform(box, box.boxes[0], p, ctx.world.terrain) : boxTest(box, box.boxes[0], p);
+      if (boosted) ctx.world.shake();
       if (res & FROM_BELOW) { vy = HOP_SPEED; hopping = true; }
-      else if (!solid && res & (LANDED | PUSHING)) {
+      else if (!solid && (boosted || res & (LANDED | PUSHING))) {
         if (p.onObject === box) { p.onObject = null; p.air = true; }
         ctx.world.playSound(SONG.ITEM_BOX_BREAK);
         ctx.add(dustCloud(e.x, e.y + dy));

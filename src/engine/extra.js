@@ -210,7 +210,10 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
   // loading takes the whole next frame
   function restartStage() {
     if (state.lives > 0) state.lives--;
-    Object.assign(player, createSuperSonic(stage.spawn));
+    // a fresh Super Sonic (CreatePlayer), into the object his task and the camera hold; his getters only read
+    // these fields, so only the fields are copied (Object.assign would try to set the getters)
+    const fresh = createSuperSonic(stage.spawn);
+    for (const [k, d] of Object.entries(Object.getOwnPropertyDescriptors(fresh))) if ('value' in d) player[k] = d.value;
     state.cam = createCamera(player, terrain);
     state.view = viewOf(state.cam, viewW, viewH);
     tasks.reset(); scatter.reset(); sparkles.clear(); resetSparkles();

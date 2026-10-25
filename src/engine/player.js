@@ -20,7 +20,8 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
 //         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
-//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hurt | dead
+//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) |
+//         marbleTrack (carried through a marble track) | hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -53,6 +54,9 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     front: false,      // drawn in front of the front layer (his sprite's priority 1), as on a grind rail
     halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js)
     ignoreInput: false, // MOVESTATE_IGNORE_INPUT: an object holds his controls, as the forced slide does
+    track: 0x7F,       // unk99[0]: the step of the track carrying him, 0x7F none (marbletrack.js)
+    scale: 0x100,      // unk80 and unk82: his size through the rotation hardware (8.8), smaller in a marble track
+    drawRotation: 0,   // the rotation his sprite was last drawn with, which a marble track keeps
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,

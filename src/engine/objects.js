@@ -25,6 +25,7 @@ import { createRamp } from './ramps.js';
 import { createHalfPipe } from './halfpipes.js';
 import { createSlide } from './slides.js';
 import { createPartyBalloon } from './balloons.js';
+import { createMarbleTrack } from './marbletrack.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -146,13 +147,13 @@ function standIn(e, slot, kind = e.kind) {
   };
 }
 
-// what an interactable spawns as
-function interactable(e, slot, anims, ctx) {
+// what an interactable spawns as, in act `level`
+function interactable(e, slot, anims, ctx, level) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
-    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createPartyBalloon(e, slot, anims) ?? standIn(e, slot);
+    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createPartyBalloon(e, slot, anims) ?? createMarbleTrack(e, slot, anims, level) ?? standIn(e, slot);
 }
 
 /**
@@ -171,7 +172,7 @@ export function createEntities(stage, anims, tasks) {
   const regions = Array.from({ length: regionsX * regionsY }, () => []);
   const slot = (e, spawn) => ({ e, live: null, gone: false, spawn });
   for (const [list, spawn] of [
-    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx)],
+    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx, stage.level)],
     [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
     [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s, -1)],
   ]) {

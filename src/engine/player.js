@@ -21,7 +21,7 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
 //         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
 //         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | breathe (an
-//         air bubble under water) | hurt | dead
+//         air bubble under water) | hook (hanging from a hook rail) | hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',

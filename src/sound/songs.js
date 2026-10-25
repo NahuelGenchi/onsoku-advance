@@ -31,6 +31,7 @@ export const SONG = {
   CRUMBLING_PLATFORM: 173,
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
+  HOOK_RAIL: 180,          // SE_HOOK_RAIL: while a hook rail carries Sonic
   LAVA_SPURT: 182,         // SE_LAVA_PLATFORM_SPURT
   SURFACE_HIT: 190,        // SE_WATERFALL_SURFACE_HIT: Sonic goes into the water or out of it
   AIR_BUBBLE: 191,         // SE_AIR_BUBBLE: a breath from an air bubble

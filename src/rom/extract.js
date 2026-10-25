@@ -39,6 +39,8 @@ export const SONIC_ANIMATIONS = {
   halfPipeLow: [36, 0], halfPipeMid: [36, 1], halfPipeHigh: [36, 2],
   // a breath from an air bubble under water (charState 27)
   breathe: [17, 0],
+  // hanging from a hook rail (charState 38)
+  hook: [43, 0],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -142,6 +144,8 @@ export const BOSS_ANIMATIONS = {
   695: { boltMedium: 0, boltMedium2: 1 }, 696: { boltLarge: 0, boltLarge2: 1 }, 697: { boltSmall: 0, boltSmall2: 1 },
   611: { bossExplosion: 0 },
 };
+// the hook rail's hook (504; Ice Mountain's is 569)
+export const HOOK_RAIL_ANIMATIONS = { 504: { hookRail: 0 } };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -221,7 +225,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true, under: underYellow },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...STONE_ANIMATIONS, ...BOSS_ANIMATIONS, ...(water ? UNDERWATER_ANIMATIONS : {}) }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...STONE_ANIMATIONS, ...HOOK_RAIL_ANIMATIONS, ...BOSS_ANIMATIONS, ...(water ? UNDERWATER_ANIMATIONS : {}) }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

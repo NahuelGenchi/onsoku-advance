@@ -2,9 +2,9 @@
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
 // platforms (thin, falling, sinking, rising and square), boulders, blocks of ice, breakable walls, moving
 // springs, ferris wheels, underwater lava platforms, waterfalls, boosters, checkpoints, wall poles, grind
-// rails, the incline ramp, the half-pipe, the forced slide, the deep snow, the air bubbles, item boxes, enemies,
-// and a stand-in for each kind of act 1's that this game doesn't build yet, so that every task keeps its place
-// in the list.
+// rails, the incline ramp, the half-pipe, the forced slide, the hook rails, the deep snow, the air bubbles,
+// item boxes, enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that every
+// task keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
 // order, and the tasks of a priority in the order they were made. The original fetches the next task before
@@ -37,6 +37,7 @@ import { createSnow } from './snow.js';
 import { createAirBubbles } from './airbubbles.js';
 import { createHidingSpikes } from './hidingspikes.js';
 import { createSkatingStone } from './skatingstones.js';
+import { createHookRail } from './hookrails.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -169,7 +170,8 @@ function interactable(e, slot, anims, ctx) {
     ?? createSlowPlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createLavaPlatform(e, slot, anims)
     ?? createWaterfall(e, slot, anims) ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx)
     ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot) ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims)
-    ?? createSnow(e, slot, ctx) ?? createAirBubbles(e, slot, anims) ?? createHidingSpikes(e, slot, anims) ?? createSkatingStone(e, slot, anims, ctx)
+    ?? createHookRail(e, slot, anims) ?? createSnow(e, slot, ctx) ?? createAirBubbles(e, slot, anims) ?? createHidingSpikes(e, slot, anims)
+    ?? createSkatingStone(e, slot, anims, ctx)
     ?? standIn(e, slot);
 }
 

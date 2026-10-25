@@ -12,6 +12,7 @@ import { tileFloor } from './terrain.js';
 import { SINE } from './trig.js';
 import { oct, OCT } from './oct.js';
 import { mirror, MIRROR } from './mirror.js';
+import { mole, MOLE } from './mole.js';
 import { eggSnake, EGG_SNAKE } from './eggsnake.js';
 
 export const KIKI = 0, BUZZER = 1, GAMIGAMI = 2, RHINOTANK = 3, KEROKERO = 4;
@@ -344,4 +345,4 @@ function kerokero(e, slot, anims) {
 
 /** Makers by enemy kind (gSpriteInits_Enemies): (entity, slot, anims, ctx) → task. */
 export const ENEMIES = { [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero,
-  [OCT]: oct, [MIRROR]: mirror, [EGG_SNAKE]: eggSnake };
+  [OCT]: oct, [MIRROR]: mirror, [MOLE]: mole, [EGG_SNAKE]: eggSnake };

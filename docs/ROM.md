@@ -36,7 +36,9 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 ### Sprites
 
 - **Sprite tables:** six pointers to the animation scripts, frame sizes, OAM layouts, palettes, 4bpp tiles and 8bpp tiles.
-- **Animation script:** 32-bit words. A negative word is a command: `-1` load tiles, `-2` load palette, `-3` jump back (loop), `-4` end, `-9` switch animation; other commands are skipped by length. A non-negative pair is *show frame N for D ticks*.
+- **Animation script:** 32-bit words. A negative word is a command: `-1` load tiles, `-2` load palette, `-3` jump back (loop), `-4` end, `-9` switch animation, `-11` set the sprite's priority; other commands are skipped by length. A non-negative pair is *show frame N for D ticks*.
+- **Palette loads.** `-2` (`animCmd_GetPalette`) writes its colours into the sprite palette in work RAM, which VBlank copies to the screen. So every sprite drawn from a 16-colour row shows the colours the last load left in it, whichever animation that was. Where two animations load different colours into the same row (in Secret Base, the steam exhaust's lid and other objects share row 11), the extractor also draws each frame in the other colours, and the renderer picks the version that matches the rows as the frame ends.
+- **Priority.** `-11` (`SetSpritePriority`) sets the sprite's background priority. Of Sonic's animations only his swing round a rope (animation 40, variant 1) has it: priority 2 for frames 10–15 and 3, behind both layers, for frames 16–19.
 - **Frame size** (12 bytes): flip flags, first OAM piece, number of pieces, width, height, anchor X, anchor Y.
 - **OAM piece** (3 × 16 bits): the GBA's own sprite attributes (shape, size, position, flips, first tile), relative to the tiles loaded for the frame.
 - Sprites face **left**; the game mirrors them when Sonic faces right.
@@ -530,6 +532,48 @@ Sonic's sensors follow SA1's player code. His position is his centre; the sensor
 
 The walk and run frames turn with the angle through the rotation hardware (see [Rotation hardware](#rotation-hardware)).
 
+### Secret Base Zone act 2
+
+Level 3, `?level=3` in the address. Its stage init, `StageInit_Zone2Act2` (`0x0803DD89` in the USA ROM), makes act 1's three palette animations (819, 845 and 849) and starts song 15. `StageBgUpdate_Zone2Act2` scrolls the background the way act 1's does on the inside, for the whole act. The act uses act 1's platforms, trampoline and bounce block (the tables that pick them by level have the same entries for both acts). Picked from the course select, the HUD's zero-ring flash counter holds 64 when its task is made (`0x03002854` in mGBA), so the HUD's first frame shows no flash.
+
+**Steam exhausts** (kind 79, `steam_exhaust.c`). A vent in the floor with a lid on it, both solid. Whenever the stage clock is a multiple of 160, the vent blows. The lid goes up at 5 px a frame and slows by 37/256 px a frame every frame. When it lands it bounces twice, each time at 2/5 of the speed it landed with. The steam hurts Sonic from its 7th frame to its 53rd, in a box 26 px tall above the vent. He rides the rising lid for as long as he stays on it. Once the steam has ended, the task steps the vent's animation twice a frame and switches it back to the lid when the first step says the script has ended. That step keeps saying so on every later frame until the animation is restarted, so the switch shows a frame after the end.
+
+**Swinging hooks** (kind 76, `swinging_hook.c`). A hook on a chain of three links, hanging from an anchor and swinging to and fro on the stage clock. A hook with `d0` set swings half a cycle behind. It catches Sonic when his centre comes within 16 px of it, and he hangs from it as it swings (character state 38, Sonic's animation 43). Jump throws him up, curled, at 5 px a frame, and at 2 px a frame left or right if one is held. The hook doesn't catch him again for 20 frames. Its sprite goes through the rotation hardware, and the hook puts the running matrix count (`gOamMatrixIndex`) in its priority bits. So the first hook drawn in a frame has priority 0 and the next one priority 1, both in front of the layers.
+
+**Swing ropes** (kind 78, `swing_rope.c`). A rope that is part of the act's layers. Sonic grabs it when his centre enters its box: `d0`, `d1` are its top left corner in tiles from the entity, and `d2` × `d3` its size. He swings round it (character state 34, animation 40 variant 1) as he slides along it to the right. He starts at half the ground speed he came with. He gains 1/16 px a frame every frame, up to 0.90625, and another 1/16 while right is held; left takes that back off, but not below 0.90625. The limit is 9 px a frame. Jump throws him off at 6.75 px a frame: up or down if one is held, otherwise the way his swing is going. The rope doesn't take him again for 20 frames. The swing's animation sets his sprite's priority, so for part of each turn he is behind both layers.
+
+**Crane claws** (kind 80, `crane_claw_and_lift.c`). A claw hanging 48 px down on its cable from a trolley. Sonic's body touching its box catches him:
+1. The claw closes and lifts him 48 px over 30 frames.
+2. It carries him right at 2 px a frame, with song 181 playing, until it has gone more than `d2` tiles.
+3. It opens to drop him.
+4. 30 frames later it goes back left at the same speed, then down again.
+
+**The Egg Press** (enemy kind 23, `boss_2_egg_press.c`, with `bosses_misc.c`). The fight goes like this:
+- **The arena.** When the boss's spawn point comes into range, the camera's bounds close in on an arena 300 px wide that ends at the spawn point, and the boss song (29) starts.
+- **The drop.** 121 frames later the press drops in 60 px left of its spawn point and lands (song 145), and Eggman laughs.
+- **The hops.** The press hops at Sonic over and over, each hop taking 72 frames to reach where he stood. After its fourth hit, every fourth jump is a leap off the top of the screen. The leap follows Sonic, lands on him, shakes the screen (`CreateScreenShake(0x800, 0x40, 0x100, -1, 0x80)`), and hurts him unless he is in the air.
+- **Hitting it.** A jump into the top of the press hits it (song 143). It flashes white and can't be hit again for 32 frames, and each hit makes it faster.
+- **The defeat.** The eighth hit beats it (song 144). The spring and the base fly off, and the press drops to the floor and bounces. For about 4 seconds it throws debris and explosions every 8 frames.
+- **The escape.** Eggman flies off in the Egg Mobile and the act's music comes back.
+
+What comes next, the capsule and the end of the act, isn't built here; the game calls `world.bossDefeated(x, y)` for it. Eggman is placed from the press's shown frame (its first OAM entry), the way the original reads it.
+
+**How it was checked.**
+- *The recordings.* mGBA 0.10.5 recorded the act from the course select, through a savestate made after it: work RAM, OAM, the palettes and a screenshot after every frame. Pokes put Sonic at each object; the pokes and the keys are the same in the engine. There are nine runs:
+  - the act's start, run right;
+  - the steam exhausts, twice: the lid, and the steam;
+  - the swinging hooks;
+  - the swing ropes, twice: the catch, the slide and the throw up; then both directions held, the throws down and with the swing, and a grab from walking;
+  - the crane claw: the catch, the lift, the carry and the drop;
+  - the Egg Press, twice: the arena, and the whole fight to Eggman's escape.
+- *The state.* Sonic, the camera and the clocks match on every frame of every run (about 13,000 frames). The exception is 15 frames of camera y at the end of the boss run: that is the capsule's landing shake, which isn't built yet.
+- *The screen.* The engine's frames match mGBA's pixel for pixel, except in three places:
+  - the HUD's first frame, where the original draws a tile from past its four flash glyphs (#56);
+  - objects and enemies whose kinds aren't built yet (the hiding spikes, Secret Base's enemies);
+  - stale tiles at the screen's left edge while the camera catches up after a poke.
+- *Unchanged elsewhere.* Neo Green Hill act 1 is unchanged over 1000 frames, in state and on screen. There, the live palette rows fix 52 differing pixels: an enemy's dust cloud recolouring a boulder. Secret Base act 1 draws exactly as it does without this work over a 900-frame run.
+- *Only read in the code:* the hook's first frame. `TransformSprite` runs before the first `UpdateSpriteAnimation`, so the first call reads the frame's size through a null pointer. The hook is made off screen, so that frame doesn't show in the recordings.
+
 ### Sound
 
 SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "Sappy"). [`src/sound/m4a.js`](../src/sound/m4a.js) is a port of it that reads the songs, voices and samples from the ROM as the original does, and runs on an AudioWorklet in the browser.
@@ -574,6 +618,13 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Wall pole | 175 | 2 | A wall pole catches Sonic |
 | Grinding | 114 | 2 | A grind rail's start takes Sonic; it loops until he jumps or is thrown off, or another sound takes player 2 |
 | Trampoline | 176 | 2 | Every bounce |
+| Secret Base act 2 | 15 | 0 | The act starts (`MUS_SECRET_BASE__ACT_2`) |
+| Boss fight | 29 | 0 | The Egg Press's arena closes; the act's music comes back when Eggman escapes |
+| Boss hit | 143 | 1 | The Egg Press is hit |
+| Impact | 145 | 3 | The Egg Press lands from its drop and its leaps |
+| Explosion | 144 | 3 | The Egg Press is beaten |
+| Crane claw | 181 | 2 | While a crane claw carries Sonic (`SE_LIFT`) |
+| Steam exhaust | 182 | 2 | A steam exhaust blows (`SE_LAVA_PLATFORM_SPURT`) |
 | Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |
 | Rings from a box | 117 | 3 | The ring prizes, once for the lot |
 

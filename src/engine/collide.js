@@ -74,6 +74,14 @@ function sideways(o, hb, p, terrain, res) {
   return true;
 }
 
+/** A gate (Coll_Player_Gate, without its bounce): Sonic is only pushed out of its sides. */
+export function gate(o, hb, p, terrain) {
+  const res = { flags: 0 };
+  if (!hb || p.dead) return 0;
+  sideways(o, hb, p, terrain, res);
+  return res.flags;
+}
+
 /**
  * A solid object (Coll_Player_Platform): Sonic lands on it, bumps it from below or is pushed out of its
  * sides. An airborne Sonic, or one standing on it, is tested from above and below first. A dead one falls

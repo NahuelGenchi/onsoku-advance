@@ -63,23 +63,25 @@ export function createRenderer(canvas, assets) {
   const objCtx = objCanvas.getContext('2d');
 
   // a sprite through the rotation hardware (`affine`: rotation 0–1023 per turn, 8.8 scales, double size).
-  // TransformSprite builds the matrix and moves the sprite so its anchor stays at (x, y) once turned;
+  // TransformSprite builds the matrix and moves the sprite so its anchor stays at (x, y) once turned, by the
+  // size of frame `dims` (the one before, where a task transforms before it animates);
   // DisplaySprite puts each OAM piece where the frame has it, in a box twice its size with the double-size
   // flag, and every piece turns around its own centre
-  function drawAffine(index, x, y, { rotation, scaleX, scaleY, double }) {
+  function drawAffine(index, x, y, { rotation, scaleX, scaleY, double, dims = index }) {
     if (index < 0) return;
-    const [, , w, h, ax, ay, pieces] = frames[index];
+    const [, , w, h, , , pieces] = frames[index];
+    const [, , tw, th, ax, ay] = frames[dims < 0 ? index : dims];
     if (!pieces) { drawSprite(index, x, y, scaleX < 0, scaleY < 0); return; }   // a frame the extractor kept no pieces for
     const cos = SINE[(rotation & 1023) + 256] >> 6, sin = SINE[rotation & 1023] >> 6;
     const rx = s16(Math.trunc(0x10000 / scaleX)), ry = s16(Math.trunc(0x10000 / scaleY));
     const mat = [s16((cos * rx) >> 8), s16((sin * rx) >> 8), s16((-sin * ry) >> 8), s16((cos * ry) >> 8)];
     const kx = Math.abs(scaleX), ky = Math.abs(scaleY);
     const u0 = s16((cos * kx) >> 8), u1 = s16((-sin * kx) >> 8), u2 = s16((sin * ky) >> 8), u3 = s16((cos * ky) >> 8);
-    const hw = w >> 1, hh = h >> 1, ox = (scaleX > 0 ? ax : w - ax) - hw, oy = (scaleY > 0 ? ay : h - ay) - hh;
-    let sx = s16(Math.floor(x) - ((u0 * ox + u1 * oy + (hw << 8)) >> 8));
-    let sy = s16(Math.floor(y) - ((u2 * ox + u3 * oy + (hh << 8)) >> 8));
+    const thw = tw >> 1, thh = th >> 1, ox = (scaleX > 0 ? ax : tw - ax) - thw, oy = (scaleY > 0 ? ay : th - ay) - thh;
+    let sx = s16(Math.floor(x) - ((u0 * ox + u1 * oy + (thw << 8)) >> 8));
+    let sy = s16(Math.floor(y) - ((u2 * ox + u3 * oy + (thh << 8)) >> 8));
     let sw = w, sh = h;
-    if (double) { sx -= hw; sy -= hh; sw *= 2; sh *= 2; }
+    if (double) { sx -= w >> 1; sy -= h >> 1; sw *= 2; sh *= 2; }
     if (sx + sw < 0 || sx > W || sy + sh < 0 || sy > H) return;
     const box = [W, H, -1, -1], wrap = W === SCREEN_W && H === SCREEN_H;
     for (const [px, py, pw, ph, tx, ty] of pieces) {
@@ -447,7 +449,7 @@ export function createRenderer(canvas, assets) {
   // what another stage's renderer (extrarender.js) draws with: `use(c)` sends the drawing to canvas context c
   // and gives back the one it replaced
   render.parts = {
-    drawSprite, drawAffine, drawHud, drawCard, darken, stack,
+    drawSprite, drawAffine, drawHud, drawCard, darken, stack, atlas, frames,
     get ctx() { return ctx; }, get w() { return W; }, get h() { return H; },
     use(c) { const old = ctx; ctx = c; return old; },
   };

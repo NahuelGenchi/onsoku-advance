@@ -7,6 +7,7 @@ import { playableLevel } from './rom/levels.js';
 import { extractRush } from './rom/rush.js';
 import { createInput } from './engine/input.js';
 import { createGame } from './engine/game.js';
+import { createNormalEnding } from './engine/normalending.js';
 import { createSound } from './sound/audio.js';
 import { SCREEN_W, SCREEN_H, VIEW_MAX_W, VIEW_MAX_H } from './engine/constants.js';
 
@@ -110,7 +111,13 @@ async function playLevel(level) {
 
 function start(assets) {
   game?.stop();
-  game = createGame(screen, assets, input, sound);
+  const ending = assets.stage.normalEnding;
+  game = createGame(screen, assets, input, sound, {
+    // after X Zone's results the congratulations and the staff credits, and after the true ending the credits;
+    // each called from inside a step, so the game changes once that frame is over
+    stageResults: ending && assets.stage.level === X_ZONE ? () => queueMicrotask(() => endGame(assets, 'congratulations')) : undefined,
+    onCredits: ending ? () => queueMicrotask(() => endGame(assets, 'credits')) : undefined,
+  });
   picker.hidden = true;
   stage.hidden = false;
   fitScreen();
@@ -119,7 +126,20 @@ function start(assets) {
   screen.focus();
   clearInterval(statsTimer);
   statsTimer = setInterval(showStats, 100);
-  if (debug) globalThis.onsoku = { game, assets, input, sound, playLevel };
+  // `onsoku.endGame('congratulations')` jumps to what follows X Zone's results, or 'credits' to the credits
+  if (debug) globalThis.onsoku = { game, assets, input, sound, playLevel, endGame: from => endGame(assets, from) };
+}
+
+// the ending after the last stage (normalending.js): without all seven Chaos Emeralds after X Zone, with them
+// after the true ending; at its end the SEGA logo would come up, and the game starts again from Neo Green Hill
+const X_ZONE = 12;
+function endGame(assets, from) {
+  const { seed } = game.state;
+  game.stop();
+  game = createNormalEnding(screen, assets, input, sound, { from, emeralds: from === 'credits', seed, onEnd: () => playLevel(0) });
+  fitScreen();
+  game.start();
+  if (debug) globalThis.onsoku = { game, assets, input, sound, playLevel, endGame: from => endGame(assets, from) };
 }
 
 document.getElementById('change-rom').addEventListener('click', () => {
@@ -140,6 +160,7 @@ addEventListener('keydown', e => {
 
 function showStats() {
   const { player } = game.state;
+  if (!player) { stats.textContent = ''; return; }
   const speed = Math.abs(player.air ? player.xsp : player.gsp);
   stats.textContent = `speed ${speed.toFixed(2)} · ${player.state} · ${player.anim.name}`;
 }

@@ -22,6 +22,8 @@ export const KNOWN_VERSIONS = [
       titleCard: 0x681274,
       levelSongs: 0x4A69E4,
       trueEnding: 0x6B4B10,
+      credits: 0x6815B4,
+      emeraldMessage: 0x6C5650,
     },
   },
 ];

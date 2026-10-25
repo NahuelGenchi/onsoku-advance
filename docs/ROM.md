@@ -33,6 +33,8 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 | Title card tables | `0x681274` | The pieces' texts, 56 bytes at +`0x34` that are the same in every version (see [Title card](#title-card)) |
 | Music players and songs | `0x6D767C`, `0x6D76AC` | Four music player entries (two EWRAM pointers, a track count of 1–16, a zero byte, a 16-bit field), followed at once by song entries of a ROM pointer and the player's number twice |
 | True ending art | `0x6B4B10` | The code that loads the sky holds the addresses of its tiles, its palette and its map one after the other, the tiles `0x200` and the map `0x2980` bytes after the palette (see [The true ending](#the-true-ending)) |
+| Staff credits | `0x6815B4` | 334 entries of 32 bytes; the first starts with a space, and the 21st is `{10, 0, 0, "CREATED BY"}` (see [The staff credits](#the-staff-credits)) |
+| Closing message's colours | `0x6C5650` | Not searched for: in another version the message shows over the backdrop |
 
 ### Sprites
 
@@ -41,6 +43,8 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 - **Frame size** (12 bytes): flip flags, first OAM piece, number of pieces, width, height, anchor X, anchor Y.
 - **OAM piece** (3 × 16 bits): the GBA's own sprite attributes (shape, size, position, flips, first tile), relative to the tiles loaded for the frame.
 - Sprites face **left**; the game mirrors them when Sonic faces right.
+- A 256-colour piece's tile number counts whole 64-byte tiles: `DisplaySprite` doubles it before it writes the OAM entry (`attr2 += attr2 & 0x3FF`).
+- `DisplaySprite` leaves a sprite out when its frame's box is off the screen. Otherwise every piece goes into OAM at its x and y kept to 9 and 8 bits, so a piece far enough above the screen shows at its bottom (the congratulations' wind streaks do).
 
 ### Rotation hardware
 
@@ -556,7 +560,7 @@ X Zone is level 12 (`?level=12`): 3840 × 960 px, spawn (104, 756), 22 rings and
 
 The cockpit can only be hit while the arm isn't all the way up. A hit flashes the machine white for 16 of the next 32 frames: palette 12 is filled with white, and the machine uses it through `palId` 253 and 254. The eighth hit stops it. The camera is held where it is, Sonic's controls are taken, and the clock, the rings and the entities stop (`gStageFlags |= 3`); 1000 points. The wreck falls to the floor throwing debris every 8 frames and bounces until it lands.
 
-**The end of the act.** Landing starts `Task_Strc10_803891C`, which throws debris at random over the screen every 4 frames, and behind Sonic more and more often. Two seconds on, once he is on the ground, he runs to the right by himself and the camera's right bound opens. From x 3072 the screen fades to white over 128 frames (`BLDY` = frames / 8) as the camera falls behind him by half the frames in pixels. Then he is hidden, every task from priority `0x2000` to `0x2FFF` goes, and the stage results start with his rings and time (`CreateStageResults`). After them comes the normal ending (`CreateCongratulationsAnimation`), which isn't built yet ([#96](https://github.com/NahuelGenchi/onsoku-advance/issues/96)); until the results (#69) are in, the screen stays white.
+**The end of the act.** Landing starts `Task_Strc10_803891C`, which throws debris at random over the screen every 4 frames, and behind Sonic more and more often. Two seconds on, once he is on the ground, he runs to the right by himself and the camera's right bound opens. From x 3072 the screen fades to white over 128 frames (`BLDY` = frames / 8) as the camera falls behind him by half the frames in pixels. Then he is hidden, every task from priority `0x2000` to `0x2FFF` goes, and the stage results start with his rings and time (`CreateStageResults`). After them comes [the normal ending](#the-normal-ending). The results' tally isn't built yet ([#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69)), so the port goes from the white screen straight to the ending.
 
 **How it was checked.** mGBA 0.10.5 recorded a run from X Zone's start, from the course select, through all three bosses to the results. It dumped IWRAM every frame and took a screenshot every 5 frames. Sonic's position and speeds, the camera and its bounds match the port on every frame from 3980 to 10553 (frame 10554 is the results'). Every screenshot matches pixel for pixel up to the results' first frame and again once the screen is white. That covers the Egg Wrecker and the Egg Drillster through their defeats and escapes, and Egg X's arrival, lasers, charges, claw shots that miss, hits, defeat and fall, and the run to the white screen. A second recording from the same start (frames 8000–10000) adds the bouncing balls and the claw catching Sonic, swinging him round and throwing him; it matches on every frame and every screenshot as well. Not recorded: the hard difficulty (Egg X starts with 2 hits there), which the port doesn't have.
 
@@ -638,7 +642,7 @@ The Moon Zone is the extra stage, level 13 (`LEVEL_INDEX(ZONE_7, ACT_THE_MOON)`,
 2. **"A few days later"** (783, semi-transparent) on black for 600 frames, then 64 more frames of black.
 3. **The sky** (BG0 `0x9B83`, scrolled down 296 px), for 822 frames. Four clouds (790–793) drift right. They share sprite palette row 12, and the last of them loads 790's colours over 792's, so the third cloud shows in the others' colours. A sparkle (732) crosses from the fourth second. The Tornado (736) bobs with Tails (805 variant 1; 191 is Tails turning his head, at frames 120 and 480). At frame 700 it turns to face the screen (735, never animated past its first frame) and flies off to the upper right, turning and shrinking from 1.5 times its size.
 4. **Four pictures** (733 variants 0 and 1, then 734 variants 0 and 1), 400 frames each, coming in from black and fading out at 336. As they start, the sky's map is cleared from its top (the first `0xA00` bytes), which leaves black around them. In the third, from frame 179, colours 2–15 of sprite palette row 14 turn from palette 143 into palette 144 (`gUiPaletteSoundTestBox3` and `4`), a step every 16 frames. The third doesn't fade out. Over the fourth, the three lines of 785 scroll up 3 px a frame from y 180, starting 330, 480 and 484 frames on (`gUnknown_0868B4BE`, `0x086843BA`) and stopping at y 16, 128 and 144 (`gUnknown_0868B4B8`, `0x086843B4`). These are three-entry tables; the decompilation declares two.
-5. Then `CreateStaffCredits`.
+5. Then [the staff credits](#the-staff-credits), which go on to the SEGA logo.
 
 The art's four backgrounds (each a 256-colour palette, then its tiles and its map) follow each other from `0x6B4B10`:
 
@@ -660,3 +664,42 @@ These are the decompilation's EU addresses less `0x7124`.
 - and not both of: the first unlocked level is 15, and the course select started on level 12.
 
 [`src/engine/unlock.js`](../src/engine/unlock.js) has it as `theMoonOpens(…)`. Nothing calls it yet; `?level=13` starts the Moon Zone directly.
+
+### The normal ending
+
+Sonic's stage results after X Zone always end in `CreateCongratulationsAnimation` (`stage_results.c`); without all seven Chaos Emeralds the staff credits after it end in the closing message. Like the true ending's, the main task (priority `0x2100`) counts each scene's frames and changes what the sprites' tasks (`0x2120`) run, and they read its count. On the frame a task is made it doesn't run yet.
+
+**Starting it.** It writes the save with interrupts off, and the screen keeps the last frame meanwhile. The port holds it for 16 frames, the Moon Zone's save. It stops the music and starts MUS_CUTSCENE_TORNADO_RESCUE (38). The sky is the true ending's (BG0 `0x9D86`: 256 colours, character base 1, screen base 29, 256 × 512), coming in from white through window 1 at `0x80` a frame (see the fades under [The staff credits](#the-staff-credits)).
+
+The scenes (`Task_8065F5C` to `Task_8066520`), with the frame each one ends on:
+
+1. **The fall** (400). Sonic (85) falls past 15 wind streaks (776, 8bpp). Each streak starts at a random x of `Mod(rand, 40) + 0x8C` and y of `Mod(rand, 0xDC) + 0x14` (`gPseudoRandom`; the BIOS's `Mod` keeps the dividend's sign, so these can be negative). On the 180th frame four clouds (790–793) come up from below; from the 360th they go off the top.
+2. **The catch** (280). The Tornado (736) flies in with Tails (805 variant 1) and catches him (86, 87). The clouds come back on the 208th frame.
+3. **Landing** (16), then **the ride** (400): Sonic on the wing (88), the Tornado bobbing, and Tails looking round (190) on the scene's 300th frame.
+4. **The Flickies** (200). Eight Flickies (788) fly in and keep their places from the 60th frame.
+5. **The close-up** of Sonic and Tails (737, 8bpp, 240).
+6. **The leap** (700). Sonic leaps off toward the screen (89, then 96 turned and scaled up) as Sonic's thumbs-up (738) replaces the close-up, and the three lines of 785 come up as in the true ending's fourth picture. From the 670th frame the screen fades to black at `0xC0` a frame; after the 700th the staff credits take over.
+
+In `Task_8066768`, `TransformSprite` runs before `UpdateSpriteAnimation`, so the first frame of the turned leap is placed with the previous frame's size.
+
+**The colours.** The clouds all load into sprite palette row 12 as they are made: 792's colours first and 793's last, so the third cloud shows in the fourth's. The close-up loads all 256 sprite colours (palette 146) on every frame it shows, and they stay after it, so from the close-up on the clouds, the leaping Sonic and the thumbs-up (which loads only the first 64) show in its colours.
+
+### The staff credits
+
+`CreateStaffCredits` (`staff_credits.c`) comes after both endings. It plays MUS_STAFF_CREDITS (40), the one SA1 song that keeps its reverb. BG1 is a single black tile at priority 3 (`0x1907`, `UIGFX_CHAR_SELECT_BLACK_BOX_2`). Window 0 covers lines 0–35 and window 1 lines 132–159, and their insides are darkened all the way (`BLDCNT 0x1FDF`, `BLDY 16`), so the list shows between two black bands.
+
+**The fades** (`sub_805423C`, a UI fade): a window over the whole screen (window 0, or window 1), whose inside is brightened or darkened by the level ÷ 512 sixteenths, the level going up by its speed each frame to `0x2000`.
+
+**The list** is 334 entries of 32 bytes from `0x6815B4`: the line's length, its palette (0 for headings, 1 for names), a y offset, 25 letters and a 0, then 3 bytes of padding. Four 32-bit numbers right before it are the rows the company logos come at (22, 79, 139 and 322).
+
+- The main task (`Task_805E698`) counts from `0x30`; the count stops at 8334, from 8520 the screen fades to black at `0x80` a frame, and once that is done past 8550 the credits end.
+- The list scrolls up `Div(0x143000, 0x201C) + 1` /256 px a frame, set on the even frames only (count × speed).
+- The lines' task (`Task_805E758`) writes the 7 lines in sight in sprites (`sub_8053370`), one per letter, 8 px apart and centred on x 120. A space only moves on. A small letter (past `0x60`) has its own glyph, number − 17, and is drawn 8 px lower; any other is number − 32. The font is the 8 × 16 one, in sprite palette rows 14 (headings, uiGfx 60's colours) and 15 (names, uiGfx 59's). Each letter's OAM order is (line × 16 + letter) ÷ 8.
+- The logos' task (`Task_805E888`) shows the logo (740 variants 0–3) whose row is in sight. The last one stops at y 80 with the copyright (741 variant 1) 40 px under it.
+
+**The closing message** (`collect_chaos_emeralds_msg.c`), without all seven Chaos Emeralds: "Hey, go collect all the Chaos Emeralds!" (784; 787 in the Japanese version) at (120, 120) under Eggman holding one (739, two parts, at (136, 90)), on BG0's tile from uiGfx 43 in the colours at `0x6C5650`. Its sprites stay on their first frames. It comes in from black through window 1 at `0x100` a frame, starts going out to black on its 340th frame, and after its 400th the SEGA logo comes up. The port starts the game again from Neo Green Hill there.
+
+**How it was checked.** mGBA 0.10.5 recorded the normal ending from a ROM patched to boot straight into `CreateCongratulationsAnimation`: every frame of the congratulations (2,500 frames) and every fifth of the credits and the message (to frame 11,300). The port matches on 2,493 of the 2,495 congratulations frames; the other one differs by 16 pixels, two columns of the Tornado's propeller on the frame it comes in (402). Every credits and message frame matches, and the SEGA logo comes up on the same frame. Only read in the code, not recorded:
+
+- the hand-over from a real X Zone run: how long the save takes there (the port uses the Moon Zone's 16 frames), and what the streak and Flicky tasks' memory holds (the recording had zeros);
+- the Japanese message (787).

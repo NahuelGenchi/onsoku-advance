@@ -241,8 +241,8 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 <tr><td><b>Angel Island</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/77">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/80">Act 2 and Mecha Knuckles</a></td></tr>
 <tr><td><b>Egg Rocket</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/78">Planned</a></td></tr>
 <tr><td><b>Cosmic Angel</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/74">The zone and the Egg Snake</a></td></tr>
-<tr><td><b>X Zone</b></td><td colspan="2">🟢 Playable now, with its three bosses: open the game with <code>?level=12</code> on the end of its address<br><sub>Next up: <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/96">the normal ending and the staff credits</a></sub></td></tr>
-<tr><td><b>Moon Zone</b></td><td colspan="2">🟢 The Super Egg Robo and the true ending, playable now: add <code>?level=13</code> to the address<br><sub>It will open the way the game opens it, with all seven <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/75">Chaos Emeralds</a>, once the special stages are in</sub></td></tr>
+<tr><td><b>X Zone</b></td><td colspan="2">🟢 Playable now, with its three bosses, the normal ending and the staff credits: open the game with <code>?level=12</code> on the end of its address<br><sub>Next up: <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/69">the score tally</a> before the ending</sub></td></tr>
+<tr><td><b>Moon Zone</b></td><td colspan="2">🟢 The Super Egg Robo, the true ending and the staff credits, playable now: add <code>?level=13</code> to the address<br><sub>It will open the way the game opens it, with all seven <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/75">Chaos Emeralds</a>, once the special stages are in</sub></td></tr>
 </tbody>
 </table>
 

@@ -413,7 +413,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   }
 
   return {
-    state, step,
+    state, step, world,
     draw: () => render(state),
     /** Sets the size of what the screen shows: 240 × 160, the original's, or wider and taller (widescreen). */
     setView(w, h) {

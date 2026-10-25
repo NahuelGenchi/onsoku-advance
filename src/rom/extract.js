@@ -16,6 +16,7 @@ import { hudGraphics } from './hud.js';
 import { titleCardGraphics } from './titlecard.js';
 import { levelInfo } from './levels.js';
 import { extraStageArt } from './extra.js';
+import { normalEndingArt } from './credits.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -164,6 +165,8 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   const stage = extractStage(rom, offsets, tables, info);
   // the extra stage's robot body and the colours Super Sonic gives the HUD's face
   if (info.extra) stage.extra = extraStageArt(rom, offsets, tables, level);
+  // the congratulations', the staff credits' and the message's
+  if (info.ending) stage.normalEnding = normalEndingArt(rom, offsets);
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
   // indexes into those in the original, so both are read
   const spinDashSpeeds = Array.from({ length: 18 }, (_, i) => rom.s16(offsets.spinDashSpeeds + i * 2) / 256);

@@ -78,6 +78,19 @@ export function trueEndingArt(rom, tables, at) {
   return { night, sky, pictures, blend: blendFrames(rom, tables) };
 }
 
+/**
+ * The sky on its own, from the art at `at`, as BGxCNT `cnt` shows it: what CreateCongratulationsAnimation loads
+ * on BG0 (`gfx`, uiGfxID UIGFX_OPTIONS: its tiles at the character base's start). { palette, layer: { cnt, image } }.
+ */
+export function skyLayer(rom, at, cnt) {
+  const [tilesSize, mapSize] = BLOCKS.sky, tiles = at + PALETTE, map = tiles + tilesSize;
+  const vram = new Uint8Array(0x10000);
+  vram.set(rom.bytes.subarray(tiles, tiles + tilesSize), ((cnt >> 2) & 3) * 0x4000);
+  vram.set(rom.bytes.subarray(map, map + mapSize), ((cnt >> 8) & 31) * 0x800);
+  const palette = readColors(rom, at, 256);
+  return { palette, layer: { cnt, image: textBackground(vram, cnt, palette) } };
+}
+
 // a 256-colour text background 256 px wide, as many map rows as its size has, read from VRAM
 function textBackground(vram, cnt, palette) {
   const chars = ((cnt >> 2) & 3) * 0x4000, screen = ((cnt >> 8) & 31) * 0x800, rows = (cnt >> 14) & 2 ? 64 : 32;

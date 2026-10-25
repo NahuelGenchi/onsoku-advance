@@ -31,4 +31,6 @@ export const SONG = {
   TRAMPOLINE: 176,
   WHIRLWIND: 200,          // SE_200: a whirlwind (player float toggle) first lifting Sonic
   TUBE: 202,               // SE_202: a tube's track takes Sonic
+  BUMPER_A: 183,           // SE_BUMPER_A: a hexagonal or round bumper
+  BUMPER_B: 184,           // SE_BUMPER_B: a triangular bumper
 };

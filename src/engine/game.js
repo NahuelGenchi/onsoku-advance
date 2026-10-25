@@ -130,7 +130,6 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     get checkpointIndex() { return state.checkpointIndex; },
     // Sonic passed checkpoint `index`: the act starts over with his centre at (x, y) and the clock at this time
     passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.checkpointTime }; },
-    level: assets.stage.level,
     // what the act adds to the stage (LEVEL_EXTRAS), for its own objects
     get act() { return level; },
     // the camera itself, for the tasks that move or bound it, and the bounds Sonic is kept inside

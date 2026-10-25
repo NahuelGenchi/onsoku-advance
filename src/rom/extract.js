@@ -83,6 +83,8 @@ export const PLATFORM_ANIMATIONS = {
 };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
+// Ice Mountain's objects: the block of ice (555) and the large and small pieces a broken one leaves (556, 557)
+export const ICE_MOUNTAIN_ANIMATIONS = { 555: { iceBlock: 0 }, 556: { iceShardsLarge: 0 }, 557: { iceShardsSmall: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // the splash under Sonic on a forced slide
@@ -101,8 +103,9 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block), and the boulders' debris; their frames also keep their OAM pieces as the hardware reads them
-const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge']);
+// block), and the boulders' and the ice blocks' debris; their frames also keep their OAM pieces as the
+// hardware reads them
+const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge']);
 
 // each level's three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
 // background
@@ -151,7 +154,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

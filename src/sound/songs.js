@@ -34,4 +34,7 @@ export const SONG = {
   SKATING_STONE: 198,      // SE_198: a skating stone sliding again after a drop
   WHIRLWIND: 200,          // SE_200: a whirlwind (player float toggle) first lifting Sonic
   WATERFALL: 201,          // SE_201: Angel Island's waterfalls, from when one first holds Sonic
+  BOWL: 206,               // SE_BOWL: a bowl catches Sonic; SE_BOWL_2 and SE_BOWL_3 follow 56 and 112 frames later
+  BOWL_2: 207,
+  BOWL_3: 208,
 };

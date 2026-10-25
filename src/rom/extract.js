@@ -52,8 +52,8 @@ export const OBJECT_ANIMATIONS = {
 // the spikes (animation 454, palette 35): pointing up, and sideways (flipped to point left)
 export const SPIKES_ANIM = 454;
 export const SPIKE_ANIMATIONS = { spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3] };
-// act 1's enemies and their shots, the dust and points a defeat leaves and the freed animals, by animation;
-// each loads its own palette
+// Neo Green Hill act 1's and Angel Island's enemies and their shots, the dust and points a defeat leaves and
+// the freed animals, by animation; each loads its own palette
 export const ENEMY_ANIMATIONS = {
   401: { kikiBob: 1, kikiThrow: 2 }, 408: { coconut: 0 }, 402: { coconutPiece: 0 },
   403: { buzzerFly: 0, buzzerShoot: 1, buzzerTurn: 2 }, 409: { buzzerShot: 0 },
@@ -62,6 +62,8 @@ export const ENEMY_ANIMATIONS = {
   406: { keroJump: 0, keroCroak: 1 },
   407: { dustCloud: 0 },
   709: { score0: 0, score1: 1, score2: 2, score3: 3, score4: 4 },
+  430: { leonWalk: 0, leonShoot: 1, leonTurn: 2 },
+  431: { wamuHead: 0, wamuBody: 1, wamuTail: 2 },
   445: { animalOtter: 0 }, 450: { animalKoala: 0 }, 449: { animalKangaroo: 0 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the

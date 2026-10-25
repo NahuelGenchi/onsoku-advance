@@ -75,12 +75,14 @@ export function createSynth(rom, layout, rate) {
 // dead. Invincibility's song takes the music player while he is invincible and stops when he is not; an
 // extra life replaces the music with the 1-up jingle. On any frame where the music player has stopped, the
 // stage music starts over from its beginning, fading in from 1/64 and at double tempo while Sonic has speed
-// shoes (MusManager_UpdateBgmParams). It leaves the player alone the frame the stage music starts.
+// shoes (MusManager_UpdateBgmParams). It leaves the player alone the frame the stage music starts, and from
+// when the act's results switch it off (gMusicManagerState.unk0 = 0xFF) until the next act's music starts.
 export function createMusicManager(engine) {
-  let stageSong = null, oneUp = false, star = false, starting = false;
+  let stageSong = null, oneUp = false, star = false, starting = false, off = false;
   let invincible = false, speedUp = false, alive = true;
   const own = {
-    stageMusic(song) { stageSong = song; starting = true; engine.songStart(song); },
+    stageMusic(song) { stageSong = song; starting = true; off = false; engine.songStart(song); },
+    off() { off = true; },
     oneUp() { oneUp = true; },
     /** an item box's invincibility (gMusicManagerState.unk2) */
     invincibility() { star = true; },
@@ -96,7 +98,7 @@ export function createMusicManager(engine) {
     /** Runs one frame's queued calls ([name, args] pairs), then the manager itself. */
     frame(calls) {
       for (const [name, args] of calls) (own[name] ?? engine[name])(...args);
-      if (stageSong === null || starting) { starting = false; return; }
+      if (stageSong === null || starting || off) { starting = false; return; }
       if (!alive) return;
       const { status, songHeader } = engine.players[BGM];
       const playing = (status & 0xFFFF) !== 0 && (status & PAUSE) === 0;

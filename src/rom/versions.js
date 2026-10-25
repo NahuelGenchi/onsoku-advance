@@ -12,6 +12,8 @@ export const KNOWN_VERSIONS = [
       tilemaps: 0x4A6C40,
       collision: 0x4A6DA4,
       spawns: 0x4A6DEC,
+      loopPoints: 0x4A6E74,
+      loopShifts: 0x4A6EBC,
       rings: 0x0B7F4C,
       interactables: 0x0B7F94,
       itemBoxes: 0x0B7FDC,

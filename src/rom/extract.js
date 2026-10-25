@@ -1,18 +1,20 @@
 // Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects, the
-// springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, the title card, Neo Green Hill Zone act 1 with its collision, objects,
-// enemies and rings, and the zone's background. Runs entirely in the browser.
+// springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, the title card, the act's
+// results, Neo Green Hill Zone's two acts with their collision, objects, enemies and rings, and the zone's
+// background. Runs entirely in the browser.
 
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation } from './sprites.js';
 import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks } from './tilemaps.js';
-import { readCollision, readSpawn } from './collision.js';
+import { readCollision, readSpawn, readLoop } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
 import { soundLayout } from './sound.js';
 import { hudGraphics } from './hud.js';
 import { titleCardGraphics } from './titlecard.js';
+import { resultsGraphics } from './results.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -36,6 +38,8 @@ export const SONIC_ANIMATIONS = {
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
   halfPipeLow: [36, 0], halfPipeMid: [36, 1], halfPipeHigh: [36, 2],
+  // running on past the goal (charState 28)
+  actClearRun: [22, 0],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -48,9 +52,10 @@ export const OBJECT_ANIMATIONS = {
   springUp: [SPRING_ANIM, 0], springUpLaunch: [SPRING_ANIM, 1], springSide: [SPRING_ANIM, 2], springSideLaunch: [SPRING_ANIM, 3],
   springBig: [SPRING_ANIM, 4], springBigLaunch: [SPRING_ANIM, 5], springSmall: [SPRING_ANIM, 6], springSmallLaunch: [SPRING_ANIM, 7],
 };
-// the spikes (animation 454, palette 35): pointing up, and sideways (flipped to point left)
+// the spikes (animation 454, palette 35): pointing up, and sideways (pointing right, flipped to point left);
+// the hiding ones come up through the first two variants
 export const SPIKES_ANIM = 454;
-export const SPIKE_ANIMATIONS = { spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3] };
+export const SPIKE_ANIMATIONS = { spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3], spikesLow: [SPIKES_ANIM, 0], spikesMid: [SPIKES_ANIM, 1] };
 // act 1's enemies and their shots, the dust and points a defeat leaves and the freed animals, by animation;
 // each loads its own palette
 export const ENEMY_ANIMATIONS = {
@@ -80,13 +85,18 @@ export const PLATFORM_ANIMATIONS = {
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
-// the splash under Sonic on a forced slide
-export const SLIDE_ANIMATIONS = { 474: { slideSplash: 0 } };
+// the splash under Sonic on a forced slide, which a water bridge also shows under him, and the splash that
+// stays at one end of a water bridge (473)
+export const SLIDE_ANIMATIONS = { 474: { slideSplash: 0 }, 473: { bridgeSplash: 0 } };
+// the leaves a shrub throws up as Sonic goes into it (467)
+export const SHRUB_ANIMATIONS = { 467: { leaves: 0 } };
 // the speed boosters (471): flat, on a slight slope up to the right, and up to the left
 export const BOOSTER_ANIMATIONS = { 471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 } };
 // the checkpoints (452): waiting, spinning as Sonic passes (its script starts song 169, which the game plays,
 // src/engine/checkpoints.js), and passed
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };
+// the goal signpost (453): Eggman's face, and spinning once Sonic has passed it
+export const GOAL_ANIMATIONS = { 453: { goal: 0, goalSpin: 1 } };
 // Neo Green Hill's wall pole (468): at rest, and bending as Sonic swings on it
 export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
@@ -99,17 +109,20 @@ const YELLOW_SPRING_PALETTE = 36;
 // block), and the boulders' debris; their frames also keep their OAM pieces as the hardware reads them
 const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge']);
 
-// Neo Green Hill Zone act 1: level 0. Its tilemap entries are the front layer (drawn over Sonic), the back
-// layer (behind him) and the background.
-const LEVEL = 0;
-const NGH = { front: 0, back: 1, background: 2 };
-// the act's palette animations, which stage tasks run (StageInit_Zone1Act1): 814 steps the background's
-// colours in palette row 15 every 16 frames, 815 the waterfalls' in row 10 every frame
-const PALETTE_ANIMATIONS = [814, 815];
+// Each level (0 is Neo Green Hill Zone act 1, 1 its act 2) has three tilemap entries: the front layer (drawn
+// over Sonic), the back layer (behind him) and the background.
+const LAYERS = { front: 0, back: 1, background: 2 };
+// the acts so far, by level, and the palette animations ([animation, variant]) their stage tasks run
+// (StageInit_Zone1Act1 and StageInit_Zone1Act2): 814 steps the background's colours in palette row 15 every
+// 16 frames, 815 the waterfalls' in row 10 every frame, and act 2's 820 rows 13 and 12 every 2 frames
+const ACTS = [
+  { name: 'Neo Green Hill Zone act 1', paletteAnimations: [[814, 0], [815, 0]] },
+  { name: 'Neo Green Hill Zone act 2', paletteAnimations: [[814, 0], [815, 0], [820, 1], [820, 0]] },
+];
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, acts: [{ level, stage, titleCard, results }], stage, titleCard, physics, sound }, where each act's stage is { width, height, layers, atlas, collision, spawn, loop, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, its titleCard { sheet, slots, text } and its results { sheet, slots, text }; stage and titleCard are act 1's
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
@@ -121,17 +134,23 @@ export async function extractAssets(buffer, onProgress = () => {}) {
   onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
   const sprites = extractSprites(rom, tables);
-  onProgress('Decoding Neo Green Hill…');
-  const stage = extractStage(rom, offsets, tables);
+  const acts = ACTS.map((act, level) => {
+    onProgress(`Decoding ${act.name}…`);
+    return {
+      level,
+      stage: extractStage(rom, offsets, tables, level),
+      titleCard: sheet(titleCardGraphics(rom, offsets.uiGraphics, offsets.titleCard, level)),
+      results: sheet(resultsGraphics(rom, offsets.uiGraphics, offsets.titleCard, level)),
+    };
+  });
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
   // indexes into those in the original, so both are read
   const spinDashSpeeds = Array.from({ length: 18 }, (_, i) => rom.s16(offsets.spinDashSpeeds + i * 2) / 256);
 
   return {
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },
-    sprites, stage, physics: { spinDashSpeeds },
+    sprites, acts, stage: acts[0].stage, titleCard: acts[0].titleCard, physics: { spinDashSpeeds },
     hud: extractHud(rom, offsets.uiGraphics),
-    titleCard: extractTitleCard(rom, offsets.uiGraphics, offsets.titleCard),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
   };
@@ -149,7 +168,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...SHRUB_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GOAL_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
@@ -212,36 +231,38 @@ function packAtlas(images, width = 512) {
   return { canvas, rects };
 }
 
-function extractStage(rom, offsets, tables) {
-  const front = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.front);
-  const back = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.back);
-  const background = tilemapHeader(rom, offsets.tilemaps, LEVEL * 3 + NGH.background);
+function extractStage(rom, offsets, tables, level) {
+  const { name, paletteAnimations } = ACTS[level];
+  const front = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYERS.front);
+  const back = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYERS.back);
+  const background = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYERS.background);
   if (front.xTiles !== 12 || front.metatileMap === null || front.palette === null) {
-    throw new Error('Neo Green Hill Zone data is not where this version keeps it.');
+    throw new Error(`${name} data is not where this version keeps it.`);
   }
-  const collision = readCollision(rom, offsets.collision, LEVEL);
+  const collision = readCollision(rom, offsets.collision, level);
   if (collision.layers[0].length !== front.mapWidth * front.mapHeight || collision.levelX !== back.mapWidth) {
-    throw new Error('Neo Green Hill Zone collision does not match its map.');
+    throw new Error(`${name} collision does not match its map.`);
   }
   const palette = readColors(rom, front.palette, 256);
-  const interactables = readInteractables(rom, offsets.interactables, LEVEL);
-  const animations = PALETTE_ANIMATIONS.map(anim => paletteAnimation(rom, tables, anim));
+  const interactables = readInteractables(rom, offsets.interactables, level);
+  const animations = paletteAnimations.map(([anim, variant]) => paletteAnimation(rom, tables, anim, variant));
   // the two layers share one tileset and its animated tiles, so one atlas serves both
   const count = collision.metatiles.length / 144;
   const tiles = paletteVariants(palette, animations, mapBanks(rom, front, count * front.xTiles * front.yTiles));
-  const atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.rows), follows: tiles.follows };
+  const atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.varying), follows: tiles.follows };
   const sky = paletteVariants(palette, animations, mapBanks(rom, background, background.xTiles * background.yTiles));
 
   return {
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
     layers: { front: collision.layers[0], back: collision.layers[1] },
     atlas, animDelay: front.animDelay, collision,
-    spawn: readSpawn(rom, offsets.spawns, LEVEL),
+    spawn: readSpawn(rom, offsets.spawns, level),
+    loop: readLoop(rom, offsets.loopPoints, offsets.loopShifts, level),
     interactables, layerToggles: layerToggles(interactables),
-    rings: readRings(rom, offsets.rings, LEVEL),
-    itemBoxes: readItemBoxes(rom, offsets.itemBoxes, LEVEL),
-    enemies: readInteractables(rom, offsets.enemies, LEVEL, 'enemies'),
-    entityRegions: entityRegions(rom, offsets.interactables, LEVEL),
+    rings: readRings(rom, offsets.rings, level),
+    itemBoxes: readItemBoxes(rom, offsets.itemBoxes, level),
+    enemies: readInteractables(rom, offsets.enemies, level, 'enemies'),
+    entityRegions: entityRegions(rom, offsets.interactables, level),
     paletteAnimations: animations.map(({ frames, loop }) => ({ delays: frames.map(f => f.delay), loop })),
     background: toCanvas(renderPlainMap(rom, background, palette)),
     backgrounds: { canvases: sky.palettes.map(p => toCanvas(renderPlainMap(rom, background, p))), follows: sky.follows },
@@ -252,24 +273,24 @@ function extractStage(rom, offsets, tables) {
  * The stage palette under each state of the palette animations that load colours into the rows in `banks`:
  * its own colours, then those of each frame, which loads over the frames before it. The palettes are indexed
  * by the states of those animations (`follows`) in turn, the first the most significant (stage.js picks
- * one), and `rows` holds the rows they change.
+ * one), and `varying` holds, for each of them, the rows it changes and its number of states.
  */
 function paletteVariants(base, animations, banks) {
   const rowsOf = a => new Set(a.frames.flatMap(f => f.loads.flatMap(l => l.colors.map((_, i) => (l.insert + i) >> 4))));
-  const follows = [], rows = new Set();
+  const follows = [], varying = [];
   let palettes = [base];
   animations.forEach((a, k) => {
     const changes = [...rowsOf(a)].filter(r => banks.has(r));
     if (!changes.length) return;
     follows.push(k);
-    for (const r of changes) rows.add(r);
+    varying.push({ rows: new Set(changes), radix: a.frames.length + 1 });
     palettes = palettes.flatMap(p => [p, ...a.frames.map((_, s) => {
       const q = p.slice();
       for (const f of a.frames.slice(0, s + 1)) for (const l of f.loads) l.colors.forEach((c, i) => { q[l.insert + i] = c; });
       return q;
     })]);
   });
-  return { palettes, follows, rows };
+  return { palettes, follows, varying };
 }
 
 function extractHud(rom, tableAt) {
@@ -277,9 +298,9 @@ function extractHud(rom, tableAt) {
   return { sheet: toCanvas(image), ...rects };
 }
 
-function extractTitleCard(rom, uiAt, cardAt) {
-  const { image, ...card } = titleCardGraphics(rom, uiAt, cardAt);
-  return { sheet: toCanvas(image), ...card };
+// the title card's or the results' graphics with their image as a canvas
+function sheet({ image, ...rest }) {
+  return { sheet: toCanvas(image), ...rest };
 }
 
 function toCanvas(img) {

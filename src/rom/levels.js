@@ -12,6 +12,13 @@ export const LEVELS = {
   6: { name: 'Ice Mountain Zone act 1', zone: 3, act: 0, paletteAnimations: [822, 821], music: 18, water: { level: 1546, blend: 0x7F207F20 }, snow: 71 },
   // StageInit_Zone4Act2 (0x0803DE11): the same, with the water line at 1664 and act 2's song
   7: { name: 'Ice Mountain Zone act 2', zone: 3, act: 1, paletteAnimations: [822, 821], music: 19, water: { level: 1664, blend: 0x7F207F20 }, snow: 71 },
+  // StageInit_Zone6Act2: eight palette animations, each cycling one row of the background palette, and
+  // MUS_COSMIC_ANGEL. StageBgUpdate_Zone6Act2 scrolls the background (backgrounds.js). The HUD's task data lands
+  // on memory the menus last used, which holds 90 when the act is picked from the course select (hud.js)
+  11: {
+    name: 'Cosmic Angel Zone', zone: 5, act: 1, paletteAnimations: [829, 830, 831, 850, 851, 848, 846, 847], music: 23,
+    backgroundScroll: 'cosmicAngel', hudFlash: 90,
+  },
 };
 
 /** The entry of `level`, or an error for one this game can't load yet. */

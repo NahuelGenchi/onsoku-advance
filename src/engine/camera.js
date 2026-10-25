@@ -26,10 +26,11 @@ function clamp(cam) {
   cam.y = Math.min(Math.max(cam.y, 0), cam.maxY);
 }
 
-// hold up or down while standing still for 120 frames, then pan 2px per frame; ease back otherwise
+// hold up or down while standing still for 120 frames, then pan 2px per frame, the other way under flipped
+// gravity (Player_8044750, Player_80447D8); ease back otherwise
 function updateLook(cam, p) {
   const easeBack = () => { cam.look -= Math.sign(cam.look) * Math.min(Math.abs(cam.look), C.lookStep); };
-  const looking = p.state === 'lookUp' ? -C.lookUp : p.state === 'crouch' && p.gsp === 0 ? C.lookDown : 0;
+  const looking = (p.state === 'lookUp' ? -C.lookUp : p.state === 'crouch' && p.gsp === 0 ? C.lookDown : 0) * (p.inverted ? -1 : 1);
   if (!looking) { cam.lookDelay = C.lookDelay; easeBack(); return; }
   if (cam.lookDelay === 0 || --cam.lookDelay === 0) {
     if (looking < 0 && cam.look > looking) cam.look -= C.lookStep;
@@ -79,8 +80,9 @@ export function updateCamera(cam, p) {
   if (cam.freeze > 0) cam.freeze--;
   else if (!cam.locked) {
     cam.targetX = Math.floor(p.x) - SCREEN_W / 2 - (cam.leadX >> 8);
-    // eases toward spriteOffsetY - 4 so curling up (offset 14 -> 9) doesn't jolt the view
-    const want = p.offsetY - 4;
+    // eases toward spriteOffsetY - 4 (up from his centre under flipped gravity) so curling up (offset 14 -> 9)
+    // doesn't jolt the view
+    const want = (p.offsetY - 4) * (p.inverted ? -1 : 1);
     if (cam.offsetY < want) cam.offsetY = Math.min(want, cam.offsetY + 5);
     else if (cam.offsetY > want) cam.offsetY = Math.max(want, cam.offsetY - 5);
     cam.targetY = centreY(p) - SCREEN_H / 2 + cam.look + cam.offsetY - (cam.leadY >> 8);

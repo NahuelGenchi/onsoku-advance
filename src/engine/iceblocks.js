@@ -1,8 +1,9 @@
 // Ice Mountain's blocks of ice (SAT-R decompilation, src/game/sa1/stage/interactables/ice_block.c; the task is
 // at 0x080914F9 in the USA ROM). A block is solid like a boulder, and breaks the same ways, and also when
 // Sonic's attack box touches it while he is curled up or charging a spin dash, or when he lands on it curled
-// up: rolling into one breaks it, and landing on one curled up doesn't bounce him. It leaves a dust cloud and
-// four pieces that spin out and fall, and never comes back until the act starts over.
+// up, which stands him on it first: landing on one doesn't bounce him. Rolling into one still doesn't break
+// it, as the solid test stops him and stands him up first. It leaves a dust cloud and four pieces that spin
+// out and fall, and never comes back until the act starts over.
 
 import { makeSprite, animate, offCam } from './objects.js';
 import { platform, breaks, overlap, LANDED } from './collide.js';

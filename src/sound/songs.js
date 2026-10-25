@@ -31,4 +31,5 @@ export const SONG = {
   SURFACE_HIT: 190,        // SE_WATERFALL_SURFACE_HIT: Sonic goes into the water or out of it
   AIR_BUBBLE: 191,         // SE_AIR_BUBBLE: a breath from an air bubble
   DROWNED: 192,            // SE_DROWNED: Sonic drowns, in place of SE_LIFE_LOST
+  ICE_BLOCK_BREAK: 193,    // SE_193: a block of ice breaks, after SE_ITEM_BOX
 };

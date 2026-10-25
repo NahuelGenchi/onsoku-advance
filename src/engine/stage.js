@@ -2,10 +2,10 @@
 
 import { solidPixel } from './terrain.js';
 
-/** Animation frame of the stage's animated tiles at `tick` (one step every animDelay frames). */
-export function stageAnimFrame(stage, tick) {
+/** Animation frame of the stage's animated tiles after `n` steps of their counter (one every animDelay). */
+export function stageAnimFrame(stage, n) {
   const frames = stage.atlas.slots.length;
-  return frames > 1 ? Math.floor(tick / stage.animDelay) % frames : 0;
+  return frames > 1 ? Math.floor(n / stage.animDelay) % frames : 0;
 }
 
 /**

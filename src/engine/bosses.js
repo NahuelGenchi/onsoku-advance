@@ -1,9 +1,9 @@
-// What the bosses share (SAT-R decompilation, src/game/sa1/stage/enemies/bosses_misc.c, nuts_and_bolts_task.c
-// and src/game/shared/stage/collision_3.c): the camera bounds they narrow and pan, Sonic against a boss and
-// its shots, the explosions and the flying debris. Positions are in the original's units: whole pixels for
-// the camera, 1/256 px for what moves.
+// What the bosses share (SAT-R decompilation, src/game/sa1/stage/enemies/bosses_misc.c, bosses_egg_mobile.c,
+// nuts_and_bolts_task.c and src/game/shared/stage/collision_3.c): the camera bounds they narrow and pan, Sonic
+// against a boss and its shots, the explosions, the flying debris and Eggman's escape. Positions are in the
+// original's units: whole pixels for the camera, 1/256 px for what moves.
 
-import { makeSprite, animate, OBJECTS } from './objects.js';
+import { makeSprite, startAnim, animate, OBJECTS } from './objects.js';
 import { overlap } from './collide.js';
 import { SINE } from './trig.js';
 import { SCREEN_W, SCREEN_H } from './constants.js';
@@ -93,8 +93,8 @@ export function bossShotHit(s, x, y, ctx) {
 
 /**
  * The nuts-and-bolts task (Task_NutsAndBolts): a sprite at (qx, qy) moving by (vx, vy) and falling by
- * (gx, gy) a frame, in 1/256 px. It goes once it is off the screen's sides or below it, or when its
- * animation ends with `minFrames` (counting down a frame at a time) used up.
+ * (gx, gy) a frame, in 1/256 px. It goes once it is off the screen's sides or below it, or once its
+ * animation has ended and `minFrames` (counting down a frame at a time) is used up.
  */
 export function nutsAndBolts(s, qx, qy, { vx = 0, vy = 0, gx = 0, gy = 0, minFrames = 0 } = {}) {
   return {
@@ -105,7 +105,9 @@ export function nutsAndBolts(s, qx, qy, { vx = 0, vy = 0, gx = 0, gy = 0, minFra
       const x = I(qx), y = I(qy), sx = x - ctx.cam.x, sy = y - ctx.cam.y;
       if (minFrames !== 0) minFrames--;
       if (sx < -32 || sx > SCREEN_W + 32 || sy - 32 > SCREEN_H) return false;
-      if (animate(s, ctx.anims) && minFrames === 0) return false;
+      // UpdateSpriteAnimation keeps answering "ended" on every frame after a one-shot animation's end
+      animate(s, ctx.anims);
+      if (s.anim.done && minFrames === 0) return false;
       ctx.draw(s, x, y);
       return true;
     },
@@ -126,18 +128,59 @@ export function explosion(ctx, qx, qy) {
 const DEBRIS = ['debrisSmall0', 'debrisSmall1', 'debrisMid0', 'debrisMid1', 'debrisLarge0', 'debrisLarge1', 'debrisSmall0', 'debrisMid0'];
 
 /**
- * A piece of a wrecked boss flying off from (x, y) (as in sub_8034EE0): one of the eight pieces at random,
- * thrown 6 px a frame in a random direction in the upper half turn, falling 5/256 px a frame faster and kept
- * at least 32 frames; and an explosion up to 32 px to either side and 63 px above. Adds both tasks.
+ * A piece of a wrecked boss flying off from (x, pieceY) (sub_8034EE0, sub_8036478): one of the eight pieces at
+ * random, thrown 6 px a frame in a random direction in the upper half turn, falling 5/256 px a frame faster and
+ * kept at least 32 frames; and an explosion up to 32 px to either side of x and 63 px above blastY. Adds both
+ * tasks.
  */
-export function debris(ctx, x, y, order = 23) {
+export function debris(ctx, x, pieceY, blastY = pieceY) {
   const piece = DEBRIS[ctx.world.random() % DEBRIS.length];
   const theta = ctx.world.random() & 0x1FF;
-  const s = makeSprite(piece, { order });
-  ctx.add(nutsAndBolts(s, x << 8, y << 8, { vx: s16((-(cos(theta) * 0x600)) >> 14), vy: s16((-(sin(theta) * 0x600)) >> 14), gy: 5, minFrames: 32 }));
+  const s = makeSprite(piece, { order: 23 });
+  ctx.add(nutsAndBolts(s, x << 8, pieceY << 8, { vx: s16((-(cos(theta) * 0x600)) >> 14), vy: s16((-(sin(theta) * 0x600)) >> 14), gy: 5, minFrames: 32 }));
   const r = ctx.world.random();
-  ctx.add(explosion(ctx, (x + (r & 0x3F) - 32) << 8, (y - ((r & 0x3F0000) >>> 16)) << 8));
+  ctx.add(explosion(ctx, (x + (r & 0x3F) - 32) << 8, (blastY - ((r & 0x3F0000) >>> 16)) << 8));
 }
+
+/**
+ * CreatePostBossEggMobile: Eggman flees from (x, y) in his Egg Mobile. It waits 45 frames, rises 80 px at 1 px
+ * a frame, turns round, and flies off to the right at 4 px a frame; it goes once it is more than 360 px right of
+ * the screen's left edge. In X Zone, from x = 2048 on (the decomp compares the pixel x with Q(8)), Eggman has
+ * his last look back. Returns its task, at the objects' priority.
+ */
+export function eggMobileEscape(x, y) {
+  const ship = makeSprite('eggMobile', { order: 21 }), eggman = makeSprite('eggman4', { order: 19 });
+  let dx = 0, dy = 0, wait = 0, phase = 'rise';
+  return {
+    priority: OBJECTS,
+    run(ctx) {
+      if (phase === 'escape') {
+        dx += 4;
+        if (x + dx - ctx.cam.x > SCREEN_W + 120) return false;
+      }
+      const sy = y + (phase === 'rise' ? I(dy) : dy);
+      const ended = animate(ship, ctx.anims);
+      ctx.draw(ship, x + dx, sy);
+      animate(eggman, ctx.anims);
+      ctx.draw(eggman, x + dx, sy);
+      if (phase === 'rise') {
+        if (wait > 45) {
+          dy -= 0x100;
+          if (dy <= -80 << 8) {
+            phase = 'turn'; dy = I(dy);
+            startAnim(ship, 'eggMobileTurn'); startAnim(eggman, 'eggman9');
+          }
+        } else wait++;
+      } else if (phase === 'turn' && ended) {
+        phase = 'escape';
+        startAnim(ship, 'eggMobile'); startAnim(eggman, ctx.world.level === X_ZONE && x >= 2048 ? 'eggman8' : 'eggman0');
+        ship.flipX = true; eggman.flipX = true;
+      }
+      return true;
+    },
+  };
+}
+const X_ZONE = 12;
 
 /**
  * A boss's hit flash (as in sub_80343E0): for the first 16 of the 32 frames after a hit, every other two, the

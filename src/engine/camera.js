@@ -1,5 +1,8 @@
 // The original camera: a target derived from Sonic's position, approached with dead zones and speed caps,
-// a look up / look down pan, a short freeze after a spin dash release, and a still target once Sonic dies. It never shows past the act's edges.
+// a look up / look down pan, a short freeze after a spin dash release, and a still target once Sonic dies. It
+// never shows past its bounds: the act's edges, unless a boss narrows them. `minX` and `minY` are the lowest
+// its top-left corner goes and `maxX` and `maxY` the highest (the original's gCamera.maxX - 240 and
+// maxY - 160); `width` and `height` stay the act's.
 // While the optional Sonic Rush boost runs, it leads him the way Rush's camera does.
 
 import { SCREEN_W, SCREEN_H, CAMERA as C, RUSH_BOOST as R } from './constants.js';
@@ -12,7 +15,8 @@ export function createCamera(p, terrain) {
   const cam = {
     x: Math.floor(p.x) - SCREEN_W / 2, y: centreY(p) - (SCREEN_H / 2 + 4),
     targetX: 0, targetY: 0, freeze: 0, locked: false, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
-    maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false,
+    minX: 0, minY: 0, maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false,
+    width: terrain.width, height: terrain.height,
     // the Rush boost's lead: Sonic shown this far off the target's centre (8.8 px), what it eases toward, the
     // frames left of the delay after a boost starts, and where Sonic was at the last update
     leadX: 0, leadY: 0, leadTargetX: 0, leadTargetY: 0, scroll: 0, prevX: p.x, prevY: p.y,
@@ -21,9 +25,13 @@ export function createCamera(p, terrain) {
   return cam;
 }
 
+// the original's CLAMP: below the low bound to it, otherwise no higher than the high one, which wins when a
+// boss leaves the high bound below the low one
+export const clampC = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+
 function clamp(cam) {
-  cam.x = Math.min(Math.max(cam.x, 0), cam.maxX);
-  cam.y = Math.min(Math.max(cam.y, 0), cam.maxY);
+  cam.x = clampC(cam.x, cam.minX, cam.maxX);
+  cam.y = clampC(cam.y, cam.minY, cam.maxY);
 }
 
 // hold up or down while standing still for 120 frames, then pan 2px per frame; ease back otherwise
@@ -71,8 +79,8 @@ export function updateCamera(cam, p) {
   if (!cam.started) { cam.started = true; return; }
   // it moves from where it was, kept a pixel further in from the far edges than it may end up: at the
   // bottom of the act, a dead zone can leave it a pixel up
-  cam.x = Math.min(Math.max(cam.x, 0), cam.maxX - 1);
-  cam.y = Math.min(Math.max(cam.y, 0), cam.maxY - 1);
+  cam.x = clampC(cam.x, cam.minX, cam.maxX - 1);
+  cam.y = clampC(cam.y, cam.minY, cam.maxY - 1);
   updateLook(cam, p);
   updateLead(cam, p);
   // a dead Sonic leaves the target where it was (unk50 bits 0–1); the view still eases onto it
@@ -104,8 +112,8 @@ export function updateCamera(cam, p) {
  * the act too. `x` and `y` are its top left corner in the act.
  */
 export function viewOf(cam, w = SCREEN_W, h = SCREEN_H) {
-  const cx = Math.min(Math.max(Math.floor(cam.x), 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y), 0), cam.maxY);
-  const x = Math.max(0, Math.min(cx - ((w - SCREEN_W) >> 1), cam.maxX + SCREEN_W - w));
-  const y = Math.max(0, Math.min(cy - ((h - SCREEN_H) >> 1), cam.maxY + SCREEN_H - h));
+  const cx = Math.min(Math.max(Math.floor(cam.x), 0), cam.width - SCREEN_W), cy = Math.min(Math.max(Math.floor(cam.y), 0), cam.height - SCREEN_H);
+  const x = Math.max(0, Math.min(cx - ((w - SCREEN_W) >> 1), cam.width - w));
+  const y = Math.max(0, Math.min(cy - ((h - SCREEN_H) >> 1), cam.height - h));
   return { x, y, w, h };
 }

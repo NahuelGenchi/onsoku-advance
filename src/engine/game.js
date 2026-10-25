@@ -30,6 +30,10 @@ const ITEM_TIME = 1200;   // invincibility and speed shoes last 20 seconds
 const RANDOM_RING_PRIZES = [1, 5, 10, 20, 30, 40];   // ItemBox_RingAmountTable
 const SPEED_UP_TEMPO = 0x200, NORMAL_TEMPO = 0x100;
 const MAX_COURSE_TIME = 10 * 3600;
+// gFrameCount, the frames since the GBA was switched on, which counts up as each frame starts: on the act's first
+// frame it is 3838 when the act is started straight from the course select (the Egg Ball seeds the random numbers
+// with it)
+const START_FRAME_COUNT = 3838;
 // what Sonic reads while the title card holds him: the jump and attack buttons InitializePlayer leaves held, never pressed
 const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
 // and while an object holds his controls (the forced slide): nothing, as it clears his input
@@ -37,7 +41,7 @@ const NO_INPUT = { left: false, right: false, up: false, down: false, jump: fals
 
 const SILENT = {
   play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
-  playerState() {}, stopAll() {},
+  playerState() {}, stopAll() {}, musicState() {},
 };
 
 export function createGame(canvas, assets, input, sound = SILENT) {
@@ -54,6 +58,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
     animal: 0,   // gTrappedAnimalVariant: the next defeat's animal
     seed: 0,     // gPseudoRandom: the game's random numbers, one sequence for the whole game, from 0
+    frameCount: START_FRAME_COUNT - 1,   // gFrameCount: every frame counts, the title card's and restarts' too
     palettes: palettes.map(a => a.shown),   // the frame each palette animation has loaded (palettes.js)
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
@@ -82,7 +87,28 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   const centreY = () => player.y;
 
   const world = {
+    level: assets.stage.level,
     get tick() { return state.tick; },
+    // the camera's bounds as the original keeps them (gCamera.minX … maxY: the right and bottom edges, not the
+    // corner's limits), which keep Sonic in
+    get bounds() {
+      const c = state.cam;
+      return { minX: c.minX, maxX: c.maxX + SCREEN_W, minY: c.minY, maxY: c.maxY + SCREEN_H };
+    },
+    get cam() { return state.cam; },
+    // the music manager's boss state (gMusicManagerState.unk1): 0x1n starts boss song n, 0x3n ends it
+    musicState(value) { sound.musicState(value); },
+    get frameCount() { return state.frameCount; },
+    setSeed(value) { state.seed = value >>> 0; },
+    // INCREMENT_SCORE_A: points, with a life for each 50,000 passed but no jingle
+    addScore(n) {
+      const before = state.score;
+      state.score += n;
+      if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) state.lives = (state.lives + 1) & 0xFF;
+    },
+    // a beaten boss's last moment, where the original makes the capsule that ends act 2 (CreateBossCapsule):
+    // the end of the act is not built yet, so nothing follows
+    bossDefeated() {},
     get cameraY() { return Math.floor(state.cam.y); },
     terrain,
     // a hazard touched Sonic (Coll_DamagePlayer): a shield takes the hit, or with rings he drops them all, up
@@ -169,7 +195,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio });
+    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, window: s.window });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
@@ -177,6 +203,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     attack: (s, x, y) => attackTest(s, x, y, ctx),
     projectile: (s, x, y) => projectileTest(s, x, y, ctx),
     add: (task, priority) => tasks.add(task, priority),
+    removeTasks: (from, to) => tasks.removeRange(from, to),
   };
 
   function updateEffect(e) {
@@ -344,6 +371,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
 
   function step() {
     input.poll?.();
+    state.frameCount = (state.frameCount + 1) >>> 0;
     if (loading) { loading = false; return; }
     state.sprites = [];
     tasks.run(ctx);

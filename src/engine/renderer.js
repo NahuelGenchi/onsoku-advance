@@ -71,13 +71,17 @@ export function createRenderer(canvas, assets) {
   // TransformSprite builds the matrix and moves the sprite so its anchor stays at (x, y) once turned;
   // DisplaySprite puts each OAM piece where the frame has it, in a box twice its size with the double-size
   // flag, and every piece turns around its own centre
-  function drawAffine(index, x, y, { rotation, scaleX, scaleY, double }) {
+  // `matrix` is the transform of the rotation matrix it is drawn through when that isn't its own: sprites that
+  // share one OAM matrix all show the last one written to it in the frame, each where its own put it
+  function drawAffine(index, x, y, { rotation, scaleX, scaleY, double }, matrix = null) {
     if (index < 0) return;
     const [, , w, h, ax, ay, pieces] = frames[index];
     if (!pieces) { drawSprite(index, x, y, scaleX < 0, scaleY < 0); return; }   // a frame the extractor kept no pieces for
     const cos = SINE[(rotation & 1023) + 256] >> 6, sin = SINE[rotation & 1023] >> 6;
-    const rx = s16(Math.trunc(0x10000 / scaleX)), ry = s16(Math.trunc(0x10000 / scaleY));
-    const mat = [s16((cos * rx) >> 8), s16((sin * rx) >> 8), s16((-sin * ry) >> 8), s16((cos * ry) >> 8)];
+    const m = matrix ?? { rotation, scaleX, scaleY };
+    const mc = SINE[(m.rotation & 1023) + 256] >> 6, ms = SINE[m.rotation & 1023] >> 6;
+    const rx = s16(Math.trunc(0x10000 / m.scaleX)), ry = s16(Math.trunc(0x10000 / m.scaleY));
+    const mat = [s16((mc * rx) >> 8), s16((ms * rx) >> 8), s16((-ms * ry) >> 8), s16((mc * ry) >> 8)];
     const kx = Math.abs(scaleX), ky = Math.abs(scaleY);
     const u0 = s16((cos * kx) >> 8), u1 = s16((-sin * kx) >> 8), u2 = s16((sin * ky) >> 8), u3 = s16((cos * ky) >> 8);
     const hw = w >> 1, hh = h >> 1, ox = (scaleX > 0 ? ax : w - ax) - hw, oy = (scaleY > 0 ? ay : h - ay) - hh;
@@ -375,12 +379,15 @@ export function createRenderer(canvas, assets) {
     // goal it draws none
     const shown = ringsStopped ? { list: [] } : rings.visible(view);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
+    // the last transform written to each shared OAM matrix (an affine's `matrix`) this frame
+    const matrices = {};
+    for (const s of sprites) if (s.affine?.matrix !== undefined) matrices[s.affine.matrix] = s.affine;
     const drawAll = behind => {
       for (const s of list) {
         if ((s.prio >= 2) !== behind || s.white) continue;
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
-        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine, matrices[s.affine.matrix]);
         else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
       }
     };

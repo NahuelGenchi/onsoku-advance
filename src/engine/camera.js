@@ -2,7 +2,7 @@
 // a look up / look down pan, a short freeze after a spin dash release, and a still target once Sonic dies. It never shows past its
 // bounds: the act's edges, or the arena a boss sets (bosses.js). `minX` and `minY` are the least its top left corner may be, `maxX`
 // and `maxY` the most (the original's maxX - 240 and maxY - 160). A screen shake (screenshake.js) moves it by shakeX and shakeY
-// after it is kept inside them, as UpdateCamera does.
+// after it is kept inside them, as UpdateCamera does. A boss can also move its target sideways by shiftX.
 // Past the act's goal it rises and, once the results have counted up, stops (stage_goal.c, stage_results.c).
 // While the optional Sonic Rush boost runs, it leads him the way Rush's camera does.
 
@@ -20,7 +20,7 @@ export function createCamera(p, terrain) {
     // the speed caps (unk8 and unkC, which the results set to 0), the target's shift up or down (shiftY, which
     // the goal takes to -56) and how far the act's end has moved the camera back (unk20, which the background
     // scrolls without)
-    speedX: C.maxSpeedX, speedY: C.maxSpeedY, shiftY: 0, wrapped: 0,
+    speedX: C.maxSpeedX, speedY: C.maxSpeedY, shiftX: 0, shiftY: 0, wrapped: 0,
     // the Rush boost's lead: Sonic shown this far off the target's centre (8.8 px), what it eases toward, the
     // frames left of the delay after a boost starts, and where Sonic was at the last update
     leadX: 0, leadY: 0, leadTargetX: 0, leadTargetY: 0, scroll: 0, prevX: p.x, prevY: p.y,
@@ -91,7 +91,7 @@ export function updateCamera(cam, p) {
   // a dead Sonic leaves the target where it was (unk50 bits 0–1); the view still eases onto it
   if (cam.freeze > 0) cam.freeze--;
   else if (!cam.locked) {
-    cam.targetX = Math.floor(p.x) - SCREEN_W / 2 - (cam.leadX >> 8);
+    cam.targetX = Math.floor(p.x) + cam.shiftX - SCREEN_W / 2 - (cam.leadX >> 8);
     // eases toward spriteOffsetY - 4 so curling up (offset 14 -> 9) doesn't jolt the view
     const want = p.offsetY - 4;
     if (cam.offsetY < want) cam.offsetY = Math.min(want, cam.offsetY + 5);

@@ -3,7 +3,7 @@
 // hand over to the next state when they end. (x, y) is Sonic's centre; on the ground he moves along the
 // surface's angle (`rotation`, 256 steps per turn) at ground speed `gsp`.
 
-import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R, SCREEN_H } from './constants.js';
+import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R, SCREEN_W, SCREEN_H } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
 import { groundSensors, wallPush, airCollision, clearance, setOffsetY, actAngle } from './sensors.js';
 import { LAYER_BACK, scan, PROBE_FLOOR } from './terrain.js';
@@ -118,13 +118,13 @@ function alongSurface(p) {
   p.ysp = ((g * sin8(p.rotation)) >> 8) / 256;
 }
 
-// the act's edges (sub_80232D0): Sonic stops at the sides, and falling out of the bottom kills him, thrown
-// up as high as a jump; under flipped gravity, out of the top
+// the camera's bounds, the act's edges unless a boss has set its arena (sub_80232D0): Sonic stops at the sides,
+// and falling out of the bottom kills him, thrown up as high as a jump; under flipped gravity, out of the top
 function bounds(p, world) {
-  const t = world.terrain, maxX = t.width - 1 / 256, maxY = t.height - 1 / 256;
-  if (!p.dead && (p.inverted ? p.y <= 0 : p.y >= maxY)) { p.dead = true; p.ysp = -K.jumpSpeed; p.y = p.inverted ? 0 : maxY; }
-  if (p.x < 0 || p.x > maxX) { p.x = Math.min(Math.max(p.x, 0), maxX); p.xsp = 0; p.gsp = 0; }
-  if (p.y < 0 || p.y > maxY) { p.y = Math.min(Math.max(p.y, 0), maxY); p.ysp = 0; p.gsp = 0; }
+  const c = world.camera, maxX = c.maxX + SCREEN_W - 1 / 256, maxY = c.maxY + SCREEN_H - 1 / 256;
+  if (!p.dead && (p.inverted ? p.y <= c.minY : p.y >= maxY)) { p.dead = true; p.ysp = -K.jumpSpeed; p.y = p.inverted ? c.minY : maxY; }
+  if (p.x < c.minX || p.x > maxX) { p.x = Math.min(Math.max(p.x, c.minX), maxX); p.xsp = 0; p.gsp = 0; }
+  if (p.y < c.minY || p.y > maxY) { p.y = Math.min(Math.max(p.y, c.minY), maxY); p.ysp = 0; p.gsp = 0; }
 }
 
 // walls, ceilings and steep slopes drop Sonic when he is too slow for them, and lock his controls for

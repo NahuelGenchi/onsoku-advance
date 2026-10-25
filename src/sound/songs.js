@@ -27,5 +27,7 @@ export const SONG = {
   CRUMBLING_PLATFORM: 173,
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
+  BUMPER_A: 183,           // SE_BUMPER_A: a hexagonal or round bumper
+  BUMPER_B: 184,           // SE_BUMPER_B: a triangular bumper
   BALLOON_POP: 189,        // a party balloon pops
 };

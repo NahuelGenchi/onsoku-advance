@@ -112,6 +112,12 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.courseTime }; },
     // Sonic's attack box destroyed an enemy at (x, y)
     defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
+    // INCREMENT_SCORE: every 50000 points give a life
+    addScore(points) {
+      const before = state.score;
+      state.score += points;
+      if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) { state.lives = (state.lives + 1) & 0xFF; extraLife = true; }
+    },
     playSound: song => sound.play(song),
     random,
     // an item box's prize (Task_Itembox2)

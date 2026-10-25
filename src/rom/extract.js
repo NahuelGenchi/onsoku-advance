@@ -151,9 +151,12 @@ export const PIPE_ANIMATIONS = {
   584: { pipeVRocket: 0 }, 585: { pipeExitVRocket: 0 }, 586: { pipeHRocket: 0 }, 587: { pipeExitHRocket: 0 },
   592: { airCorner: 0 },
 };
-// what bosses leave behind: the Egg Mobile and Eggman flying off in it (bosses_egg_mobile.c), the debris
-// (gUnknown_080BB41C) and the explosions (sub_8017540)
+// the Egg Ball (boss_3_egg_ball.c: its pipes in the floor and the ceiling and in the walls, Eggman still, laughing
+// and wincing, the star disc it loses, the mobile and the spike ball) and what bosses leave behind: the Egg Mobile
+// and Eggman flying off in it (bosses_egg_mobile.c), the debris (gUnknown_080BB41C) and the explosions (sub_8017540)
 export const BOSS_ANIMATIONS = {
+  593: { eggBallPipe: 0, eggBallPipeSide: 1 }, 622: { eggBallEggman: 0, eggBallEggmanLaugh: 1, eggBallEggmanHit: 2 },
+  623: { eggBallStarDisc: 0 }, 624: { eggBallMobile: 0 }, 625: { eggBallSpikeBall: 0 },
   693: { eggMobile: 0, eggMobileTurn: 1 }, 694: { eggman: 0, eggmanFlee: 4, eggmanTurn: 9 },
   695: { boltMedium: 0, boltMedium2: 1 }, 696: { boltLarge: 0, boltLarge2: 1 }, 697: { boltSmall: 0, boltSmall2: 1 },
   611: { bossExplosion: 0 },
@@ -165,8 +168,9 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block, and carried through a marble track), and the boulders' debris; their frames also keep their OAM pieces as the hardware reads them
-const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmall', 'rockDebrisLarge']);
+// block, and carried through a marble track), the boulders' debris and the Egg Ball's star disc; their frames
+// also keep their OAM pieces as the hardware reads them
+const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmall', 'rockDebrisLarge', 'eggBallStarDisc']);
 
 // Each level has three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
 // background. Its palette animations and music are in levels.js.

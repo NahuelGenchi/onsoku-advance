@@ -13,6 +13,7 @@ import { SINE } from './trig.js';
 import { hanabii, HANABII } from './hanabii.js';
 import { slotMachine, SLOT } from './slot.js';
 import { pierrot, PIERROT } from './pierrot.js';
+import { eggBall, EGG_BALL } from './eggball.js';
 
 export const KIKI = 0, BUZZER = 1, GAMIGAMI = 2, RHINOTANK = 3, KEROKERO = 4;
 
@@ -344,4 +345,4 @@ function kerokero(e, slot, anims) {
 
 /** Makers by enemy kind (gSpriteInits_Enemies): (entity, slot, anims, ctx) → task. */
 export const ENEMIES = { [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero,
-  [HANABII]: hanabii, [SLOT]: slotMachine, [PIERROT]: pierrot };
+  [HANABII]: hanabii, [SLOT]: slotMachine, [PIERROT]: pierrot, [EGG_BALL]: eggBall };

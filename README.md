@@ -226,6 +226,8 @@ Other controllers that your browser maps to the Xbox layout work the same way. P
 
 > [!NOTE]
 > **Early days: the first act is playable.** You can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets. The act has no ending yet (no goal signpost or score tally), and there is no game over yet.
+>
+> **Ice Mountain Zone act 1** opens with `?level=6` at the end of the game's address. You can play it from start to finish: its water, with air bubbles and drowning, its snow, enemies and gadgets all work. The act's ending is still to come, and its special spring isn't there yet.
 
 Here's the road through the rest of the game. Each step has its own issue, so you can follow along.
 
@@ -237,7 +239,7 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 <tr><td><b>Neo Green Hill</b></td><td>🟢 Playable now<br><sub>Next up: <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/69">its ending, then on to act 2</a></sub></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/83">Act 2 and the Egg Hammer Tank</a></td></tr>
 <tr><td><b>Secret Base</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/79">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/73">Act 2 and the Egg Press</a></td></tr>
 <tr><td><b>Casino Paradise</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/81">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/76">Act 2 and the Egg Ball</a></td></tr>
-<tr><td><b>Ice Mountain</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/71">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/72">Act 2 and the Egg Spider</a></td></tr>
+<tr><td><b>Ice Mountain</b></td><td>🟡 <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/71">Act 1</a><br><sub>Playable with <code>?level=6</code>; the ending comes with <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/69">#69</a></sub></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/72">Act 2 and the Egg Spider</a></td></tr>
 <tr><td><b>Angel Island</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/77">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/80">Act 2 and Mecha Knuckles</a></td></tr>
 <tr><td><b>Egg Rocket</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/78">Planned</a></td></tr>
 <tr><td><b>Cosmic Angel</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/74">The zone and the Egg Snake</a></td></tr>

@@ -40,6 +40,7 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 - **Frame size** (12 bytes): flip flags, first OAM piece, number of pieces, width, height, anchor X, anchor Y.
 - **OAM piece** (3 × 16 bits): the GBA's own sprite attributes (shape, size, position, flips, first tile), relative to the tiles loaded for the frame.
 - Sprites face **left**; the game mirrors them when Sonic faces right.
+- **Palette slots:** a script's load-palette command writes 16 colours into one of the 16 sprite palette rows (its slot) when the animation steps past it, and a sprite is drawn in whatever its slot holds at the end of the frame. Animations that load different palettes into the same slot therefore show the colours of whichever loaded last: a dust cloud (palette 20, slot 9) that appears next to a boulder (palette 35, slot 9) turns the boulder's colours to its own until something loads 35 again, and in Ice Mountain the ice blocks, the stones and their pieces share slot 11 (palettes 60 and 69 differ in colours 1 and 10–14). An animation that ends (`-4`) never runs its commands again, while one that jumps back to its start reloads its palette every loop. The extractor keeps each animation's frames in every other palette loaded into its slot, and the game picks the set the slot holds.
 
 ### Rotation hardware
 
@@ -57,7 +58,7 @@ Some sprites go through the GBA's rotation and scaling (affine) OBJ mode instead
 - The tilemap table has three entries per level: the front layer, the back layer and the background. Neo Green Hill Zone act 1 is entries 0, 1 and 2; its background is a 256 × 256 px plain map.
 - The front layer is drawn over Sonic (hardware background 1, priority 1), the back layer behind him (background 2, priority 2, the same as his sprite), the background behind both.
 - The front layer's header also describes animated tiles: the first `animTileSize` bytes of the tileset (`0x1C0`, 14 tiles in act 1) are replaced by the next of `animFrameCount` frames every `animDelay` frames. Frame 0 is the tileset itself and frame *k* is the *k*-th block stored after it. Both layers share the tileset, so the animation shows on both.
-- **Palette animations.** The act's stage init makes two tasks (priority `0x2000`, after the rings and entities managers) that each run an animation whose commands only load colours into the background palette: animation `814` loads sprite palettes 190–193 into row 15 (colours 240–255), each shown for 16 frames, and `815` loads palettes 194–201 into row 10 (colours 160–175), one a frame. Each palette is the one before it turned by one place, so the colours cycle. Row 10 colours the waterfalls in the stage's layers (five metatiles use it) and row 15 the sea in the background. The tasks step their animation as any background animation is stepped, at speed `0x10`: on the act's first frame each loads its first palette, which then shows for its delay. When the act starts over, it loads the stage's own colours again and both animations start from the beginning. The extractor renders the layers' metatiles that use those rows, and the background, once for each state, and the renderer picks the one the tasks have loaded.
+- **Palette animations.** The act's stage init makes two tasks (priority `0x2000`, after the rings and entities managers) that each run an animation whose commands only load colours into the background palette: animation `814` loads sprite palettes 190–193 into row 15 (colours 240–255), each shown for 16 frames, and `815` loads palettes 194–201 into row 10 (colours 160–175), one a frame. Each palette is the one before it turned by one place, so the colours cycle. Row 10 colours the waterfalls in the stage's layers (five metatiles use it) and row 15 the sea in the background. The tasks step their animation as any background animation is stepped, at speed `0x10`: on the act's first frame each loads its first palette, which then shows for its delay. When the act starts over, it loads the stage's own colours again and both animations start from the beginning. The extractor renders the layers' metatiles that use those rows, and the background, once for each state, and the renderer picks the one the tasks have loaded. Ice Mountain act 1's two animations give its metatiles 49 states, too many to render each (the atlas would be 71520 px tall): past 16 states the extractor keeps the metatiles' colour indices instead, and the renderer colours them from the loaded palette as it draws.
 
 ### Collision
 
@@ -151,7 +152,7 @@ A broken boulder leaves the dust cloud, lifts Sonic into the air if he stood on 
 - They turn by 42, 42, 14 and 14 in 1/1024 of a turn a frame, pieces 1 and 4 one way and pieces 2 and 3 the other.
 - They grow from their own size to twice it, by 8/256 a frame.
 
-The original places each piece through its sprite transform (`sub_8004E14`), around where the boulder was on the screen on the frame it broke: the piece's offset from there, as the camera moves, is multiplied by its scale over 512. So the pieces start at half their offset and drift out while they grow. The transform then builds the matrix and subtracts the turned anchor the way `TransformSprite` does (see [Rotation hardware](#rotation-hardware)). A piece is left out once its double-size square is off the screen.
+The original places each piece through its sprite transform (`sub_8004E14`), around where the boulder was on the screen on the frame it broke: the piece's offset from there, as the camera moves, is multiplied by half its scale, rounded down to a whole 1/256, over 256. So the pieces start at half their offset and drift out while they grow. The transform then builds the matrix and subtracts the turned anchor the way `TransformSprite` does (see [Rotation hardware](#rotation-hardware)). A piece is left out once its double-size square is off the screen. The rounding never shows on the boulder, whose scale grows by 8 and stays even, but it does on Ice Mountain's ice blocks, which copy this task and grow by 1: on every odd scale their pieces sit a pixel nearer the middle.
 
 ### Waterfalls
 
@@ -278,7 +279,7 @@ On every frame his centre is in the box, he is on the ground and not on an objec
 - holds his controls (`MOVESTATE_IGNORE_INPUT`): he reads nothing held and nothing pressed,
 - faces him its way and sets his ground and X speeds to 4 px a frame its way and his Y speed to 0,
 - puts him in the knocked-back state (character state 15, animation 19), uncurled with his feet where they were,
-- draws the splash under him (animation `474`, in OAM order 3 and BG priority 2, mirrored when `d0` is set) at his centre, stepping its animation only on those frames.
+- draws the splash under him (animation `474`; by level, `gAnimSlideSplashes`, Ice Mountain's is the ice splash `562` and Angel Island's the mud splash `568`; in OAM order 3 and BG priority 2, mirrored when `d0` is set) at his centre, stepping its animation only on those frames.
 
 His own step then runs with the slope's pull and the walk's friction, so he slides at about 4 px a frame. It only starts on him once the one-tile floor probe from his centre (`sub_801F07C`) finds the ground within 3 px; walking in, that happens a few pixels down the slide. Zone 5 also plays song 201 when it starts.
 
@@ -305,6 +306,8 @@ Each ring adds 1 to the count, and passing a multiple of 100 gives a life. It al
 
 The spikes are animation `454` in sprite palette 35: variant 2 points up, variant 3 sideways, flipped to point left. Act 1 has four that point up (kind 1) and five that point left (kind 3). They are solid like any platform. The up spikes hurt Sonic when he lands on them, and the left-pointing ones when he touches their left face. Touching a left-pointing spike's back face puts him out past its left face, as the code reads; in act 1 their backs are against walls. A hit by spikes plays song 171.
 
+Kind 2 points down: the up spikes flipped (`Task_Spikes_Down`). They hurt Sonic when he hits them from below, unless an object carries him. Kinds 5 and 6 hide and come back (`Task_Spikes_HidingUp`, `0x08020A1C`, and the flipped `Task_Spikes_HidingDown`): with the stage clock, 128 frames a turn, they are hidden and not drawn for 60, rise over 4 (variants 0 and 1, 2 frames each), stay up for 60 and sink over 4. Only while up are they solid. On their first frame up, Sonic's body inside their box is put on top of them (below the down ones) and hurt; otherwise they hurt as the plain spikes do. On the frames they aren't up they drop him if he stands on them. Ice Mountain act 1 has three down spikes and three hiding ones.
+
 ### Enemies
 
 Act 1 has five kinds of enemy. Each works out its position from its spawn point every frame. It goes when both its spawn point and its current position are outside the range around the camera.
@@ -322,7 +325,7 @@ Each enemy's sprite carries its hitbox in its script. Sonic's sprite has two box
 **Defeating an enemy** leaves, in this order:
 
 1. A dust cloud (`407`) that plays once where the enemy was.
-2. A freed animal. Neo Green Hill's are the otter (`445`), the koala (`450`) and the kangaroo (`449`), in turn. It hops up at 4 px a frame and lands on the ground; the otter and the koala then sit, and the kangaroo hops away to the left at 2 px a frame.
+2. A freed animal. Neo Green Hill's are the otter (`445`), the koala (`450`) and the kangaroo (`449`), in turn; Ice Mountain's the otter, the seal (`437`) and the penguin (`443`), which hops away like the kangaroo. It hops up at 4 px a frame and lands on the ground; the otter and the koala then sit, and the kangaroo hops away to the left at 2 px a frame.
 3. The points (`709`): 100, 200, 400, 800, then 1000 for each enemy after that, counted since Sonic last touched the ground. They rise 1 px a frame for 60 frames, stay for 30 more and go. Every 50,000 points give a life.
 
 The defeat plays song 138.
@@ -409,7 +412,7 @@ Losing a life destroys every task, so nothing after Sonic runs on that frame, an
 
 ### HUD
 
-The HUD is twelve sprites at priority 0, in front of every layer and sprite. It comes from the UI graphics table, whose entries are a tiles pointer, a palette pointer, then the tiles per glyph, the sprite size and shape, and the width and height in tiles. Tiles are 4bpp with the low nibble on the left. The HUD uses three entries:
+The HUD is twelve sprites at priority 0 and OAM order 3, in front of every layer and every sprite but the priority-0 ones with a lower order (0 to 2), such as Ice Mountain's water surface and Yukimaru's snowball, which the GBA stacks in front of it. It comes from the UI graphics table, whose entries are a tiles pointer, a palette pointer, then the tiles per glyph, the sprite size and shape, and the width and height in tiles. Tiles are 4bpp with the low nibble on the left. The HUD uses three entries:
 
 - **Entry 0, the 8 × 16 font.** Its `0`–`9` and `:` (tiles 32–53) are the white glyphs. The same characters at tiles 224–245 are red.
 - **Entry 5, the 32 × 32 ring icon.** It shares the font's palette, which the HUD loads into sprite palette 6.
@@ -452,7 +455,7 @@ The Japanese name's 16 tiles are put together as `LoadStageIntroGraphics` loads 
 
 **The fade.** The act fades in from black under the card. It uses window 0 over the whole screen with every layer and sprite set as the first target of the brightness decrease, by `bldY` = (32 − level / 256) / 2 sixteenths. The level starts at 96 and, from the card's 22nd frame, rises by 96 a frame until it reaches 8192 (on its 106th frame); the screen is black until then. While the fade runs, and on every frame up to the 106th, the card's sprites are semi-transparent, blended at full weight over what is behind them, so the fade leaves them alone. After that they are normal sprites. When the card ends, the window and the blending are switched off.
 
-**Skipping and the end.** A press of A, B or the pad from the card's 36th frame to its 214th sets it to its 215th frame, sets the fade's step to a tenth of what is left, and steps the fade once at once. Everything then slides out, and the card ends on its 226th frame with nothing drawn (see [Dying and the restart](#dying-and-the-restart) for what it holds). The HUD appears the frame after. The card plays no sound.
+**Skipping and the end.** A press of A, B or the pad from the card's 36th frame to its 214th sets it to its 215th frame, sets the fade's step to a tenth of what is left, and steps the fade once at once. The sped-up fade ends partway through a step; once it is done the card stops setting the blend, and the act's own blend shows from the next frame. Everything then slides out, and the card ends on its 226th frame with nothing drawn (see [Dying and the restart](#dying-and-the-restart) for what it holds). The HUD appears the frame after. The card plays no sound.
 
 **What mGBA shows.** mGBA (the reference) darkens its 8-bit colours rather than the GBA's 5-bit ones: red loses `r × bldY / 16` rounded down, green and blue keep `g × (16 − bldY) / 16` rounded down. The renderer does the same, so its frames match mGBA's.
 
@@ -464,7 +467,7 @@ The Japanese name's 16 tiles are put together as `LoadStageIntroGraphics` loads 
 
 ### Start positions
 
-A pair of 16-bit values (x, y) per level, in pixels, right after the collision table. Neo Green Hill Zone act 1 starts at (104, 444). The four multiplayer stages are (0, 0): they use a separate table of per-player positions.
+A pair of 16-bit values (x, y) per level, in pixels, right after the collision table. Neo Green Hill Zone act 1 starts at (104, 444), Ice Mountain Zone act 1 at (104, 180). The four multiplayer stages are (0, 0): they use a separate table of per-player positions.
 
 ### Sonic's animations
 
@@ -530,6 +533,85 @@ Sonic's sensors follow SA1's player code. His position is his centre; the sensor
 
 The walk and run frames turn with the angle through the rotation hardware (see [Rotation hardware](#rotation-hardware)).
 
+### Ice Mountain Zone act 1
+
+Ice Mountain is zone 4 in the original's numbering (3 counting from 0, as `levels.js` does). Act 1 is level 6 in the ROM's per-level tables and starts with `?level=6`. Addresses are the USA ROM's.
+
+**The act.** `StageInit_Zone4Act1` (`0x0803DDCD`) starts song 18 and two palette animation tasks, `822` and `821`, and sets the water: its line at y 1546 and its colour `0x7F20`. Sonic starts at (104, 180). The layers are tilemap entries 18, 19 and 20, and the falling snow is entry 71 (`TM_ICE_PARADISE_SNOW`). The act has 329 rings, 21 item boxes and these entities:
+
+| Kind | What | Count | Where it is described |
+| ---: | :--- | ---: | :--- |
+| 0 | Stage goal | 1 | A stand-in until [#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69) |
+| 1, 2, 5 | Spikes up, down and hiding | 7, 3, 3 | [Spikes](#spikes) |
+| 7–14, 17–24, 31 | Checkpoints, springs, layer toggles, grind rails, thin, falling and crumbling platforms, boosters | | Their own sections; zone 4's thin platforms are `523` |
+| 46 | Forced slide | 3 | [Forced slide](#forced-slide), with the ice splash `562` |
+| 55, 75, 81, 85, 89, 91, 95, 114 | Square platforms, hook rail, moving springs, sinking and rising platforms, ferris wheel seats, blocks of ice, breakable wall | 4, 1, 3, 2, 3, 17, 2, 1 | Shared with act 2 ([#72](https://github.com/NahuelGenchi/onsoku-advance/issues/72)) |
+| 69 | Deep snow | 5 | Below |
+| 84 | Skating stone | 2 | Below |
+| 94 | Air bubbles | 10 | Below |
+| 102 | Special spring | 1 | The special stage's entrance ([#75](https://github.com/NahuelGenchi/onsoku-advance/issues/75)) |
+
+Enemies: Yukimaru on the ground (kind 16, 6) and on a wall (17, 1), Drisame (18, 4), Kuraa (19, 2) and Pen (20, 4). Defeating one frees the otter, the seal and the penguin in turn.
+
+**Background and snow** (`CreateStageBg_Zone4`, `StageBgUpdate_Zone4Acts12`). The background (BG3, 256 × 512) moves 16 px across over the act's whole width and 352 px down over its height. The snow (BG0, 256 × 256) lies over everything: it drifts right with the camera and the clock, falls a pixel a frame, and its tiles move on every 12 frames (frame `(stage time − 1) / 12 mod 8`). It is added to what is under it (`BLDALPHA` 16/16). BG0 is off on the act's first two frames. While the title card's fade runs, the fade darkens every layer, which leaves the snow drawn as it is, and so does the card's last frame, where the blend is cleared.
+
+**Deep snow** (kind 69 in zone 4, `Task_SlowingSnow`; other zones make this kind a conveyor belt). On every frame Sonic's position is in its box, `d2` × `d3` tiles from its spawn point, both edges in, and he is on the ground, his ground speed drops to 95% of itself, rounded toward zero.
+
+**The water** (`water_effects.c`, `underwater_effects.c`). Its task (`0xFFFE`) runs after the stage's clocks and moves the line a pixel toward its target on odd frames. The line's place on the screen (0 above the top, 255 below the bottom) is taken by the VBlank callback (`sub_8011A4C`), so each frame is drawn with the line the tasks worked out the frame before. The VCount interrupt at that line switches the rest of the screen to the water's look:
+
+- the background's colours become the stage's mixed with the water's, `((c & 0x7BDE) + (((c & 0x739C) + (0x739C & 0x7F20)) >> 1)) >> 1`, all but the last 24 (colours 232 to 255), which keep the colours above the line. The colours mixed are those the palette animations had while the title card showed (`InitWaterPalettes` copies them on each of its frames); the act's later steps don't reach them;
+- sprites use the same mix of their own colours;
+- the snow is off;
+- the background wavers (`sub_8007738`, from BG3's scroll): up to 2 px sideways with a wave every 16 lines of the background, and up to 10 px up and down with one every 32.
+
+The surface is animation `563`, one 16-px sprite drawn 17 times along the line, a pixel under it, on the frames with bit 1 of the clock set, its waves moving left with the camera and a pixel every 4 frames. In priority 0 and OAM order 0 it shows in front of the HUD.
+
+**Sonic in the water** (`Player_HandleWater`). He is in the water while his centre is 4 px or more below the line. There his top speed is 2.25, his acceleration 4/256 and deceleration 48/256, gravity 12/256, his jump 2.625 and the jump's release cap 1.5. Going in halves his X speed and quarters his Y speed; coming out doubles his Y speed. Each makes a splash on the line (`581`, `CreateWaterfallSurfaceHitEffect`) and plays song 190, at most once every 10 frames. Under water:
+
+- every 16th frame of the clock, one time in four (the game's random numbers), he lets out a small bubble (`753`) 4 px in front of him and 4 px up;
+- a second goes every 60 frames from 30. At 12, 10, 8, 6, 4 and 2 a number (`781`, 5 down to 0) appears over him: it stays where it appeared on the screen, grows to full size over 32 frames, rises over 64 and goes after its 129th. At 11 the drowning music, song 27, takes the place of the act's; when it ends, after 620 frames, the music manager starts song 18 again. Below 0, 31 seconds after he went in, he drowns: song 192 plays in place of 119, and bubbles keep coming out of him (`Task_SpawnBubblesAfterDrowning`) until the act starts over;
+- out of the water the count starts again from 30 and the drowning music stops.
+
+Bubbles (`SpawnAirBubbles`) rise half a pixel a frame, swaying, grow to full size over 16 frames and burst 3 px below the line, after 481 frames or off the screen; while 12 are rising no more are made. Some come in groups (`754`), flipped at random.
+
+**Air bubbles** (kind 94, `air_bubbles.c`). A spot on the ground (`533`) lets out a stream of small bubbles and, every 301, 241, 121, 261, 301, 121, 201 and 121 frames in turn (`gUnknown_086CEE60`), a big one (`532`). The big bubble rises half a pixel a frame, swaying up to 8 px either way. From its 80th frame, Sonic's body touching it takes a breath: song 191, his moves end, he uncurls, stops dead and the drowning count starts over, and the drowning music stops. The bubble then stays where it is for 16 frames and bursts.
+
+**Yukimaru** (`yukimaru.c`, animations `422` on the ground, `423` on a wall, snowball `427`; its sprite is a half, drawn again mirrored). On the ground it walks 0.625 px a frame between `d0` × 8 and (`d0` + `d2`) × 8 px right of its spawn point, 6 px above it and following the floor. On a wall it climbs the same way between `d1` × 8 and (`d1` + `d3`) × 8 px below it, keeping to the wall (on its right when `d0` is set). Away from the ends, 60 frames after its last throw, it throws a snowball straight up when Sonic is above it and no more than 8 px to either side, or, on a wall, across and away from it when he is level with it within 8 px. The snowball passes through Sonic, hurting him, and goes only off the screen. In priority 0 and OAM order 1 it shows in front of the HUD.
+
+**Pen** (`pen_mk1.c`, `426`, snowball `428`, its pieces `429`). It walks 0.625 px a frame between (`d0` + 1) × 8 and (`d0` + `d2`) × 8 px right of its spawn point, following the floor and facing the way it goes. Away from the ends, 60 frames after its last throw, it stops to throw a snowball when Sonic is less than 80 px away. The snowball slides off along the ground and bursts into two pieces. While it throws, it follows the floor twice a frame from the same place, so on a slope it moves twice as far toward it, as the original does. The original makes no Pen on Easy; this game has no difficulty setting.
+
+**Skating stones** (kind 84, `skating_stone.c`). Act 1 has two, at (3480, 1504) and (6264, 1080), with zone 4's look (`529`, pieces `553` and `554`). A stone waits until Sonic lands on it, then slides off with him, gathering speed downhill, to the left when `d1` is set. Where the ground drops away, Ice Mountain's stones drop (other zones' leap), and song 198 plays when one slides on after landing. It lands `d0` times and goes on, and breaks on the next landing or against a wall, throwing Sonic up, with song 143.
+
+**Palette slot 11.** The blocks of ice (`555`, shards `556` and `557`), the stones (`529`) and their large and small pieces (`553`, `554`) all load into sprite palette 11. Palettes 60, 63 and 74 are the same there and 69 differs in colours 1 and 10–14. So once a stone or a block of ice breaks, its large pieces leave 69 in the slot (a stone's on every frame they show, a block's once, as they're made after the small ones), and the blocks of ice and stones on the screen are drawn in 69's colours until another of them loads its own (see [Sprites](#sprites)).
+
+**How it was checked.** mGBA 0.10.5 with the USA ROM, started at the act through its level and start position in memory, with Sonic placed by memory writes and 48 rings given. The engine ran each recording's inputs; Sonic's position and speeds matched mGBA's on every frame of all of them, and the screen matched pixel for pixel apart from the differences listed below:
+
+| Recording | Frames | What it covers |
+| :--- | ---: | :--- |
+| The act's start | 293 | The title card over the act, the snow, the background |
+| Running right | 943 | The first stretch, Yukimaru on the ground |
+| Into the water | 1483 | The surface, the splash, the screen under the line, the waves, the line moving |
+| Drowning | 2393 | The countdown, its numbers and music, drowning, the bubbles after, the restart |
+| A breath | 543 | A big air bubble, its breath and song 191 |
+| Yukimaru | 543 × 2 | On the ground and on a wall, with throws |
+| Yukimaru defeated | 542 | A spin dash through one, the dust, the otter, the points, the hiding spikes rising and sinking |
+| Pen | 543 | Walking, throwing, the snowball's slide and burst |
+| Down spikes | 493 | Hit from below |
+| Hook rail | 643 | The rail at (8064, 288) |
+| Skating stones | 843 × 2 | Both stones, their slides, drops and break |
+| Block of ice | 443 | A break and its shards |
+| Forced slide | 342 | A slide with the ice splash |
+
+The water line, the stage clock and the camera were also compared with `gWater` (`0x03006080`), the stage time (`0x03005120`) and the camera (`0x03005940`) in the water and drowning recordings, and the songs the engine starts with mGBA's music players in a drowning run: 190 going in, 27 at 11 seconds, 192 drowning and 190 again after the restart, each on the same frame. mGBA's player shows song 18 coming back 620 frames after 27 started.
+
+Differences that remain, none of them in the game's state:
+
+- On some frames mGBA's VCount interrupt runs a line late (the CPU is busy), so the waves start one row lower and the row above the line keeps the colours from above it.
+- During the title card only, with the water line on the screen: the surface's sprites sit between the card's pieces in OAM, so parts of the card show behind them; Yukimaru's snowball shows garbled tiles in mGBA; and under the line the card's pieces take the live sprite colours (`InitWaterPalettes` copies them every frame), where the engine uses its own under-water copy. No start or checkpoint in act 1 puts the line on the screen during the card.
+- A sprite with a lower OAM index but a lower priority than another still hides it on the GBA (the lowest index decides the pixel, then the priority). The engine stacks by priority first. It showed on one pixel for three frames, where the points passed under the HUD's timer.
+
+Read in the code only: Pen snowball's other burst conditions, the hiding spikes' first-frame push in this act (checked on Angel Island), the music manager's restart of song 18 in the engine (mGBA shows it on time, the headless runs don't run the music), and the square platforms, moving springs and sinking platforms in act 1 (checked on act 2).
+
 ### Sound
 
 SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "Sappy"). [`src/sound/m4a.js`](../src/sound/m4a.js) is a port of it that reads the songs, voices and samples from the ROM as the original does, and runs on an AudioWorklet in the browser.
@@ -576,6 +658,15 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Trampoline | 176 | 2 | Every bounce |
 | Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |
 | Rings from a box | 117 | 3 | The ring prizes, once for the lot |
+| Ice Mountain Zone act 1 | 18 | 0 | Act 1 starts, and starts over after a life is lost; also when the drowning music ends |
+| Drowning | 27 | 0 | Sonic has been under water for 20 seconds, in place of the act's music, until he comes out or breathes |
+| Splash | 190 | 2 | Sonic goes into the water or comes out, at most once every 10 frames |
+| Air bubble | 191 | 2 | A breath from a big air bubble |
+| Drowned | 192 | 2 | Sonic drowns, in place of song 119 |
+| Hook rail | 180 | 2 | While a hook rail carries Sonic |
+| Block of ice | 193 | 2 | A block of ice breaks, after the item box's 138 |
+| Skating stone | 198 | 2 | A skating stone slides on after landing |
+| Skating stone breaks | 143 | 1 | A skating stone breaks |
 
 Sounds on the same player cut each other off, as in the original. There is no landing sound in SA1.
 

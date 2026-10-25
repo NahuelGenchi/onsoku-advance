@@ -617,6 +617,66 @@ Sonic's sensors follow SA1's player code. His position is his centre; the sensor
 
 The walk and run frames turn with the angle through the rotation hardware (see [Rotation hardware](#rotation-hardware)).
 
+### Casino Paradise Zone act 2
+
+Level 5, `?level=5` in the address. Casino Paradise is zone 3 in the original's numbering (2 counting from 0, as `levels.js` and `stage.zone` do). Addresses are the USA ROM's; the decompilation's are the European ones, and for the boss's tables the USA address is the European one less `0x7100`.
+
+**The stage.** `StageInit_Zone3Act2` (`0x0803D90C`) makes eleven palette animations (816, 817, 818, 824, 825, 827, 827, 828, 843, 844, 826), each cycling one row of the background's colours, and starts song 17. 827 runs twice: two tasks load the same colours together. `StageBgUpdate_Zone3Acts12` scrolls the 256 × 256 background in bands, and the fireworks in it (animations 482 and 483) are sprites at background priority 3, drawn between the background and the back layer. They take the game's random numbers every 4th frame, which the boss's choices depend on. The act's thin and falling platforms and its ferris wheels' seats are 495 (`sPlatformThinAnims` and `gUnknown_086CEE2C`, `0x086C8D48`). Its wall poles are red flags lying on their side (470).
+
+**The title card.** Started on its own (from the course select, `?level=5`, or after a death), act 2 plays act 1's card. The card's act-2 branches test `(gCurrentLevel & 1) && gFinalBossActive != gCurrentLevel`, and in SA1 `gFinalBossActive` holds the level whose card last ended, which `ApplyGameStageSettingsAndStart` sets to the level the game starts at. The act-2 card only plays when act 2 follows act 1 in the same game, which belongs to the end of act 1 ([#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69)).
+
+**Objects.**
+
+| Kind | Object | In act 2 | Animation |
+| ---: | :--- | ---: | :--- |
+| 4 | Spikes pointing right | 3 | `454` variant 3 |
+| 42 | Red flag | 6 | `469` (still 0, swinging 1) |
+| 60 | Ship swing | 2 | ship `491` (half, drawn twice), hook `490`, link `489` |
+| 61 | Spiked platform | 5 | `521` in zone 3, `538` up and `539` down elsewhere |
+| 62 | Bowl | 4 | `486` |
+| 63 | Panel gate, upright | 3 | `496` (shut 0, spinning 1) |
+| 64 | Panel gate, lying | 1 | `497` (spinning 0, shut 1) |
+| 74 | Carousel | 2 | top `487`, pole `583` |
+| 91 | Ferris wheel seat | 8 | `495` (Ice Mountain's `ferriswheels.js`) |
+| 114 | Breakable wall | 2 | `559` (Ice Mountain's `breakablewalls.js`) |
+
+- **Red flags** (`red_flag_and_pole.c`). Sonic running into one on the ground, facing the way it points, at more than 3 px a frame (5.25 rolling), swings round it: 15 px behind the pole for 7 frames, then carried on 10 px and 7.5 px a frame for 6 frames, and let go at 10.5 px a frame or more. Sonic's character state 30 is animation 37.
+- **Ship swings** (`ship_swing.c`). A ship on a hook and five links, swinging with the stage clock. Sonic can stand on the hook and on the ship, which carries him 5 px above its point. Stepping off keeps it from taking him again for 5 frames.
+- **Spiked platforms** (`platform_spiked.c`). A solid block that swings as a thin platform does, with spikes on its top (`d0` 0) or bottom. In zone 3 the code picks animation 521 and spikes up whatever `d0` is (act 2 has platforms with `d0` 1 and 251). Landing on the spikes, or hitting them from below, hurts Sonic; squeezed into a wall or ceiling by the block, he dies.
+- **Bowls** (`bowl.c`). Sonic's body touching its box (moved 10 px toward him and 5 down) catches him (song 206). It whirls him round its middle 32 px out, from where he came in and as fast as he came, faster each frame, while it sinks 108 px with him. Songs 207 and 208 follow 56 and 112 frames later. At the bottom it spins him 64 times more on a narrowing circle and drops him out curled up.
+- **Panel gates** (`panel_gate.c`). An upright gate opens for Sonic running right (left when `d0` is set) within 32 px before it; a lying one opens for him falling (rising when `d0` is set) within 28 px of it. Opening plays song 185, sets his standing height (`PLAYERFN_CHANGE_SHIFT_OFFSETS(6, 14)`) and spins the panel for 125 frames. While it spins only the side he would come back through is solid. The upright gate pushes him out with `Coll_Player_Gate`, its attack test off; the lying one is solid as a platform.
+- **Carousels** (`carousel.c`). Within 8 px of its pole, from 48 px above its point to 12 px below, it takes Sonic (character state 33, animation 40; song 209). His ground speed becomes 7.5 px a frame the way he was going, and its spin starts from his speed (`|xsp| × 4`) and gains `0x40` a frame up to `0x8000`. It sinks 481 px (`0x3C2A58` in 1/8192 px). Its sound is song 209 every 25 frames, 210 every 16 from spin `0x3200`, and 211 every 8 from `0x4B00`. At the bottom it lets him go after 300 frames, or as soon as left or right is held on the frame before, curled up in the air at `((spin >> 2) − 0x7D0) × 2 / 3` / 256 px a frame. He goes the way he holds, or else the way he came.
+- **The OAM order an animation sets.** Animation command −12 (`animCmd_SetOamOrder`) sets the sprite's OAM order, which it keeps after the animation. Only animations 40, 139, 239 and 338 use it. Sonic's carousel animation (40) puts him behind the pole for part of each turn, and he keeps the last order it set until the carousel lets him go.
+- **Sonic's standing height.** `Player_8044F7C`, `Player_8043A2C` and `Player_8043970` call `PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 14)` whenever they set the walk, turn, brake or idle state. That changes nothing while Sonic already stands at full height. But after something uncurls him without moving him (a red flag's throw), he stays at a ball's height until the next of these, and the shift then moves him on a slope.
+- **Sonic's character states.** The table from character state to animation and variant is at `0x084A6F0C`.
+
+**Enemies.** Hanabii (8) and Slot (9) are shared with act 1. Pierrot (10, `pierrot.c`, animation 418) is a clown on a ball that rolls 0.625 px a frame between `d0` × 8 and (`d0` + `d2`) × 8 px right of its spawn point, following the floor. Sonic curled up bounces off the ball: it moves him by his ground speed against the way he faces, turns him round and reverses his speeds. A rolling Sonic can be trapped by this (#56). Otherwise the ball hurts him. The clown on top is defeated as any enemy is. The code takes `Q(0.1875)`, 48, off its height where a pixel count seems meant; the floor test makes up for it in its first frames, off screen. Act 2's freed animals are the lion (440, sits), the peacock (439, hops) and the parrot (442, flies), from `sAnimsTrappedAnimals` (`0x08681154`).
+
+**The Egg Ball** (enemy 24, `boss_3_egg_ball.c`, spawned at (7664, 2256)). The fight goes like this:
+- **The arena.** When its spawn point comes into range, the camera's bounds close in, a pixel a frame, on 280 px left of it to it, and 184 px above it to 16 px below it. The boss music starts (the music manager's state `0x10`). The spawn also sets the game's random numbers to `gFrameCount`, the frames since the GBA was switched on. That is 3838 on an act's first frame when it is started from the course select, and the engine counts it from there.
+- **The pipes.** Eight pipes, two in each wall, the floor and the ceiling (`gUnknown_084ACDD2`, `0x084A5CD2`), slide a pixel a frame into place from 32 px out (`0x084A5D12`), 90 frames after the spawn. The two in the floor are solid.
+- **The entrance.** Two seconds after the spawn the mobile appears 85 px left of the spawn point and rises 80 px, a pixel a frame. A second later Eggman laughs, and a second after his laugh it climbs out of sight, 208 px up, and the spike ball is made.
+- **The passes.** After a second unseen, a pass picks one of eight pairs at random (`gUnknown_084ACEA4`, `0x084A5DA4`). Each pair is the mobile's path and the ball's, two of eight straight lines across the arena: across at two heights each way, or up and down at two places each way (`gUnknown_084ACE24`, `0x084A5D24`). Both move at their path's speed (489/256 px a frame across, 352/256 up and down) times a factor that grows with the hits taken: 1.0 for up to 3, then 1.2, 1.4 and 1.6 (`gUnknown_084ACDC0`, `0x084A5CC0`). A pass ends when the mobile leaves the arena, and the next comes a second later.
+- **Hitting it.** Sonic's attack box on the mobile (`Coll_Player_Enemy`) hits it (song 143): Eggman winces, and it can't be hit again for 32 frames. It flashes on two frames in every four of the first 16. The ball can't be hit, and it hurts Sonic. Eggman laughs whenever Sonic is hurt. Hit four times, it sets a pinch flag that nothing reads.
+- **The defeat.** The eighth hit beats it (song 144, 1000 points). The camera stops across, its top bound pans 40 px down and its bottom bound a screen down, and the thin platforms' tasks are removed (`TasksDestroyInPriorityRange(0x2010, 0x2011)`). The mobile falls and bounces off the floor with three quarters of its speed until it is slower than a pixel a frame, throwing debris and an explosion every 8 frames. The ball flies off toward the screen's middle, bouncing and exploding, for three seconds. The pipes slide back out at 2 px a frame.
+- **The escape.** 241 frames after it was beaten, Eggman escapes in the Egg Mobile, the star disc (623) flies off through the rotation hardware, and the music manager's state `0x30` ends the boss music. The original makes the capsule that ends the act there (`CreateBossCapsule`). The engine calls `world.bossDefeated(x, y)` at that moment, and the capsule and the end of the act are left to [#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69).
+
+**The hit flash.** A boss's flash makes its sprite an OBJ window inside which the screen brightens to white (`BLDY` 16). In mGBA (checked against a debug build of its renderer) only the background and the layers turn white inside the window. The sprites there keep their colours, since nothing is a second target, and so do the backdrop and the HUD. The engine draws it the same way. Each explosion plays song 144 when it first shows, because animation 611's script starts it.
+
+**How it was checked.**
+- *The recordings.* mGBA 0.10.5 recorded the act from the course select: work RAM, OAM, the palettes, the sounds started and a screenshot after every frame. Pokes put Sonic at each object; the engine replays the same pokes and keys. The runs:
+  - the act's start, standing and running right, with the title card;
+  - the red flags, three runs, and a wall pole;
+  - the spikes pointing right, the spiked platforms (two runs), a bowl, the ship swings (two runs);
+  - the panel gates, three runs: an upright one opening, blocking while open and shut, and a lying one opening;
+  - the carousels, two runs: the full 300-frame wait, and an early exit holding right;
+  - a breakable wall (pushed against, then broken by a spin dash), a ferris wheel (ridden and jumped off), Pierrot twice (the roll into its ball and a jump onto it, and a walk into it);
+  - the Egg Ball's whole fight.
+- *The state.* Sonic, the camera and the sounds match on every frame of every object run. The fight matches on every frame from 4180 to 10664, past Eggman's escape; the later 85 frames differ only where the original's capsule lands and shakes the screen.
+- *The screen.* The engine's frames match mGBA's pixel for pixel on every frame of every object run, of the act's start (527 frames), and of three stretches of the fight (391, 71 and 461 frames).
+- *Unchanged elsewhere.* Neo Green Hill act 1 is unchanged over 3000 frames: Sonic, the camera, the sounds and the sprites on every frame, and the screen every 50th.
+- *Only read in the code:* a spiked platform crushing Sonic into a wall or ceiling, and its spikes facing down (other zones); a lying panel gate shutting and being solid from below; a carousel whose rider dies on it; the fight's other difficulties.
+
 ### Sound
 
 SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "Sappy"). [`src/sound/m4a.js`](../src/sound/m4a.js) is a port of it that reads the songs, voices and samples from the ROM as the original does, and runs on an AudioWorklet in the browser.

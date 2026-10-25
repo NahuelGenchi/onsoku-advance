@@ -83,6 +83,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   const world = {
     get tick() { return state.tick; },
     get cameraY() { return Math.floor(state.cam.y); },
+    // the camera and its bounds, which a boss's arena changes (bosses.js) and Sonic's edges follow
+    get camera() { return state.cam; },
     terrain,
     // a hazard touched Sonic (Coll_DamagePlayer): a shield takes the hit, or with rings he drops them all, up
     // to 48 of them scattering, and without any he dies; returns false while he is invincible or still

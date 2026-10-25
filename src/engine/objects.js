@@ -33,6 +33,7 @@ import { createHalfPipe } from './halfpipes.js';
 import { createSlide } from './slides.js';
 import { createSnow } from './snow.js';
 import { createAirBubbles } from './airbubbles.js';
+import { createHidingSpikes } from './hidingspikes.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -161,7 +162,7 @@ function interactable(e, slot, anims, ctx) {
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims)
     ?? createBreakableWall(e, slot, anims) ?? createMovingSpring(e, slot, anims) ?? createSquarePlatform(e, slot, anims)
     ?? createSlowPlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createWaterfall(e, slot, anims) ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx)
-    ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot) ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createSnow(e, slot, ctx) ?? createAirBubbles(e, slot, anims) ?? standIn(e, slot);
+    ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot) ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createSnow(e, slot, ctx) ?? createAirBubbles(e, slot, anims) ?? createHidingSpikes(e, slot, anims) ?? standIn(e, slot);
 }
 
 /**

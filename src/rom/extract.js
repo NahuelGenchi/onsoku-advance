@@ -53,7 +53,11 @@ export const OBJECT_ANIMATIONS = {
 };
 // the spikes (animation 454, palette 35): pointing up, and sideways (flipped to point left)
 export const SPIKES_ANIM = 454;
-export const SPIKE_ANIMATIONS = { spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3] };
+export const SPIKE_ANIMATIONS = {
+  spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3],
+  // the hiding spikes rising and sinking
+  spikesHiding0: [SPIKES_ANIM, 0], spikesHiding1: [SPIKES_ANIM, 1],
+};
 // act 1's enemies and their shots, the dust and points a defeat leaves and the freed animals, by animation;
 // each loads its own palette
 export const ENEMY_ANIMATIONS = {

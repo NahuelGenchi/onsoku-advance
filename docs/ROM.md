@@ -117,6 +117,8 @@ The spring is animation `455`. Its variants come in pairs, idle and launch: 0–
 
 The speed is `7.5, 9.0, 10.5` or `12.0` by `d0 & 3`, or `d1 × 16` (in 1/256 px) when `d0` is above 3. Rising off a spring never goes faster than 11.8125, and the jump moves are off until he lands. An up or diagonal spring plays the somersault (character state 17), or when `d0` bit 0 is set, the rise, top and fall animations (states 21, 18, 19). Act 1 has 12 springs: four up, three right, two big up-right, two small up-left and one small up-right.
 
+**Hidden springs.** Angel Island act 2 has two hidden springs, kind 108, at (7968, 1256) and (7584, 1352). One isn't drawn while it waits (`Task_Spring_Hiding`, `0x08094DCD`, priority `0x2000`). When Sonic's body touches the up spring's box (animation `455`, variant 0, in the spring's red palette), from any side, alive and not held by an object, it launches him straight up at `d1 × 64` (in 1/256 px), 8 px a frame in both of act 2's, with the somersault or, when `d0` bit 0 is set, the rise, top and fall animations, as an up spring does, and plays song 170. Then it shows the launch (variant 1) and launches him again while he touches it. On the frame the launch ends it shows the spring at rest once, and hides again. Its first launch frame shows on the frame after the touch. Amy's hammer, which launches her 1.5 times as fast, isn't built.
+
 ### Platforms
 
 Act 1 has five kinds of platform. Sonic lands on the thin, falling and crumbling ones from above and passes through them from below and from the sides: he lands whenever his body touches the box while he isn't rising, wherever in the box he is. The trampoline and the bounce block are solid like any object.
@@ -137,6 +139,15 @@ Act 1 has five kinds of platform. Sonic lands on the thin, falling and crumbling
 - **Bounce block:** landing on it throws Sonic up at 5 px a frame, facing the way he holds the d-pad, in the walk animation (character state 23), and plays the spring's song 170. In that state he keeps facing that way in the air, and he tumbles: his angle turns 4/256 of a turn a frame the way he faces, drawn through the rotation hardware. That angle also turns off the push out of an object's sides while it points him at a wall, so he can fall past a bounce block's side into the one below. The block wobbles for 30 frames, up to 16 px up and down.
 
 A thin platform goes when its spawn point is off the screen and its current position is out of the range around the camera. A falling one goes the same way until it falls, then when its current position is out of range. A crumbling one goes when its spawn point is out of range, and once it crumbles, only when it is out of range sideways.
+
+### Spiked platforms
+
+Angel Island act 2 has three spiked platforms, kind 61: (2472, 688) with its spikes up, and (2760, 720) and (5416, 824) with them down. `d0` 0 puts the spikes on top (animation `538`, box (−24, −20, 24, 24)), anything else underneath (`539`, box (−24, −20, 24, 23)). It is drawn in OAM order 18 and BG priority 2, and its task (`0x0807F835`) runs at priority `0x2000`. It swings as a thin platform does: across when `d2` is above `d3`, up and down otherwise, by `d2` (or `d3`) × 8 px either side of its spawn point, once every 256 frames of the stage clock, and half a swing on when `d0` (or `d1`) is negative. All three of act 2's move up and down.
+
+- **Its top.** Sonic not rising, with his centre above the platform's spawn point, lands on its top as if it were 8 px higher and is put 8 px down onto it. On spikes, that hurts him; otherwise it carries him by what it moved, plus 1 px down that its top puts him back from. The terrain at his centre puts him back out on the side it carries him to, and a ceiling 5 px above his centre crushes him (he dies where he is) while it carries him up and down.
+- **Its sides and bottom** push him out as a solid object does, out of whichever side he is within 8 px of. Under one that moves up and down, on the ground he is crushed, and in the air spikes underneath hurt him. At the side of one that moves across, holding toward it on the ground moves him 2 px into it, and his centre in a wall crushes him. Off its side, he stops pushing and walks, or rolls in the air.
+
+It goes when its spawn point is out of the range and its current position off the screen. Casino Paradise's, always spikes up, isn't built.
 
 ### Boulders
 
@@ -174,6 +185,8 @@ Each frame, before it steps its animation, the task tests the box its last frame
 - if his ground speed is under 9 px a frame its way, sets his ground and X speeds to 12 px a frame its way.
 
 The booster runs before Sonic, so his own step then works on that speed in the same frame: running on with right held he keeps 3072/256, standing with nothing held he slows by the friction at once, on the slope it turns with the angle, and holding the other way he brakes on the same frame (the skid's song 115 then takes the booster's place on player 2). In the air, jumping or hopping over it, he isn't touched.
+
+**Steep boosters.** Angel Island act 2 has one booster on a steep slope, kind 100, at (2816, 872): animation `571` (its arrows turned counter-clockwise), three frames of 1 frame each, with the box (3, 0, 18, 23). Kind 101 is the same with `570`, turned clockwise, box (4, −8, 20, 22); act 2 has none. Both run the booster's task above, with the same speeds.
 
 ### Checkpoints
 
@@ -268,6 +281,30 @@ When it lifts him, the half-pipe also picks his state, unless he is curled up or
 
 Sonic's own step then runs as on the ground: his speed along the flat, his input, and his ground sensors, which find no floor under him and put him in the air until the next frame's lift. So he keeps his ground speed, with the walk's friction, over the whole half-pipe. Braking, slowing down below 2.25 or jumping lets him go and he falls into the drop. A Sonic who rolls in is lifted the same way, still rolling. Landing, any move that ends his attacks (`Player_TransitionCancelFlyingAndBoost`) and the ends of the B moves clear the flag too.
 
+### Tubes
+
+Angel Island act 2's tubes curl Sonic up and carry him through on his own speed. A tube's mouth is a pair: kind 34 curls him up and kind 35 lets him go, each a box `d0, d1` tiles (signed) from its spawn point and `d2 × d3` tiles big, left and top edges included. Act 2's are all 24 × 32 px. Running in, he crosses kind 35 first, which does nothing yet, then kind 34. At the far end he crosses kind 34 again, then kind 35. Act 2 has two tubes, from (3912, 1224) to (4128, 1416) and from (6792, 456) to (7008, 648). They have no sprites. Their tasks (`Task_Interactable034`, `0x0804D6FD`, and `Task_MiniLoop_Base`, `0x0804D8B5`) run at priority `0x2000` and test Sonic's centre where he was at the end of the previous frame. Each goes once its spawn point is more than 128 px from the screen, and clears the half-pipe flag as it goes.
+
+On every frame his centre is in kind 34's box, alive, it:
+
+- ends his attacks, mid-air moves, spin dash charge and push (`Player_TransitionCancelFlyingAndBoost`) and lets go of an object's hold,
+- keeps him curled up (`moveState` bit `0x200`): landing doesn't stand him up, a roll that slows to a stop starts again at 3 px a frame the way he faces, with the rolling song, and rising isn't capped,
+- turns on the spin attack and holds his controls (`MOVESTATE_IGNORE_INPUT`), with nothing held or pressed,
+- puts him in the roll (character state 5), curled up with his feet where they were,
+- starts song 109, the roll's, unless it is already playing.
+
+Kind 35's box clears that bit and gives his controls back, with the jump and attack buttons he holds then counting as held, so he can't jump until he presses again. He comes out still rolling.
+
+### Hang bars
+
+Angel Island act 2 has two hang bars, kind 83: an invisible bar along the top of a box `d0, d1` tiles (signed) from its spawn point and `d2 × d3` tiles big, edges included. They are at (2344, 1200), 224 px wide from x 2240, and (3344, 1392), 320 px wide from x 3200. Its task runs after Sonic's, at priority `0x8000`, so it sees where he is this frame. It goes when its spawn point is out of the range, but not while it holds him.
+
+**Catching him.** Falling (his Y speed above 0), alive, with his centre in the box, he is caught: his angle goes to 0, his attacks and mid-air moves end (`Player_TransitionCancelFlyingAndBoost`), the bar holds him (`MOVESTATE_IA_OVERRIDE`) on the ground, 18 px under the bar's spawn point, with his feet where they were and a spin attack he had still on. His Y speed stays as it was.
+
+**Hanging.** Each frame after that it moves him 2 px the way he holds the d-pad, facing it, in character state 36 (animation 41, variant 1), or leaves him still in state 35 (animation 41), and puts his centre 16 px under the bar. Both loop over four frames, 10 frames each when still and 5 when moving. Rings and objects still meet him.
+
+**Letting go.** Pressing jump, or his centre past either end of the bar, drops him: in the air, 22 px under the bar, falling from rest, with the spin attack on and his sprite offsets as they were, in character state 18 (the spring's top-out, then the fall). His ground and X speeds become 2 px a frame the way he holds, or 0. A Sonic who dies on it is let go.
+
 ### Forced slide
 
 Act 1 has one forced slide, kind 46, at (7904, 1080), at the top of the water slide that drops to the up spring at (8048, 1304). Its box is `d2 × d3` tiles from its spawn point, edges included, 104 × 56 px here, and it tests Sonic's centre where he was at the end of the previous frame, if he is alive. Its task (`Task_ForcedSlide`, `0x08078185`) runs at priority `0x1000` plus `d1` (as a signed byte), here `0x1000`: after the camera and before the other objects. `d0` is its direction: clear, as here, it sends Sonic right; set, left.
@@ -280,7 +317,7 @@ On every frame his centre is in the box, he is on the ground and not on an objec
 - puts him in the knocked-back state (character state 15, animation 19), uncurled with his feet where they were,
 - draws the splash under him (animation `474`, in OAM order 3 and BG priority 2, mirrored when `d0` is set) at his centre, stepping its animation only on those frames.
 
-His own step then runs with the slope's pull and the walk's friction, so he slides at about 4 px a frame. It only starts on him once the one-tile floor probe from his centre (`sub_801F07C`) finds the ground within 3 px; walking in, that happens a few pixels down the slide. Zone 5 also plays song 201 when it starts.
+His own step then runs with the slope's pull and the walk's friction, so he slides at about 4 px a frame. It only starts on him once the one-tile floor probe from his centre (`sub_801F07C`) finds the ground within 3 px; walking in, that happens a few pixels down the slide. In Angel Island (zone 5) it also plays song 201 when it starts, and the splash is mud: animation `568`, three frames of 3 frames each.
 
 In the box but in the air, it lets go of him on the first such frame: his controls come back, with the jump and attack buttons he holds counting as held, so he can't jump or attack until he presses them again. That is how it ends in act 1, as the slide drops away under him. Leaving the box on the ground while it holds him lets go the same way and fades out sound effect player 2 (`m4aMPlayFadeOut`, speed 4); in act 1 he can't leave it that way.
 
@@ -326,6 +363,26 @@ Each enemy's sprite carries its hitbox in its script. Sonic's sprite has two box
 3. The points (`709`): 100, 200, 400, 800, then 1000 for each enemy after that, counted since Sonic last touched the ground. They rise 1 px a frame for 60 frames, stay for 30 more and go. Every 50,000 points give a life.
 
 The defeat plays song 138.
+
+### Mecha Knuckles
+
+Angel Island act 2's boss is enemy 26, spawned at (9256, 1168), near the act's right end. Its task (`CreateEntity_MechaKnuckles`) runs at priority `0x2000`, and once spawned it doesn't spawn again until the act starts over. Its position is kept in 1/256 px from its spawn point, and it starts 208 px right of it and 32 px above. It has 8 lives on the normal difficulty (the original takes 2 off for each step of its difficulty setting, which this game doesn't have) and its second phase starts at 4. From its spawn on, scattered rings bounce off ceilings as well as floors, until the act starts over.
+
+**The arena.** When it spawns the camera's right edge stops at the spawn point and its top and bottom close in a pixel a frame on the screen above the spawn point. The left edge follows the camera until Sonic is 32 px past the spawn point. Then Sonic stops, facing right, with his controls held, while the left edge creeps up to the spawn point; once the arena is closed it rises from the ground (animation `631`), Sonic is taken aback (character state 39, animation 24) until his animation ends, and the boss music starts (the music manager's state `0x11`: song 30, started over whenever it ends). The jump and attack buttons he holds then don't count as presses. Its states come from a table of 25 entries: what it does each frame and as it starts, its speeds, accelerations and timer, how it faces and moves, its half width and height, and its animation in each phase. It stays 6 px inside the screen-wide strip from its spawn point, and the back layer's floor under its feet catches it.
+
+**Its attacks**, chosen by how far Sonic is and the game's random numbers (`sub_804ED80`) after each one:
+
+- *Waiting* 90 frames, facing Sonic.
+- *Spin jump into a glide:* up at 4.875 px a frame (song 116), then gliding at 3 px a frame away from Sonic's side as its fall eases toward 0.5 px a frame, landing at the arena's edge or 32 px past him.
+- *Spin dash:* 60 frames of charge (song 109), then across the arena at 4.5 px a frame (song 110) to the far edge.
+- *Punch*, in the first phase, when Sonic is within 32 px on the ground.
+- *Rocket*, in the second phase only, when Sonic is 80 px away or more: the rocket leaves its arm the way it faces (song 200, two screen shakes), and turns toward where it would cross Sonic from its 25th frame, leaving brake dust behind it; the recoil pushes the boss back.
+
+**Hitting it.** Each frame it first tests Sonic's body against its box 1: that hurts him. Only when that found nothing, and it isn't blinking, his attack box on its box 0 knocks him back (his speeds reversed) and hits it, unless it is waiting or covering up and he is on the ground: then it covers up instead (animation `642`). A hit takes a life, knocks it up and away and makes it blink for 32 frames, drawn as an OBJ window, so nothing shows in its place. The hit that leaves it at 4 lives halves its fall, smokes it with explosions and starts the second phase as it lands, with its own animations (`644`–`657`) and song 31 (the music manager's state `0x12`).
+
+**Beaten**, it gives 1000 points, bounces off the arena's sides as it falls smoking, lies there for 120 frames and falls apart on the next explosion into five pieces (animation `658`, variants 0–4) that spin away through the rotation hardware. Eggman comes in from the right in the Eggmobile (`693`, Eggman `694`) as the arena opens to the act's right end; when he is all on screen he laughs, and when that ends the original makes the capsule that ends the act there (`CreateBossCapsule`), and the music manager's state `0x32` stops song 31 and starts the act's music again, fading in; the manager then leaves the music alone for the rest of the act. He turns and flies off to the right at 4 px a frame. The explosions (`611`) each show their own frame of the animation, every eighth frame of the stage clock within 16 px of it.
+
+**How it was checked.** mGBA 0.10.5 with the USA ROM, the boss's memory, Sonic and the camera read after every frame: a scripted fight of 3300 frames (8 hits, both phases, rockets, the defeat, the pieces and the Eggmobile leaving) and a second of 1200 frames that rolls into it while it waits (the cover-up and its second landing) match on every field and every frame. The screen matches pixel for pixel through the first hit and blink, the punch, the rockets, the second phase, the cover-up and the defeat, apart from the capsule, which isn't built yet. Read in the code only: the other difficulties, a rocket turning with nothing to divide by, the rocket's hitbox before its first frame sets it (taken as none), and song 200 going on when the act starts over with a rocket out.
 
 ### Item boxes
 
@@ -488,7 +545,8 @@ Sonic's character state picks his animation through a table of 94 `(animation, v
 | Push | 12 | Balancing, facing the drop | 13 |
 | Balancing, back to the drop | 14 | Hanging on a wall pole | 38 |
 | Grinding | 44 | Grinding, steep | 44, variant 1 |
-| Jumping off a rail before its end | 45 | | |
+| Jumping off a rail before its end | 45 | Hanging on a hang bar | 41 |
+| Moving along a hang bar | 41, variant 1 | Taken aback by Mecha Knuckles | 24 |
 
 **Pushing.** Walking into a wall, or into the side of a solid object or a spring's back, sets the push flag (`moveState` bit `0x20`), and every frame it's set the animation chooser picks the push (character state 14). Rolling into a wall doesn't. Landing, leaving the ground, turning round, jumping, getting hurt, walking off an object and standing still on level ground clear it.
 

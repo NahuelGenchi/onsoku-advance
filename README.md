@@ -65,7 +65,7 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 ## Status
 
 > [!NOTE]
-> **Pre-alpha: the first playable prototype is in.** The game opens as the original does, with the SEGA and Sonic Team logos and the intro, timed to its music; the title screen and the menus are next, so for now the act starts where the title screen would, when the intro ends or is skipped. Sonic runs through the whole of Neo Green Hill Zone act 1, read from your ROM with its collision: slopes, walls, ceilings, jump-through ledges and loops, with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, his insta-shield, mid-air dash and B-button ground combo, and the original camera. The act's springs, spikes, rings, enemies, item boxes, platforms (swinging, falling and crumbling platforms, the trampoline and the bounce blocks), boulders, waterfalls, speed boosters, checkpoints, wall poles, grind rails, the incline ramp, the half-pipe and the forced slide work as in the original, and the waterfalls and the sea cycle their colours as they do there: enemies can be destroyed for points and freed animals, Sonic pushes against walls and objects and balances at edges, a hit scatters his rings or, without any, costs a life and starts the act over from the last checkpoint, and the boxes give extra lives, rings, both shields, invincibility and speed shoes. The act opens, and starts over, with the original title card sliding in as the screen fades in from black. The original HUD shows the ring count, score, timer and lives, with an extra life and its jingle every 100 rings. The act's music and its sounds play through a port of the game's own sound engine. There is no end of the act yet, and there is no game over.
+> **Pre-alpha: the first playable prototype is in.** The game opens as the original does, with the SEGA and Sonic Team logos and the intro, timed to its music; the title screen and the menus are next, so for now the act starts where the title screen would, when the intro ends or is skipped. Sonic runs through the whole of Neo Green Hill Zone act 1, read from your ROM with its collision: slopes, walls, ceilings, jump-through ledges and loops, with the original walking, running, braking, turning, crouching, looking up, jumping, rolling and spin dash, his insta-shield, mid-air dash and B-button ground combo, and the original camera. The act's springs, spikes, rings, enemies, item boxes, platforms (swinging, falling and crumbling platforms, the trampoline and the bounce blocks), boulders, waterfalls, speed boosters, checkpoints, wall poles, grind rails, the incline ramp, the half-pipe and the forced slide work as in the original, and the waterfalls and the sea cycle their colours as they do there: enemies can be destroyed for points and freed animals, Sonic pushes against walls and objects and balances at edges, a hit scatters his rings or, without any, costs a life and starts the act over from the last checkpoint, and the boxes give extra lives, rings, both shields, invincibility and speed shoes. The act opens, and starts over, with the original title card sliding in as the screen fades in from black. The original HUD shows the ring count, score, timer and lives, with an extra life and its jingle every 100 rings. The act's music and its sounds play through a port of the game's own sound engine. Its special spring leads to Special Stage 1, as in the original: the fall into it, the tunnel with its rings, bumpers, dash pads and bombs, the checkpoint and the goal with their ring targets, the Chaos Emerald and the results, then the act again from the spring. There is no end of the act yet, and there is no game over.
 
 | Area | State | Tracked in |
 | :--- | :--- | :--- |
@@ -74,6 +74,7 @@ No emulator and no game files in this repository: your own ROM, read on your mac
 | Stage maps and collision | 🟡 Neo Green Hill act 1 | [M2](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) |
 | Rings, objects and enemies | 🟡 Springs, spikes, rings, act 1's enemies, item boxes, platforms, boulders, waterfalls, boosters, checkpoints, wall poles, grind rails, the incline ramp, the half-pipe and the forced slide, with damage, death and the restart | [#46](https://github.com/NahuelGenchi/onsoku-advance/issues/46) |
 | HUD | 🟢 Rings, score, timer and lives | [#22](https://github.com/NahuelGenchi/onsoku-advance/issues/22) |
+| Special stages | 🟡 Special Stage 1, from act 1's special spring, with the Chaos Emerald and the results | [#75](https://github.com/NahuelGenchi/onsoku-advance/issues/75) |
 | The game's start | 🟡 The SEGA and Sonic Team logos and the intro; the title screen and the menus are next | [#67](https://github.com/NahuelGenchi/onsoku-advance/issues/67) |
 | Sound and music | 🟡 The intro's music, SEGA's ring at the Sonic Team logo, act 1 music, the 1-up jingle, the invincibility music, and the sounds of Sonic, the springs, the spikes, the rings, the enemies, the item boxes, the crumbling platforms, the trampoline, the boulders, the boosters, the checkpoints, the wall poles, the grind rails and the incline ramp | [#20](https://github.com/NahuelGenchi/onsoku-advance/issues/20) |
 | Hosted build | 🟢 Live on [GitHub Pages](https://nahuelgenchi.github.io/onsoku-advance/) | [#12](https://github.com/NahuelGenchi/onsoku-advance/issues/12) |
@@ -122,6 +123,8 @@ python -m http.server 8000
 
 Then open <http://localhost:8000> and choose your ROM to play. Tick *Remember this ROM on this device* to skip that step next time.
 
+Two addresses skip ahead for testing: <http://localhost:8000/?debug> starts the act straight away, without the logos and the intro, and <http://localhost:8000/?special> starts Special Stage 1 as soon as the ROM is read, as if Sonic had just left act 1 on its special spring. When the stage ends, the act picks up again from that spring.
+
 To see everything the extractor decodes, open <http://localhost:8000/viewer.html>: Sonic's, the springs' and the rings' animations playing with their original timing, the sprite atlas, Neo Green Hill Zone act 1 with its collision, and the zone's background.
 
 <details open>
@@ -146,6 +149,8 @@ To see everything the extractor decodes, open <http://localhost:8000/viewer.html
 | Sound on or off | <kbd>M</kbd> | |
 | Widescreen view on or off | <kbd>V</kbd> | |
 | Rush boost on or off | <kbd>R</kbd> | |
+
+In a special stage the same controls fly Sonic down the tunnel: the D-pad or left stick steers, jump (A) speeds him up while held, and attack (B) does a trick. A trick just after touching a bumper pulls in its rings.
 
 The controller column follows the standard layout of an Xbox controller; other controllers the browser maps to that layout work the same way. Press a button once after the page loads so the browser lists the controller. On touch screens, on-screen buttons appear instead.
 

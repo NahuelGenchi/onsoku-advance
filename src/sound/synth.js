@@ -70,6 +70,20 @@ export function createSynth(rom, layout, rate) {
   };
 }
 
+/**
+ * How many frames song `song` plays on music player `player` before it ends, counted as a task watching the
+ * player's status from the frame after it starts sees it (the special stage's trick jingle, Task_SpStageTrick).
+ */
+export function songFrames(rom, layout, player, song, limit = 60 * 60) {
+  const engine = createM4A(rom, layout, createApu()), P = engine.players[player];
+  engine.playerStart(player, song);
+  for (let n = 1; n < limit; n++) {
+    engine.frame();
+    if ((P.status & PAUSE) || (P.status & 0xFFFF) === 0) return n;
+  }
+  return limit;
+}
+
 // The stage's music manager (SAT-R decompilation, src/game/shared/stage/music_manager.c), reduced to what
 // the game uses so far. It runs after the game's other calls each frame, and does nothing while Sonic is
 // dead. Invincibility's song takes the music player while he is invincible and stops when he is not; an

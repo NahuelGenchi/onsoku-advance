@@ -10,20 +10,24 @@ export const SPRITE = {
 };
 const OBJ_VRAM = 0x10000;
 const RUNNING = 1, ANIM_CHANGED = -1, ENDED = 0;
-const s16 = v => (v << 16) >> 16;
+const s8 = v => (v << 24) >> 24, s16 = v => (v << 16) >> 16;
 
-/** A sprite (struct Sprite) with its fields at their defaults; `graphics.dest` is a VRAM offset. */
+/** A sprite (struct Sprite) with its fields at their defaults; `graphics.dest` is a VRAM offset. Its hitbox, as
+ *  its animation sets it, is hitboxes[0]: { index, left, top, right, bottom }, index −1 for none. */
 export function createSprite(fields = {}) {
   return {
     graphics: { src: 0, dest: OBJ_VRAM, size: 0, anim: 0 }, dimensions: -1, frameFlags: 0, animCursor: 0,
     x: 0, y: 0, oamFlags: 0, qAnimDelay: 0, prevAnim: 0xFFFF, variant: 0, prevVariant: 0xFF, animSpeed: 0x10,
-    oamBaseIndex: 0, numSubFrames: 0, palId: 0, ...fields,
+    oamBaseIndex: 0, numSubFrames: 0, palId: 0, hitboxes: [{ index: -1, left: 0, top: 0, right: 0, bottom: 0 }], ...fields,
   };
 }
 
-/** UpdateSpriteAnimation: returns 1 while the animation runs, 0 once it has ended. */
-export function updateSprite(e, tables, s) {
+/** UpdateSpriteAnimation: returns 1 while the animation runs, 0 once it has ended. With `background`,
+ *  UpdateSpriteAnimation_BG instead, which the palette animations run on: an ended animation stays ended even
+ *  if it is changed, and its colours load into the backgrounds' palette. */
+export function updateSprite(e, tables, s, background = false) {
   const rom = e.rom;
+  if (background && s.frameFlags & SPRITE.ANIM_OVER) return ENDED;
   if (s.prevVariant !== s.variant || s.prevAnim !== s.graphics.anim) {
     s.graphics.size = 0;
     s.prevVariant = s.variant;
@@ -40,7 +44,7 @@ export function updateSprite(e, tables, s) {
   const scriptOf = () => rom.u32(rom.u32(tables.anims + s.graphics.anim * 4) - 0x08000000 + s.variant * 4) - 0x08000000;
   let script = scriptOf();
   for (let at = script + s.animCursor * 4; rom.s32(at) < 0; at = script + s.animCursor * 4) {
-    const result = command(e, tables, s, at);
+    const result = command(e, tables, s, at, background);
     if (result === RUNNING) continue;
     if (result !== ANIM_CHANGED) return result;
     script = scriptOf();
@@ -55,7 +59,7 @@ export function updateSprite(e, tables, s) {
 }
 
 // the animation commands, by their negative ids
-function command(e, tables, s, at) {
+function command(e, tables, s, at, background) {
   const rom = e.rom, id = rom.s32(at);
   switch (id) {
     case -1: {   // GetTiles
@@ -72,16 +76,26 @@ function command(e, tables, s, at) {
       s.animCursor += 3;
       if (!(s.frameFlags & SPRITE.KEEP_PALETTE)) {
         const pal = tables.palettes + rom.s32(at + 4) * 32, count = rom.u16(at + 8), insert = rom.u16(at + 10);
-        const n = (count * 2) >> 2 << 1;
-        for (let i = 0; i < n; i++) e.objPalette[(s.palId * 16 + insert + i) & 0xFF] = rom.u16(pal + i * 2);
-        e.flags |= 0x2;
+        const n = (count * 2) >> 2 << 1, colours = background ? e.bgPalette : e.objPalette;
+        for (let i = 0; i < n; i++) colours[(s.palId * 16 + insert + i) & 0xFF] = rom.u16(pal + i * 2);
+        e.flags |= background ? 0x1 : 0x2;
       }
       return RUNNING;
     }
     case -3: s.animCursor = (s.animCursor - rom.s32(at + 4)) & 0xFFFF; return RUNNING;   // JumpBack
     case -4: s.frameFlags |= SPRITE.ANIM_OVER; return ENDED;                             // End
     case -5: s.animCursor += 2; e.playSong(rom.u16(at + 4)); return RUNNING;             // PlaySoundEffect
-    case -6: s.animCursor += 3; return RUNNING;                                          // AddHitbox
+    case -6: {   // AddHitbox: none if it is all 0, else turned with the sprite
+      s.animCursor += 3;
+      const b = { index: rom.s32(at + 4), left: s8(rom.u8(at + 8)), top: s8(rom.u8(at + 9)), right: s8(rom.u8(at + 10)), bottom: s8(rom.u8(at + 11)) };
+      if (!b.left && !b.top && !b.right && !b.bottom) b.index = -1;
+      else {
+        if (s.frameFlags & SPRITE.Y_FLIP) [b.top, b.bottom] = [s8(-b.bottom), s8(-b.top)];
+        if (s.frameFlags & SPRITE.X_FLIP) [b.left, b.right] = [s8(-b.right), s8(-b.left)];
+      }
+      s.hitboxes[rom.u32(at + 4) & 0xF] = b;
+      return RUNNING;
+    }
     case -7: s.animCursor += 2; s.x = s16(s.x + rom.s16(at + 4)); s.y = s16(s.y + rom.s16(at + 6)); return RUNNING;
     case -8: s.animCursor += 3; return RUNNING;
     case -9:     // SetIdAndVariant

@@ -53,6 +53,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     front: false,      // drawn in front of the front layer (his sprite's priority 1), as on a grind rail
     halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js)
     ignoreInput: false, // MOVESTATE_IGNORE_INPUT: an object holds his controls, as the forced slide does
+    plainSprings: false, // unk99[1]: back from a special stage, the special springs are plain springs until the act starts over
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,

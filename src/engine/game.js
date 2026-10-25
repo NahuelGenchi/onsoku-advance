@@ -261,7 +261,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // HandleLifeLost: a life less, and the act starts over with everything in it, keeping the score, the stage
   // clock and the last checkpoint passed. Sonic starts at that checkpoint, or at the act's start without one,
   // and the course time goes back to what it was there (to 0 if it had run out); the camera starts from him.
-  // The act's music starts again at once (StageInit_Zone1Act1), and loading the act takes the original the
+  // The act's music starts again at once (its stage init), and loading the act takes the original the
   // whole next frame, in which nothing runs. (The game over at no lives left is not built yet.)
   function restartAct() {
     if (state.lives > 0) state.lives--;
@@ -275,7 +275,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     state.palettes = palettes.map(a => a.shown);
     state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
     startCard();
-    sound.playStageMusic(SONG.NEO_GREEN_HILL_1);
+    sound.playStageMusic(assets.stage.music);
     loading = true; starMusic = false;
   }
 
@@ -366,10 +366,10 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     },
     /** Turns the Sonic Rush boost on (with `art`, what rush.js read from the Sonic Rush ROM) or off. */
     setRushBoost(on, art = state.rushArt) { state.rushArt = art; state.rush = on && !!art; input.setRush?.(state.rush); },
-    // the act's music starts with the act, as the stage's init does (StageInit_Zone1Act1)
+    // the act's music starts with the act, as the stage's init does (StageInit_Zone1Act1 and the others)
     start() {
       input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);
-      sound.playStageMusic(SONG.NEO_GREEN_HILL_1);
+      sound.playStageMusic(assets.stage.music);
     },
     stop() { input.enabled = false; input.release(); cancelAnimationFrame(frame); sound.stopAll(); },
   };

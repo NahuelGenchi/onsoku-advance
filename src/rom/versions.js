@@ -20,6 +20,7 @@ export const KNOWN_VERSIONS = [
       musicPlayers: 0x6D767C,
       uiGraphics: 0x680A38,
       titleCard: 0x681274,
+      levelSongs: 0x4A69E4,
     },
   },
 ];

@@ -100,6 +100,19 @@ export function findSpinDashSpeeds(rom) {
   return null;
 }
 
+/**
+ * The song each level plays (gLevelSongs, a u16 per level): the zones' acts in order play songs 12 to 24, one
+ * after the other.
+ */
+export function findLevelSongs(rom) {
+  for (let at = 0; at + LEVEL_COUNT * 2 <= rom.size; at += 2) {
+    let match = true;
+    for (let i = 0; i < 13 && match; i++) match = rom.u16(at + i * 2) === 12 + i;
+    if (match) return at;
+  }
+  return null;
+}
+
 /** Offsets for this ROM: the known ones when the checksum matches, otherwise a search. */
 export function locateTables(rom, known) {
   if (known) return { ...known.offsets, searched: false };
@@ -118,6 +131,7 @@ export function locateTables(rom, known) {
     musicPlayers: findMusicPlayers(rom),
     uiGraphics: findUiGraphics(rom),
     titleCard: findTitleCard(rom),
+    levelSongs: findLevelSongs(rom),
   };
   const missing = Object.entries(offsets).filter(([, v]) => v === null).map(([k]) => k);
   if (missing.length) {

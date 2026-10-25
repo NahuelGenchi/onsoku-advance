@@ -30,6 +30,11 @@ function backgroundOffset(line, tick, cameraX) {
 // repeat cleanly past their 256th: a big cloud is cut there.
 const STILL = line => line >= 40 && line < 88;
 
+// X Zone's background (StageBgUpdate_Zone7Act1) scrolls as a whole, a 296 × 184 map that the screen crosses
+// once over the act: by the camera's x × 56 / (the act's width - 240) and its y × 24 / (its height - 160)
+const X_ZONE = 12;
+const div = (a, b) => Math.trunc(a / b);
+
 export function createRenderer(canvas, assets) {
   let W = SCREEN_W, H = SCREEN_H;
   canvas.width = W; canvas.height = H;
@@ -273,6 +278,30 @@ export function createRenderer(canvas, assets) {
     if (right > 0) ctx.drawImage(flip, 0, bgLine, right, 1, ox + n, line, right, 1);
   }
 
+  // the scroll of a background that moves as a whole, for the original screen at (x, y) in the act
+  function scrolledOffset(x, y) {
+    return [div(x * 64 - x * 8, stage.width - SCREEN_W), div((y << 4) + y * 8, stage.height - SCREEN_H)];
+  }
+  // such a background, its scroll at the original screen's top-left corner (ox, oy); the widescreen view shows
+  // it mirrored past its edges
+  const tiled = new WeakMap();
+  function drawScrolled(background, [sx, sy], ox, oy) {
+    let flip = tiled.get(background);
+    if (!flip) {
+      flip = document.createElement('canvas');
+      flip.width = background.width * 2; flip.height = background.height * 2;
+      const f = flip.getContext('2d'), w = background.width, h = background.height;
+      for (const [mx, my] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        f.setTransform(mx ? -1 : 1, 0, 0, my ? -1 : 1, mx ? 2 * w : 0, my ? 2 * h : 0);
+        f.drawImage(background, 0, 0);
+      }
+      tiled.set(background, flip);
+    }
+    const w2 = flip.width, h2 = flip.height;
+    const x0 = mod(sx - ox, w2), y0 = mod(sy - oy, h2);
+    for (let y = -y0; y < H; y += h2) for (let x = -x0; x < W; x += w2) ctx.drawImage(flip, x, y);
+  }
+
   // back to front: higher orders first, and the later entries of an order before the earlier ones
   function stack(list) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
@@ -294,7 +323,8 @@ export function createRenderer(canvas, assets) {
     // below it and repeats its top line above it.
     const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, cx = vx + ox;
     const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
-    for (let line = 0; line < H; line++) {
+    if (stage.level === X_ZONE) drawScrolled(background, scrolledOffset(cx, vy + oy), ox, oy);
+    else for (let line = 0; line < H; line++) {
       const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
       if (STILL(bgLine)) { drawStill(background, bgLine, line, ox); continue; }
       let off = mod(backgroundOffset(bgLine, tick - 1, cx) - ox, bgW);

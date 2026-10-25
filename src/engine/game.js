@@ -68,9 +68,9 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   let cardPad = [];   // the pad directions held on the title card's last frame
   let firstCard = true;
   // Act 1 starts from the character select. Any other act the level pick starts as the course select does: its
-  // task (0x2000) makes the act, so on that frame only the tasks after its priority run (the title card, Sonic,
-  // the clock), and the next frame is spent loading
-  let madeBy = assets.stage.level === 0 ? -1 : 0x2000;
+  // task (0x2000) makes the act, so on that frame only the title card's task and those after it run (Sonic, the
+  // clock), not the scattered rings' (0x2001), and the next frame is spent loading
+  let madeBy = assets.stage.level === 0 ? -1 : 0x2001;
   let extraLife = false, restart = false, loading = false, starMusic = false;
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
   const render = createRenderer(canvas, assets);

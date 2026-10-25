@@ -400,8 +400,9 @@ export function createRenderer(canvas, assets) {
         x += n;
       }
     }
-    // the ROM's counter (gStageBackgroundsRam.unk40, 0x0300593B in the USA ROM) is one behind the camera's runs
-    const frame = stageAnimFrame(stage, bgAnim - 1);
+    // the ROM's counter (gStageBackgroundsRam.unk40, 0x0300593B in the USA ROM) is one behind the camera's runs,
+    // and 0 before its first
+    const frame = stageAnimFrame(stage, Math.max(bgAnim - 1, 0));
     drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
     const shown = rings.visible(view);

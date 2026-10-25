@@ -151,6 +151,9 @@ export function createRenderer(canvas, assets) {
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = W; maskCanvas.height = H;
   const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+  const flashCanvas = document.createElement('canvas');
+  flashCanvas.width = W; flashCanvas.height = H;
+  const flashCtx = flashCanvas.getContext('2d');
   function drawRushTrail(fx, vx, vy) {
     trailBox = null;
     const strips = rushTrailStrips(fx, vx, vy);
@@ -201,21 +204,38 @@ export function createRenderer(canvas, assets) {
     ctx.putImageData(img, x0, y0);
   }
 
-  // A sprite in OBJ window mode with every layer brightened to full inside the window (a boss's hit flash):
-  // the sprite itself isn't drawn, and everything in its shape, whatever is in front, turns white.
-  function drawWhite(s, vx, vy) {
+  // Sprites in OBJ window mode with every layer brightened to full inside the window (a boss's hit flash): the
+  // sprites themselves aren't drawn, and the layers in their shape turn white. mGBA 0.10.5 leaves every other
+  // sprite as it is there, Sonic and the HUD included. Returns the window's shape in white, or null.
+  function whiteWindow(whites, vx, vy) {
+    if (!whites.length) return null;
     const main = ctx;
     ctx = maskCtx;
     maskCtx.imageSmoothingEnabled = false;
     maskCtx.clearRect(0, 0, W, H);
-    if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
-    else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+    for (const s of whites) {
+      if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+      else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+    }
     ctx = main;
     maskCtx.globalCompositeOperation = 'source-in';
     maskCtx.fillStyle = '#fff';
     maskCtx.fillRect(0, 0, W, H);
     maskCtx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(maskCanvas, 0, 0);
+    return maskCanvas;
+  }
+  // a layer drawn over what is there, white inside the window where it has pixels
+  function drawFlashedLayer(flash, draw) {
+    if (!flash) { draw(ctx); return; }
+    flashCtx.imageSmoothingEnabled = false;
+    flashCtx.globalCompositeOperation = 'source-over';
+    flashCtx.clearRect(0, 0, W, H);
+    draw(flashCtx);
+    ctx.drawImage(flashCanvas, 0, 0);
+    flashCtx.globalCompositeOperation = 'source-in';
+    flashCtx.drawImage(flash, 0, 0);
+    flashCtx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(flashCanvas, 0, 0);
   }
 
   // debug overlay: the collision under the view, drawn through a scratch canvas so it blends
@@ -375,6 +395,9 @@ export function createRenderer(canvas, assets) {
     }
     const frame = cam.tiles.shown;
     drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
+    // the background and the back layer fill the screen, so the window turns everything drawn so far white
+    const flash = whiteWindow(sprites.filter(s => s.white), vx, vy);
+    if (flash) ctx.drawImage(flash, 0, 0);
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first; past the
     // goal it draws none
     const shown = ringsStopped ? { list: [] } : rings.visible(view);
@@ -392,11 +415,10 @@ export function createRenderer(canvas, assets) {
       }
     };
     drawAll(true);
-    drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
+    drawFlashedLayer(flash, c => drawLayer(c, stage, 'front', vx, vy, W, H, frame, palettes));
     drawAll(false);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
-    for (const s of list) if (s.white) drawWhite(s, vx, vy);
     if (actResults) {
       // the band is semi-transparent from when the fade starts, and blending it at full weight over what's
       // behind keeps it out of the fade
@@ -417,8 +439,8 @@ export function createRenderer(canvas, assets) {
   /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */
   render.resize = (w, h) => {
     W = w; H = h;
-    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = w;
-    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = h;
+    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = flashCanvas.width = w;
+    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = flashCanvas.height = h;
     objLayer = new ImageData(w, h);
     trailBuf = new Uint8Array(w * h);
   };

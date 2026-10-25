@@ -6,13 +6,15 @@
 // its semi-transparent sprites is darkened. The widescreen view shows more of the act around the original
 // screen, which sits in its middle unless an edge of the act is near; the HUD keeps to the view's corners and
 // the title card to its middle. The optional Sonic Rush boost adds its screen shake and its effects around
-// Sonic, drawn as the Nintendo DS draws them.
+// Sonic, drawn as the Nintendo DS draws them. The optional Boost Mode's afterimages and particles are sprites
+// like the others, drawn from a second atlas: Sonic in Sonic Advance 2's boost palette, and its particles.
 
 import { SCREEN_W, SCREEN_H, RUSH_BOOST } from './constants.js';
 import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './stage.js';
 import { SINE } from './trig.js';
 import { rushObjEntries, rushTrailStrips, TRAIL_COLOR } from './rushfx.js';
 import { rasterizeStrips, objLayer as dsObjLayer, to6, out8 } from './dsdraw.js';
+import { boostAtlas } from './boostmode.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
 const s16 = v => (v << 16) >> 16;
@@ -38,20 +40,26 @@ export function createRenderer(canvas, assets) {
   const stage = assets.stage, { backgrounds } = stage;
   const bgW = stage.background.width;
 
+  // an atlas with its frames' rects and its pixels, which the rotation hardware's sprites are sampled from
+  const sheetOf = ({ atlas, frames, pixels }) => ({
+    atlas, frames, pixels: pixels ?? atlas.getContext('2d').getImageData(0, 0, atlas.width, atlas.height).data,
+  });
+  const base = sheetOf({ atlas, frames });
+  let boost = null, boostArt = null;   // Boost Mode's atlas, made once its art is read from the ROM
+
   // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does
-  function drawSprite(index, x, y, flipX, flipY = false) {
+  function drawSprite(index, x, y, flipX, flipY = false, sheet = base) {
     if (index < 0) return;
-    const [sx, sy, w, h, ax, ay] = frames[index];
+    const [sx, sy, w, h, ax, ay] = sheet.frames[index];
     const px = Math.floor(x), py = Math.floor(y);   // the integer part, like the original's I(qWorldX)
-    if (!flipX && !flipY) { ctx.drawImage(atlas, sx, sy, w, h, px - ax, py - ay, w, h); return; }
+    if (!flipX && !flipY) { ctx.drawImage(sheet.atlas, sx, sy, w, h, px - ax, py - ay, w, h); return; }
     ctx.save(); ctx.translate(px, py);
     ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-    ctx.drawImage(atlas, sx, sy, w, h, -ax, -ay, w, h);
+    ctx.drawImage(sheet.atlas, sx, sy, w, h, -ax, -ay, w, h);
     ctx.restore();
   }
 
   // the rotation hardware's sprites are put together here pixel by pixel, then drawn over the frame
-  const atlasPixels = atlas.getContext('2d').getImageData(0, 0, atlas.width, atlas.height).data;
   let objLayer = new ImageData(W, H);
   const objCanvas = document.createElement('canvas');
   objCanvas.width = W; objCanvas.height = H;
@@ -61,10 +69,10 @@ export function createRenderer(canvas, assets) {
   // TransformSprite builds the matrix and moves the sprite so its anchor stays at (x, y) once turned;
   // DisplaySprite puts each OAM piece where the frame has it, in a box twice its size with the double-size
   // flag, and every piece turns around its own centre
-  function drawAffine(index, x, y, { rotation, scaleX, scaleY, double }) {
+  function drawAffine(index, x, y, { rotation, scaleX, scaleY, double }, sheet = base) {
     if (index < 0) return;
-    const [, , w, h, ax, ay, pieces] = frames[index];
-    if (!pieces) { drawSprite(index, x, y, scaleX < 0, scaleY < 0); return; }   // a frame the extractor kept no pieces for
+    const [, , w, h, ax, ay, pieces] = sheet.frames[index];
+    if (!pieces) { drawSprite(index, x, y, scaleX < 0, scaleY < 0, sheet); return; }   // a frame the extractor kept no pieces for
     const cos = SINE[(rotation & 1023) + 256] >> 6, sin = SINE[rotation & 1023] >> 6;
     const rx = s16(Math.trunc(0x10000 / scaleX)), ry = s16(Math.trunc(0x10000 / scaleY));
     const mat = [s16((cos * rx) >> 8), s16((sin * rx) >> 8), s16((-sin * ry) >> 8), s16((cos * ry) >> 8)];
@@ -78,7 +86,7 @@ export function createRenderer(canvas, assets) {
     if (sx + sw < 0 || sx > W || sy + sh < 0 || sy > H) return;
     const box = [W, H, -1, -1], wrap = W === SCREEN_W && H === SCREEN_H;
     for (const [px, py, pw, ph, tx, ty] of pieces) {
-      drawPiece(wrap ? (sx + px) & 0x1FF : sx + px, wrap ? (sy + py) & 0xFF : sy + py, pw, ph, tx, ty, mat, double, box, wrap);
+      drawPiece(wrap ? (sx + px) & 0x1FF : sx + px, wrap ? (sy + py) & 0xFF : sy + py, pw, ph, tx, ty, mat, double, box, wrap, sheet);
     }
     if (box[2] < 0) return;
     const [x0, y0] = box, bw = box[2] - x0 + 1, bh = box[3] - y0 + 1;
@@ -93,7 +101,7 @@ export function createRenderer(canvas, assets) {
   // frame has the lower OAM index and stays in front of a later one. With `wrap`, (ox, oy) are OAM's 9-bit x and
   // 8-bit y, and a piece past the right or the bottom edge comes round on the left or the top, as on the GBA. The
   // widescreen view reaches past x 256 and draws each piece where it is.
-  function drawPiece(ox, oy, pw, ph, tx, ty, [pa, pb, pc, pd], double, box, wrap) {
+  function drawPiece(ox, oy, pw, ph, tx, ty, [pa, pb, pc, pd], double, box, wrap, { atlas, pixels: atlasPixels }) {
     const tw = double ? pw * 2 : pw, th = double ? ph * 2 : ph;
     if (wrap ? (oy >= H && oy + th < 228) || (ox >= W && ox + tw < 512) : oy >= H || ox >= W) return;
     const x = wrap ? (ox << 23) >> 23 : ox, endY = oy + th, px = objLayer.data;
@@ -278,8 +286,9 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake, boostArt: art }) {
     ctx.imageSmoothingEnabled = false;
+    if (art && art !== boostArt) { boostArt = art; boost = sheetOf(boostAtlas(assets.sprites, art)); }
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
     let { x: vx, y: vy } = view;
@@ -312,10 +321,12 @@ export function createRenderer(canvas, assets) {
     const drawAll = behind => {
       for (const s of list) {
         if ((s.prio >= 2) !== behind) continue;
+        const sheet = s.boost ? boost : base;
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
-        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
-        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+        else if (!sheet) continue;
+        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine, sheet);
+        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY, sheet);
       }
     };
     drawAll(true);

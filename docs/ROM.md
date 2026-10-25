@@ -587,3 +587,30 @@ Sounds on the same player cut each other off, as in the original. There is no la
 - *The final output:* the DirectSound part of the port's audio lines up with mGBA's recorded output. The PSG part matches mGBA's in pitch, level and envelope (median spectrum correlation 0.98), but not sample for sample: a Game Boy channel's waveform phase depends on the exact CPU cycle the engine writes its registers, which the port does not model.
 
 The port mixes at the GBA's 65536 Hz, averages that down to the browser's output rate, removes the DC offset the unipolar PSG channels add, and plays at half of the GBA's full scale. The game itself still steps at 60 Hz while the sound engine keeps the GBA's 59.7275 frames per second, so a sound starts within one frame of the move that plays it.
+
+## Sonic Advance 2, for Boost Mode
+
+The optional Boost Mode (see the [README](../README.md#sonic-advance-2-boost-mode)) reads a few things from your own Sonic Advance 2 ROM, in your browser. Like the Sonic Advance ROM, it is never uploaded; it is kept in this browser's IndexedDB under a key of its own. The ROM is recognized by its header (title `SONICADVANC2`, a game code starting with `A2N`). Only the USA version (`A2NE`) has been tested. Sonic Advance 2 keeps its sprites and its sound engine in the same formats as Sonic Advance, so [`src/rom/sa2.js`](../src/rom/sa2.js) finds them with the same searches. [`src/rom/sa2boost.js`](../src/rom/sa2boost.js) then reads what Boost Mode uses.
+
+| Data | In the USA ROM | Used for |
+| :--- | :--- | :--- |
+| Sprite tables | `0x0F40D4` | Everything below |
+| Sonic's boost palette | Animation 74, whose script only loads palette 5 (16 colours) | The afterimages. Sonic's palettes in the two games use the same layout, so each of Sonic Advance's colours becomes the boost palette's colour at the same index. |
+| Boost particles | Animation 873: 8 × 8 frames in palette 23. Variant 0 loops two frames; variant 1 plays those two three times, then four more frames, and stops | The sparks at Boost Mode's start |
+| Music players and songs | `0xAD4F1C`, `0xAD4F4C` (507 songs) | Song 221, the start sound: one track on music player 2, priority 20 |
+
+The rules' numbers are in [`src/engine/constants.js`](../src/engine/constants.js) (`BOOST_MODE`). They come from these tables in the game's code, which are not read at run time:
+
+| Table | In the USA ROM | Values |
+| :--- | :--- | :--- |
+| Acceleration and deceleration by ring tier | `0x0D6902` | {8, 64}, {12, 64}, {14, 64}, {16, 64}, {18, 64} in 1/256 px. The tier is 0 for 10 rings or fewer, then 1 above 10, 2 from 50, 3 from 100 and 4 from 150. |
+| How full the meter must be, by tier | `0x0D6916` | `0x800`, `0x7F8`, `0x690`, `0x5A0`, `0x438` |
+| The afterimages' delays | `0x0D5674` | 2, 4 and 6 frames |
+
+**What the game does each frame**, before Sonic moves: it picks the tier from the ring count. Out of Boost Mode, it empties the meter while Sonic is in the air or slower than his top speed, and starts Boost Mode when he is on the ground at that speed with the meter at the tier's value. Then the start sound plays, the particles are made and the camera's sideways speed limit (normally 16 px, kept in 1/256 px) drops to 4 px, to climb back by 1/8 px on each of the camera's updates. In Boost Mode, the meter is set back to the tier's value on the ground, and the mode ends when the ground speed is under 4.5. While Sonic moves, holding the way he runs at or above his top speed adds the tier's acceleration to the meter instead of to his speed. Getting hurt, the act's start, boosters and fast side springs set or clear the mode outright.
+
+**The afterimages** keep Sonic's position and his sprite (animation, variant, speed, flags and angle) for the last 16 frames, at the end of his task. Three tasks after his each copy what he was 2, 4 or 6 frames before into a sprite of their own, step that sprite's animation, and turn it through the rotation hardware when his was. Each also counts 0, 1, 2 on every frame they run and is drawn only when its count is its own number, so one afterimage shows per frame, starting with the 4-frame one. The sprites go in Sonic's OAM order just after him, so behind him, with his background priority and the boost palette loaded as sprite palette 1. They are opaque, and they don't get the pixel Sonic's own sprite is moved by when he faces one way or the other.
+
+**The particles** are one sprite drawn up to eight times a frame, around Sonic's current position. All sixteen get their distance, direction and speed from Sonic Advance 2's own random numbers, seeded with Sonic's position and the camera's: sixteen to twenty-four pixels ahead of him, flying off across his path and slowing to 200/256 of their speed each frame. On the tenth frame the random numbers are seeded again and each gets a new speed in a random direction, while all of them drift back the way he came, 4 px a frame and a little more on each step. Every second frame the sprite's animation is stepped eight times, which the eight copies share, since they all show the same tiles.
+
+**How it was checked.** mGBA 0.10.5 recorded Leaf Forest act 1 in the tested ROM with Sonic running right and 200 rings, dumping his state, the camera and the sprite table after every frame. The meter rose by 18 a frame and started Boost Mode at 1080 with a top speed of 12 and a cap of 15, the camera's limit went from 1024 up by 32 a frame, and the afterimages showed at the delays and in the order above. The port's particles land on the same pixels as the recorded ones on all 25 frames they show.

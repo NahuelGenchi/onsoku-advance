@@ -87,3 +87,29 @@ export const RUSH_BOOST = {
   // the screen shake at the start and on each hit: 8 frames of offsets, starting over on each
   shake: [[-2, 2], [2, -4], [2, -4], [-4, 4], [4, -2], [4, -2], [-2, 0], [4, 2]],
 };
+
+// Sonic Advance 2's Boost Mode, an optional extra (off unless chosen): Sonic Advance 2 keeps speeds in the same
+// 8.8 pixels a frame at 60 frames a second, so its numbers carry over as they are. From the SAT-R decompilation
+// of Sonic Advance 2 (src/game/shared/stage/player.c, boost_effect.c and camera.c), with the tables read from
+// the USA ROM and the timings checked in an emulator. Speeds and accelerations in 1/256 px.
+export const BOOST_MODE = {
+  // the ring count picks a tier (Player_HandleBoostThreshold): 150 or more, 100, 50, more than 10, fewer
+  tierRings: [150, 100, 50, 11],
+  // by tier from the fewest rings: the acceleration while boosting, and the meter's rise each frame at top
+  // speed; and how full the meter must be to start (from 256 frames of running to 60)
+  acceleration: [8, 12, 14, 16, 18],
+  threshold: [0x800, 0x7F8, 0x690, 0x5A0, 0x438],
+  topSpeed: 12,                // walking accelerates up to this while boosting
+  maxSpeed: 15,                // and the ground speed is capped at this
+  minSpeed: 4.5,               // slower than this on the ground ends it
+  sideSpring: 9,               // a side spring throwing Sonic faster than this on the ground starts it
+  // the camera's horizontal speed limit (8.8 px a frame): it drops to 4 px as Boost Mode starts and
+  // recovers by 1/8 px each frame up to the usual 16
+  cameraStart: 0x400, cameraStep: 0x20,
+  // the afterimages: three copies of Sonic as he was this many frames ago, one shown each frame in turn
+  afterimages: [2, 4, 6],
+  history: 16,
+  // the start's particles: 10 frames of eight spreading out ahead of him, then 15 frames of sixteen, eight a
+  // frame in turn, sweeping back past him
+  particles: 16, burstFrames: 10, endFrame: 25,
+};

@@ -1,8 +1,9 @@
 // The original camera: a target derived from Sonic's position, approached with dead zones and speed caps,
 // a look up / look down pan, a short freeze after a spin dash release, and a still target once Sonic dies. It never shows past the act's edges.
-// While the optional Sonic Rush boost runs, it leads him the way Rush's camera does.
+// While the optional Sonic Rush boost runs, it leads him the way Rush's camera does, and as the optional Boost
+// Mode starts its sideways speed limit drops, then recovers, as Sonic Advance 2's does.
 
-import { SCREEN_W, SCREEN_H, CAMERA as C, RUSH_BOOST as R } from './constants.js';
+import { SCREEN_W, SCREEN_H, CAMERA as C, RUSH_BOOST as R, BOOST_MODE as B } from './constants.js';
 
 const centreY = p => Math.floor(p.y);
 
@@ -16,6 +17,8 @@ export function createCamera(p, terrain) {
     // the Rush boost's lead: Sonic shown this far off the target's centre (8.8 px), what it eases toward, the
     // frames left of the delay after a boost starts, and where Sonic was at the last update
     leadX: 0, leadY: 0, leadTargetX: 0, leadTargetY: 0, scroll: 0, prevX: p.x, prevY: p.y,
+    // the sideways speed limit in 1/256 px (Sonic Advance 2's unk8), lowered by Boost Mode's start
+    speedX: C.maxSpeedX << 8,
   };
   cam.targetX = cam.x; cam.targetY = cam.y;
   return cam;
@@ -87,9 +90,11 @@ export function updateCamera(cam, p) {
   }
   const dx = cam.targetX - cam.x;
   // with a lead, it keeps to the target sideways as Rush's does, without a dead zone or a speed limit
+  const maxX = cam.speedX >> 8;
   if (p.boost || cam.leadX || cam.scroll) cam.x = cam.targetX;
-  else if (dx > C.deadZoneX) cam.x += Math.min(C.maxSpeedX, dx - C.deadZoneX);
-  else if (dx < -C.deadZoneX) cam.x += Math.max(-C.maxSpeedX, dx + C.deadZoneX);
+  else if (dx > C.deadZoneX) cam.x += Math.min(maxX, dx - C.deadZoneX);
+  else if (dx < -C.deadZoneX) cam.x += Math.max(-maxX, dx + C.deadZoneX);
+  if (cam.speedX < C.maxSpeedX << 8) cam.speedX += B.cameraStep;
 
   cam.deadY = p.air ? Math.min(C.airDeadZoneY, cam.deadY + 4) : Math.max(0, cam.deadY - 4);
   const dy = cam.targetY - cam.y;

@@ -99,8 +99,8 @@ flowchart LR
 
 1. **Extract.** You pick your ROM. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory. It is designed to run entirely in the browser: the ROM is read locally and nothing is uploaded.
 2. **Simulate.** The engine steps 60 times per second with the original game's rules: acceleration, braking, gravity, jump height, roll friction, spin dash speeds and the camera's dead zones.
-3. **Draw.** Sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view, off by default, draws up to 368 × 208 around the same screen and fills the window at the same whole-step scale; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds a trail and an aura around Sonic while it runs.
-4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The optional Sonic Rush boost's sound effect plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, added to the same output.
+3. **Draw.** Sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view, off by default, draws up to 368 × 208 around the same screen and fills the window at the same whole-step scale; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds a trail and an aura around Sonic while it runs, and the optional [Boost Mode](#sonic-advance-2-boost-mode) adds Sonic Advance 2's afterimages and sparks.
+4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The optional Sonic Rush boost's sound effect plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, and Boost Mode's from your Sonic Advance 2 ROM on a second copy of the Game Boy Advance one, both added to the same output.
 
 ## Getting started
 
@@ -143,6 +143,7 @@ To see everything the extractor decodes, open <http://localhost:8000/viewer.html
 | Sound on or off | <kbd>M</kbd> | |
 | Widescreen view on or off | <kbd>V</kbd> | |
 | Rush boost on or off | <kbd>R</kbd> | |
+| Boost Mode on or off | <kbd>B</kbd> | |
 
 The controller column follows the standard layout of an Xbox controller; other controllers the browser maps to that layout work the same way. Press a button once after the page loads so the browser lists the controller. On touch screens, on-screen buttons appear instead.
 
@@ -182,6 +183,41 @@ Nothing from Sonic Rush is in this repository.
 
 Where the port differs from the DS: the trail's polygons are not clipped at the screen's edges before they are
 drawn, and Sonic Advance's own sprites behind Sonic count as background when the boost's sprites blend over them.
+
+### Sonic Advance 2 Boost Mode
+
+Another optional extra: Sonic Advance 2's Boost Mode and its afterimages, its rules read from Sonic Advance 2 (USA)
+with the help of the SAT-R decompilation of that game, and its timing checked in an emulator. It is off by default;
+<kbd>B</kbd> or the *Boost Mode* button in the help panel turns it on, and the choice is remembered on the device.
+With it off, the game runs and draws exactly as without it.
+
+Its look and sound are Sonic Advance 2's own, so it needs your Sonic Advance 2 ROM (`.gba`) as well: it is asked for
+the first time Boost Mode is turned on, read in the browser like the Sonic Advance ROM and, like it, kept on this
+device only. Nothing from Sonic Advance 2 is in this repository.
+
+- **Filling up.** Sonic still runs as in Sonic Advance, up to 4.5 px a frame. Holding forward on the ground at
+  that speed fills Sonic Advance 2's hidden boost meter, faster the more rings he has: it takes 256 frames (about
+  4 seconds) with 10 rings or fewer, 170 with 11 to 49, 120 with 50 to 99, 90 with 100 to 149 and 60 (1 second)
+  with 150 or more. Leaving the ground or dropping below that speed empties it.
+- **Start.** Once the meter is full, Boost Mode starts with Sonic Advance 2's sound, a burst of sparks that
+  spread out ahead of Sonic and then sweep back past him, and the camera falling behind: its sideways speed
+  limit drops to 4 px a frame and climbs back to 16 by 1/8 px a frame.
+- **In Boost Mode.** Holding forward speeds Sonic up to 12 px a frame, at Sonic Advance 2's rate for the ring
+  count (from 8/256 to 18/256 a frame, which speed shoes don't change), and his ground speed is capped at 15. In
+  the air he speeds up twice as fast, also up to 12. Braking and friction stay Sonic Advance's.
+- **Boosters and springs.** Act 1's boosters, and side springs that throw Sonic faster than 9 px a frame from the
+  ground, put him straight into Boost Mode, without the sound or the sparks, as Sonic Advance 2's do.
+- **End.** It ends when he slows below 4.5 px a frame on the ground, when he is hurt, and when the act starts
+  over.
+- **Afterimages.** While it lasts, three copies of Sonic follow him, each playing his animation as it was 2, 4
+  or 6 frames before, in Sonic Advance 2's boost palette, just behind him. Only one of them is drawn each frame,
+  in turn, as in Sonic Advance 2. With the [Sonic Rush boost](#sonic-rush-boost) on as well, they also show
+  while it is held; it keeps its own rules and doesn't fill the meter.
+- **Sound.** The start sound plays from your Sonic Advance 2 ROM on a second copy of the sound engine port, on top
+  of Sonic Advance's sound.
+
+Where it differs from Sonic Advance 2: outside Boost Mode's own numbers, Sonic keeps Sonic Advance's running and
+animations; and the start sound has a sound engine of its own, so it never cuts off one of Sonic Advance's sounds.
 
 ## Roadmap
 

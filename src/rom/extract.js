@@ -109,7 +109,7 @@ const PALETTE_ANIMATIONS = [814, 815];
 
 /**
  * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles, sonic }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, physics, sound }
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
@@ -155,7 +155,7 @@ function extractSprites(rom, tables) {
     })),
   ];
 
-  const images = [], byKey = new Map(), anims = {};
+  const images = [], byKey = new Map(), anims = {}, sonicFrames = new Set();
   for (const { list, palette, skipPalette } of groups) {
     for (const [name, [anim, variant]] of Object.entries(list)) {
       const script = animationFrames(rom, tables, anim, variant, palette, { skipPalette });
@@ -169,6 +169,7 @@ function extractSprites(rom, tables) {
           images.push({ img, anchorX: layout.anchorX, anchorY: layout.anchorY });
         }
         const image = images[byKey.get(key)];
+        if (name in SONIC_ANIMATIONS) sonicFrames.add(byKey.get(key));
         if (ROTATED.has(name) && !image.pieces) image.pieces = framePieces(rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp);
         // the hitboxes set just before a frame come with it
         return f.boxes ? [byKey.get(key), f.delay, f.boxes] : [byKey.get(key), f.delay];
@@ -193,7 +194,10 @@ function extractSprites(rom, tables) {
     (rects[p.frame][6] ??= []).push([p.x, p.y, w, h, ax, ay]);
   });
   rects.length = images.length;
-  return { atlas: canvas, frames: rects, anims, tiles };
+  // Sonic's own frames, all in his palette's first 16 colours, which Boost Mode's afterimages swap for Sonic
+  // Advance 2's boost palette (engine/boostmode.js)
+  const sonic = { colors: sonicPalette.slice(0, 16), frames: [...sonicFrames] };
+  return { atlas: canvas, frames: rects, anims, tiles, sonic };
 }
 
 // shelf packing with a 1px gap; rects are [x, y, w, h, anchorX, anchorY]

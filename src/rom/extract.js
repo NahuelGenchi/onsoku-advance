@@ -57,7 +57,9 @@ export const OBJECT_ANIMATIONS = {
 // hidden and half out
 export const SPIKES_ANIM = 454;
 export const SPIKE_ANIMATIONS = {
-  spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3], spikesHiding: [SPIKES_ANIM, 0], spikesHalf: [SPIKES_ANIM, 1],
+  spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3],
+  // the hiding spikes rising and sinking
+  spikesHiding0: [SPIKES_ANIM, 0], spikesHiding1: [SPIKES_ANIM, 1],
 };
 // act 1's enemies and their shots, the dust and points a defeat leaves and every zone's freed animals, by
 // animation; each loads its own palette

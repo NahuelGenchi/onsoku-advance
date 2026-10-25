@@ -178,6 +178,7 @@ export function runTitleCard(card, pressed) {
   const semi = k <= 105 || !done;
   for (const [name, p] of Object.entries(card.pieces)) {
     p.text ??= card.gfx.text[name];
+    if (name === 'act' && card.gfx.act === false) continue;
     for (const draw of TASKS[name](p, k)) put(card, p, draw, semi);
   }
   return true;

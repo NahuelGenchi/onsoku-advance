@@ -1,5 +1,7 @@
 // The original camera: a target derived from Sonic's position, approached with dead zones and speed caps,
 // a look up / look down pan, a short freeze after a spin dash release, and a still target once Sonic dies. It never shows past the act's edges.
+// A boss or the extra stage moves those edges in (minX, minY, and maxX, maxY, the top-left corner's limits) and
+// shifts the target from Sonic (shiftX, shiftY).
 // While the optional Sonic Rush boost runs, it leads him the way Rush's camera does.
 
 import { SCREEN_W, SCREEN_H, CAMERA as C, RUSH_BOOST as R } from './constants.js';
@@ -12,7 +14,7 @@ export function createCamera(p, terrain) {
   const cam = {
     x: Math.floor(p.x) - SCREEN_W / 2, y: centreY(p) - (SCREEN_H / 2 + 4),
     targetX: 0, targetY: 0, freeze: 0, locked: false, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
-    maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false,
+    minX: 0, minY: 0, maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, shiftX: 0, shiftY: 0, started: false,
     // the Rush boost's lead: Sonic shown this far off the target's centre (8.8 px), what it eases toward, the
     // frames left of the delay after a boost starts, and where Sonic was at the last update
     leadX: 0, leadY: 0, leadTargetX: 0, leadTargetY: 0, scroll: 0, prevX: p.x, prevY: p.y,
@@ -22,8 +24,8 @@ export function createCamera(p, terrain) {
 }
 
 function clamp(cam) {
-  cam.x = Math.min(Math.max(cam.x, 0), cam.maxX);
-  cam.y = Math.min(Math.max(cam.y, 0), cam.maxY);
+  cam.x = Math.min(Math.max(cam.x, cam.minX), cam.maxX);
+  cam.y = Math.min(Math.max(cam.y, cam.minY), cam.maxY);
 }
 
 // hold up or down while standing still for 120 frames, then pan 2px per frame; ease back otherwise
@@ -71,19 +73,19 @@ export function updateCamera(cam, p) {
   if (!cam.started) { cam.started = true; return; }
   // it moves from where it was, kept a pixel further in from the far edges than it may end up: at the
   // bottom of the act, a dead zone can leave it a pixel up
-  cam.x = Math.min(Math.max(cam.x, 0), cam.maxX - 1);
-  cam.y = Math.min(Math.max(cam.y, 0), cam.maxY - 1);
+  cam.x = Math.min(Math.max(cam.x, cam.minX), cam.maxX - 1);
+  cam.y = Math.min(Math.max(cam.y, cam.minY), cam.maxY - 1);
   updateLook(cam, p);
   updateLead(cam, p);
   // a dead Sonic leaves the target where it was (unk50 bits 0–1); the view still eases onto it
   if (cam.freeze > 0) cam.freeze--;
   else if (!cam.locked) {
-    cam.targetX = Math.floor(p.x) - SCREEN_W / 2 - (cam.leadX >> 8);
+    cam.targetX = Math.floor(p.x) + cam.shiftX - SCREEN_W / 2 - (cam.leadX >> 8);
     // eases toward spriteOffsetY - 4 so curling up (offset 14 -> 9) doesn't jolt the view
     const want = p.offsetY - 4;
     if (cam.offsetY < want) cam.offsetY = Math.min(want, cam.offsetY + 5);
     else if (cam.offsetY > want) cam.offsetY = Math.max(want, cam.offsetY - 5);
-    cam.targetY = centreY(p) - SCREEN_H / 2 + cam.look + cam.offsetY - (cam.leadY >> 8);
+    cam.targetY = centreY(p) + cam.shiftY - SCREEN_H / 2 + cam.look + cam.offsetY - (cam.leadY >> 8);
   }
   const dx = cam.targetX - cam.x;
   // with a lead, it keeps to the target sideways as Rush's does, without a dead zone or a speed limit

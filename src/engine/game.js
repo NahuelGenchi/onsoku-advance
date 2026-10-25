@@ -21,6 +21,7 @@ import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS,
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { SONG } from '../sound/songs.js';
 import { RUSH_BOOST_SE } from '../rom/rush.js';
+import { createExtraStage } from './extra.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
@@ -39,7 +40,9 @@ const SILENT = {
   playerState() {}, stopAll() {},
 };
 
-export function createGame(canvas, assets, input, sound = SILENT) {
+export function createGame(canvas, assets, input, sound = SILENT, options = {}) {
+  // the extra stage runs its own player and stage (extra.js)
+  if (assets.stage.extra) return createExtraStage(canvas, assets, input, sound, options);
   const { anims } = assets.sprites;
   const terrain = createTerrain(assets.stage.collision);
   const player = createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds });

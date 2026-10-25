@@ -36,7 +36,7 @@ export const LEVELS = {
     name: 'Angel Island Zone act 1', zone: 4, act: 0, paletteAnimations: [823], music: 20, clouds: 72,
     sprites: {
       thinPlatform: [535, 0], bounceBlock: [543, 0], waterSplash: [552, 0], sinkingPlatform: [544, 0], squarePlatform: [536, 0],
-      squarePlatformLong: [537, 0], breakableWall: [595, 0],
+      squarePlatformLong: [537, 0], breakableWall: [595, 0], ironBall: [541, 0],
     },
   },
 };

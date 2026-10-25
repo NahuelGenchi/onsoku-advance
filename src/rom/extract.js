@@ -37,10 +37,10 @@ export const SONIC_ANIMATIONS = {
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
   halfPipeLow: [36, 0], halfPipeMid: [36, 1], halfPipeHigh: [36, 2],
-  // a breath from an air bubble under water (charState 27)
-  breathe: [17, 0],
   // hanging from a hook rail (charState 38)
   hook: [43, 0],
+  // a breath from an air bubble under water (charState 27)
+  breathe: [17, 0],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -78,6 +78,10 @@ export const ENEMY_ANIMATIONS = {
   // snapping its claws
   424: { drisame: 0 }, 573: { drisameIce: 0 }, 579: { drisameDebrisLarge: 0 }, 580: { drisameDebrisSmall: 0 },
   425: { kuraaWalk: 0, kuraaSnap: 1 },
+  // Yukimaru on the ground and on a wall, walking and throwing, and its snowball (the Pen's first snowball
+  // animation); the Pen walking and throwing, its snowball and the snowball's pieces
+  422: { yukimaruThrow: 0, yukimaruWalk: 1 }, 423: { yukimaruWallThrow: 0, yukimaruWallWalk: 1 }, 427: { yukimaruSnowball: 0 },
+  426: { penWalk: 0, penThrow: 1 }, 428: { penSnowball: 0 }, 429: { penSnowballPiece: 0 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their

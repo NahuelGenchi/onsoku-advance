@@ -11,8 +11,8 @@ export const LEVELS = {
   // StageInit_Zone4Act1 (0x0803DDCD in the USA ROM): CreateStageWaterTask(1546, 0x7F207F20, 0); the snow is
   // tilemap 71 (TM_ICE_PARADISE_SNOW) on BG0 (CreateStageBg_Zone4); zone 4's thin platforms are 523
   // (sPlatformThinAnims), and so are its ferris wheels' seats (gUnknown_086CEE2C), its sinking platform 528
-  // (gUnknown_086CEDC0), its square platform 524 and moving spring 526 (their CreateEntity_) and its breakable
-  // wall 594 (gUnknown_080BB544, 0x080B854C)
+  // (gUnknown_086CEDC0), its square platform 524 and moving spring 526 (their CreateEntity_), its breakable
+  // wall 594 (gUnknown_080BB544, 0x080B854C) and its hook rail's hook 569 (CreateEntity_HookRail)
   6: {
     name: 'Ice Mountain Zone act 1', zone: 3, act: 0, paletteAnimations: [822, 821], music: 18, water: { level: 1546, blend: 0x7F207F20 }, snow: 71,
     sprites: {

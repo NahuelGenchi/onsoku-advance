@@ -18,6 +18,7 @@ import { ICE_MOUNTAIN, iceMountainScroll } from './icemountain.js';
 import { underColors, waveOffsets } from './water.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
+const HUD_ORDER = 3;   // the HUD's OAM order (Task_StageUIMain: 24 >> 3)
 const s16 = v => (v << 16) >> 16;
 
 // Neo Green Hill's background scrolls each line on its own: three cloud bands drift with time,
@@ -406,10 +407,10 @@ export function createRenderer(canvas, assets) {
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
     const shown = rings.visible(view);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
-    // the sprites of BG priority `prio` (2 and 3 together, behind the front layer)
-    const drawAll = prio => byPart((below, first, end) => {
+    // the sprites of BG priority `prio` (2 and 3 together, behind the front layer) that `shows` picks
+    const drawAll = (prio, shows = () => true) => byPart((below, first, end) => {
       for (const s of list) {
-        if (Math.min(s.prio, 2) !== prio || s.white) continue;
+        if (Math.min(s.prio, 2) !== prio || s.white || !shows(s)) continue;
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy, [first, end]);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic, [first, end]);
         else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
@@ -423,9 +424,12 @@ export function createRenderer(canvas, assets) {
     // it as it is. Above the water it is off while the water line was at the screen's top the frame before.
     const fading = titleCard ? titleCard.sprites.length > 0 && (titleCard.sprites[0].a0 & 0xC00) === 0x400 : cardOver;
     if (ice && tick > 1 && (!water || water.snow)) drawSnow(snow.frames[ice.snowFrame], ice.snowX, ice.snowY, snow.palettes[paletteVariant(stage, snow.follows, palettes)], fading, ox, oy, split);
-    drawAll(0);
+    // the HUD's sprites are at priority 0 and OAM order 3, so the few of priority 0 with a lower order are in
+    // front of them
+    drawAll(0, s => s.order >= HUD_ORDER);
     if (showCollision) drawCollision(terrain, vx, vy);
     byPart(below => drawHud(hudState.sprites, below ? hud.under : hud.sheet));
+    drawAll(0, s => s.order < HUD_ORDER);
     for (const s of list) if (s.white) drawWhite(s, vx, vy);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's

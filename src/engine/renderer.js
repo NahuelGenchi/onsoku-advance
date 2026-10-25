@@ -13,6 +13,7 @@ import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './sta
 import { SINE } from './trig.js';
 import { rushObjEntries, rushTrailStrips, TRAIL_COLOR } from './rushfx.js';
 import { rasterizeStrips, objLayer as dsObjLayer, to6, out8 } from './dsdraw.js';
+import { BACKGROUND_SCROLL } from './backgrounds.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
 const s16 = v => (v << 16) >> 16;
@@ -36,7 +37,11 @@ export function createRenderer(canvas, assets) {
   let ctx = canvas.getContext('2d', { alpha: false });   // the Rush boost borrows it for a moment (drawRushObjs)
   const { atlas, frames } = assets.sprites, hud = assets.hud, card = assets.titleCard;
   const stage = assets.stage, { backgrounds } = stage;
-  const bgW = stage.background.width;
+  const bgW = stage.background.width, scroll = BACKGROUND_SCROLL[stage.backgroundScroll];
+  // the background's pixels that show the backdrop, by map row, and what each screen line showed of the map
+  const holes = new Map();
+  for (const [x, y] of stage.backgroundHoles ?? []) holes.set(y, [...(holes.get(y) ?? []), x]);
+  let bgRows = new Int16Array(H), bgOffsets = new Int16Array(H);
 
   // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does
   function drawSprite(index, x, y, flipX, flipY = false) {
@@ -255,6 +260,52 @@ export function createRenderer(canvas, assets) {
     ctx.putImageData(img, 0, 0);
   }
 
+  // Secret Base act 1's spotlights (spotlights.js): the brightness decrease by bldY sixteenths on every pixel
+  // outside windows 0 and 1 but the backdrop's. Each window's lines and edges as mGBA 0.10.5 reads its
+  // registers (src/gba/renderers/video-software.c): a start past the screen's end and past its own end counts
+  // as 0, and a window whose end comes before its start wraps round the screen. The widescreen view carries an
+  // edge at the original screen's left or right edge on to its own, and keeps the lines above and below the
+  // original screen's to its first and last line's windows.
+  function windowRange(value, max) {
+    let start = value >> 8, end = value & 0xFF;
+    if (start > max && start > end) start = 0;
+    if (end > max) { end = max; if (start > max) start = max; }
+    return [start, end];
+  }
+  function lit(blend, line, inside, ox) {
+    inside.fill(0);
+    if (!blend.windows) return;
+    const l = Math.min(Math.max(line, 0), SCREEN_H - 1);
+    for (let n = 0; n < 2; n++) {
+      const [top, bottom] = windowRange(blend.v[n], SCREEN_H);
+      if (bottom >= top ? l < top || l >= bottom : l >= bottom && l < top) continue;
+      const at = blend.base + l * 4 + n * 2;
+      const [left, right] = windowRange(blend.drawn ? blend.buf[at] | (blend.buf[at + 1] << 8) : blend.h[n], SCREEN_W);
+      const fill = (a, b) => inside.fill(1, a === 0 ? 0 : a + ox, b === SCREEN_W ? W : b + ox);
+      if (right < left) { fill(0, right); fill(left, SCREEN_W); } else fill(left, right);
+    }
+  }
+  let inside = new Uint8Array(W);
+  function darkenOutside(blend, ox, oy) {
+    const img = ctx.getImageData(0, 0, W, H), d = img.data, y = blend.bldY, [br, bg, bb] = stage.backdrop;
+    for (let line = 0; line < H; line++) {
+      lit(blend, line - oy, inside, ox);
+      for (const x of holes.get(bgRows[line]) ?? []) {
+        for (let k = mod(x - bgOffsets[line], bgW); k < W; k += bgW) {
+          const i = (line * W + k) * 4;
+          if (d[i] === br && d[i + 1] === bg && d[i + 2] === bb) inside[k] = 1;
+        }
+      }
+      for (let x = 0, i = line * W * 4; x < W; x++, i += 4) {
+        if (inside[x]) continue;
+        d[i] -= (d[i] * y) >> 4;
+        d[i + 1] = (d[i + 1] * (16 - y)) >> 4;
+        d[i + 2] = (d[i + 2] * (16 - y)) >> 4;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
   // A still line of the background, its column 0 at the original screen's left edge `ox`. The widescreen view
   // shows it mirrored past its own edges, which carries its clouds and islands on without a seam.
   const mirrored = new WeakMap();
@@ -273,12 +324,27 @@ export function createRenderer(canvas, assets) {
     if (right > 0) ctx.drawImage(flip, 0, bgLine, right, 1, ox + n, line, right, 1);
   }
 
+  // The background of a level whose scroll backgrounds.js gives, line by line from the map row and column it
+  // starts at; the map repeats both ways.
+  function drawScrolled(background, tick, ox, oy, cx, cy, terrain) {
+    for (let line = 0; line < H; line++) {
+      const [x, y] = scroll(line - oy, tick, cx, cy, terrain), row = mod(y + line - oy, background.height);
+      let off = mod(x - ox, bgW);
+      bgRows[line] = row; bgOffsets[line] = off;
+      for (let dx = 0; dx < W; off = 0) {
+        const n = Math.min(bgW - off, W - dx);
+        ctx.drawImage(background, off, row, n, 1, dx, line, n, 1);
+        dx += n;
+      }
+    }
+  }
+
   // back to front: higher orders first, and the later entries of an order before the earlier ones
   function stack(list) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake, spotlights }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -294,7 +360,8 @@ export function createRenderer(canvas, assets) {
     // below it and repeats its top line above it.
     const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, cx = vx + ox;
     const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
-    for (let line = 0; line < H; line++) {
+    if (scroll) drawScrolled(background, tick - 1, ox, oy, cx, vy + oy, terrain);
+    else for (let line = 0; line < H; line++) {
       const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
       if (STILL(bgLine)) { drawStill(background, bgLine, line, ox); continue; }
       let off = mod(backgroundOffset(bgLine, tick - 1, cx) - ox, bgW);
@@ -323,12 +390,15 @@ export function createRenderer(canvas, assets) {
     drawAll(false);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
+    // the spotlights' blend takes the place of the title card's fade
+    const blend = spotlights?.blend;
+    if (blend) darkenOutside(blend, ox, oy);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
     // behind keeps them out of the fade
     const semi = titleCard.sprites.length > 0 && (titleCard.sprites[0].a0 & 0xC00) === 0x400;
     if (!semi) drawCard(titleCard.sprites);
-    if (titleCard.fade.bldY) darken(titleCard.fade.bldY);
+    if (!blend && titleCard.fade.bldY) darken(titleCard.fade.bldY);
     if (semi) drawCard(titleCard.sprites);
   }
 
@@ -339,6 +409,7 @@ export function createRenderer(canvas, assets) {
     canvas.height = objCanvas.height = overlay.height = maskCanvas.height = h;
     objLayer = new ImageData(w, h);
     trailBuf = new Uint8Array(w * h);
+    bgRows = new Int16Array(h); bgOffsets = new Int16Array(h); inside = new Uint8Array(w);
   };
   return render;
 }

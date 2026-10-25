@@ -79,6 +79,8 @@ export const ENEMY_ANIMATIONS = {
   433: { oct: 0, octShoot: 1 }, 436: { octShot: 0 },
   // Cosmic Angel's Mirror, walking and shooting, and its shot
   432: { mirror: 0, mirrorShoot: 1 }, 435: { mirrorShot: 0 },
+  // the Mole of Secret Base, Egg Rocket and Cosmic Angel, down in its mound and popping up
+  434: { moleDown: 0, moleUp: 1 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their

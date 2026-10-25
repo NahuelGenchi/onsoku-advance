@@ -120,6 +120,8 @@ export const WALL_ANIMATIONS = { 559: { breakableWall: 0 } };
 export const MOVING_SPRING_ANIMATIONS = { 540: { movingSpring: 0, movingSpringLaunch: 1 } };
 // the square platform (494); other zones have their own, and some a longer one too (levels.js `sprites`)
 export const SQUARE_PLATFORM_ANIMATIONS = { 494: { squarePlatform: 0 } };
+// the iron ball (510); Angel Island has its own (levels.js `sprites`)
+export const IRON_BALL_ANIMATIONS = { 510: { ironBall: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // the splash under Sonic on a forced slide
@@ -214,7 +216,7 @@ function extractSprites(rom, tables, level, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...conveyorObjectAnimations(level), ...BARREL_ANIMATIONS, ...PROPELLER_ANIMATIONS, ...ROCK_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...NUTS_AND_BOLTS_ANIMATIONS, ...PIPE_ANIMATIONS, ...BUMPER_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...conveyorObjectAnimations(level), ...BARREL_ANIMATIONS, ...PROPELLER_ANIMATIONS, ...ROCK_ANIMATIONS, ...WALL_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...NUTS_AND_BOLTS_ANIMATIONS, ...PIPE_ANIMATIONS, ...BUMPER_ANIMATIONS, ...IRON_BALL_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

@@ -10,32 +10,33 @@
 import { makeSprite, startAnim, animate } from './objects.js';
 import { tileFloor } from './terrain.js';
 import { SINE } from './trig.js';
+import { hanabii, HANABII } from './hanabii.js';
 
 export const KIKI = 0, BUZZER = 1, GAMIGAMI = 2, RHINOTANK = 3, KEROKERO = 4;
 
-const TILE = 8;
-const I = v => v >> 8;                        // Q8.8 to pixels, rounding down
-const Div = (a, b) => Math.trunc(a / b);      // the BIOS divide, rounding toward 0
-const s8 = v => (v << 24) >> 24;
-const s16 = v => (v << 16) >> 16;
-const COS = a => SINE[a + 256], SIN = a => SINE[a];
+export const TILE = 8;
+export const I = v => v >> 8;                        // Q8.8 to pixels, rounding down
+export const Div = (a, b) => Math.trunc(a / b);      // the BIOS divide, rounding toward 0
+export const s8 = v => (v << 24) >> 24;
+export const s16 = v => (v << 16) >> 16;
+export const COS = a => SINE[a + 256], SIN = a => SINE[a];
 
 // IS_OUT_OF_CAM_RANGE on a screen position, IS_OUT_OF_DISPLAY_RANGE on a world position
 const offCam = (sx, sy) => ((sx + 128) & 0xFFFF) > 496 || sy + 128 < 0 || sy > 288;
 const offDisplay = (wx, wy, cam) => wx > cam.x + 368 || wx < cam.x - 128 || wy > cam.y + 288 || wy < cam.y - 128;
-const gone = (spawnX, spawnY, x, y, cam) => offDisplay(spawnX, spawnY, cam) && offCam(x - cam.x, y - cam.y);
+export const gone = (spawnX, spawnY, x, y, cam) => offDisplay(spawnX, spawnY, cam) && offCam(x - cam.x, y - cam.y);
 
-const sonicX = ctx => Math.floor(ctx.player.x), sonicY = ctx => Math.floor(ctx.player.y);
+export const sonicX = ctx => Math.floor(ctx.player.x), sonicY = ctx => Math.floor(ctx.player.y);
 
 // a new enemy's sprite has run its script once, so its hitbox is set from the first frame
-function sprite(name, anims, opts) {
+export function sprite(name, anims, opts) {
   const s = makeSprite(name, opts);
   animate(s, anims);
   return s;
 }
 
 // the enemy record's data bytes: d0 and d1 signed, d2 and d3 not
-const data = e => ({ d0: s8(e.d[0]), d1: s8(e.d[1]), d2: e.d[2], d3: e.d[3] });
+export const data = e => ({ d0: s8(e.d[0]), d1: s8(e.d[1]), d2: e.d[2], d3: e.d[3] });
 
 // Kiki (kiki.c): a monkey that climbs up and down its tree at 1 px a frame and throws a coconut on every
 // second visit to the top. Facing right, it is drawn 8 px to the left of where it collides.
@@ -340,4 +341,5 @@ function kerokero(e, slot, anims) {
 }
 
 /** Makers by enemy kind (gSpriteInits_Enemies): (entity, slot, anims, ctx) → task. */
-export const ENEMIES = { [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero };
+export const ENEMIES = { [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero,
+  [HANABII]: hanabii };

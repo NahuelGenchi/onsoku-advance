@@ -22,6 +22,7 @@ import { createResults, runResults } from './results.js';
 import { createPaletteAnimation } from './palettes.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
+import { createBossCapsule } from './capsule.js';
 import { SONG } from '../sound/songs.js';
 import { RUSH_BOOST_SE } from '../rom/rush.js';
 
@@ -95,6 +96,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   let cardPad = [];   // the pad directions held on the title card's last frame
   let extraLife = false, restart = false, loading = false, starMusic = false;
   let nextAct = 0;    // the frames left until the next act starts, once the results are over
+  let ended = false;  // past the last act built so far, the screen keeps its last frame
   let frozen = null;  // until then, the last act's last frame, which the screen keeps: { render, state }
   let drawShift = 0;   // how far right of the view the rest of this frame draws, after the act looped back
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
@@ -179,9 +181,10 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       state.score += points;
       if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) state.lives = (state.lives + 1) & 0xFF;
     },
-    // a boss is beaten at (x, y), where the original makes the capsule that ends the act (CreateBossCapsule);
-    // the end-of-act flow builds it
-    bossDefeated(x, y) {},
+    // a boss is beaten at (x, y): it leaves the capsule that ends the act (CreateBossCapsule)
+    bossDefeated(x, y) { tasks.add(createBossCapsule(x, y, anims), 0x2000); },
+    // the capsule opens: the clock and the rings stop as at the goal (STAGE_FLAG__ACT_START and STAGE_FLAG__2)
+    stopStage() { state.clockStopped = true; state.ringsStopped = true; },
     random,
     // an item box's prize (Task_Itembox2)
     prize(kind) {
@@ -352,7 +355,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       state.results = null;
       tasks.stop();
       sound.stopAll();
-      nextAct = NEXT_ACT_FRAMES;
+      if (assets.acts[state.level + 1]) nextAct = NEXT_ACT_FRAMES;
+      else ended = true;
       return false;
     },
   };
@@ -465,6 +469,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   function step() {
     input.poll?.();
     if (loading) { loading = false; return; }
+    if (ended) return;
     // between two acts the screen keeps the last act's last frame
     if (nextAct > 0) {
       if (--nextAct === NEXT_ACT_LOADS) startNextAct();

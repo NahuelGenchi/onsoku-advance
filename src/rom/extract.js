@@ -40,6 +40,8 @@ export const SONIC_ANIMATIONS = {
   halfPipeLow: [36, 0], halfPipeMid: [36, 1], halfPipeHigh: [36, 2],
   // running on past the goal (charState 28)
   actClearRun: [22, 0],
+  // standing in his act-clear pose once the boss capsule opens (charState 29)
+  actClearPose: [23, 0],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -113,6 +115,13 @@ export const EGG_HAMMER_TANK_ANIMATIONS = {
   610: { hammerTankEggman: 0, hammerTankEggmanLaugh: 1, hammerTankEggmanHurt: 2 }, 612: { hammerTankBeaten: 0 },
   613: { hammerTankBelt0: 0 }, 614: { hammerTankBelt1: 0 }, 615: { hammerTankBelt2: 0 }, 616: { hammerTankBelt3: 0 },
 };
+// the capsule a beaten boss leaves (bosses_misc.c): small while it rises, then full size shut, opening and open,
+// its switch, a half of its shell, and Neo Green Hill's animals inside (gUnknown_080BB43C, besides the kangaroo
+// the enemies already let out) and its birds
+export const CAPSULE_ANIMATIONS = {
+  578: { capsuleSmall: 0 }, 575: { capsule: 0, capsuleOpening: 1, capsuleOpen: 2 }, 576: { capsuleSwitch: 0 },
+  577: { capsuleShell: 0 }, 438: { animalGorilla: 0 }, 448: { animalRobin: 0 }, 442: { animalParrot: 0 },
+};
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -120,10 +129,12 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block), the boulders' debris, and the Egg Hammer Tank's arm, hammer and belt; their frames also keep their
+// block), the boulders' debris, the Egg Hammer Tank's arm, hammer and belt, and the capsule rising, its shell and
+// the birds circling it; their frames also keep their
 // OAM pieces as the hardware reads them
 const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge',
-  'hammerTankArm', 'hammerTankHammer', 'hammerTankBelt0', 'hammerTankBelt1', 'hammerTankBelt2', 'hammerTankBelt3']);
+  'hammerTankArm', 'hammerTankHammer', 'hammerTankBelt0', 'hammerTankBelt1', 'hammerTankBelt2', 'hammerTankBelt3',
+  'capsuleSmall', 'capsuleShell', 'animalRobin', 'animalParrot']);
 
 // Each level (0 is Neo Green Hill Zone act 1, 1 its act 2) has three tilemap entries: the front layer (drawn
 // over Sonic), the back layer (behind him) and the background.
@@ -184,7 +195,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...SHRUB_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GOAL_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_HAMMER_TANK_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...SHRUB_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GOAL_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_HAMMER_TANK_ANIMATIONS, ...CAPSULE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

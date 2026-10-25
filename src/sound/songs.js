@@ -20,6 +20,8 @@ export const SONG = {
   LIFE_LOST: 119,          // SE_LIFE_LOST: Sonic dies
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
   GOAL: 135,               // SE_GOAL: Sonic passes the goal signpost
+  CAPSULE_LANDS: 136,      // SE_136: the boss capsule lands
+  CAPSULE_OPENS: 137,      // SE_137: Sonic lands on its switch
   ENEMY_DEFEAT: 138,       // SE_ITEM_BOX: an enemy is defeated
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
   RESULTS_COUNT: 140,      // SE_STAGE_RESULT_COUNTER: every fourth frame of the results' count

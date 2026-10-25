@@ -600,6 +600,20 @@ export function hurt(p, terrain) {
   return true;
 }
 
+/**
+ * Knocks Sonic off at the given speeds in his hurt state, blinking as after a hit but keeping his rings, as
+ * the boss capsule does when it lands on him (Task_801623C).
+ */
+export function knockAside(p, xsp, ysp) {
+  p.invulnerable = K.invulnerable;
+  p.xsp = xsp; p.ysp = ysp;
+  p.onObject = null; p.air = true; p.pushing = false;
+  endAttack(p);
+  p.airLock = false;
+  p.state = 'hurt';
+  uncurl(p);
+}
+
 // dead (Task_PlayerMain's death block, then Task_PlayerDied and Task_PlayerHandleDeath): on the first frame he
 // stops moving sideways (his ground speed is left as it was) and the camera and clock stop; then he falls through everything until he is 80 px
 // below the screen, and the act restarts 61 frames later

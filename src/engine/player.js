@@ -19,9 +19,9 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip |
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
-//         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
-//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) |
-//         marbleTrack (carried through a marble track) | hurt | dead
+//         pole) | flagSwing (round a red flag) | grind | grindSteep (grinding down a steep part of a rail) |
+//         railJump (jumping off a rail before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a
+//         half-pipe's side) | marbleTrack (carried through a marble track) | hurt | dead
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',

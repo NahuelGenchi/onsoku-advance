@@ -31,8 +31,8 @@ export const SONIC_ANIMATIONS = {
   balanceForward: [13, 0], balanceBack: [14, 0],
   // knocked back (charState 15) and dying (1)
   hurt: [19, 0], dead: [21, 0],
-  // hanging from a wall pole (charState 31)
-  pole: [38, 0],
+  // hanging from a wall pole (charState 31), and swinging round a red flag (30)
+  pole: [38, 0], flagSwing: [37, 0],
   // grinding (charState 16; variant 1 on a rail's steep parts) and jumping off a rail before its end (20)
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
@@ -102,6 +102,8 @@ export const BOOSTER_ANIMATIONS = { 471: { booster: 0, boosterSlightRight: 1, bo
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };
 // Neo Green Hill's wall pole (468): at rest, and bending as Sonic swings on it
 export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
+// Casino Paradise's red flag (469): at rest, and waving as Sonic swings round it
+export const RED_FLAG_ANIMATIONS = { 469: { redFlag: 0, redFlagTug: 1 } };
 // the fireworks in Casino Paradise's background, big and small (482, 483)
 export const BACKGROUND_ANIMATIONS = { 482: { firework: 0 }, 483: { fireworkSmall: 0 } };
 // the marble tracks' entrance and exit (488)
@@ -192,7 +194,7 @@ function extractSprites(rom, tables, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...BUMPER_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...BARREL_ANIMATIONS, ...PIPE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...BUMPER_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...BARREL_ANIMATIONS, ...PIPE_ANIMATIONS, ...RED_FLAG_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

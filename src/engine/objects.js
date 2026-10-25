@@ -33,6 +33,7 @@ import { createConveyor } from './conveyors.js';
 import { createSteamExhaust } from './steamexhausts.js';
 import { createSwingingHook } from './swinginghooks.js';
 import { createSwingRope } from './swingropes.js';
+import { createCraneClaw } from './craneclaws.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -163,7 +164,7 @@ function interactable(e, slot, anims, ctx) {
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createHookRail(e, slot, anims) ?? createSecurityGate(e, slot, anims)
     ?? createConveyor(e, slot, ctx) ?? createSteamExhaust(e, slot, anims) ?? createSwingingHook(e, slot, anims)
-    ?? createSwingRope(e, slot) ?? standIn(e, slot);
+    ?? createSwingRope(e, slot) ?? createCraneClaw(e, slot, anims) ?? standIn(e, slot);
 }
 
 /**

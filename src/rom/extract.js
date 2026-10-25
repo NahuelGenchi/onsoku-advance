@@ -37,7 +37,7 @@ export const SONIC_ANIMATIONS = {
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
   halfPipeLow: [36, 0], halfPipeMid: [36, 1], halfPipeHigh: [36, 2],
-  // hanging from a hook rail or a swinging hook (charState 38) and swinging round a rope (34)
+  // hanging from a hook rail, a swinging hook or a crane claw (charState 38) and swinging round a rope (34)
   hook: [43, 0], swingRope: [40, 1],
 };
 export const EFFECT_ANIMATIONS = {
@@ -106,9 +106,11 @@ export const HOOK_RAIL_ANIMATIONS = { 504: { hookRail: 0, swingingHook: 1 } };
 export const SECURITY_GATE_ANIMATIONS = { 534: { securityGate: 0 } };
 // Secret Base act 2's steam exhaust: the vent and its lid (501), and the vent blowing steam and the steam's end (567)
 export const STEAM_EXHAUST_ANIMATIONS = { 501: { steamExhaust: 0, steamExhaustLid: 2 }, 567: { steamExhaustBlow: 0, steamExhaustBlowEnd: 1 } };
-// the swinging hook's chain (503: the trolley a crane claw runs on, a link and the anchor)
+// the swinging hook's chain (503: the trolley a crane claw runs on, a link and the anchor), and the crane claw
+// (498: open, closing, opening, and a piece of its cable)
 export const HOOK_ANIMATIONS = {
   503: { craneTrolley: 0, hookLink: 1, hookAnchor: 2 },
+  498: { craneClaw: 0, craneClawClose: 1, craneClawOpen: 2, craneCable: 3 },
 };
 // the Egg Press (boss_2_egg_press.c) and what bosses leave behind: the Egg Mobile and Eggman flying off in it
 // (bosses_egg_mobile.c), the debris (gUnknown_080BB41C) and the explosions (sub_8017540)

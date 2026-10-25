@@ -74,6 +74,8 @@ export const ENEMY_ANIMATIONS = {
   425: { kuraaWalk: 0, kuraaSnap: 1 },
   // the Mole of Secret Base, Egg Rocket and Cosmic Angel, down in its mound and popping up
   434: { moleDown: 0, moleUp: 1 },
+  // Secret Base's Tentou hovering, flying and firing (its shots are GamiGami's)
+  412: { tentouHover: 0, tentouFly: 1, tentouFire: 2 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their

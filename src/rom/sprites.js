@@ -37,6 +37,7 @@ export function parseScript(rom, tables, anim, variant = 0) {
       const box = [0, 1, 2, 3].map(k => (rom.u8(at + 8 + k) << 24) >> 24);
       steps.push({ op: 'hitbox', slot: rom.s32(at + 4) % 16, box: box.some(v => v) ? box : null, at: cur });
     }
+    else if (id === -12) steps.push({ op: 'order', order: rom.s32(at + 4), at: cur });
     else if (id === -3) { steps.push({ op: 'jump', to: cur - rom.s32(at + 4), at: cur }); break; }
     else if (id === -4) { steps.push({ op: 'end', at: cur }); break; }
     else if (id === -9) { steps.push({ op: 'goto', anim: rom.u16(at + 4), variant: rom.u16(at + 6), at: cur }); break; }
@@ -129,7 +130,7 @@ export function framePieces(rom, tables, anim, frame, tilesAt, palette, eightBpp
 export function animationFrames(rom, tables, anim, variant, basePalette, { skipPalette = false } = {}) {
   const steps = parseScript(rom, tables, anim, variant);
   const palette = basePalette.slice();
-  let tilesAt = null, eightBpp = false, boxes = null;
+  let tilesAt = null, eightBpp = false, boxes = null, order = null;
   const frames = [];
   for (const s of steps) {
     if (s.op === 'tiles') {
@@ -139,11 +140,13 @@ export function animationFrames(rom, tables, anim, variant, basePalette, { skipP
       readColors(rom, tables.palettes + s.palId * 32, s.count).forEach((c, i) => { palette[s.insert + i] = c; });
     } else if (s.op === 'hitbox') {
       (boxes ??= {})[s.slot] = s.box;
+    } else if (s.op === 'order') {
+      order = s.order;
     } else if (s.op === 'show') {
       frames.push(s.frame < 0 || tilesAt === null
-        ? { delay: s.delay, frame: -1, at: s.at, boxes }
-        : { delay: s.delay, frame: s.frame, tilesAt, eightBpp, palette: palette.slice(), at: s.at, boxes });
-      boxes = null;
+        ? { delay: s.delay, frame: -1, at: s.at, boxes, order }
+        : { delay: s.delay, frame: s.frame, tilesAt, eightBpp, palette: palette.slice(), at: s.at, boxes, order });
+      boxes = null; order = null;
     }
   }
   const last = steps[steps.length - 1];

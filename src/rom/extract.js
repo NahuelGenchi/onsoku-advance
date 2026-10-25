@@ -229,7 +229,8 @@ function extractSprites(rom, tables, levelSprites = {}) {
         }
         const image = images[byKey.get(key)];
         if (ROTATED.has(name) && !image.pieces) image.pieces = framePieces(rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp);
-        // the hitboxes set just before a frame come with it
+        // the hitboxes and the OAM order set just before a frame come with it
+        if (f.order !== null) return [byKey.get(key), f.delay, f.boxes, f.order];
         return f.boxes ? [byKey.get(key), f.delay, f.boxes] : [byKey.get(key), f.delay];
       });
       anims[name] = { frames, loop: script.loop };

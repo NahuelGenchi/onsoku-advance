@@ -43,6 +43,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     idleT: K.boredDelay, anim: makeAnimator(), spinDashSpeeds,
     animRestart: false, // an object asked for his animation to start over
     boxes: [null, null], // his sprite's hitboxes: 0 his body, 1 the attack box of the moves that destroy enemies
+    order: 16,         // his sprite's OAM order, which holding on to a carousel changes from frame to frame
     invulnerable: 0,   // frames of blinking after a hit (timerInvulnerability)
     shield: null,      // 'normal' or 'magnetic' (the itemEffect shield bits)
     invincible: 0,     // frames of invincibility left (timerInvincibility)
@@ -720,8 +721,10 @@ function choose(p, name, restart = false) {
 // script sets them again
 function stepAnim(p, anims) {
   const i = p.anim.i, ended = tickAnim(p.anim, anims);
-  const boxes = p.anim.i !== i && anims[p.anim.name].frames[p.anim.i][2];
-  if (boxes) for (const [slot, box] of Object.entries(boxes)) if (slot < 2) p.boxes[slot] = flipBox(box, p.facing > 0);
+  const f = p.anim.i !== i && anims[p.anim.name].frames[p.anim.i];
+  if (f?.[2]) for (const [slot, box] of Object.entries(f[2])) if (slot < 2) p.boxes[slot] = flipBox(box, p.facing > 0);
+  // it keeps the order a frame sets (animCmd_SetOamOrder) after the animation
+  if (f?.[3] !== undefined) p.order = f[3];
   return ended;
 }
 

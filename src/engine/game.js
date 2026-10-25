@@ -262,7 +262,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     else if (player.state !== 'marbleTrack') player.drawRotation = player.rotation << 2;
     if (fx) state.sprites.push(fx);
     if (!player.hidden) {
-      const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio };
+      const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: player.order, prio };
       if (affine) {
         const right = player.facing > 0, scale = player.scale;
         draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.drawRotation, scaleX: right ? -scale : scale, scaleY: scale, double: false });

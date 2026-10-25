@@ -95,7 +95,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     state.effects.push(e);
     return e;
   }
-  const feetY = () => player.y + player.offsetY;
+  // his feet, above his centre under flipped gravity
+  const feetY = () => player.y + (player.inverted ? -player.offsetY : player.offsetY);
   const centreY = () => player.y;
 
   const world = {
@@ -111,7 +112,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
         sound.play(SONG.LIFE_LOST);
         player.shield = null;
       } else if (state.ringCount > 0) {
-        scatter.launch(Math.floor(player.x), Math.floor(player.y), state.ringCount, player.layer);
+        scatter.launch(Math.floor(player.x), Math.floor(player.y), state.ringCount, player.layer, player.inverted);
         sound.play(SONG.RINGS_LOST);
         state.ringCount = 0;
       } else player.dead = true;
@@ -184,8 +185,9 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       const r = random();
       spawn('brake', 'brakeDust', player.x, feetY(), (r & 0x400) !== 0, (r & 0x800) !== 0);
     },
-    // spin dash dust follows Sonic's feet while he charges, bigger while the charge is above 2.0
-    spawnDashDust() { spawn('dash', 'dashDust', player.x, feetY(), player.facing > 0); },
+    // spin dash dust follows Sonic's feet while he charges, bigger while the charge is above 2.0, and turned
+    // over with him under flipped gravity
+    spawnDashDust() { spawn('dash', 'dashDust', player.x, feetY(), player.facing > 0, player.inverted); },
     // the insta-shield's flash follows Sonic, facing the way he faced when it started
     spawnInstaShield() { spawn('shield', 'instaShieldFlash', player.x, centreY(), player.facing > 0); },
   };
@@ -209,7 +211,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     if (e.kind === 'dash') {
       if (!player.spinDashing) return false;
       setAnim(e.anim, player.dashAccel > PHYSICS.dashDustBigAbove ? 'dashDustBig' : 'dashDust');
-      e.x = player.x; e.y = feetY(); e.flipX = player.facing > 0;
+      e.x = player.x; e.y = feetY(); e.flipX = player.facing > 0; e.flipY = player.inverted;
       tickAnim(e.anim, anims);
       return true;
     }
@@ -264,17 +266,18 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   }
   // Sonic's sprite (OAM order 16): the walk and run frames go through the rotation hardware (matrix 0, normal
   // size) and follow the slope, mirrored with a negative scale when he faces right, which also moves him 1px
-  // left; facing left, the original shifts the other frames 1px right. Dying or grinding puts him in front of
-  // the front layer.
+  // left; facing left, the original shifts the other frames 1px right. Under flipped gravity the other frames
+  // are turned over, and the rotated ones mirrored the other way and turned by half a turn less their angle
+  // (MACRO_8024B10_PSI_UPDATE). Dying or grinding puts him in front of the front layer.
   // the Rush boost's sprite effects go just in front of him and its trail just behind (renderer.js)
   function drawSonic() {
     const prio = player.death || player.front ? 1 : 2, fx = state.rushFx.list.length > 0 ? { rush: 'obj', order: 16, prio, sonic: null } : null;
     if (fx) state.sprites.push(fx);
     if (!player.hidden) {
-      const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio };
+      const inv = player.inverted, s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: inv, order: 16, prio };
       if (player.state === 'walk' || player.state === 'bounce') {
-        const right = player.facing > 0;
-        draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.rotation << 2, scaleX: right ? -256 : 256, scaleY: 256, double: false });
+        const scaleX = (player.facing > 0) !== inv ? -256 : 256, rotation = player.rotation << 2;
+        draw(s, player.x - (scaleX < 0 ? 1 : 0), player.y, { rotation: inv ? (512 - rotation) & 1023 : rotation, scaleX, scaleY: 256, double: false });
       } else draw(s, player.x + (player.facing < 0 ? 1 : 0), player.y);
       if (fx && s.frame >= 0) fx.sonic = state.sprites[state.sprites.length - 1];
     }
@@ -368,7 +371,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       if (starMusic) { starMusic = false; sound.invincibility(); }
       if (extraLife) { extraLife = false; sound.oneUp(); }
     }],
-    [0xFF00, () => { if (!state.clockStopped) tickClock(); state.tick++; }],
+    // the stage clock, which also keeps this frame's gravity for the next (gPrevStageFlags)
+    [0xFF00, () => { player.wasInverted = player.inverted; if (!state.clockStopped) tickClock(); state.tick++; }],
   ];
   for (const [priority, run] of STAGE_TASKS) tasks.add({ run: ctx => { run(ctx); return true; } }, priority, true);
   startCard();

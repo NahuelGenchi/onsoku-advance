@@ -103,12 +103,13 @@ export function scan(terrain, p0, p1, layer, step, probe) {
 /**
  * The one-tile floor probe (sub_801F100 and sub_801F07C, scanning down): the distance from (x, y) to the
  * floor within the tile holding y, ≤ 0 at or inside it. An empty tile sends it on to the next tile down and a
- * full one up into the tile above, so whatever uses it moves at most 8 px a frame.
+ * full one up into the tile above, so whatever uses it moves at most 8 px a frame. With `dir` negative it
+ * scans up, as the rings falling up do: only the empty and full tiles answer differently.
  */
-export function tileFloor(terrain, x, y, layer) {
+export function tileFloor(terrain, x, y, layer, dir = 8) {
   const v = terrain.columnHeight(x, y, layer), r = y & 7;
-  if (v === 0) return 8 - r;
-  if (v === 8) return -1 - r;
+  if (v === 0) return dir > 0 ? 8 - r : r + 1;
+  if (v === 8) return dir > 0 ? -1 - r : r - 8;
   return v > 0 ? v - 1 - r : v + r;
 }
 

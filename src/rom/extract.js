@@ -85,6 +85,8 @@ export const PLATFORM_ANIMATIONS = {
 };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
+// the square platform (494); other zones have their own, and some a longer one too (levels.js `sprites`)
+export const SQUARE_PLATFORM_ANIMATIONS = { 494: { squarePlatform: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // the splash under Sonic on a forced slide
@@ -186,7 +188,7 @@ function extractSprites(rom, tables, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...BUMPER_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...BARREL_ANIMATIONS, ...PIPE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...BUMPER_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...BARREL_ANIMATIONS, ...PIPE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

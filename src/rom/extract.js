@@ -54,8 +54,8 @@ export const OBJECT_ANIMATIONS = {
 // the spikes (animation 454, palette 35): pointing up, and sideways (flipped to point left)
 export const SPIKES_ANIM = 454;
 export const SPIKE_ANIMATIONS = { spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3] };
-// act 1's enemies and their shots, the dust and points a defeat leaves and every zone's freed animals, by animation;
-// each loads its own palette
+// act 1's enemies and their shots, the dust and points a defeat leaves and every zone's freed animals, by
+// animation; each loads its own palette
 export const ENEMY_ANIMATIONS = {
   401: { kikiBob: 1, kikiThrow: 2 }, 408: { coconut: 0 }, 402: { coconutPiece: 0 },
   403: { buzzerFly: 0, buzzerShoot: 1, buzzerTurn: 2 }, 409: { buzzerShot: 0 },
@@ -72,6 +72,8 @@ export const ENEMY_ANIMATIONS = {
   // snapping its claws
   424: { drisame: 0 }, 573: { drisameIce: 0 }, 579: { drisameDebrisLarge: 0 }, 580: { drisameDebrisSmall: 0 },
   425: { kuraaWalk: 0, kuraaSnap: 1 },
+  // the Mole of Secret Base, Egg Rocket and Cosmic Angel, down in its mound and popping up
+  434: { moleDown: 0, moleUp: 1 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their

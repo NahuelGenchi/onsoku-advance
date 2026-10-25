@@ -169,14 +169,15 @@ function interactable(e, slot, anims, ctx) {
  * boxes, then its enemies. On its first frame, and after a jump of more than 248 px across or 208 down, it
  * spawns everything in range (SpawnMapEntities). A task that leaves sets its slot's `live` back to null, so
  * it can spawn again when its point is uncovered again; a defeated enemy's slot is `gone` until the act
- * starts over.
+ * starts over, and a task that changes its entity's data bytes (the act's copy, in the original) keeps them
+ * in its slot's `d` until then.
  *
  * `stage` has interactables, itemBoxes, enemies and entityRegions; `tasks` is the list it adds to.
  */
 export function createEntities(stage, anims, tasks) {
   const { x: regionsX, y: regionsY } = stage.entityRegions;
   const regions = Array.from({ length: regionsX * regionsY }, () => []);
-  const slot = (e, spawn) => ({ e, live: null, gone: false, spawn });
+  const slot = (e, spawn) => ({ e, live: null, gone: false, d: null, spawn });
   for (const [list, spawn] of [
     [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx)],
     [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
@@ -230,7 +231,7 @@ export function createEntities(stage, anims, tasks) {
     /** Everything leaves and the next scan spawns what is in range, as when the act starts over. */
     reset() {
       prev = null;
-      for (const r of regions) for (const s of r) { s.live = null; s.gone = false; }
+      for (const r of regions) for (const s of r) { s.live = null; s.gone = false; s.d = null; }
     },
   };
 }

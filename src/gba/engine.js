@@ -1,9 +1,10 @@
 // The engine the Sonic Advance games are built on (SAT-R decompilation, src/core.c, src/task.c, src/sprite.c,
-// src/background.c), as the screens before the act use it: the list of tasks run once a frame in order of
-// priority, the copies of the display registers they write and the V-blank that puts them in the hardware, the
-// queue of graphics copied to VRAM in the V-blank, the background maps copied there, the sprites' OAM entries
-// sorted by their order, the H-blank DMA that changes a register from one line to the next, and the keys with
-// their auto-repeat. The video hardware is video.js; the ROM is where every copy reads from.
+// src/background.c, src/malloc_vram.c), as the screens before the act use it: the list of tasks run once a frame
+// in order of priority, the copies of the display registers they write and the V-blank that puts them in the
+// hardware, the queue of graphics copied to VRAM in the V-blank, the background maps copied there, the heap the
+// sprites' tiles are given room in, the sprites' OAM entries sorted by their order, the H-blank DMA that changes
+// a register from one line to the next, and the keys with their auto-repeat. The video hardware is video.js; the
+// ROM is where every copy reads from.
 //
 // A frame is run(): the keys are read, the tasks run, and the V-blank does its work, which the original does
 // in its main loop (EngineMainLoop). The original skips its keys and tasks for a frame when the V-blank's
@@ -24,6 +25,10 @@ const MAX_TASKS = 128, GFX_QUEUE = 32, BG_QUEUE = 16, OAM_ENTRIES = 128, OAM_ORD
 const COPY_CHUNK = 1024;
 // the H-blank DMA's two buffers of 160 lines of up to 4 bytes (gBgOffsetsBuffer)
 const HBLANK_BUFFER = 160 * 4;
+// the sprites' VRAM heap, in segments of 4 tiles: where it starts, how many segments it has, and what VramMalloc
+// returns when there's no room (the end of EWRAM, which a sprite given it can't copy its tiles to here)
+const OBJ_VRAM_SIZE = 0x8000, HEAP_SEGMENT = 0x80, HEAP_START = 0x14000 - 112 * 32, HEAP_SEGMENTS = 156;
+export const HEAP_END = -1;
 const s8 = v => (v << 24) >> 24;
 
 /**
@@ -241,6 +246,27 @@ export function createEngine(video, rom, sound) {
     e.oamFreeIndex = 0;
     orderStart.fill(0xFF); orderEnd.fill(0xFF);
   }
+
+  // --- the sprites' VRAM heap (malloc_vram.c) --------------------------------------------------------------------
+  // 156 segments of 4 tiles from 0x13200; an allocation's first entry holds how many segments it takes, 0 is free
+  const heap = new Uint16Array(OBJ_VRAM_SIZE / HEAP_SEGMENT);
+  /** VramMalloc: a VRAM offset for `tiles` tiles of sprite graphics, or HEAP_END if there is no room. */
+  e.vramMalloc = tiles => {
+    const segments = Math.ceil(tiles / 4);
+    for (let i = 0; i < HEAP_SEGMENTS; i++) {
+      if (heap[i] === 0) {
+        let j = 0;
+        for (; j < segments; j++) {
+          if (i + j >= HEAP_SEGMENTS) return HEAP_END;
+          if (heap[i + j] !== 0) break;
+        }
+        if (j === segments) { heap[i] = segments; return HEAP_START + i * HEAP_SEGMENT; }
+      } else i = (heap[i] - 1 + i) & 0xFFFF;
+    }
+    return HEAP_END;
+  };
+  /** VramFree */
+  e.vramFree = dest => { if (dest !== HEAP_END) heap[((dest - HEAP_START) / HEAP_SEGMENT) & 0xFFFF] = 0; };
 
   // --- the H-blank DMA ------------------------------------------------------------------------------------------
   /** Where the tasks write this frame's line-by-line values (gBgOffsetsHBlankPrimary), as a byte offset in e.hblank. */

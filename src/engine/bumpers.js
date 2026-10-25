@@ -15,6 +15,9 @@
 // - the small triangles, lying (51, upside down when d0 is 0) and standing (52, facing right when d0 is 0),
 //   throw him off whichever side he touches; the big right-angled one (53, mirrored when d0 is 0 and upside
 //   down when d1 is 0) only off its slanted side.
+// - the wall bumper (71) is part of the scenery: while his centre is in its area, d2 × 8 px across and d3 × 8
+//   down, it throws him every frame at 5 px a frame across (right when d0 is odd, else left) and 7 up, or 6
+//   down when d0 is 3 or more, without curling him up.
 //
 // Each frame of the shake moves it by the sine table's values for 1/8 of a turn more; the last two read
 // past the table's end, where the ROM has 1 and 482 for their cosines, so they don't move it across.
@@ -26,7 +29,7 @@ import { SINE, s8, octantAngle } from './trig.js';
 import { SONG } from '../sound/songs.js';
 
 export const BUMPER_HEXAGON = 48, BUMPER_ROUND = 49, BUMPER_CIRCLING = 50;
-export const BUMPER_TRI_H = 51, BUMPER_TRI_V = 52, BUMPER_RIGHT_ANGLE = 53;
+export const BUMPER_TRI_H = 51, BUMPER_TRI_V = 52, BUMPER_RIGHT_ANGLE = 53, WALL_BUMPER = 71;
 const SOX = 6;                    // Sonic's spriteOffsetX
 const FAST = 1638;                // Q(6.3984375): straight off a side
 const SLANT_A = 0x297, SLANT_B = 0x5D9;   // off a corner, across and along
@@ -116,12 +119,31 @@ function rightAngleThrow(p, x, y, flipX, flipY) {
   return true;
 }
 
+// the wall bumper (Task_WallBumper)
+function wallBumper(e, slot) {
+  const dir = s8(e.d[0]), w = e.d[2] * 8, h = e.d[3] * 8;
+  return {
+    run(ctx) {
+      const p = ctx.player, px = Math.floor(p.x), py = Math.floor(p.y);
+      if (!p.dead && px >= e.x && px <= e.x + w && py >= e.y && py <= e.y + h) {
+        ctx.world.playSound(SONG.BUMPER_B);
+        p.jumped = false; p.air = true; p.airLock = false;
+        p.xsp = dir & 1 ? 5 : -5;
+        p.ysp = dir < 3 ? -7 : 6;
+      }
+      if (offDisplay(e.x, e.y, ctx.cam)) { slot.live = null; return false; }
+      return true;
+    },
+  };
+}
+
 // the sway of the hexagon and the round bumper, in 1/256 px: d × 8 px each way, a turn every 256 frames
 const sway = (d, phase, t) => Math.imul(d * 2048, SINE[(4 * ((t + phase) & 0xFF)) & 0x3FF]) >> 14;
 
 /** The task for a bumper entity, or null when `e` is not one. */
 export function createBumper(e, slot, anims) {
   const k = e.kind;
+  if (k === WALL_BUMPER) return wallBumper(e, slot);
   if (k < BUMPER_HEXAGON || k > BUMPER_RIGHT_ANGLE) return null;
   const flipX = (k === BUMPER_TRI_V || k === BUMPER_RIGHT_ANGLE) && e.d[0] === 0;
   const flipY = (k === BUMPER_TRI_H && e.d[0] === 0) || (k === BUMPER_RIGHT_ANGLE && e.d[1] === 0);

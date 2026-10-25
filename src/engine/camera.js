@@ -2,7 +2,8 @@
 // a look up / look down pan, a short freeze after a spin dash release, and a still target once Sonic dies. It
 // never shows past its bounds: the act's edges, unless a boss narrows them. `minX` and `minY` are the lowest
 // its top-left corner goes and `maxX` and `maxY` the highest (the original's gCamera.maxX - 240 and
-// maxY - 160); `width` and `height` stay the act's.
+// maxY - 160); `width` and `height` stay the act's. A screen shake (screenshake.js) moves it by shakeX and
+// shakeY after it is kept inside them, as UpdateCamera does, and `shiftX` moves where it aims, off Sonic.
 // While the optional Sonic Rush boost runs, it leads him the way Rush's camera does.
 
 import { SCREEN_W, SCREEN_H, CAMERA as C, RUSH_BOOST as R } from './constants.js';
@@ -16,7 +17,7 @@ export function createCamera(p, terrain) {
     x: Math.floor(p.x) - SCREEN_W / 2, y: centreY(p) - (SCREEN_H / 2 + 4),
     targetX: 0, targetY: 0, freeze: 0, locked: false, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
     minX: 0, minY: 0, maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false,
-    width: terrain.width, height: terrain.height,
+    width: terrain.width, height: terrain.height, shakeX: 0, shakeY: 0, shiftX: 0,
     // the Rush boost's lead: Sonic shown this far off the target's centre (8.8 px), what it eases toward, the
     // frames left of the delay after a boost starts, and where Sonic was at the last update
     leadX: 0, leadY: 0, leadTargetX: 0, leadTargetY: 0, scroll: 0, prevX: p.x, prevY: p.y,
@@ -86,7 +87,7 @@ export function updateCamera(cam, p) {
   // a dead Sonic leaves the target where it was (unk50 bits 0–1); the view still eases onto it
   if (cam.freeze > 0) cam.freeze--;
   else if (!cam.locked) {
-    cam.targetX = Math.floor(p.x) - SCREEN_W / 2 - (cam.leadX >> 8);
+    cam.targetX = Math.floor(p.x) + cam.shiftX - SCREEN_W / 2 - (cam.leadX >> 8);
     // eases toward spriteOffsetY - 4 so curling up (offset 14 -> 9) doesn't jolt the view
     const want = p.offsetY - 4;
     if (cam.offsetY < want) cam.offsetY = Math.min(want, cam.offsetY + 5);
@@ -104,6 +105,7 @@ export function updateCamera(cam, p) {
   if (dy > cam.deadY) cam.y += Math.min(C.maxSpeedY, dy - cam.deadY);
   else if (dy < -cam.deadY) cam.y += Math.max(-C.maxSpeedY, dy + cam.deadY);
   clamp(cam);
+  cam.x += cam.shakeX; cam.y += cam.shakeY;
 }
 
 /**
@@ -112,8 +114,10 @@ export function updateCamera(cam, p) {
  * the act too. `x` and `y` are its top left corner in the act.
  */
 export function viewOf(cam, w = SCREEN_W, h = SCREEN_H) {
-  const cx = Math.min(Math.max(Math.floor(cam.x), 0), cam.width - SCREEN_W), cy = Math.min(Math.max(Math.floor(cam.y), 0), cam.height - SCREEN_H);
+  // a screen shake moves the view with the camera, past the edges it is otherwise kept inside
+  const sx = cam.shakeX, sy = cam.shakeY;
+  const cx = Math.min(Math.max(Math.floor(cam.x) - sx, 0), cam.width - SCREEN_W), cy = Math.min(Math.max(Math.floor(cam.y) - sy, 0), cam.height - SCREEN_H);
   const x = Math.max(0, Math.min(cx - ((w - SCREEN_W) >> 1), cam.width - w));
   const y = Math.max(0, Math.min(cy - ((h - SCREEN_H) >> 1), cam.height - h));
-  return { x, y, w, h };
+  return { x: x + sx, y: y + sy, w, h };
 }

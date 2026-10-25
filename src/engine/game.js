@@ -34,12 +34,16 @@ const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: tr
 // and while an object holds his controls (the forced slide): nothing, as it clears his input
 const NO_INPUT = { left: false, right: false, up: false, down: false, jump: false, attack: false, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
 
+// the window and blend registers as an act starts: the first window off, and no brightening
+// (win0h and win0v as WIN0H and WIN0V, winIn and winOut as WININ and WINOUT, bldCnt and bldY as BLDCNT and BLDY)
+const noEffects = () => ({ win0: false, win0h: 0, win0v: 0, winIn: 0, winOut: 0, bldCnt: 0, bldY: 0 });
+
 const SILENT = {
   play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
   playerState() {}, stopAll() {}, musicState() {},
 };
 
-export function createGame(canvas, assets, input, sound = SILENT) {
+export function createGame(canvas, assets, input, sound = SILENT, hooks = {}) {
   const { anims } = assets.sprites;
   const terrain = createTerrain(assets.stage.collision);
   const player = createPlayer({ ...assets.stage.spawn, spinDashSpeeds: assets.physics.spinDashSpeeds });
@@ -61,6 +65,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
     rushFx: createRushFx(), // its trail, burst and aura (rushfx.js)
     shake: -1,            // the frame of the boost's screen shake showing, or -1; only drawing reads it
+    display: noEffects(), // the first window and the brightness effect a boss sets (renderer.js)
+    frozen: false,        // gStageFlags bit 1: the rings manager and the entities manager stop (a boss's defeat)
   };
   let viewW = SCREEN_W, viewH = SCREEN_H;   // the original screen, or the widescreen view's size
   state.view = viewOf(state.cam, viewW, viewH);
@@ -94,9 +100,26 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       return { minX: c.minX, maxX: c.maxX + SCREEN_W, minY: c.minY, maxY: c.maxY + SCREEN_H };
     },
     get cam() { return state.cam; },
+    get camera() { return state.cam; },
     // the music manager's boss state (gMusicManagerState.unk1): 0x1n starts boss song n, 0x3n ends it
     musicState(value) { sound.musicState(value); },
     get cameraY() { return Math.floor(state.cam.y); },
+    get lives() { return state.lives; },
+    get ringCount() { return state.ringCount; },
+    get courseTime() { return state.courseTime; },
+    get display() { return state.display; },
+    // InitScatteringRings: `n` of Sonic's rings drop round him, with their sound
+    loseRings(n) {
+      scatter.launch(Math.floor(player.x), Math.floor(player.y), n, player.layer);
+      sound.play(SONG.RINGS_LOST);
+      state.ringCount -= n;
+    },
+    // gStageFlags |= 3: the clock stops, and so do the rings manager and the entities manager
+    freezeStage() { state.clockStopped = true; state.frozen = true; },
+    // TasksDestroyInPriorityRange
+    destroyTasks(lo, hi) { tasks.destroyRange(lo, hi); },
+    // CreateStageResults with Sonic's rings and time, at the end of the last act
+    stageResults(rings, time) { hooks.stageResults?.(rings, time); },
     terrain,
     // a hazard touched Sonic (Coll_DamagePlayer): a shield takes the hit, or with rings he drops them all, up
     // to 48 of them scattering, and without any he dies; returns false while he is invincible or still
@@ -184,12 +207,13 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   };
 
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
-  // background priority: 2 behind the front layer, 0 and 1 in front of it), and `window` when it is an OBJ
-  // window that turns what it covers white (a boss's hit flash, renderer.js); `affine` sends it through the
+  // background priority: 2 behind the front layer, 0 and 1 in front of it), `window` when it is an OBJ
+  // window that turns what it covers white (a boss's hit flash, renderer.js), and `white` when it is drawn in
+  // an all-white palette (Egg X's hit flash); `affine` sends it through the
   // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, window: s.window });
+    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, window: s.window, white: s.white });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
@@ -249,6 +273,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // the act's rings can't be taken while Sonic is knocked back and blinking, or dead; with the magnetic
   // shield, those near him on screen fly at him
   function collectRings(ctx) {
+    if (state.frozen) return;
     if (player.dead || (player.state === 'hurt' && player.invulnerable)) rings.update(null);
     else for (const ring of rings.update(player)) addRing(ring);
     if (player.shield !== 'magnetic') return;
@@ -256,7 +281,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       tasks.add(magneticRing(r.x, r.y, (x, y) => addRing({ x, y }), rings.frame));
     }
   }
-  // Sonic's sprite (OAM order 16): the walk and run frames go through the rotation hardware (matrix 0, normal
+  // Sonic's sprite (OAM order 16): the walk and run frames, and the ones held in Egg X's claw, go through the
+  // rotation hardware (matrix 0, normal
   // size) and follow the slope, mirrored with a negative scale when he faces right, which also moves him 1px
   // left; facing left, the original shifts the other frames 1px right. Dying or grinding puts him in front of
   // the front layer.
@@ -264,9 +290,9 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   function drawSonic() {
     const prio = player.death || player.front ? 1 : 2, fx = state.rushFx.list.length > 0 ? { rush: 'obj', order: 16, prio, sonic: null } : null;
     if (fx) state.sprites.push(fx);
-    if (!player.hidden) {
+    if (!player.hidden && !player.vanished) {
       const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio };
-      if (player.state === 'walk' || player.state === 'bounce') {
+      if (player.state === 'walk' || player.state === 'bounce' || player.state === 'grabbed') {
         const right = player.facing > 0;
         draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.rotation << 2, scaleX: right ? -256 : 256, scaleY: 256, double: false });
       } else draw(s, player.x + (player.facing < 0 ? 1 : 0), player.y);
@@ -278,7 +304,10 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // the title card (sub_80550F8) plays from the act's first frame and after each restart, holding Sonic and
   // the clock while it runs; the HUD's task is made only as it ends
   function startCard() { state.card = createTitleCard(assets.titleCard); state.clockStopped = true; state.hud.sprites = []; }
-  const hudTask = { run() { if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER); return true; } };
+  const hudTask = {
+    run() { if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER); return true; },
+    destroy() { state.hud.sprites = []; },
+  };
 
   // HandleLifeLost: a life less, and the act starts over with everything in it, keeping the score, the stage
   // clock and the last checkpoint passed. Sonic starts at that checkpoint, or at the act's start without one,
@@ -296,6 +325,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
     state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
+    state.display = noEffects(); state.frozen = false;
     startCard();
     sound.playStageMusic(assets.stage.music);
     loading = true; starMusic = false;
@@ -315,7 +345,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       ctx.view = state.view = viewOf(state.cam, viewW, viewH);
     }],
     [0x2000, ctx => collectRings(ctx)],
-    [0x2000, ctx => entities.manager.run(ctx)],
+    [0x2000, ctx => { if (!state.frozen) entities.manager.run(ctx); }],
     ...palettes.map(a => [0x2000, () => { a.run(); state.palettes = palettes.map(b => b.shown); }]),
     // a sparkle the scattered rings leave first runs on the next frame
     [0x2001, () => {
@@ -339,7 +369,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       tasks.add(hudTask, 0x2180);
     }],
     [0x3000, () => {
-      const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? NO_INPUT : input;
+      // an object that holds his controls may also hold the d-pad for him (heldInput)
+      const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? player.forcedInput ?? NO_INPUT : input;
       stepPlayer(player, held, world);
       animatePlayer(player, held, anims, world);
       // the boost's effects run after him, as Rush's objects run after its player

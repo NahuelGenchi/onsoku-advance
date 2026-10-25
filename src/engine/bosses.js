@@ -91,6 +91,34 @@ export function bossShotHit(s, x, y, ctx) {
   return HIT_PLAYER;
 }
 
+/** sub_800BFEC: a boss's body (its box in slot 1) on Sonic's body hurts him. */
+export function bossBodyHit(s, x, y, ctx) {
+  const p = ctx.player, hb = s.boxes[1];
+  if (!hb || p.dead || !p.boxes[0]) return 0;
+  const [px, py] = at(p);
+  if (!overlap(x, y, hb, px, py, p.boxes[0])) return 0;
+  ctx.world.damage();
+  return HIT_PLAYER;
+}
+
+/** sub_800C1E8: a box [left, top, right, bottom] round (x, y) on Sonic's body hurts him. */
+export function rectHit(rect, x, y, ctx) {
+  const p = ctx.player;
+  if (p.dead || !p.boxes[0]) return 0;
+  const [px, py] = at(p);
+  if (!overlap(x, y, rect, px, py, p.boxes[0])) return 0;
+  ctx.world.damage();
+  return HIT_PLAYER;
+}
+
+/** sub_800C2B8: a boss's box in slot 0 touches Sonic's body while he isn't blinking or invincible (no harm done). */
+export function grabTest(s, x, y, ctx) {
+  const p = ctx.player, hb = s.boxes[0];
+  if (!hb || p.dead || p.invulnerable !== 0 || p.invincible !== 0 || !p.boxes[0]) return 0;
+  const [px, py] = at(p);
+  return overlap(x, y, hb, px, py, p.boxes[0]) ? HIT_PLAYER : 0;
+}
+
 /**
  * The nuts-and-bolts task (Task_NutsAndBolts): a sprite at (qx, qy) moving by (vx, vy) and falling by
  * (gx, gy) a frame, in 1/256 px. It goes once it is off the screen's sides or below it, or once its

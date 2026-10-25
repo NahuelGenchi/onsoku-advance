@@ -29,7 +29,8 @@ export const OBJECTS = 0x2000;   // the priority of the entities and of most tas
 
 /**
  * The task list: add(task, priority, permanent), run(ctx, after), stop(), which ends this frame's run after the
- * task running now, and reset(), which keeps the permanent tasks.
+ * task running now, reset(), which keeps the permanent tasks, and destroyRange(lo, hi), which ends every task
+ * from priority lo to hi, permanent or not, calling a task's destroy() if it has one.
  */
 export function createTasks() {
   let list = [], next = null;
@@ -43,8 +44,13 @@ export function createTasks() {
     run(ctx, after = -1) {
       for (let t = list.find(t => t.priority > after); t; t = next) {
         next = list[list.indexOf(t) + 1] ?? null;
-        if (!t.run(ctx)) list.splice(list.indexOf(t), 1);
+        if (!t.run(ctx)) { const at = list.indexOf(t); if (at >= 0) list.splice(at, 1); }
+        if (next?.destroyed) next = list.find(u => u.priority > t.priority) ?? null;
       }
+    },
+    destroyRange(lo, hi) {
+      for (const t of list) if (t.priority >= lo && t.priority <= hi) { t.destroyed = true; t.destroy?.(); }
+      list = list.filter(t => !t.destroyed);
     },
     stop() { next = null; },
     reset() { list = list.filter(t => t.permanent); next = null; },

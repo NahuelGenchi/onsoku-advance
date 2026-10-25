@@ -223,6 +223,54 @@ export function createRenderer(canvas, assets) {
     ctx.drawImage(frontCanvas, 0, 0);
   }
 
+  // a sprite drawn in an all-white palette (Egg X's hit flash fills OBJ palette 12 with white)
+  const whiteCanvas = document.createElement('canvas');
+  whiteCanvas.width = W; whiteCanvas.height = H;
+  function drawWhite(s, vx, vy) {
+    const main = ctx;
+    ctx = whiteCanvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx = main;
+    ctx.drawImage(whiteCanvas, 0, 0);
+  }
+
+  // The brightness increase a boss sets up (Egg X's laser, and the fade to white after it): with the first
+  // window on and BLDCNT's brighten mode, every pixel inside the window (with WININ's effects bit) or outside
+  // it (with WINOUT's) is brightened by bldY sixteenths, as mGBA (the reference) brightens its 8-bit colours:
+  // c + (255 - c) × bldY / 16, rounded down. The window's edges are WIN0H and WIN0V's, kept to the screen as
+  // mGBA keeps them, and one that wraps covers both ends. In the widescreen view the original screen sits in
+  // the middle, and a window that reaches its edge goes on to the view's.
+  function windowRange(reg, size, extra) {
+    let start = reg >> 8, end = reg & 0xFF;
+    if (start > size && start > end) start = 0;
+    if (end > size) { end = size; if (start > size) start = size; }
+    const at = v => (v === 0 ? 0 : v === size ? size + 2 * extra : v + extra);
+    return [at(start), at(end)];
+  }
+  const within = (v, [start, end]) => (start <= end ? v >= start && v < end : v >= start || v < end);
+  function brighten({ win0, win0h, win0v, winIn, winOut, bldCnt, bldY }) {
+    // the sprites are brightened with the layers even when they aren't a target (bldCnt bit 4 clear): the one
+    // place that clears it, X Zone's fade to its results, has no sprites left on the screen by then
+    if (!win0 || (bldCnt & 0xC0) !== 0x80 || !(bldCnt & 0x3F) || bldY === 0) return;
+    const inside = (winIn & 0x20) !== 0, outside = (winOut & 0x20) !== 0;
+    if (!inside && !outside) return;
+    const y16 = Math.min(bldY, 16), h = windowRange(win0h, SCREEN_W, (W - SCREEN_W) >> 1), v = windowRange(win0v, SCREEN_H, (H - SCREEN_H) >> 1);
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
+    for (let y = 0; y < H; y++) {
+      const rowIn = within(y, v);
+      for (let x = 0; x < W; x++) {
+        if ((rowIn && within(x, h) ? inside : outside) === false) continue;
+        const k = (y * W + x) * 4;
+        for (let c = 0; c < 3; c++) d[k + c] += ((255 - d[k + c]) * y16) >> 4;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
   // debug overlay: the collision under the view, drawn through a scratch canvas so it blends
   const overlay = document.createElement('canvas');
   overlay.width = W; overlay.height = H;
@@ -336,7 +384,7 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake, display, frozen }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -366,7 +414,7 @@ export function createRenderer(canvas, assets) {
     const frame = stageAnimFrame(stage, tick);
     drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
-    const shown = rings.visible(view);
+    const shown = frozen ? { list: [] } : rings.visible(view);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
     const drawAll = behind => {
       for (const s of list) {
@@ -374,6 +422,7 @@ export function createRenderer(canvas, assets) {
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
         else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+        else if (s.white) drawWhite(s, vx, vy);
         else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
       }
     };
@@ -385,6 +434,7 @@ export function createRenderer(canvas, assets) {
     drawAll(false);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
+    if (display) brighten(display);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
     // behind keeps them out of the fade
@@ -397,8 +447,8 @@ export function createRenderer(canvas, assets) {
   /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */
   render.resize = (w, h) => {
     W = w; H = h;
-    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = windowCanvas.width = frontCanvas.width = w;
-    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = windowCanvas.height = frontCanvas.height = h;
+    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = windowCanvas.width = frontCanvas.width = whiteCanvas.width = w;
+    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = windowCanvas.height = frontCanvas.height = whiteCanvas.height = h;
     objLayer = new ImageData(w, h);
     trailBuf = new Uint8Array(w * h);
   };

@@ -38,6 +38,8 @@ export const SONIC_ANIMATIONS = {
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
   halfPipeLow: [36, 0], halfPipeMid: [36, 1], halfPipeHigh: [36, 2],
+  // held in Egg X's claw (charState 40)
+  grabbed: [98, 0],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -104,6 +106,16 @@ export const EGG_DRILLSTER_ANIMATIONS = {
   679: { drillsterDrill: 0 },
   681: { drillsterWheel0: 0, drillsterWheel1: 1, drillsterWheel2: 2, drillsterWheel3: 3 },
 };
+// X Zone's Egg X: the machine (687), its rotary arm (688: a variant for each turn and pose, two sprites a
+// pose), its claw open, shooting out and closing (689), a chain ball and a bouncing ball (690), and Eggman in
+// it at rest, laughing, hurt and laughing at Sonic (691)
+export const EGG_X_ANIMATIONS = {
+  687: { eggX: 0 },
+  688: Object.fromEntries(Array.from({ length: 20 }, (_, v) => [`eggXArm${v}`, v])),
+  689: { eggXHand0: 0, eggXHand1: 1, eggXHand2: 2 },
+  690: { eggXBall0: 0, eggXBall1: 1 },
+  691: { eggXEggman0: 0, eggXEggman1: 1, eggXEggman2: 2, eggXEggman3: 3 },
+};
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // the splash at Sonic's feet in a waterfall
@@ -125,7 +137,7 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
 // block), and the boulders' debris; their frames also keep their OAM pieces as the hardware reads them
-const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge']);
+const ROTATED = new Set(['walk', 'run', 'bounce', 'grabbed', 'rockDebrisSmall', 'rockDebrisLarge', 'eggXHand0', 'eggXHand1', 'eggXHand2', 'eggXBall0']);
 
 // Each level has three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
 // background.
@@ -174,7 +186,7 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...X_ZONE_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_WRECKER_ANIMATIONS, ...EGG_DRILLSTER_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...X_ZONE_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_WRECKER_ANIMATIONS, ...EGG_DRILLSTER_ANIMATIONS, ...EGG_X_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

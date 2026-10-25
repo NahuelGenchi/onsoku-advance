@@ -38,15 +38,17 @@ export function createRenderer(canvas, assets) {
   const stage = assets.stage, { backgrounds } = stage;
   const bgW = stage.background.width;
 
-  // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does
-  function drawSprite(index, x, y, flipX, flipY = false) {
+  // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does. `sheet` is
+  // another game's sprites ({ atlas, frames }), as Sonic Advance 2's tricks have.
+  function drawSprite(index, x, y, flipX, flipY = false, sheet = null) {
     if (index < 0) return;
-    const [sx, sy, w, h, ax, ay] = frames[index];
+    const image = sheet ? sheet.atlas : atlas;
+    const [sx, sy, w, h, ax, ay] = (sheet ? sheet.frames : frames)[index];
     const px = Math.floor(x), py = Math.floor(y);   // the integer part, like the original's I(qWorldX)
-    if (!flipX && !flipY) { ctx.drawImage(atlas, sx, sy, w, h, px - ax, py - ay, w, h); return; }
+    if (!flipX && !flipY) { ctx.drawImage(image, sx, sy, w, h, px - ax, py - ay, w, h); return; }
     ctx.save(); ctx.translate(px, py);
     ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-    ctx.drawImage(atlas, sx, sy, w, h, -ax, -ay, w, h);
+    ctx.drawImage(image, sx, sy, w, h, -ax, -ay, w, h);
     ctx.restore();
   }
 
@@ -170,7 +172,7 @@ export function createRenderer(canvas, assets) {
       maskCtx.imageSmoothingEnabled = false;
       maskCtx.clearRect(0, 0, W, H);
       if (sonic.affine) drawAffine(sonic.frame, sonic.x - vx, sonic.y - vy, sonic.affine);
-      else drawSprite(sonic.frame, sonic.x - vx, sonic.y - vy, sonic.flipX, sonic.flipY);
+      else drawSprite(sonic.frame, sonic.x - vx, sonic.y - vy, sonic.flipX, sonic.flipY, sonic.sheet);
       ctx = main;
       mask = maskCtx.getImageData(x0, y0, w, h).data;
     }
@@ -315,7 +317,7 @@ export function createRenderer(canvas, assets) {
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
         else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
-        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+        else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY, s.sheet);
       }
     };
     drawAll(true);

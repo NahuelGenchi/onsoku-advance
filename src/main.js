@@ -1,9 +1,11 @@
 // Game page: choose a ROM, extract its assets in the browser, then play.
 
 import { createRomPicker } from './ui/rom-picker.js';
-import { loadRememberedRom, rememberRom, RUSH_ROM } from './ui/rom-store.js';
+import { loadRememberedRom, rememberRom, RUSH_ROM, SA2_ROM } from './ui/rom-store.js';
 import { extractAssets } from './rom/extract.js';
 import { extractRush } from './rom/rush.js';
+import { openSa2 } from './rom/sa2.js';
+import { trickArt } from './rom/sa2tricks.js';
 import { createInput } from './engine/input.js';
 import { createGame } from './engine/game.js';
 import { createSound } from './sound/audio.js';
@@ -18,6 +20,9 @@ const wideButton = document.getElementById('wide');
 const rushButton = document.getElementById('rush');
 const rushStatus = document.getElementById('rush-status');
 const rushFile = document.getElementById('rush-file');
+const tricksButton = document.getElementById('tricks');
+const sa2Status = document.getElementById('sa2-status');
+const sa2File = document.getElementById('sa2-file');
 const debug = new URLSearchParams(location.search).has('debug');
 
 const input = createInput();
@@ -82,6 +87,54 @@ rushFile.addEventListener('change', async () => {
 })();
 showRush();
 
+// Sonic Advance 2's mid-air tricks, an extra on top of the original game: off unless chosen, like the Rush boost.
+// Their sprites and sounds come from the player's own Sonic Advance 2 ROM, asked for the first time they are
+// turned on and then kept in this browser like the Sonic Advance ROM.
+const TRICKS_KEY = 'onsoku.sa2Tricks';
+let tricks = false, tricksArt = null;
+try { tricks = localStorage.getItem(TRICKS_KEY) === '1'; } catch { /* storage blocked: the default stands */ }
+function setTricks(on) {
+  if (on && !tricksArt) { sa2File.click(); return; }   // turned on once the ROM is read
+  tricks = on;
+  try { localStorage.setItem(TRICKS_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
+  showTricks();
+}
+function showTricks() {
+  game?.setSa2Tricks(tricks, tricksArt);
+  tricksButton.textContent = `SA2 tricks: ${tricks ? 'on' : 'off'}`;
+  tricksButton.setAttribute('aria-pressed', String(tricks));
+}
+// what the extras from Sonic Advance 2 read from its ROM, and its sound engine's tables
+function useSa2(buffer) {
+  const sa2 = openSa2(buffer);
+  tricksArt = trickArt(sa2);
+  sound.loadSa2(sa2.sound);
+}
+tricksButton.addEventListener('click', () => { setTricks(!tricks); screen.focus(); });
+sa2File.addEventListener('change', async () => {
+  const file = sa2File.files[0];
+  sa2File.value = '';
+  if (!file) return;
+  try {
+    const buffer = await file.arrayBuffer();
+    useSa2(buffer);
+    sa2Status.textContent = '';
+    await rememberRom(file.name, buffer, SA2_ROM);
+    setTricks(true);
+  } catch (error) {
+    sa2Status.textContent = error.message || String(error);
+  }
+  screen.focus();
+});
+// with the setting on from an earlier visit, the remembered Sonic Advance 2 ROM; without it the setting goes off
+(async () => {
+  const saved = await loadRememberedRom(SA2_ROM);
+  try { if (saved) useSa2(saved.buffer); } catch { /* not usable any more: asked for again */ }
+  if (tricks && !tricksArt) setTricks(false);
+  showTricks();
+})();
+showTricks();
+
 createRomPicker(picker, {
   heading: 'Play in your browser',
   intro: 'Choose your Sonic Advance ROM. Its graphics are decoded on this device and the game starts right away.',
@@ -100,6 +153,7 @@ function start(assets) {
   stage.hidden = false;
   fitScreen();
   showRush();
+  showTricks();
   game.start();
   screen.focus();
   clearInterval(statsTimer);
@@ -121,6 +175,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyM' && !stage.hidden && !e.repeat) sound.muted = !sound.muted;
   if (e.code === 'KeyV' && !stage.hidden && !e.repeat) setWide(!wide);
   if (e.code === 'KeyR' && !stage.hidden && !e.repeat) setRush(!rush);
+  if (e.code === 'KeyT' && !stage.hidden && !e.repeat) setTricks(!tricks);
 });
 
 function showStats() {

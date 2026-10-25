@@ -87,3 +87,20 @@ export const RUSH_BOOST = {
   // the screen shake at the start and on each hit: 8 frames of offsets, starting over on each
   shake: [[-2, 2], [2, -4], [2, -4], [-4, 4], [4, -2], [4, -2], [-2, 0], [4, 2]],
 };
+
+// Sonic Advance 2's mid-air tricks, an optional extra (off unless chosen): Sonic Advance 2 keeps speeds in the
+// same 8.8 pixels a frame at 60 frames a second, so its numbers carry over as they are. From the SAT-R
+// decompilation of Sonic Advance 2 (src/game/shared/stage/player.c and src/game/sa2/stage/player_callbacks.c),
+// with the tables read from the USA ROM and the timings checked in an emulator. Speeds in 1/256 px.
+export const SA2_TRICKS = {
+  // each character's tricks; one without them leaves them out. Sonic's launch speeds, [x, y] with x toward the
+  // way he faces (sTrickAccel), and the Bound for R + down (his Stop 'n' Slam)
+  sonic: { up: [0, -0x600], forward: [0x600, 0], back: [-0x500, -0x380], bound: true },
+  spinFrames: 45,              // the Humming Top spins this long before he falls (unk72)
+  boundStart: 0x200,           // the Bound's dive starts at 2 px a frame
+  boundDrop: 0x38,             // and gains 7/32 px a frame, before and after it bounces (TRICK__STOP_N_SLAM__DROP_SPEED)
+  boundBounce: 0x600,          // it bounces off the ground at 6 px a frame, away from the surface, half of it sideways
+  maxFall: 15,                 // Sonic Advance 2 never moves him down faster than this (PLAYER_AIR_SPEED_MAX)
+  springDelay: [4, 3, 2, 2],   // frames after a spring's launch before a trick can start, by its speed (disableTrickTimer)
+  score: 100,                  // points for each trick (sTrickPoints)
+};

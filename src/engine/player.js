@@ -3,12 +3,13 @@
 // hand over to the next state when they end. (x, y) is Sonic's centre; on the ground he moves along the
 // surface's angle (`rotation`, 256 steps per turn) at ground speed `gsp`.
 
-import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R } from './constants.js';
+import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R, SA2_TRICKS as T } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
 import { groundSensors, wallPush, airCollision, clearance, setOffsetY } from './sensors.js';
 import { LAYER_BACK, scan, PROBE_FLOOR } from './terrain.js';
 import { sin8, cos8, s8 } from './trig.js';
 import { SONG } from '../sound/songs.js';
+import { SA2_SE } from '../rom/sa2tricks.js';
 
 // d-pad bits for the input history the mid-air dash reads
 const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
@@ -21,6 +22,9 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
 //         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
 //         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hurt | dead
+//         and, with Sonic Advance 2's tricks on, that game's: trickUp | trickUpRise | trickUpFall (Hop Jump) |
+//         trickForward | trickForwardSpin | trickFall (Humming Top) | trickBack | trickBackFlip (Back Star) |
+//         bound | boundDive | boundRise (Bound)
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -63,6 +67,11 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     boostSlow: 0,      // grounded frames in a row he moved less than its minimum speed
     boostCool: 0,      // frames before the next boost can start
     lastX: x, lastY: y, // where he was a frame ago
+    // Sonic Advance 2's tricks, an extra that only runs with its setting on (world.tricks)
+    tricks: T.sonic,   // the tricks he has; null leaves them out
+    trick: null,       // the one under way: { kind: 'up' | 'forward' | 'back' | 'bound', phase, spin }
+    trickUsed: false,  // one trick each time he leaves the ground
+    trickDelay: 0,     // frames after a spring before one can start (disableTrickTimer)
     held: new Array(HISTORY).fill(0), pressed: new Array(HISTORY).fill(0),
   };
 }
@@ -325,8 +334,8 @@ function attackStep(p, c, world) {
   return true;
 }
 
-/** Ends the combo, the mid-air moves and the spin dash (also Player_TransitionCancelFlyingAndBoost). */
-export function endAttack(p) { p.attack = 0; p.attackNext = 0; p.midAir = 0; p.jumped = false; p.spinDashing = false; p.halfPipe = false; }
+/** Ends the combo, the mid-air moves, the spin dash and a trick (also Player_TransitionCancelFlyingAndBoost). */
+export function endAttack(p) { p.attack = 0; p.attackNext = 0; p.midAir = 0; p.jumped = false; p.spinDashing = false; p.halfPipe = false; p.trick = null; }
 
 // jumping off a grind rail (sub_8044434), if there are at least 4 px of room that way on the layer he came
 // from, back on which he lands: straight up from the rail as fast as a jump, keeping his X speed
@@ -513,36 +522,181 @@ function airStep(p, c, world) {
     }
   } else if (p.ysp < -K.riseCap) p.ysp = -K.riseCap;
 
-  // air control and drag (Player_AirInputControls); boosting, Rush's air movement instead
+  // air control and drag (Player_AirInputControls); boosting, Rush's air movement instead. Off a bounce block he
+  // keeps facing the way he went up.
   if (p.boost) rushAir(p, c);
-  else if (!p.airLock && c.dir) {
-    const dir = c.dir, acc = K.airAcceleration * pace(p), max = K.maxRunSpeed * pace(p);
-    if (p.state !== 'bounce') p.facing = dir;   // off a bounce block he keeps facing the way he went up
-    let v = p.xsp + acc * dir;
-    if (v * dir > max) {
-      v -= acc * dir;
-      if (v * dir < max) v = max * dir;
-    }
-    p.xsp = v;
-  }
-  if (p.ysp < 0 && !p.boost) {
-    const drag = Math.floor(p.xsp * 256 / 32) / 256;   // arithmetic shift of the 8.8 value
-    p.xsp = p.xsp > 0 ? Math.max(0, p.xsp - drag) : p.xsp < 0 ? Math.min(0, p.xsp - drag) : 0;
-  }
+  else airControl(p, c, p.state !== 'bounce');
+  if (p.ysp < 0 && !p.boost) airDrag(p);
 
   bounds(p, world);
   p.x += p.xsp; p.y += p.ysp;
   p.ysp += K.gravity;
   // the angle he left the ground at eases back to upright; off a bounce block he tumbles the way he faces
   // instead (Player_8047224)
-  const r = s8(p.rotation);
   if (p.state === 'bounce') p.rotation = (p.rotation + 4 * p.facing) & 0xFF;
-  else p.rotation = (r > 0 ? Math.max(0, r - 2) : Math.min(0, r + 2)) & 0xFF;
+  else upright(p);
   airCollision(p, world.terrain, () => land(p));
 }
 
-/** Touching down on the ground or an object (sub_8021BE0); the caller sets the ground speed. */
+// left or right in the air (Player_AirInputControls): twice the walking acceleration up to the top speed,
+// turning him to face that way unless `turn` is false; not after a jump out of a roll
+function airControl(p, c, turn) {
+  if (p.airLock || !c.dir) return;
+  const dir = c.dir, acc = K.airAcceleration * pace(p), max = K.maxRunSpeed * pace(p);
+  if (turn) p.facing = dir;
+  let v = p.xsp + acc * dir;
+  if (v * dir > max) {
+    v -= acc * dir;
+    if (v * dir < max) v = max * dir;
+  }
+  p.xsp = v;
+}
+
+// while rising, X speed loses 1/32 of itself (sub_80236C8)
+function airDrag(p) {
+  const drag = Math.floor(p.xsp * 256 / 32) / 256;   // arithmetic shift of the 8.8 value
+  p.xsp = p.xsp > 0 ? Math.max(0, p.xsp - drag) : p.xsp < 0 ? Math.min(0, p.xsp - drag) : 0;
+}
+
+// the angle he left the ground at eases back to upright, 2/256 of a turn a frame
+function upright(p) {
+  const r = s8(p.rotation);
+  p.rotation = (r > 0 ? Math.max(0, r - 2) : Math.min(0, r + 2)) & 0xFF;
+}
+
+// Sonic Advance 2's mid-air tricks, an extra on top of the original game (SAT-R decompilation of Sonic Advance
+// 2: DoTrickIfButtonPressed, Player_InitDefaultTrick, Player_WindupDefaultTrick and Player_DefaultTrick in
+// src/game/shared/stage/player.c, and the Stop 'n' Slam in src/game/sa2/stage/player_callbacks.c). They run on
+// Sonic Advance 2's code: each frame its bounds check, gravity, then the move, as that game's trick callbacks
+// do it. Each trick has a wind-up, in which he hangs in the air until its animation ends.
+const TRICK_STATES = {
+  up: ['trickUp', 'trickUpRise'], forward: ['trickForward', 'trickForwardSpin'], back: ['trickBack', 'trickBackFlip'],
+  bound: ['bound', 'boundDive'],
+};
+
+// in the air, free to move, once each time he leaves the ground and not just after a spring
+const canTrick = p => p.tricks && p.air && !p.trickUsed && p.trickDelay === 0 && p.state !== 'hurt' && !p.grinding
+  && !p.halfPipe && !p.ignoreInput;
+
+// a press picks the trick from the d-pad, up first, then down, then the way he faces, and otherwise (alone or
+// back) the Back Star. It scores 100 and starts on the next frame; this one goes on as it would.
+function tryTrick(p, c, world) {
+  if (!c.trickPressed || !canTrick(p)) return;
+  const held = p.held[0], ahead = p.facing > 0 ? RIGHT : LEFT;
+  const kind = held & UP ? 'up' : held & DOWN ? (p.tricks.bound ? 'bound' : null) : held & ahead ? 'forward' : 'back';
+  if (!kind) return;
+  p.trick = { kind, phase: 'start', spin: 0 };
+  p.trickUsed = true;
+  world.trickScore(T.score);
+}
+
+// his movement in a trick, Sonic Advance 2's (sub_80283C4 and Player_DefaultTrick): no gravity unless asked
+function trickMove(p, world, gravity) {
+  bounds(p, world);
+  if (gravity) p.ysp += K.gravity;
+  p.ysp = Math.min(p.ysp, T.maxFall);
+  p.x += p.xsp; p.y += p.ysp;
+  upright(p);
+  airCollision(p, world.terrain, () => land(p));
+}
+
+// a trick's first frame (Player_InitDefaultTrick, Player_SonicAmy_InitStopNSlam): it ends what he was doing, stops
+// him, stands him up (curled up for the Bound) and plays the jump and trick sounds (none for the Bound)
+function startTrick(p, t, world) {
+  endAttack(p);
+  p.trick = t;
+  if (p.boost) stopBoost(p);
+  p.pushing = false;
+  p.xsp = 0; p.ysp = 0;
+  p.state = TRICK_STATES[t.kind][0];
+  if (t.kind === 'bound') setOffsetY(p, BALL_SPRITE_OFFSET_Y);
+  else {
+    setOffsetY(p, SPRITE_OFFSET_Y);
+    if (t.kind === 'forward') t.spin = T.spinFrames;
+    world.playSa2(SA2_SE.jump);
+    world.playSa2(SA2_SE.trick);
+  }
+  t.phase = 'windup';
+}
+
+// the Bound off the ground: back up at 6 px a frame away from the surface, half of its sideways part kept, in the
+// dive's animation (charState INVALID leaves it as it is)
+function bounce(p, t, world) {
+  const a = p.rotation, push = -T.boundBounce;
+  p.xsp = (-((push * sin8(a)) >> 8) >> 1) / 256;
+  p.ysp = -Math.abs((push * cos8(a)) >> 8) / 256;
+  p.air = true; p.onObject = null; p.trickUsed = true;
+  p.trick = t; t.phase = 'up';
+  p.state = 'boundDive';
+  world.playSa2(SA2_SE.boundImpact);
+}
+
+function trickStep(p, c, world) {
+  const t = p.trick, ended = p.anim.name === TRICK_STATES[t.kind][0] && p.anim.done;
+  switch (t.phase) {
+    case 'start':
+      startTrick(p, t, world);
+      if (t.kind === 'bound') { trickMove(p, world, false); return; }
+      // falls through: the wind-up's first frame
+    case 'windup':
+      if (t.kind === 'bound') {
+        // Player_SonicAmy_WindupStopNSlam: it moves first, then dives at 2 px a frame as the wind-up ends,
+        // leaving afterimages
+        trickMove(p, world, false);
+        if (p.trick !== t || !ended) return;
+        p.ysp = T.boundStart / 256;
+        p.state = 'boundDive'; t.phase = 'dive';
+        world.trickEffect('bound');
+        return;
+      }
+      // Player_WindupDefaultTrick: as the wind-up ends he is thrown, and the Humming Top's spin effect starts
+      if (ended) {
+        const [vx, vy] = p.tricks[t.kind];
+        p.xsp = vx * p.facing / 256; p.ysp = vy / 256;
+        p.state = TRICK_STATES[t.kind][1]; t.phase = 'trick';
+        if (t.kind === 'forward') world.trickEffect('spin');
+      }
+      trickMove(p, world, false);
+      return;
+    case 'trick':
+      // Player_DefaultTrick: the Hop Jump turns to its fall once he comes down, and the Humming Top ends in a
+      // fall after its spin; he steers without turning round, and the drag and gravity work as usual
+      if (t.kind === 'up' && p.state === 'trickUpRise' && p.ysp > 0) p.state = 'trickUpFall';
+      if (t.spin !== 0) t.spin--;
+      else if (t.kind === 'forward') p.state = 'trickFall';
+      airControl(p, c, false);
+      if (p.ysp < 0) airDrag(p);
+      trickMove(p, world, true);
+      return;
+    case 'dive':
+      // Player_SonicAmy_StopNSlam: faster each frame, until he hits the ground and bounces
+      p.ysp += T.boundDrop / 256;
+      trickMove(p, world, false);
+      if (p.trick?.phase === 'landed') bounce(p, p.trick, world);
+      return;
+    case 'landed':
+      // his dive met an object, which stood him on it
+      bounce(p, t, world);
+      return;
+    case 'up':
+      // Player_SonicAmy_StopNSlam_AfterGroundCollision: slowing the same way, and rising, then he falls
+      p.ysp += T.boundDrop / 256;
+      if (p.ysp >= 0) { p.state = 'boundRise'; t.phase = 'fall'; }
+      trickMove(p, world, false);
+      return;
+    case 'fall':
+      // Player_SonicAmy_StopNSlam_FallAfterCollision: as in any fall
+      airControl(p, c, true);
+      if (p.ysp < 0) airDrag(p);
+      trickMove(p, world, true);
+  }
+}
+
+/** Touching down on the ground or an object (sub_8021BE0); the caller sets the ground speed. A Bound's dive
+ *  bounces off it instead, on his next movement (trickStep). */
 export function land(p) {
+  const bound = p.trick?.phase === 'dive';
+  p.trickUsed = false;
   p.air = false; p.pushing = false;
   p.state = 'walk';
   if (p.curled) uncurl(p);
@@ -550,6 +704,7 @@ export function land(p) {
   p.airLock = false;
   p.chain = 0;
   endAttack(p);
+  if (bound) p.trick = { kind: 'bound', phase: 'landed' };
 }
 
 /**
@@ -599,8 +754,9 @@ function deadStep(p, world) {
 
 /**
  * Advances the player one frame. `world` provides tick, cameraY, terrain, died(), lifeLost(), spawnDashDust(),
- * spawnInstaShield(), freezeCamera(), playSound(song) and playSoundPitched(song, pitch), and for the Rush boost
- * rush (its setting) and boosted().
+ * spawnInstaShield(), freezeCamera(), playSound(song) and playSoundPitched(song, pitch), for the Rush boost
+ * rush (its setting) and boosted(), and for Sonic Advance 2's tricks tricks (their setting), trickScore(points),
+ * playSa2(song) and trickEffect('spin' | 'bound').
  */
 export function stepPlayer(p, input, world) {
   const left = input.left, right = input.right, sideways = left || right;
@@ -613,9 +769,9 @@ export function stepPlayer(p, input, world) {
     dir: left && !right ? -1 : right && !left ? 1 : 0, sideways,
     up: input.up && !sideways, down: input.down && !sideways,
     jump: input.jump, jumpPressed: input.jumpPressed, attackPressed: input.attackPressed,
-    boost: input.boost, boostPressed: input.boostPressed,
+    boost: input.boost, boostPressed: input.boostPressed, trickPressed: input.trickPressed,
   };
-  input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
+  input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
   p.jumpPressed = c.jumpPressed;
 
   if (world.rush) rushBoost(p, c, world);
@@ -623,15 +779,18 @@ export function stepPlayer(p, input, world) {
 
   if (p.dead) deadStep(p, world);
   else if (p.carried) return;
-  else if (p.air) airStep(p, c, world);
-  else groundStep(p, c, world, input);
+  else if (p.trick) trickStep(p, c, world);
+  else if (p.air) {
+    if (world.tricks) tryTrick(p, c, world);
+    airStep(p, c, world);
+  } else groundStep(p, c, world, input);
 }
 
 // state -> animation, with the walk cycle's speed and the idle timer (sub_802486C)
 function chooseAnimation(p, input) {
   const a = p.anim, speed = Math.abs(p.gsp);
   a.speed = ANIMATION.normalSpeed;
-  if (p.gsp !== 0 || input.left || input.right || input.up || input.down || input.jump || input.attack || input.boost) p.idleT = K.boredDelay;
+  if (p.gsp !== 0 || input.left || input.right || input.up || input.down || input.jump || input.attack || input.boost || input.trick) p.idleT = K.boredDelay;
   if (p.pushing) p.state = 'push';
   switch (p.state) {
     case 'idle':
@@ -720,6 +879,7 @@ export function animatePlayer(p, input, anims, world) {
     choose(p, chooseAnimation(p, input));
   }
   p.prevState = p.state;
+  if (p.trickDelay > 0) p.trickDelay--;
   p.hidden = !p.dead && p.invulnerable > 0 && (world.tick & 2) !== 0;
   // dead, the timers count down only on the frame he dies: the tasks that take over from then on leave them
   if (p.dead && p.invulnerable === 1) return;

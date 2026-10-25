@@ -7,6 +7,7 @@ import { TICK_MS, CAMERA, PHYSICS, SCREEN_W, SCREEN_H, RUSH_BOOST } from './cons
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { createPlayer, stepPlayer, animatePlayer, hurt } from './player.js';
 import { createRushFx, startRushFx, stepRushFx } from './rushfx.js';
+import { TRICK_FX_PRIORITY, createTrail, recordTrail, spinEffect, boundTrail } from './trickfx.js';
 import { createCamera, updateCamera, viewOf } from './camera.js';
 import { createRenderer } from './renderer.js';
 import { createTerrain } from './terrain.js';
@@ -30,13 +31,13 @@ const RANDOM_RING_PRIZES = [1, 5, 10, 20, 30, 40];   // ItemBox_RingAmountTable
 const SPEED_UP_TEMPO = 0x200, NORMAL_TEMPO = 0x100;
 const MAX_COURSE_TIME = 10 * 3600;
 // what Sonic reads while the title card holds him: the jump and attack buttons InitializePlayer leaves held, never pressed
-const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
+const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, boost: false, trick: false, jumpPressed: false, attackPressed: false, boostPressed: false, trickPressed: false };
 // and while an object holds his controls (the forced slide): nothing, as it clears his input
-const NO_INPUT = { left: false, right: false, up: false, down: false, jump: false, attack: false, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
+const NO_INPUT = { left: false, right: false, up: false, down: false, jump: false, attack: false, boost: false, trick: false, jumpPressed: false, attackPressed: false, boostPressed: false, trickPressed: false };
 
 const SILENT = {
   play() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
-  playerState() {}, stopAll() {},
+  playerState() {}, stopAll() {}, playSa2() {},
 };
 
 export function createGame(canvas, assets, input, sound = SILENT) {
@@ -61,7 +62,11 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
     rushFx: createRushFx(), // its trail, burst and aura (rushfx.js)
     shake: -1,            // the frame of the boost's screen shake showing, or -1; only drawing reads it
+    tricks: false,        // Sonic Advance 2's tricks' setting (off unless chosen)
+    trickArt: null,       // their sprites, from the player's Sonic Advance 2 ROM
+    trail: createTrail(), // where Sonic was on his last frames, for the Bound's afterimages
   };
+  let playerAnims = anims;   // Sonic's animations, with the tricks' once their art is read
   let viewW = SCREEN_W, viewH = SCREEN_H;   // the original screen, or the widescreen view's size
   state.view = viewOf(state.cam, viewW, viewH);
   const sparkles = new Set();   // the ring sparkles still running their animation
@@ -150,6 +155,18 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       state.cam.scroll = RUSH_BOOST.scrollDelay;
     },
     shake() { state.shake = 0; },
+    // Sonic Advance 2's tricks: whether they are on, a trick's points (INCREMENT_SCORE, a life every 50000),
+    // Sonic Advance 2's sounds, and the effects that run with them
+    get tricks() { return state.tricks; },
+    trickScore(points) {
+      const before = state.score;
+      state.score += points;
+      if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) { state.lives = (state.lives + 1) & 0xFF; extraLife = true; }
+    },
+    playSa2: song => sound.playSa2(song),
+    trickEffect(kind) {
+      tasks.add(kind === 'spin' ? spinEffect(state.trickArt) : boundTrail(state.trickArt, state.trail), TRICK_FX_PRIORITY);
+    },
     // brake dust stays where it appeared, flipped by the game's random numbers
     spawnBrakeDust() {
       if (state.effects.filter(e => e.kind === 'brake').length >= MAX_BRAKE_DUST) return;
@@ -163,11 +180,12 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   };
 
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
-  // background priority: 2 behind the front layer, 0 and 1 in front of it); `affine` sends it through the
-  // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }
+  // background priority: 2 behind the front layer, 0 and 1 in front of it), and `sheet` when its frame is from
+  // another game's sprites than Sonic Advance's; `affine` sends it through the rotation hardware: { rotation
+  // (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio });
+    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, sheet: s.sheet });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
@@ -243,7 +261,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     const prio = player.death || player.front ? 1 : 2, fx = state.rushFx.list.length > 0 ? { rush: 'obj', order: 16, prio, sonic: null } : null;
     if (fx) state.sprites.push(fx);
     if (!player.hidden) {
-      const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio };
+      const s = { frame: frameOf(player.anim, playerAnims), flipX: player.facing > 0, flipY: false, order: 16, prio, sheet: playerAnims[player.anim.name]?.sheet };
       if (player.state === 'walk' || player.state === 'bounce') {
         const right = player.facing > 0;
         draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.rotation << 2, scaleX: right ? -256 : 256, scaleY: 256, double: false });
@@ -274,6 +292,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
     state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
+    state.trail = createTrail();
     startCard();
     sound.playStageMusic(SONG.NEO_GREEN_HILL_1);
     loading = true; starMusic = false;
@@ -309,7 +328,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       const pad = ['left', 'right', 'up', 'down'].filter(k => input[k]);
       const pressed = input.jumpPressed || input.attackPressed || pad.some(k => !cardPad.includes(k));
       cardPad = pad;
-      input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
+      input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
       if (runTitleCard(state.card, pressed)) return;
       state.card = null; state.clockStopped = false;
       state.hud = createHud();
@@ -318,7 +337,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     [0x3000, () => {
       const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? NO_INPUT : input;
       stepPlayer(player, held, world);
-      animatePlayer(player, held, anims, world);
+      animatePlayer(player, held, playerAnims, world);
+      recordTrail(state.trail, player);
       // the boost's effects run after him, as Rush's objects run after its player
       if (state.rushArt && (state.rush || state.rushFx.list.length > 0)) stepRushFx(state.rushFx, player, state.rushArt, player.boost);
       drawSonic();
@@ -366,6 +386,12 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     },
     /** Turns the Sonic Rush boost on (with `art`, what rush.js read from the Sonic Rush ROM) or off. */
     setRushBoost(on, art = state.rushArt) { state.rushArt = art; state.rush = on && !!art; input.setRush?.(state.rush); },
+    /** Turns Sonic Advance 2's tricks on (with `art`, what sa2tricks.js read from the Sonic Advance 2 ROM) or off.
+     *  A trick under way plays out. */
+    setSa2Tricks(on, art = state.trickArt) {
+      if (art && art !== state.trickArt) playerAnims = { ...anims, ...art.anims };
+      state.trickArt = art; state.tricks = on && !!art; input.setTricks?.(state.tricks);
+    },
     // the act's music starts with the act, as the stage's init does (StageInit_Zone1Act1)
     start() {
       input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);

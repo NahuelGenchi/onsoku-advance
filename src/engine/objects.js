@@ -1,8 +1,8 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
 // platforms, square platforms, boulders, waterfalls, boosters, checkpoints, wall poles, grind rails, the
-// incline ramp, the half-pipe, the forced slide, item boxes, enemies, and a stand-in for each kind of act 1's
-// that this game doesn't build yet, so that every task keeps its place in the list.
+// incline ramp, the half-pipe, the forced slide, the conveyor belts, item boxes, enemies, and a stand-in for
+// each kind of act 1's that this game doesn't build yet, so that every task keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
 // order, and the tasks of a priority in the order they were made. The original fetches the next task before
@@ -34,6 +34,7 @@ import { createTeleportOrb } from './teleportorbs.js';
 import { createTubeJunction } from './junctions.js';
 import { createBarrelOfDoomMini } from './barrels.js';
 import { createTube } from './pipes.js';
+import { createConveyor } from './conveyors.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -165,7 +166,7 @@ function interactable(e, slot, anims, ctx, level) {
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createPartyBalloon(e, slot, anims) ?? createMarbleTrack(e, slot, anims, level)
     ?? createBumper(e, slot, anims) ?? createFlipper(e, slot, anims) ?? createSegaSonicLetter(e, slot, anims)
     ?? createTeleportOrb(e, slot) ?? createTubeJunction(e, slot) ?? createBarrelOfDoomMini(e, slot, anims)
-    ?? createTube(e, slot, anims, ctx.level) ?? standIn(e, slot);
+    ?? createTube(e, slot, anims, ctx.level) ?? createConveyor(e, slot, ctx) ?? standIn(e, slot);
 }
 
 /**

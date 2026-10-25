@@ -78,10 +78,12 @@ export const ITEM_ANIMATIONS = {
   706: { icon0: 0, icon4: 4, icon5: 5, icon6: 6, icon7: 7, icon8: 8, icon9: 9, icon10: 10 },
   750: { shield: 0 }, 751: { magneticShield: 0 }, 752: { stars: 0, starSparkle: 1 },
 };
-// Neo Green Hill's platforms: the thin one (463), which the falling one shares, the trampoline at rest and
-// bouncing (461), the bounce block (462) and the crumbling platform (904)
+// Neo Green Hill's platforms: the thin one (463), which the falling and sinking ones share, the trampoline at
+// rest and bouncing (461), the bounce block (462) and the crumbling platform (904); and the rising platform
+// (523), the same in every zone. Other zones have their own thin and sinking ones (levels.js `sprites`).
 export const PLATFORM_ANIMATIONS = {
-  463: { thinPlatform: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 }, 904: { crumblingPlatform: 0 },
+  463: { thinPlatform: 0, sinkingPlatform: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 },
+  904: { crumblingPlatform: 0 }, 523: { risingPlatform: 0 },
 };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };

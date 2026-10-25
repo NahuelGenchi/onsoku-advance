@@ -3,6 +3,7 @@
 // the music manager's, in synth.js.
 export const SONG = {
   NEO_GREEN_HILL_1: 12,
+  DROWNING: 27,            // MUS_DROWNING: the countdown music under water
   INVINCIBILITY: 28,       // MUS_INVINCIBILITY
   SPIN: 109,               // SE_SPIN_ATTACK: spin dash start and revs, rolling, the combo's first hit
   SPIN_DASH_RELEASE: 110,
@@ -27,4 +28,7 @@ export const SONG = {
   CRUMBLING_PLATFORM: 173,
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
+  SURFACE_HIT: 190,        // SE_WATERFALL_SURFACE_HIT: Sonic goes into the water or out of it
+  AIR_BUBBLE: 191,         // SE_AIR_BUBBLE: a breath from an air bubble
+  DROWNED: 192,            // SE_DROWNED: Sonic drowns, in place of SE_LIFE_LOST
 };

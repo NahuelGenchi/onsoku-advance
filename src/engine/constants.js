@@ -42,6 +42,11 @@ export const PHYSICS = {
   hurtSpeedX: 1.5, hurtSpeedY: 3,
   deadBelowScreen: 240,        // gone once his centre is this far below the top of the screen
   deadRestart: 60,             // then the act restarts on the 61st frame
+  // under water (Player_HandleWater): half the top speed, acceleration and deceleration, a lighter gravity,
+  // a lower jump and jump cap, and half the speeds of a hit
+  water: { maxRunSpeed: 2.25, acceleration: 4 / 256, deceleration: 48 / 256, gravity: 12 / 256, jumpSpeed: 2.625, jumpReleaseCap: 1.5 },
+  drownSeconds: 30,            // seconds under water before Sonic drowns, counted down every 60 frames
+  surfaceEffectDelay: 10,      // frames between two splashes at the water line
 };
 
 export const ANIMATION = {

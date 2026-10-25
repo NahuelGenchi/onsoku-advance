@@ -111,6 +111,8 @@ export const BARREL_ANIMATIONS = { 516: { spikedBarrel: 0, spikedBarrel1: 1, spi
 export const PROPELLER_ANIMATIONS = { 515: { propeller: 0 } };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
+// the breakable wall (559); some levels have their own (levels.js `sprites`)
+export const WALL_ANIMATIONS = { 559: { breakableWall: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // the splash under Sonic on a forced slide
@@ -169,7 +171,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
 
   onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
-  const sprites = extractSprites(rom, tables, level);
+  const sprites = extractSprites(rom, tables, level, info.sprites);
   onProgress(`Decoding ${info.name}…`);
   const stage = extractStage(rom, offsets, tables, info);
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
@@ -186,7 +188,9 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   };
 }
 
-function extractSprites(rom, tables, level) {
+// `levelSprites` { name: [anim, variant] } are the level's own looks for objects whose animation the ROM picks
+// by level; they replace the default of the same name
+function extractSprites(rom, tables, level, levelSprites = {}) {
   const sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
   const springPalette = animationPalette(rom, tables, SPRING_ANIM);
   const yellowPalette = springPalette.slice();
@@ -198,11 +202,15 @@ function extractSprites(rom, tables, level) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...conveyorObjectAnimations(level), ...BARREL_ANIMATIONS, ...PROPELLER_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...NUTS_AND_BOLTS_ANIMATIONS, ...PIPE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...platformAnimations(level), ...conveyorObjectAnimations(level), ...BARREL_ANIMATIONS, ...PROPELLER_ANIMATIONS, ...ROCK_ANIMATIONS, ...WALL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...NUTS_AND_BOLTS_ANIMATIONS, ...PIPE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
   ];
+  for (const group of groups) group.list = Object.fromEntries(Object.entries(group.list).filter(([name]) => !(name in levelSprites)));
+  for (const [name, [anim, variant]] of Object.entries(levelSprites)) {
+    groups.push({ list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, anim) });
+  }
 
   const images = [], byKey = new Map(), anims = {};
   for (const { list, palette, skipPalette } of groups) {
@@ -225,15 +233,17 @@ function extractSprites(rom, tables, level) {
       anims[name] = { frames, loop: script.loop };
     }
   }
-  // the crumbling platform draws its 64 × 32 frame as 32 tiles of 8 × 8, left to right and top to bottom,
-  // each from its top left corner
-  const whole = images[anims.crumblingPlatform.frames[0][0]].img;
-  const tiles = { crumblingPlatform: Array.from({ length: 32 }, (_, i) => {
-    const img = new ImageData(8, 8), tx = (i & 7) * 8, ty = (i >> 3) * 8;
-    for (let y = 0; y < 8; y++) img.data.set(whole.data.subarray(((ty + y) * whole.width + tx) * 4, ((ty + y) * whole.width + tx + 8) * 4), y * 32);
-    images.push({ img, anchorX: 0, anchorY: 0 });
-    return images.length - 1;
-  }) };
+  // the crumbling platform draws its 64 × 32 frame as 32 tiles of 8 × 8, and the breakable wall its 32 × 64
+  // one, left to right and top to bottom, each from its top left corner
+  const tiles = Object.fromEntries(['crumblingPlatform', 'breakableWall'].map(name => {
+    const whole = images[anims[name].frames[0][0]].img, across = whole.width >> 3;
+    return [name, Array.from({ length: across * (whole.height >> 3) }, (_, i) => {
+      const img = new ImageData(8, 8), tx = (i % across) * 8, ty = Math.floor(i / across) * 8;
+      for (let y = 0; y < 8; y++) img.data.set(whole.data.subarray(((ty + y) * whole.width + tx) * 4, ((ty + y) * whole.width + tx + 8) * 4), y * 32);
+      images.push({ img, anchorX: 0, anchorY: 0 });
+      return images.length - 1;
+    })];
+  }));
   // a rotated frame's pieces go into the atlas after the frames, and its rect gets them as [x, y, w, h, atlasX, atlasY]
   const pieces = images.flatMap((image, i) => (image.pieces ?? []).map(p => ({ img: p.img, frame: i, x: p.x, y: p.y })));
   const { canvas, rects } = packAtlas([...images, ...pieces]);

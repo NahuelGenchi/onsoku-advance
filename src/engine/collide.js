@@ -1,6 +1,6 @@
 // Sonic against an object's hitbox, as SA1 does it (SAT-R decompilation, src/game/shared/stage/collision_1.c
-// Coll_Player_Platform, collision_2.c sub_800C934 and sub_800CBBC, collision_3.c Coll_Player_Spring_Sideways
-// and Coll_Player_Itembox). Hitboxes are [left, top, right, bottom] around the object's origin, edges included.
+// Coll_Player_Platform, collision_2.c sub_800C934 and sub_800CBBC, collision_3.c Coll_Player_Spring_Sideways,
+// Coll_Player_Gate and Coll_Player_Itembox). Hitboxes are [left, top, right, bottom] around the object's origin, edges included.
 // Sonic is tested with plain rectangles around his centre; only an item box also looks at his attack box.
 
 import { scan, PROBE_WALL } from './terrain.js';
@@ -133,6 +133,24 @@ export function breaks(o, hb, p) {
     return true;
   }
   return false;
+}
+
+/**
+ * A breakable wall (Coll_Player_Gate, its attack test on): while Sonic's attack box is out, it or his flank
+ * touching the wall's box breaks it (LANDED), bouncing him back up if he was falling. Otherwise the wall only
+ * pushes him out of its sides. The optional Rush boost's box breaks it too, without a bounce.
+ */
+export function gate(o, hb, p, terrain) {
+  const res = { flags: 0 };
+  if (!hb || p.dead) return 0;
+  const [px, py] = at(p);
+  if (p.boostBox && overlap(o.x, o.y, hb, px, py, p.boostBox)) return LANDED;
+  if (p.boxes[1] && (overlap(o.x, o.y, hb, px, py, p.boxes[1]) || overlap(o.x, o.y, hb, px, py, flank(p)))) {
+    if (p.air && p.ysp > 0) p.ysp = -p.ysp;
+    return LANDED;
+  }
+  sideways(o, hb, p, terrain, res);
+  return res.flags;
 }
 
 /**

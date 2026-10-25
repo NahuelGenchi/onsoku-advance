@@ -76,6 +76,9 @@ function uncurl(p) { p.curled = false; setOffsetY(p, SPRITE_OFFSET_Y); }
 
 /** Stands Sonic up out of a ball, keeping his feet in place (PLAYERFN_CHANGE_SHIFT_OFFSETS). */
 export function standUp(p) { uncurl(p); }
+// the walk's states put his hitbox back at its standing height (PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 14)): it
+// only moves him when something uncurled him without it, as Angel Island's waterfalls do
+const standHeight = p => setOffsetY(p, SPRITE_OFFSET_Y);
 
 // standing on an object, the object holds him up and the ground sensors rest (sub_8022D6C)
 function followGround(p, t) {
@@ -189,7 +192,7 @@ const pace = p => (p.speedUp > 0 ? 2 : 1);
 function walk(p, dir, world) {
   const acc = K.acceleration * pace(p), max = K.maxRunSpeed * pace(p);
   if (p.gsp * dir >= 0) {
-    if (p.facing !== dir) { p.state = 'turn'; p.pushing = false; }
+    if (p.facing !== dir) { p.state = 'turn'; p.pushing = false; standHeight(p); }
     p.facing = dir;
     let g = p.gsp + acc * dir;
     if (g * dir > max) {
@@ -198,13 +201,13 @@ function walk(p, dir, world) {
     }
     p.gsp = g;
     // on a half-pipe he keeps the state it gives him
-    if (p.state !== 'turn' && !p.halfPipe) p.state = 'walk';
+    if (p.state !== 'turn' && !p.halfPipe) { p.state = 'walk'; standHeight(p); }
   } else {
     let g = p.gsp + K.deceleration * pace(p) * dir;
     if (g * dir > 0) g = K.reverseKick * dir;
     p.gsp = g;
     // the skid sound restarts on every frame Sonic is still this fast
-    if (g * dir <= -K.brakeMinSpeed) { world.playSound(SONG.BRAKE); p.state = 'brake'; }
+    if (g * dir <= -K.brakeMinSpeed) { world.playSound(SONG.BRAKE); p.state = 'brake'; standHeight(p); }
   }
 }
 
@@ -221,10 +224,13 @@ function walkInput(p, c, world) {
   if (c.dir) walk(p, c.dir, world);
   else if (!c.sideways) {
     if (p.gsp !== 0) {
-      if (p.state === 'brake' || p.state === 'idle') p.state = 'walk';
-    } else if (p.state === 'crouch') p.state = 'crouchEnd';
-    else if (p.state === 'lookUp') p.state = 'lookUpEnd';
-    else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+      if (p.state === 'brake' || p.state === 'idle') { p.state = 'walk'; standHeight(p); }
+    } else {
+      if (p.state === 'crouch') p.state = 'crouchEnd';
+      else if (p.state === 'lookUp') p.state = 'lookUpEnd';
+      else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+      standHeight(p);
+    }
   }
   // standing still on level ground stops the push, and at an edge he balances
   if (!((p.rotation + 0x20) & 0xC0) && p.gsp === 0) {

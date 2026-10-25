@@ -63,6 +63,8 @@ export const ENEMY_ANIMATIONS = {
   407: { dustCloud: 0 },
   709: { score0: 0, score1: 1, score2: 2, score3: 3, score4: 4 },
   445: { animalOtter: 0 }, 450: { animalKoala: 0 }, 449: { animalKangaroo: 0 },
+  // Egg Rocket's Oct, patrolling and shooting, and its shot
+  433: { oct: 0, octShoot: 1 }, 436: { octShot: 0 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their

@@ -106,8 +106,8 @@ export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
 export const RED_FLAG_ANIMATIONS = { 469: { redFlag: 0, redFlagTug: 1 } };
 // Casino Paradise's ship swing: the ship (491, half of it, drawn twice), the hook (490) and a link of its chain (489)
 export const SHIP_SWING_ANIMATIONS = { 491: { shipSwing: 0 }, 490: { shipSwingHook: 0 }, 489: { shipSwingLink: 0 } };
-// zone 3's spiked platform (521)
-export const SPIKED_PLATFORM_ANIMATIONS = { 521: { spikedPlatform: 0 } };
+// the spiked platforms: Casino Paradise's (521), and every other zone's, spikes up (538) and down (539)
+export const SPIKED_PLATFORM_ANIMATIONS = { 521: { spikedPlatform: 0 }, 538: { spikedPlatformUp: 0 }, 539: { spikedPlatformDown: 0 } };
 // zone 3's bowl (486), whose two frames turn faster as it spins
 export const BOWL_ANIMATIONS = { 486: { bowl: 0 } };
 // the fireworks in Casino Paradise's background, big and small (482, 483)

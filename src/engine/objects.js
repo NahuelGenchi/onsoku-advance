@@ -162,8 +162,8 @@ function standIn(e, slot, kind = e.kind) {
   };
 }
 
-// what an interactable spawns as, in act `level`
-function interactable(e, slot, anims, ctx, level) {
+// what an interactable spawns as, in act `level` of `zone`
+function interactable(e, slot, anims, ctx, level, zone) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createSquarePlatform(e, slot, anims)
@@ -175,7 +175,7 @@ function interactable(e, slot, anims, ctx, level) {
     ?? createTube(e, slot, anims, ctx.level) ?? createConveyor(e, slot, ctx)
     ?? createHidingSpikes(e, slot, anims) ?? createRedFlag(e, slot, anims)
     ?? createShipSwing(e, slot, anims)
-    ?? createSpikedPlatform(e, slot, anims)
+    ?? createSpikedPlatform(e, slot, anims, zone)
     ?? createBowl(e, slot, anims)
     ?? createVisibilityToggle(e, slot)
     ?? standIn(e, slot);
@@ -197,7 +197,7 @@ export function createEntities(stage, anims, tasks) {
   const regions = Array.from({ length: regionsX * regionsY }, () => []);
   const slot = (e, spawn) => ({ e, live: null, gone: false, spawn });
   for (const [list, spawn] of [
-    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx, stage.level)],
+    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx, stage.level, stage.zone)],
     [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
     [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s, -1)],
   ]) {

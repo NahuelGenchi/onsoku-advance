@@ -101,19 +101,23 @@ export function scan(terrain, p0, p1, layer, step, probe) {
 }
 
 /**
- * The one-tile probe (sub_801F100): the distance from p0 to the surface within the tile holding it, along
- * `step` (+8 or -8), ≤ 0 at or inside it. An empty tile gives the distance to the next tile and a full one
- * to the tile before, so whatever uses it moves at most 8 px a frame.
+ * The one-tile probe along either axis (sub_801F100), with p0 along the probe's axis as scan() takes it: the
+ * distance from p0 to the edge of the solid part of its tile, negative when p0 is inside it. An empty tile
+ * gives the distance to the next tile along `step` and a full one to the tile before it.
  */
-export function tileProbe(terrain, p0, p1, layer, step, probe) {
+export function tileScan(terrain, p0, p1, layer, step, probe) {
   const v = probe(terrain, p0, p1, layer).v, r = p0 & 7;
   if (v === 0) return step > 0 ? 8 - r : r + 1;
   if (v === 8) return step > 0 ? -1 - r : r - 8;
   return v > 0 ? v - 1 - r : v + r;
 }
 
-/** The one-tile floor probe (sub_801F100 and sub_801F07C, scanning down) from (x, y). */
-export const tileFloor = (terrain, x, y, layer) => tileProbe(terrain, y, x, layer, 8, PROBE_FLOOR);
+/**
+ * The one-tile floor probe (sub_801F100 and sub_801F07C, scanning down): the distance from (x, y) to the
+ * floor within the tile holding y, ≤ 0 at or inside it. An empty tile sends it on to the next tile down and a
+ * full one up into the tile above, so whatever uses it moves at most 8 px a frame.
+ */
+export const tileFloor = (terrain, x, y, layer) => tileScan(terrain, y, x, layer, 8, vertical);
 
 /** True when the pixel (px, py) is inside the solid part of its column, by the floor heights. */
 export function solidPixel(terrain, px, py, layer) {

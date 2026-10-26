@@ -116,11 +116,12 @@ export const EGG_HAMMER_TANK_ANIMATIONS = {
   613: { hammerTankBelt0: 0 }, 614: { hammerTankBelt1: 0 }, 615: { hammerTankBelt2: 0 }, 616: { hammerTankBelt3: 0 },
 };
 // the capsule a beaten boss leaves (bosses_misc.c): small while it rises, then full size shut, opening and open,
-// its switch, a half of its shell, and Neo Green Hill's animals inside (gUnknown_080BB43C, besides the kangaroo
-// the enemies already let out) and its birds
+// its switch, a half of its shell, and the animals inside: each zone's two hopping kinds (gUnknown_080BB43C,
+// besides the kangaroo the enemies already let out) and the birds every zone shares
 export const CAPSULE_ANIMATIONS = {
   578: { capsuleSmall: 0 }, 575: { capsule: 0, capsuleOpening: 1, capsuleOpen: 2 }, 576: { capsuleSwitch: 0 },
-  577: { capsuleShell: 0 }, 438: { animalGorilla: 0 }, 448: { animalRobin: 0 }, 442: { animalParrot: 0 },
+  577: { capsuleShell: 0 }, 438: { animalGorilla: 0 }, 439: { animalPeacock: 0 }, 443: { animalPenguin: 0 },
+  444: { animalRabbit: 0 }, 446: { animalDeer: 0 }, 447: { animalSkunk: 0 }, 448: { animalRobin: 0 }, 442: { animalParrot: 0 },
 };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)

@@ -182,7 +182,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) state.lives = (state.lives + 1) & 0xFF;
     },
     // a boss is beaten at (x, y): it leaves the capsule that ends the act (CreateBossCapsule)
-    bossDefeated(x, y) { tasks.add(createBossCapsule(x, y, anims), 0x2000); },
+    bossDefeated(x, y) { tasks.add(createBossCapsule(x, y, anims, state.level >> 1), 0x2000); },
     // the capsule opens: the clock and the rings stop as at the goal (STAGE_FLAG__ACT_START and STAGE_FLAG__2)
     stopStage() { state.clockStopped = true; state.ringsStopped = true; },
     random,

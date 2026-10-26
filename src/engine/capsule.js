@@ -3,7 +3,7 @@
 // boss small and spinning, growing to full size, then drops into the middle of the screen, shaking it; landing
 // on Sonic, it knocks him aside. It is solid, and Sonic landing on its switch opens it: the clock and the rings
 // stop, he loses his controls and walks off to whichever side of the screen he is on, the shell flies off in
-// two halves and Neo Green Hill's animals jump out, two kinds hopping about and two birds circling. Once he
+// two halves and the zone's animals jump out, two kinds hopping about and two birds circling. Once he
 // stands in his act-clear pose, a second after it plays through (or four seconds after he stops), the act's
 // results start. Positions are whole pixels in the act and speeds 1/256 px a frame, as the original keeps them.
 
@@ -27,8 +27,8 @@ const SOX = 6;   // Sonic's spriteOffsetX
 const HOLD = dir => ({ left: dir < 0, right: dir > 0, up: false, down: false, jump: false, attack: false, boost: false,
   jumpPressed: false, attackPressed: false, boostPressed: false });
 
-/** CreateBossCapsule: the capsule's task, at the boss's (x, y). */
-export function createBossCapsule(x, y, anims) {
+/** CreateBossCapsule: the capsule's task, at the boss's (x, y), in zone `zone` (LEVEL_TO_ZONE: 0 Neo Green Hill). */
+export function createBossCapsule(x, y, anims, zone) {
   const s = makeSprite('capsuleSmall', { order: 19 }), s2 = makeSprite('capsuleSwitch', { order: 20 });
   // the rise's speed (unk74) and how far it has risen (offsetY); the turn and scale it is drawn with
   let speed = 0x800, rise = 0, rotation = 0, scale = 0x40;
@@ -119,7 +119,7 @@ export function createBossCapsule(x, y, anims) {
     startAnim(s, 'capsuleOpen');
     c.add(bossPart(x, y, 'capsuleShell', anims, { vx: -256, vy: -512, spin: 4, grow: 0, frames: 60 }));
     c.add(bossPart(x, y, 'capsuleShell', anims, { vx: 256, vy: -512, spin: 4, grow: 0, scaleX: -256, frames: 60 }));
-    c.add(animals(x, y, anims));
+    c.add(animals(x, y, HOPPERS[zone], anims));
     return true;
   }
   // Task_801685C: open, a ledge Sonic can stand on
@@ -157,19 +157,26 @@ function walkOff(p) {
   };
 }
 
-// The animals: Neo Green Hill's gorillas and kangaroos hopping about (sub_8016D80) and its robins and parrots
-// circling (sub_8016F44), let out four at a time every four frames, four times, the last time without a gorilla
-// or a robin (Task_8016B6C). Each draws on the game's random numbers; every other lot goes the other way.
-const HOPPERS = ['animalGorilla', 'animalKangaroo'];   // gUnknown_080BB43C[0]
-function animals(x, y, anims) {
+// The animals: the zone's two kinds hopping about (sub_8016D80) and robins and parrots circling (sub_8016F44),
+// let out four at a time every four frames, four times, the last time without the first kind or a robin
+// (Task_8016B6C). Each draws on the game's random numbers; every other lot goes the other way.
+// gUnknown_080BB43C, by zone: its first two columns are the hoppers; the third is never read
+const HOPPERS = [
+  ['animalGorilla', 'animalKangaroo'],   // Neo Green Hill
+  ['animalGorilla', 'animalSkunk'],      // Secret Base
+  ['animalPeacock', 'animalDeer'],       // Casino Paradise
+  ['animalPenguin', 'animalRabbit'],     // Ice Mountain
+  ['animalSkunk', 'animalKangaroo'],     // Angel Island
+];
+function animals(x, y, kinds, anims) {
   let n = 0, lot = 0;
   return {
     run(c) {
       if ((n++ & 3) === 0) {
         const odd = lot & 1;
         let r;
-        if (n !== 5) { r = c.world.random(); c.add(hopper(x, y - 32, HOPPERS[0], r, odd, anims)); }
-        r = c.world.random(); c.add(hopper(x, y - 32, HOPPERS[1], r, !odd, anims));
+        if (n !== 5) { r = c.world.random(); c.add(hopper(x, y - 32, kinds[0], r, odd, anims)); }
+        r = c.world.random(); c.add(hopper(x, y - 32, kinds[1], r, !odd, anims));
         if (n !== 5) { r = c.world.random(); c.add(bird(x, y - 32, 'animalRobin', r & 7, odd, Math.floor(c.player.y) - 32, anims)); }
         c.add(bird(x, y - 32, 'animalParrot', (r >> 8) & 7, odd, Math.floor(c.player.y) - 32, anims));
         lot++;

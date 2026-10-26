@@ -38,6 +38,8 @@ export function createSound() {
 
     /** m4aSongNumStart */
     play(song) { call('songStart', song); },
+    /** m4aSongNumStartOrChange: starts the song unless it is already playing on its player */
+    playOrChange(song) { call('songStartOrChange', song); },
     /** Gives the engine Sonic Rush's sound archive and tables (rush.js) for the boost's sound effect */
     loadRush(sound) { rushSound = sound; node?.port.postMessage({ type: 'rush', sound }); },
     /** Plays a Sonic Rush sound effect, [sequence archive, sound], as the DS does (nitro.js) */
@@ -63,6 +65,16 @@ export function createSound() {
     },
     /** m4aSongNumStop */
     stop(song) { call('songStop', song); },
+    /** MPlayStart with the song on music player `player`, and nothing else */
+    startOn(player, song) { call('playerStart', player, song); },
+    /** MPlayStop on music player `player` */
+    stopPlayer(player) { call('playerStop', player); },
+    /** m4aSongNumStartOrContinue */
+    startOrContinue(song) { call('songStartOrContinue', song); },
+    /** m4aMPlayVolumeControl on the tracks `bits` of music player `player` */
+    volume(player, bits, volume) { call('volumeControl', player, bits, volume); },
+    /** m4aMPlayFadeIn on music player `player`, a step up every `speed` frames */
+    fadeIn(player, speed) { call('fadeIn', player, speed); },
     /** m4aMPlayFadeOut on music player `player`, a step down every `speed` frames */
     fadeOut(player, speed) { call('fadeOut', player, speed); },
     /** m4aMPlayTempoControl on the music (0x100 is normal speed) */
@@ -71,7 +83,11 @@ export function createSound() {
     invincibility() { call('invincibility'); },
     /** What the music manager reads of Sonic each frame */
     playerState(invincible, speedUp, alive) { call('playerState', invincible, speedUp, alive); },
+    /** A boss's music state for the music manager (gMusicManagerState.unk1) */
+    musicState(value) { call('musicState', value); },
     stopAll() { call('allStop'); },
+    /** Switches the music manager off until the next stage's music starts, as the act's results do */
+    musicOff() { call('off'); },
 
     get muted() { return muted; },
     set muted(value) { muted = value; post({ type: 'gain', value: muted ? 0 : GAIN }); },

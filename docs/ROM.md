@@ -4,7 +4,7 @@
 
 Onsoku Advance reads its graphics and data from **your own** Sonic Advance ROM, in your browser. The ROM is never uploaded; if you tick *Remember this ROM on this device*, it is kept in this browser's IndexedDB and can be removed with *Forget the saved ROM*.
 
-The optional [Sonic Advance 2 tricks](#sonic-advance-2-tricks) read your Sonic Advance 2 ROM the same way.
+The optional [Boost Mode](#sonic-advance-2-for-boost-mode) and [Sonic Advance 2 tricks](#sonic-advance-2-tricks) read your Sonic Advance 2 ROM the same way.
 
 ## Supported versions
 
@@ -26,6 +26,7 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 | Tilemap table | `0x4A6C40` | Act 2 reuses act 1's background in zones 1–5, so entries 2/5, 8/11, 14/17, 20/23 and 26/29 match |
 | Collision table | `0x4A6DA4` | Act 1's header points at the same metatiles and layer maps as tilemap entries 0 and 1 |
 | Start positions | `0x4A6DEC` | Right after the collision table's 18 entries |
+| Loop points and distances | `0x4A6E74`, `0x4A6EBC` | After the start positions and the multiplayer stages' four start positions each, two more tables of an `s16` pair per level (see [The goal](#the-goal)) |
 | Rings | `0x0B7F4C` | The table just before the interactables |
 | Interactables | `0x0B7F94` | Four tables of 18 RL-compressed lists follow each other (rings, interactables, item boxes, enemies); act 1's lists are grids of 51 × 6 regions |
 | Item boxes | `0x0B7FDC` | The table after the interactables |
@@ -33,6 +34,8 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 | Spin dash speeds | `0x4A7084` | Nine 8.8 fixed-point values from 6.0 to 9.0 in steps of 0.375 |
 | UI graphics | `0x680A38` | 28-byte entries of two ROM pointers and five words; the first is the 8 × 16 font `{2, 0, 2, 1, 2}` and the sixth the HUD ring `{16, 2, 0, 4, 4}` |
 | Title card tables | `0x681274` | The pieces' texts, 56 bytes at +`0x34` that are the same in every version (see [Title card](#title-card)) |
+| Intro graphics | `0x69EC10` | The code that loads the intro's green streaks keeps three pointers side by side: their tiles, the first scene's colours and their map, the tiles `0x200` bytes after the colours and the map `0x3100` after them. The colours are where the intro's pictures start (see [The game's start](#the-games-start)) |
+| Intro tables | `0x684178` | Where the four characters' names stop on the screen, eight 16-bit values (`0x14, 0x70, 0x5C, 0x5A, 0x58, 0x70, 0x1C, 0x5A`), with a pointer into sprite VRAM `0x18` bytes in: the first of the names' letters |
 | Music players and songs | `0x6D767C`, `0x6D76AC` | Four music player entries (two EWRAM pointers, a track count of 1–16, a zero byte, a 16-bit field), followed at once by song entries of a ROM pointer and the player's number twice |
 
 ### Sprites
@@ -45,7 +48,7 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 
 ### Rotation hardware
 
-Some sprites go through the GBA's rotation and scaling (affine) OBJ mode instead of plain flips: Sonic's walk and run frames (and the walk frames he tumbles in after a bounce block, character state 23) and the boulders' debris. The extractor keeps those frames' OAM pieces as their tiles hold them, and the renderer draws them pixel by pixel ([`src/engine/renderer.js`](../src/engine/renderer.js)).
+Some sprites go through the GBA's rotation and scaling (affine) OBJ mode instead of plain flips: Sonic's walk and run frames (and the walk frames he tumbles in after a bounce block, character state 23) the boulders' debris, the Egg Hammer Tank's arm segments, hammer and belt pieces, and the boss capsule while it rises, its shell's halves and the birds that fly out of it. The extractor keeps those frames' OAM pieces as their tiles hold them, and the renderer draws them pixel by pixel ([`src/engine/renderer.js`](../src/engine/renderer.js)).
 
 - **Matrix** (`TransformSprite`): from the rotation `r` (0–1023 per turn) and the 8.8 scales `sx`, `sy`, with `c = COS_24_8(r)` and `s = SIN_24_8(r)` (the sine table's Q2.14 values shifted right 6), PA = `c × Div(0x10000, sx) >> 8`, PB = `s × Div(0x10000, sx) >> 8`, PC = `−s × Div(0x10000, sy) >> 8`, PD = `c × Div(0x10000, sy) >> 8`, each kept to 16 bits. A negative scale mirrors the sprite.
 - **Placement:** the transform moves the sprite so its anchor stays at (x, y) once turned. With `ax` the anchor X (or `width − ax` when `sx` is negative), `ay` likewise, and the half-sizes `hw`, `hh`, it subtracts `(c|sx| × (ax − hw) − s|sx| × (ay − hh) + hw × 256) >> 8` from x and `(s|sy| × (ax − hw) + c|sy| × (ay − hh) + hh × 256) >> 8` from y (each product `>> 8` first). `DisplaySprite` then places each OAM piece at its own offset in the frame, ignoring the frame's flip; with the double-size flag it first moves the sprite up and left by half the frame's size. The hardware reads a rotated entry's flip bits as part of its matrix number, so the pieces keep their tiles' orientation.
@@ -56,10 +59,10 @@ Some sprites go through the GBA's rotation and scaling (affine) OBJ mode instead
 
 - Each stage layer is a 12 × 12-tile metatile map (96 × 96 px per metatile) with a 4bpp tileset and a 256-colour palette. Sonic Advance stores one byte per metatile.
 - A tile entry packs the tile index (bits 0–9), horizontal and vertical flips (bits 10–11) and the palette bank (bits 12–15).
-- The tilemap table has three entries per level: the front layer, the back layer and the background. Neo Green Hill Zone act 1 is entries 0, 1 and 2; its background is a 256 × 256 px plain map.
+- The tilemap table has three entries per level: the front layer, the back layer and the background. Neo Green Hill Zone act 1 is entries 0, 1 and 2, act 2 entries 3, 4 and 5; the background is a 256 × 256 px plain map, the same in both acts.
 - The front layer is drawn over Sonic (hardware background 1, priority 1), the back layer behind him (background 2, priority 2, the same as his sprite), the background behind both.
-- The front layer's header also describes animated tiles: the first `animTileSize` bytes of the tileset (`0x1C0`, 14 tiles in act 1) are replaced by the next of `animFrameCount` frames every `animDelay` frames. Frame 0 is the tileset itself and frame *k* is the *k*-th block stored after it. Both layers share the tileset, so the animation shows on both.
-- **Palette animations.** The act's stage init makes two tasks (priority `0x2000`, after the rings and entities managers) that each run an animation whose commands only load colours into the background palette: animation `814` loads sprite palettes 190–193 into row 15 (colours 240–255), each shown for 16 frames, and `815` loads palettes 194–201 into row 10 (colours 160–175), one a frame. Each palette is the one before it turned by one place, so the colours cycle. Row 10 colours the waterfalls in the stage's layers (five metatiles use it) and row 15 the sea in the background. The tasks step their animation as any background animation is stepped, at speed `0x10`: on the act's first frame each loads its first palette, which then shows for its delay. When the act starts over, it loads the stage's own colours again and both animations start from the beginning. The extractor renders the layers' metatiles that use those rows, and the background, once for each state, and the renderer picks the one the tasks have loaded.
+- The front layer's header also describes animated tiles: the first `animTileSize` bytes of the tileset (`0x1C0`, 14 tiles in act 1) are replaced by the next of `animFrameCount` frames every `animDelay` frames. Frame 0 is the tileset itself and frame *k* is the *k*-th block stored after it. The camera's task counts the frames, and the tiles it picks are copied at the start of the next frame, so the screen shows each step a frame after the count reaches it. Both layers share the tileset, so the animation shows on both.
+- **Palette animations.** The act's stage init makes two tasks (priority `0x2000`, after the rings and entities managers) that each run an animation whose commands only load colours into the background palette: animation `814` loads sprite palettes 190–193 into row 15 (colours 240–255), each shown for 16 frames, and `815` loads palettes 194–201 into row 10 (colours 160–175), one a frame. Each palette is the one before it turned by one place, so the colours cycle. Row 10 colours the waterfalls in the stage's layers (five metatiles use it) and row 15 the sea in the background. The tasks step their animation as any background animation is stepped, at speed `0x10`: on the act's first frame each loads its first palette, which then shows for its delay. When the act starts over, it loads the stage's own colours again and both animations start from the beginning. Act 2's stage init (`StageInit_Zone1Act2`) runs the same two, then animation `820` twice, variant 1 and then variant 0: they load rows 13 and 12, a palette every 2 frames. The extractor renders the layers' metatiles that use those rows, and the background, once for each state, and the renderer picks the one the tasks have loaded.
 
 ### Collision
 
@@ -95,7 +98,7 @@ The enemies use the same 7-byte records, with the enemy's kind in place of the i
 
 ### Objects
 
-**The task list.** The original runs everything as tasks in one list, sorted by priority, and the engine does the same with the same priorities. In act 1 a frame runs the grind rails' ends (`0x900`), the camera (`0xF00`), the forced slide (`0x1000`), then at `0x2000` the ring manager, the entities manager, two palette animations and every object, enemy and effect in the order they were made, then the scattered rings and the grind sparks (`0x2001`), the title card and its pieces while it runs (`0x2100`, `0x2120`), the HUD once the card has ended (`0x2180`), Sonic (`0x3000`), the GamiGami shots, the music manager (`0x4000`), the Buzzer shots (`0x9000`) and the stage's clock (`0xFF00`). A new task goes after the last task of its priority. The list fetches the next task before it runs the current one, so a task made by the one just before its place only runs from the next frame.
+**The task list.** The original runs everything as tasks in one list, sorted by priority, and the engine does the same with the same priorities. In act 1 a frame runs the grind rails' ends (`0x900`), the camera (`0xF00`), the forced slide (`0x1000`), then at `0x2000` the ring manager, the entities manager, two palette animations and every object, enemy and effect in the order they were made, then the scattered rings and the grind sparks (`0x2001`), the title card and its pieces while it runs (`0x2100`, `0x2120`), the HUD once the card has ended (`0x2180`), past the goal the act's results in the card's place (`0x2100`, `0x2120`), Sonic (`0x3000`), the GamiGami shots, the music manager (`0x4000`), the Buzzer shots (`0x9000`) and the stage's clock (`0xFF00`). A new task goes after the last task of its priority. The list fetches the next task before it runs the current one, so a task made by the one just before its place only runs from the next frame.
 
 **The entities manager** spawns objects, item boxes and enemies by their spawn point, from a range 128 px around the screen: from 128 px left of it to 128 px past its right edge (`x − 128` to `x + 368`), and from 128 px above it to 128 px below its bottom edge (`y − 128` to `y + 288`), edges included and kept inside the act. On its first frame, and after the camera jumps more than 248 px across or 208 px down, it spawns everything in the range. Otherwise it scans only the strip the camera's move uncovered sideways, the range's full height, then the strip it uncovered up or down, the range's full width. It scans the regions that start before the strip's far edge, so a spawn point exactly at a region's first pixel is found a frame late. In each region it spawns the interactables, then the item boxes, then the enemies. A spawned entity isn't spawned again while its task runs. Most tasks end when their spawn point leaves the range, which lets it spawn again later. A defeated enemy stays gone until the act starts over.
 
@@ -288,6 +291,24 @@ In the box but in the air, it lets go of him on the first such frame: his contro
 
 It never goes: it would leave once its spawn point is out of the range, but only on a frame no character is in its box, and in a one-player game the partner's slot always counts as one that is. So once the camera has passed near it, it stays in the task list until the act starts over.
 
+### Mini loops
+
+Act 2's two mini loops (x 2672–2746 and 4208–4290) are made of invisible boxes, each `d0, d1` tiles (signed) from its spawn point to its top left and `d2 × d3` tiles big, left and top edges included. Their tasks (priority `0x2000`) test Sonic's centre where he was at the end of the previous frame; each goes when its spawn point is more than 128 px off the screen, clearing his half-pipe flag (`MOVESTATE_8000`) as it does.
+
+- **Kind 34, the entry** (`Task_Interactable034`): ends his attacks and mid-air moves, curls him into a ball (character state 5) that keeps rolling (`MOVESTATE_200`), takes his controls with nothing held or pressed, and plays song 109 unless it is already playing (`m4aSongNumStartOrChange`).
+- **Kind 35, the way out** (`Task_MiniLoop_Base`): ends the forced roll and gives his controls back, the jump and attack buttons he holds then counting as held.
+- **Kind 36** sends him right at 9 px a frame on the ground, **kind 37** left at 7.25, and **kind 38** turns him upside down (angle `0x80`) and, on the ground, the other way.
+
+While the forced roll lasts he lands curled up, his rise isn't capped at 11.8125, and when the roll's friction would stop him he rolls on at 3 px a frame the way he faces, with song 109 again.
+
+### Water bridge
+
+Act 2's water bridge, kind 40 at (2192, 808), is an arc of water across a box from (1976, 784), 416 × 104 px (`d0, d1` signed tiles to its top left, `d2 × d3` tiles big): half a sine, θ = (x − left) × 512 / width over the 1024-step sine table, the arc at `bottom − sin θ × height`. On every frame his feet (centre plus `spriteOffsetY`) are in the box and up to 32 px below the arc, it adds 0.25 to his speed (X speed in the air, ground speed on the ground) up to 8 either way, sets his rise to `−height × cos θ × speed / 65536 − 42/256`, ends his moves, holds his controls, puts him in the knocked-back state uncurled but as short as a ball, and draws animation `474` (OAM order 15, BG priority 1) at his feet less 6 px. The first such frame plays song 177 and sets `MOVESTATE_8000`; the move's cancel clears that again, so the sound is asked for every frame and restarts whenever it ends. On every other frame it gives his controls back and clears the flag. The splash beside it, kind 43, plays animation `473` at its spawn point. Both go 128 px off the screen. The splash under Sonic is drawn with his `spriteOffsetX` where `spriteOffsetY` is meant, 3 px lower than intended.
+
+### Shrubbery
+
+Act 2's 34 bushes (kind 30, x 6912–8504) are boxes from their spawn point, `d2 × d3` tiles, edges included. The frame Sonic's centre gets into one, unless he is dead, it plays song 178 and makes leaves (animation `467`, OAM order 0, BG priority 0, a task at `0x3000`) at his centre plus `(random & 0x1F00) >> 8 − 16` across and `(random & 0x0F00) >> 8 − 8` down, two of the game's random numbers, across first. The leaves last 51 frames or until out of range.
+
 ### Rings
 
 Rings use the interactables' grid, with 2-byte records `x, y` (tiles inside the region) ending with `0xFF`. Act 1 has 291. A ring is a 16 × 16 px sprite with its bottom centre on that point: animation `707`, four frames of 8 ticks each, in sprite palette 68. Every ring shares one sprite, so they all spin together.
@@ -305,7 +326,9 @@ Each ring adds 1 to the count, and passing a multiple of 100 gives a life. It al
 
 ### Spikes
 
-The spikes are animation `454` in sprite palette 35: variant 2 points up, variant 3 sideways, flipped to point left. Act 1 has four that point up (kind 1) and five that point left (kind 3). They are solid like any platform. The up spikes hurt Sonic when he lands on them, and the left-pointing ones when he touches their left face. Touching a left-pointing spike's back face puts him out past its left face, as the code reads; in act 1 their backs are against walls. A hit by spikes plays song 171.
+The spikes are animation `454` in sprite palette 35: variant 2 points up, variant 3 sideways, pointing right and flipped to point left. Act 1 has four that point up (kind 1) and five that point left (kind 3); act 2 has three up, two left, one right (kind 4) and four hiding spikes (kind 5). They are solid like any platform. The up spikes hurt Sonic when he lands on them, and the sideways ones when he touches the face they point to. Touching a sideways spike's back face puts him out past its other face, as the code reads; in the acts their backs are against walls. A hit by spikes plays song 171.
+
+**Hiding spikes** (`Task_Spikes_HidingUp`, `sub_8020F2C`) point up and go by the stage clock, the same for all of them: of every 128 frames they are hidden and not drawn for the first 60, show variant 0 (low) for 2 and variant 1 (half up) for 2, are up (variant 2) for 60, and go down through variant 1 and variant 0 for 2 frames each. While they are up they are solid and hurt Sonic landing on them. On the frame they come up, a Sonic whose body is in them is lifted onto their top and hurt. On every frame they aren't up, a Sonic standing on them falls, and stops pushing against them. They go when their spawn point leaves the range around the camera.
 
 ### Enemies
 
@@ -435,6 +458,70 @@ The HUD runs after the rings and objects and before Sonic, so it shows the ring 
 - *Jingle:* the sound engine port with the music manager stays identical to mGBA's engine for 368 frames, from just before the 100th ring through the jingle, the music's restart and the end of its fade-in.
 - *Read in the code only:* the 10:00 reading. The stage doesn't end at 10:00 yet (the original's time over).
 
+### The game's start
+
+Before the act, Onsoku Advance shows what Sonic Advance shows when it starts with a saved game: the SEGA and Sonic Team logos (`CreateSegaLogo`), the intro (`CreateIntroAnimation`), the title screen (`CreateTitleScreen`) and the main menu (`CreateMainMenu`). They are a port of the original's code ([`src/front/`](../src/front/)) on a port of the engine its screens are built on ([`src/gba/engine.js`](../src/gba/engine.js)): the tasks run once a frame in order of priority, the copies of the display registers they write, the graphics queue copied to VRAM in the V-blank, the heap the sprites' tiles are given room in, the sprites' OAM entries, the H-blank DMA that changes a register from one line to the next, and the keys. [`src/gba/video.js`](../src/gba/video.js) draws the result as the GBA's video hardware does, a line at a time. Everything is read from the ROM as the original reads it: the logos are entries 86 and 87 of the tilemap table, the intro's pictures come from the intro graphics, its sprites from the sprite tables and its names' letters from the intro tables, and the title screen's background and logo are entries 75 and 74 (the English logo; 73 is the Japanese one). They run at the GBA's own 59.73 frames a second.
+
+Frames are counted as mGBA draws them from power-on, the first being frame 0:
+
+| Frames | What shows |
+| :--- | :--- |
+| 7–166 | SEGA's logo wipes in from the bottom, a line more each frame. The lines below the wipe are the logo, the lines above it the logo's first line, stretched (the H-blank DMA scrolls each line). |
+| 167–286 | It holds |
+| 287–446 | It wipes out the same way, its last line stretched up from the bottom. On the last frame Sonic Team's logo is set up. |
+| 447–586 | Sonic Team's logo opens out from its middle: its top and bottom 40 lines show at once, and its middle 80 start split apart, every other line shifted the other way, closing in 2 px a frame. On 586 SEGA's ring plays (song 102). |
+| 587–708 | It holds |
+| 709–740 | It fades to white, a 32nd a frame |
+| 741 | The intro is set up, black, and its music starts (song 1) |
+| 742–1062 | A Chaos Emerald falls down the green streaks as the screen fades in, slowing to a stop by the 90th frame, with two rings of eight sparkles turning around it. From the 153rd frame Dr. Eggman's colours fade in from black, from the 183rd he rises into view under the emerald, his hands following once he is past 80 lines, and from the 234th the emerald falls again, into his hands. He grins from the 311th. |
+| 1063–1567 | The sparkles go, a pair every 4 frames, and the screen darkens a little. On 1287 two spotlights come on and sweep across Eggman, everything else darker. |
+| 1568, 1982, 2396, 2810 | Sonic's, Tails's, Knuckles's and Amy's turns, 414 frames each. Each starts black with the character's silhouette. On the 31st frame the screen goes white and the silhouette turns into the character, and from the 43rd a large picture of them fades in behind over 32 frames. From the 91st their name's letters slide in from the right, 16 px a frame, each 15 frames after the one before, and from the 353rd the screen fades to white. |
+| 3224 | The intro ends and the title screen is set up, without starting its music: the intro's goes on into it and ends on its own on 3381 |
+| 3225–3273 | The title screen's background fades in from white over 49 frames |
+| 3274–3286 | The logo, a rotating layer, zooms in from four times its size: 16 / 256 of its size smaller on the first frame, 8 / 256 more on each after, until it is its size |
+| 3287 | The copyright line shows |
+| 3347 | "PRESS START" blinks from here, on for 31 frames, then off and on for 32 each, and Start opens the main menu |
+| 4188 | The original starts its first demo here; demos aren't built, so the title screen stays |
+
+**The spotlights** (`CreateSpotlightBeamTask` and `Task_SpotlightBeam`) are windows 0 and 1, each a wedge from a point below the screen whose two edges are drawn into the window's sides a line at a time. The decompilation's C for them is Sonic Advance 2's, so the port follows Sonic Advance's own assembly (`sa1_Task_SpotlightBeam`), which differs: it has no check for a beam of width 0. An edge's slope is the tangent of its angle: the sine over the cosine, both taken down to 8.8 first, through the BIOS's `Div`. Where the cosine comes to 0 that is a division by 0, which the original makes and mGBA's BIOS answers with ±1.
+
+**An overflow in the original.** The window effects write one line past the end of the H-blank DMA's second buffer (`gBgOffsetsBuffer`). In work RAM the sprites' colours (`gObjPalette`) come right after it, so on most of the spotlights' frames, 1312 to 1566, the sprites' colours 0 and 1 hold a window's last line. The engine keeps the buffers and the colours side by side in the same way, so it does the same. Colour 0 is transparent and nothing drawn then uses colour 1, so it never changes the picture (the engine run with the colours kept apart draws the same frames).
+
+**Skipping.** The logos read no keys until Sonic Team's logo fades: then A or Start goes to the title screen on the next frame. In the intro, A, B or Start goes to the title screen on the next frame and stops the intro's music, so the title screen starts its own (song 2). When the intro ends after Amy, the title screen starts without starting its music (`IntroOpenTitlescreenSilent`). A skipped title screen runs as above from the frame after it is set up: with Start pressed on frame 1500 its fade is 1503–1551 and the zoom 1552–1564, the copyright line shows from 1565 and "PRESS START" from 1625. In Onsoku Advance, Enter or the controller's Menu button is Start, Backspace or View is Select, and A and B are the act's jump and attack.
+
+**The main menu.** Start on the title screen plays the select sound (song 106) and the title screen's sprites go; the menu is set up on the next frame, and its items show two frames after that. They are the five variants of "PRESS START"'s animation after its own, Game Start, VS, Time Attack, Options and Tiny Chao Garden, 14 lines apart from line 93, each with its own room in the sprites' VRAM heap. The chosen one is drawn a palette row along, which holds the lit colours. Up and Down move the choice, wrapping round at both ends, with the cursor sound (song 108) each time; held, they repeat 20 frames after the press and every 9 after that. The menu also animates a Chao beside the chosen item, loading its tiles every 5 frames, but never shows it. A on Game Start plays the select sound and darkens the screen over 49 frames; on the last the layers' maps are cleared, and on the next frame the menu starts the boss music (song 29), clears its player and stops it, which stops the title's music, and the character select starts.
+
+**Not built yet.** These are still to come, so the game goes on where they would start:
+
+- *The demos*, which the original starts after 900 frames on the title screen: the title screen stays as it is, and Start still opens the menu.
+- *VS, Time Attack, Options and Tiny Chao Garden:* A on them does nothing. The original plays the select sound and fades out to them as it does for Game Start.
+- *The character select:* Game Start goes to the act, on the frame the character select would start.
+- *The saved language:* the title screen and the menu are in English, the language screen's default.
+- *The language screen* that a new game, without a save, starts with before the logos: the game always starts as with a save.
+- *The soft reset:* A, B, Start and Select held together restart the original from Sonic Team's logo on; here they do nothing.
+
+**Lag.** The original skips a frame's keys and tasks when the V-blank's copies run past the V-blank. These screens never do on the recordings, so that isn't modelled.
+
+**The widescreen view.** With it on, the logos, the intro, the title screen and the menu fill the same view as the act, with the original screen in its middle drawn exactly as at 240 × 160; the game runs the same either way. Past the screen's edges each scene goes on as it really is:
+
+- *Layers:* the logos' map once across, with nothing either side. Eggman and his hands appear once, with nothing past their pictures (their maps' last 16 columns, and the rows past the pictures, are left over). Each character's picture and the backdrop behind it appear once, their edges carried on. The streaks carry on down for ever and out to the sides by their outer columns.
+- *Sprites:* where they really are, not where OAM wraps them, so the emerald and the sparkles show above the screen before they fall into it. A name's letters, which slide in from just past the screen's right edge, slide in from just past the view's.
+- *Effects:* the spotlights are the whole wedges they are. The fades, the darkening and the SEGA wipe's stretched lines carry on above, below and to the sides.
+- *Screens made for 240 × 160 alone:* a screen with nothing of its own past the screen's edges sets the engine's `wideBars`. The view then shows the original screen, drawn as at 240 × 160, in its middle with black around it, rather than a stretched or repeated edge. The title screen and the menu do: the background's picture ends at the screen's edges, in Sonic's speed lines and the checks, and carrying those on drew streaks.
+
+Turning it on or off (<kbd>V</kbd>) re-fits the view at once. It was checked on every frame of the runs above: at 240 × 160 the pictures are the same as before, and at every view size tried, the middle of the view is the original screen.
+
+**How it was checked.** mGBA 0.10.5 recorded the game from power-on to the title screen, with a save and nothing pressed, dumping VRAM, palette RAM, OAM, the work RAM and every line's display registers after each frame. Three more runs, recorded around the press, skip with A held from frame 720 (in Sonic Team's fade), Start from 1500 (during the spotlights) and B from 2100 (in Tails's turn). Three more cover the title screen and the menu:
+
+- Nothing pressed, recorded from the intro's end to frame 4300, past where the demo starts.
+- Start on 1500 to skip the intro, then on the title screen Start too early (1560) and in time (1660). In the menu, Down twice, Up three times (round from Game Start to Tiny Chao Garden), Down (round to Game Start), Down held for 60 frames, Up, and A on Game Start on 1900.
+- From the intro's end, Start on 3400 and A on Game Start on 3450.
+
+- *Every frame:* from the SEGA logo's first frame to the intro's last (7 to 3223), the engine's VRAM, palette RAM, OAM and each line's registers match the recording's, except for some VRAM on frames 445 and 3223. On those the next screen clears VRAM straight rather than in the V-blank (on 445 Sonic Team's logo its first two tiles, on 3223 the title screen its first tile and a few bytes of the sprites' first tiles), and the recording catches that write a frame before it shows. Nothing on screen uses those bytes then: the recorded state draws the same picture as the engine. The same goes for frame 1501, before the skipped title screen.
+- *The title screen and the menu:* every frame matches in the same way from the title screen's first to the last before the character select (1502–1950 and 3224–3500), and on the title screen left alone up to 4187, the frame before the original's demo.
+- *Skipping:* in all three runs the frames match up to the press, and the engine leaves for the title screen on the same frame as the original, the one after the press is read (722, 1502 and 2102).
+- *Sound:* two more runs dumped the sound engine's state too. The original starts SEGA's ring and the intro's music on the same frames as the engine, and on the skip at 1500 the intro's music gives way to the title screen's on the next frame, as the engine stops it. The title screen and menu runs dumped it as well: the original plays the select sound and every cursor sound, the held key's repeats included, on the same frames as the engine, and starts the character select's music (song 3) on the frame the engine leaves the menu. The boss music's start and stop come and go within that frame, so the dumps can't show them.
+
 ### Title card
 
 The title card (`sub_80550F8`, task `0x2100` at `0x08055425` in the USA ROM) plays when the act starts and every time it starts over. It makes six tasks (`0x2120`), one per piece of the card, and passes them its frame count each frame; they run right after it. Each piece is a row of sprites at background priority 0, so the card is in front of every layer and sprite. Its graphics come from the UI graphics table (see [HUD](#hud)):
@@ -464,9 +551,143 @@ The Japanese name's 16 tiles are put together as `LoadStageIntroGraphics` loads 
 - *The rest of the game:* the engine before and after the card was drawn plays 11 input runs (33,000 frames, one of them through a death and the restart, two skipping the card) to exactly the same state on every frame: Sonic, the camera, the objects, the rings, the score, the clocks and every sound.
 - These recordings also showed the background's cloud bands one frame ahead of the original: they scroll with the stage clock from before that frame's tick, as the layers' animations do.
 
+### The goal
+
+Only goal entities (kind 0) with `d1` set spawn in single player: act 1 has one that shows (`d0` set, animation `453`) and a column of hidden ones at x 12184. The first one Sonic's centre passes stops the clock and the rings, plays song 135 and spins; from then on it holds right for him, raises the camera 56 px a pixel a frame and keeps him to 4.5 px a frame. 31 frames on, a task waits for him on the ground at 2.25 px a frame or more and puts him in his act-clear run (character state 28). From the goal's 122nd frame, once he runs, the results start. Past x 12848 (the act's loop point) he and the camera go back 384 px while the camera moves, so the same stretch scrolls by.
+
+Two levels have rules of their own. In Ice Mountain act 2 (level 7) a goal counts only while Sonic is also lower than 80 px above it. In Egg Rocket (level 10) it counts only when his body hitbox (slot 0) takes in the goal's point, edges included; it plays no sound, holds none of his controls, leaves the camera and his speed alone and makes no act-clear task. It sets `MOVESTATE_IA_OVERRIDE` every frame instead, so his own movement stops where he is, and the results start on its 122nd frame whatever state he is in.
+
+### Results
+
+`CreateStageResults` plays song 33 (34 after a zone's second act) and switches the music manager off. The ring bonus is 100 per ring; the time bonus goes by the course time: 80000 under 0:30, 50000 under 0:50, 10000 under 1:00, 5000 under 1:30, 4000 under 2:00, 3000 under 3:00, 2000 under 4:00, 1000 under 5:00, 500 under 6:00, else 0. A white band (UI entry 16) slides in and rises to y 42 with "SONIC GOT THROUGH ACT 1" (entries 11 and 34) scrolling on it; the time and ring bonuses (texts at +`0x97` and +`0x8C` of the title card's tables) grow in letter by letter through the rotation hardware from frames 60 and 90. From frame 181 both count down 100 a frame into the score (a life every 50000 points), song 140 on every fourth frame of the stage clock and 141 at the end; the camera then stops, and Sonic stops once off the right of the screen. The texts slide out after `max(bonus) / 100 + 305` frames and the screen fades to black, all but the band; 45 frames into the fade every task ends and all sound stops.
+
+### The next act
+
+The screen keeps its last frame for 16 frames while the original saves and loads (as long as mGBA takes); act 2's music (song 13) starts 2 frames before its first frame. Sonic starts at (104, 684) with no rings, the course clock at 0 and no checkpoint; the score, the lives and the game's random numbers carry on. The first time act 2's title card plays, its white bar starts as the results' band (x −16, y 42) and drops 9 px a frame to y 126. In single player act 2's camera and Sonic stop 768 px short of its right edge (`StageInit_Zone1Act2`). Its boss is the Egg Hammer Tank (enemy kinds 21 and 22, see [The Egg Hammer Tank](#the-egg-hammer-tank)).
+
+**How it was checked.** mGBA 0.10.5 recorded a run from act 1's first frame through the goal, the results and act 2's card into act 2. The engine matches Sonic, the camera, the rings, the score, the lives and the clocks on every frame compared (1762), and its frames match the screenshots pixel for pixel from the goal to 600 frames into act 2. 21 more recordings in act 2 cover the spikes and a death on them, the hiding spikes, both mini loops (one pressing A and B inside), the water bridge three ways and the bushes; the whole game matches all of them on every frame, and seven of them pixel for pixel, the splashes and the leaves included.
+
+### Bosses
+
+What the bosses share is in `bosses_misc.c`, `bosses_egg_mobile.c`, `nuts_and_bolts_task.c` and `screen_shake.c`:
+
+- **The arena.** A boss sets the camera's bounds (`Bosses_SetCamBounds`). The right edge goes to its place at once. The top, bottom and left edges start at the screen's and move 1 px a frame to theirs (`Task_8017244`); a bottom edge that is to end lower than the screen's starts 160 px below it instead. The camera is kept inside them as `CLAMP` does: below the least it is the least, even when that is more than the most. Sonic's sides and top follow the camera's bounds, not the act's.
+- **The screen shake** (`CreateScreenShake(p0, p1, p2, p3, flags)`, a task at `0xEFF`, just before the camera's) moves the camera after the camera keeps it inside its bounds. Each frame the offset is `p0` (in 1/256 px) times the sine of an angle that steps by `p2`, or times a random factor (flag `0x10`). `p0` then drops by `p1`. It lasts `p3` frames, or until `p0` runs out when `p3` is −1. Flag `0x40` moves the camera across and `0x80` up and down.
+- **The music.** A boss sets `gMusicManagerState.unk1`, which the music manager reads on its next frame. `0x10` plus an index into `sBossSongIndices` (29, 30, 31, 32, 49, 50, 25) starts that song in the stage music's place, `0x30` stops it and brings the stage music back, and after every boss but Egg Wrecker and Egg Drillster the manager then switches itself off for the rest of the act. The Egg Hammer Tank's intro is `0x11` (song 30) and its fight `0x10` (song 29).
+- **A beaten boss** throws debris every 8 frames: a piece (animations `695`–`697`) flung up at 6 px a frame at a random angle, falling 40/256 px a frame faster each frame, and an explosion (`611`, flipped either way at random) up to 63 px above it and 32 px either side. Its parts fly off through the rotation hardware at double size (`sub_80168F0`), falling the same way and turning. Then **the Egg Mobile** (`CreatePostBossEggMobile`, animations `693` and `694`) sits 32 px above the boss for 46 frames, rises 1 px a frame to 80 px up, turns round and flies off to the right at 4 px a frame.
+
+### The Egg Hammer Tank
+
+Neo Green Hill's boss (`boss_1_egg_hammer_tank.c`) is two enemies near the end of act 2:
+
+- **Kind 21, the intro.** When its spawn point comes into range, the camera's left edge follows the screen, its right edge stops 64 px past the spawn point, and its top and bottom close in on the arena. Once the spawn point is 176 px into the screen, Sonic stops and loses his controls, and the intro's song plays while Eggman taunts him from the Egg Mobile. The Egg Mobile then turns and flies off to the right at 2 px a frame. Once it is 64 px off the screen, Sonic gets his controls back and the right edge goes back to the act's end.
+- **Kind 22, the tank** (animation `607`, its two scripts alternating, Eggman `610`). The camera's target moves 56 px up, its bounds become the 360 px up to 64 px short of the spawn point, and the boss song starts. 121 frames later the tank rolls in from the right at 1 px a frame and turns 64 px past either bound. Its hammer (`609`) swings over it on five arm segments (`608`), 16 px apart and 96 px from a pivot 36 px above the tank. Every time the hammer reaches either end of its swing it hits the ground, playing song 145 and shaking the screen (`0x800, 0x40, 0x100, −1`, up and down). All six parts share rotation matrix 16, so each is drawn with the hammer's matrix, the last one written, but placed by its own.
+- **Hits** (`Coll_Player_Boss_1`). While Sonic attacks, the body's box 1 on his body hurts him, and his attack box on its box 0 hits it and reverses both his speeds. Otherwise his body on box 0 hurts him. The hammer hurts him when his own rectangle touches its first frame's box, unless the tank is flashing. Each time the tank or the hammer touches him, Eggman laughs (`610` variant 1), even while Sonic blinks and can't be hurt. A hit plays song 143 and the tank flashes white for 32 frames. The flash is the tank's sprite in OBJ window mode, with every layer brightened to full inside the window (`BLDCNT` `0xBF`, `BLDY` 16, `WINOUT` `0x3F1F`): the background, the back layer and the front layer turn white in the tank's shape, and mGBA 0.10.5 draws every sprite there as it is, Sonic, Eggman, the hammer and the HUD included. After the fifth hit the hammer swings faster with each one. The seventh starts its last phase, in which the hammer swings right round and the tank vaults over it.
+- **The eighth hit** beats it: 1000 points and song 144, and the camera holds still. The belt's four pieces (`613`–`616`) fly off for 60 frames, the front ones the way the tank faces. The arms and the hammer fly off for 181 frames with an explosion every 8 frames. The tank (`612`) falls, bouncing until it settles, smoking and throwing debris. 241 frames after the eighth hit the Egg Mobile flies off, the music goes back to the stage's (`0x30`) and the capsule rises from the tank.
+
+**The widescreen view at the Egg Hammer Tank.** The original never shows past the camera's bounds, and a wider view would. From the intro's spawn on, the view is black past them wherever the original screen itself isn't (`cam.arena`): the intro's right edge and the top and bottom it pans to, with the left edge where the screen is, then only the left edge, the top and the bottom once the right edge goes back to the act's end, then the tank's 360 px, and the screen the camera holds still on after the eighth hit. The black and the view slide there at most 4 px a frame, past what the camera itself moves (`viewOf`, `src/engine/camera.js`), and the HUD keeps to the corners of what is shown. The 240 × 160 screen is unchanged.
+
+### The boss capsule
+
+`CreateBossCapsule` (a task at `0x2000`) starts at the beaten boss. It rises small (`578`, 64 × 64) through matrix 16 at a quarter size, growing 8/256 and turning 16 steps a frame, from 8 px a frame up, slowing 16/256 px a frame each frame. Past 224 px up it shows full size (`575` variant 0, with its switch `576`) and drops into the middle of the screen (x 120) as it falls back. Once it is 96 px into the screen and meets the floor (8 px below its centre), it lands there: song 136 and a screen shake (`0x800, 0x40, 0x100, −1`, up and down). A Sonic touching it then is put beside it and knocked 2 px a frame away from the screen's middle and `0x4E0`/256 px a frame up (`0x2A0` in water, which Neo Green Hill doesn't have), in his hurt state and blinking for 120 frames, but keeping his rings.
+
+Shut, the capsule is solid (`Coll_Player_Platform`). A Sonic pushed down by it or below it is put at its bottom left corner. When he lands on the switch, the clock and the rings stop, song 137 plays, his ground speed goes to 0 and his controls are taken. The switch sinks 4 px and the capsule opens (variant 1). He walks to whichever side of the screen he is on until 200 px or 40 px from its left (`sub_801766C`), then stands facing left in his act-clear pose (character state 29, animation `23`). The capsule then shows open (variant 2) and stays solid. Its shell's halves (`577`, the right one mirrored) fly off for 60 frames at 1 px a frame across and 2 px a frame up, turning 4 steps a frame. Then the animals come out (`Task_8016B6C`), four every 4 frames for four lots, the last one without the first kind of each pair, every other lot the other way:
+
+- **Hoppers** (`sub_8016D80`), the zone's first two kinds in `gUnknown_080BB43C` (USA `0x0B8444`, three animations a zone, the third never read): Neo Green Hill's `438` gorilla and `449` kangaroo, Secret Base's `438` gorilla and `447` skunk, Casino Paradise's `439` peacock and `446` deer, Ice Mountain's `443` penguin and `444` rabbit, and Angel Island's `447` skunk and `449` kangaroo. Only those five zones' bosses leave a capsule. Each jumps from 32 px above the capsule at `−4 + (r & 0x1F00) / 4096` px a frame up and `1 + (r & 0xFF) / 256` across, with `r` one of the game's random numbers. It falls 40/256 px a frame faster each frame, jumps again from the floor, and turns back 32 px out either way.
+- **Birds** (`sub_8016F44`), the robin (`448`) and the parrot (`442`). Each circles 64 px either side of the capsule at `1 + (r & 7)` steps a frame (the parrot uses `(r >> 8) & 7` of the robin's number), bobbing 16 px up and down. They are drawn at double size and scaled with how near they are, in front of Sonic on the near half and behind him on the far one. Each sinks or rises 1 px a frame to 32 px above where Sonic was when it came out.
+
+The results (song 34) start 60 frames after his pose has played through, or after 240 frames if it never does (`Task_8017400`).
+
+**How it was checked.** mGBA 0.10.5 recorded act 2 from a save state at its start, with the same inputs played into the engine:
+
+- A run through the intro into the fight, with the hammer hitting Sonic, 4400 frames.
+- A run that beats the tank in eight hits without being hurt, waits for the capsule, jumps onto its switch and lets the results play out, 6000 frames.
+- A run in which the tank's body runs into Sonic, 4400 frames.
+
+The engine matches Sonic and the camera on every frame of all three, up to the results' end, except the camera on the act's first two frames: the save state was made from the course select, which starts act 2 differently from how act 1 leads into it. It also matches the tank's own state in its task's memory (position, swing, speed, timer, hits, flash, fall, animation and frame) on every frame until the task ends, and every rotation-hardware piece of the arms, the hammer and the belt, with matrix 16, through the defeat. Every OAM piece of the capsule, its switch, its shell's halves and the animals matches, with their matrices, on 865 of 878 frames. The other 13 come after the results end: there the original keeps the previous frame's sprites while it goes on to act 3, which isn't built yet, and the engine keeps its last frame. Which songs play, and when, was read in the code and the sound calls, not compared with mGBA's audio. The capsule landing on Sonic was only read in the code: in the recordings it lands beside him. The widescreen view was checked by eye on the same inputs.
+
+The second run also recorded a screenshot of each of its last 2190 frames, from before the first hit to the results' end. The engine's frames, drawn on a software canvas, match them pixel for pixel on 2139 of them: the fight, every hit flash, the defeat, the Egg Mobile, the capsule, the walk-off, the pose and the results. Starting act 2 from the save state leaves three things a frame or a few ticks apart from how act 1 leads into it (the palette animations, the scattered rings' animation and the zero-ring flash), so the check started those at the save state's values. The 51 frames that differ are all where sprites overlap:
+
+- 6 frames from the eighth hit and 44 while the shell's halves fly off: where sprites overlap, the GBA shows the one first in OAM, even over one with a higher priority. In mGBA the tank (OAM priority 2) hides the belt's flying pieces (priority 0), and the capsule and the animals (priority 2) hide the shell's halves (priority 0). The renderer draws sprites by priority first, so it draws those the other way round.
+- The frame the shell's halves come out, where the original's right half still shows tiles left in VRAM from before.
+
+Another zone's animals were checked on Ice Mountain act 2, where the capsule lets out penguins and rabbits. mGBA recorded the Egg Spider's defeat (hit count set to 7) and the capsule opening, and a scratch copy of that act's branch with this capsule added was drawn against it frame by frame. Its frames match mGBA's pixel for pixel, Sonic and the clock aside (that copy has no walk-off and no stopped clock), on every frame from the capsule opening to the results' banner: the penguins, the rabbits, the robins and the parrots, with their colours. The only exceptions are the frame the shell's halves come out (the leftover tiles above), a few pixels on 35 frames while they fly, where they overlap the capsule or an animal (the OAM order above), and the snow's known one-frame slip every 12 frames.
+
+### Special stages
+
+A special spring sends Sonic out of the act into a special stage, and when the stage's results end, the act starts again from the spring. Everything between the two runs of the act is a port of the original's code on the same engine as [the game's start](#the-games-start) ([`src/special/`](../src/special/)), at the GBA's 59.73 frames a second: the fall into the stage (`CreateSpecialStageIntro`), the stage (`CreateSpecialStage`, SAT-R's `special_stage/main.c`), its title card and rings counter, the Chaos Emerald's scene (`sub_8068D0C`) and the results (`sub_805D048`). The engine of the stage ([`stage.js`](../src/special/stage.js), [`player.js`](../src/special/player.js), [`objects.js`](../src/special/objects.js)) runs any of the seven stages; what makes one stage different is read from the ROM by [`stages.js`](../src/special/stages.js). Only Special Stage 1 has been played and checked so far.
+
+**The special spring** is interactable kind 102 ([`specialspring.js`](../src/engine/specialspring.js)), at (10912, 488) in Neo Green Hill act 1; levels 3, 4, 6, 7, 9 and 11 have one too. Its d bytes aren't read. It is animation 572: variant 1 waits, with the box (−15, −32, 15, 1), and variant 0 launches (five frames, 12 in all). Landing on it throws Sonic up at 7.5 px a frame and plays the spring's song. Unless the special springs are off, it then holds him and stops the course clock, and puts the camera back each frame where it was when he landed, after the camera's task has moved it and drawn the layers there. When his centre is more than 128 px above the top of the screen the act ends (every task is destroyed) and the fall starts. From `spring.ss` (Sonic falling onto it): he lands on frame 10, the act ends on frame 40, the stage starts on frame 282.
+
+**Coming back** (`sub_805D4F0`, in assembly in the decompilation): the act starts again as after a death but without losing a life (`CreateGameStage`), with Sonic 16 px up and left of the spring, which pushes him out to its side on the first frame (x 10886), and with its title card. The course time, the stage clock, the rings and the last checkpoint passed are what they were when he left; the score, the lives and the random numbers are what the special stage leaves. The special springs are then plain springs (`gPlayer.unk99[1]`) until the act starts over after a death. The Chaos Emeralds won are kept in the browser (`onsoku.emeralds` in local storage), a bit per stage, as the save keeps them (`chaosEmeralds`, `0x0300517C`).
+
+**The data.** All addresses are the USA ROM's file offsets.
+
+| What | Where | How it is found |
+| :--- | :--- | :--- |
+| `main.c`'s constants: the tunnel's backgrounds, then the tables below | `0x47FEF4` | the background of tilemap 54 at VRAM `0x06008000` / `0x0600E000`, followed by one of tilemap 55 |
+| Each level's stage (`gUnknown_08487134`), a byte per level: 0, 0, 1, 1, 2, 2, 3, 4, 5, 5, 6, 6 | constants + `0x140` | |
+| Each stage's rings targets, the checkpoint's then the goal's (stage 1: 60 and 120) | constants + `0x14C` | |
+| The character's animation by where they are and by the direction held, the push of each direction | + `0x168`, `0x190`, `0x1D0` | |
+| The character's boxes against dash pads and bombs, normal (±10) and while fast (±3) | + `0x210`, `0x218` | |
+| Each dash pad's animation and speeds (across, up, forward) | + `0x220`, `0x238` | |
+| Each kind of object's animation and its tiles' place in VRAM | + `0x298`, `0x2D0` | |
+| The 12 rings around a bumper, its 8 sparks, the speeds of the 10 rings a bomb knocks out | + `0x2EC`, `0x31C`, `0x33C` | |
+| The stages' palette animations: animation `0x340` + the stage, variants 0 and 1 | | |
+| The seven stages' layouts (`gUnknown_087BF8DC`) | `0x7B97F8` | a pointer to constants + `0x364` (stage 1's layout), followed by six more |
+| The characters' first animations (`gPlayerCharacterIdleAnims`): 0, 99, 199, 298 | `0x4A6F04` | those values |
+
+A layout is a list of 12-byte entries in order of depth: x and y (s16, px from the tunnel's middle, right and up), the depth (s32, in lines) and the type (u16): 0 a ring, `0x7FFF` the checkpoint, `0xFFFF` the goal (the last entry), any other an object of that kind. Stage 1 has 179 entries: rings, a bumper at depth 15616, the checkpoint at 16896, then a backward dash pad, two diagonal ones, a token (type 10), a ring of eight bombs, a bumper, another diagonal pad, two forward pads, and the goal at 33792.
+
+**The tunnel.** Layer 2 holds the tunnel, the four quarters of one picture (19 × 14 tiles each) around the middle of its 512 × 256 map, the other three flipped across, down and both (`DrawBackground`'s flags `0x9A`, `0x11A`, `0x19A`). Its picture is one of 16 tilemaps, 55 to 70, stepping on by the character's speed (`frame = (frame + speed / 512) & 63`, tilemap 55 + frame / 4). Layer 3 holds the background, tilemap 54. Both move against the character's place: layer 2 by up to 32 px (x / 134 × 32 and y / 94 × 32), layer 3 by an eighth of that.
+
+**The character** ([`player.js`](../src/special/player.js)) flies down the tunnel at 8 lines a frame, or up to 12 holding jump, and the D-pad steers them across it, at most ±134 px across and ±94 px up and down. Attack does a trick (45 frames), at least 12 frames after the last. Their sprite is scaled by a bob (`SIN(phase) / 1024`, the phase stepping 16 a frame) and drawn nearer the middle the further away the bob takes them. Dash pads throw them a fixed way for a while: the backward pad back up the tunnel until they come forward again, the forward pad ahead at 24 lines a frame, the diagonal ones across and ahead, half as fast again, a bomb knocks out up to 10 of their rings and makes them blink for 60 frames, and a trick within 10 frames of touching a bumper (the bumper trick) pulls the bumper's 12 rings to them, stops the music and plays its own jingle (song 43) on the third sound effects player, with the sound effects off until it ends (112 frames); then the music goes on where it stopped, fading in.
+
+**Rings and objects** ([`objects.js`](../src/special/objects.js)). A task makes each object as the character comes within 768 lines of it, and drops it 576 lines behind. Each frame one task draws all the layout's rings, a sprite for the first on screen and copies of its OAM entry for the others. Everything is scaled by how far ahead it is: with `k = ((lines ahead + 768) / 8)⁴ / 408`, it shows at `x × (k / 512 + 56) / 640` from the middle, `k / 1024 + 64` 256ths of its size. Sprites at the same depth share an affine matrix, 16 of them handed out each frame from matrix 1 (matrix 0 is the character's). The kinds:
+
+| Kind | Animation | What it does |
+| :--- | :--- | :--- |
+| 0 ring, 3 a bumper's ring | 795 | taken by the character's box within 32 lines in front (a bumper's ring within 64); the sound pans left and right by turns |
+| 1 sparkle | 796 | where a ring was taken |
+| 2 bumper | 797 | 12 rings around it (not to be taken for 15 frames) and 8 sparks (kind 13, 798), song 150; 11 frames later, its message for 60 frames: the bumper trick done or not (animation 812, variants 1 and 2) |
+| 4–9 dash pads | 799, variants 0–5 | backward, forward, then four diagonals; song 148 |
+| 10 token | 800 | counted (`gUnknown_0300507C`), song 151; each gives a continue at the results |
+| 11 bomb | 801 | explodes (kind 12, 802), song 144 |
+
+**How a stage goes** ([`stage.js`](../src/special/stage.js)). The title card shows the checkpoint's target, and the character is held still for the first 240 frames. At the checkpoint they glide back to the middle for 120 frames. With enough rings they cheer (animation 33, COOL! in animation 813), the title card shows the goal's target 151 frames later, and 420 frames after the checkpoint they fly on. Short of it, NOT ENOUGH RINGS (animation 812) shows as they reach it, they fall after the glide (animation 34, AAARGH!), and 420 frames after the checkpoint the stage fades to white over 64 frames, into the results. At the goal it is the same, and with enough rings the stage clear music (song 44) plays, the fade leads to the Chaos Emerald's scene, and the results add the emerald. The results take 616 frames without the emerald and 736 after its scene (474 frames), then the act starts again.
+
+**Start** opens the pause menu in the original (`sub_802D680`); the pause menu isn't built yet, so it does nothing (the act has none either).
+
+**The widescreen view** is black either side of every screen of the special stage, from the fall to the results (`wideBars`). They are made for 240 × 160 alone: a little past the screen's sides the tunnel's quarters end, and the layers show tiles the original never shows there, such as the pink pattern beside the tunnel and red columns beside the fall.
+
+**Original-game quirks kept.** These are in the ROM and the port does the same:
+
+- What isn't set again when a stage starts stays as the last special stage left it: the bob's phase, the character's sprite, and the list of animations that share graphics, which only empties when the 240 frames end and after the checkpoint. On a second visit, objects made before then wouldn't load their own tiles.
+- The rings counter starts its blink from whatever its task's memory held: 99, what the fall leaves there, at the start, and 0 after the checkpoint. On its first frame it reads a byte past its four glyphs.
+- A bumper's rings read the bumper's message count after the bumper's task has gone (they become plain rings once it reads 0). The port keeps the bumper's state for them; in the original that memory could already belong to another task.
+- The rings a bomb knocks out blink from a count that is never set. The port starts it at 0, which is what the recordings show.
+- Matrices 16 and 17 (the 16th depth, and the one every sprite past it shares) are never set again once used, so after their first frame they keep the parameters the V-blank leaves. Special Stage 1 never uses more than 15 depths.
+- The stage loads its own colours over the title card's, 23 frames after the card loads them at the start and 18 frames after at the checkpoint, so the card shows in the stage's colours from then on.
+
+**How it was checked.** mGBA 0.10.5 ran the USA ROM from `spring.ss`, dumping VRAM, palette RAM, OAM, the work RAM and every line's display registers after each frame. The engine ran each stage from the recorded frame where `CreateSpecialStage` runs, and every frame was compared: the character (every field), the rings taken, the random numbers, the tunnel, the checkpoint, the sound mute flag, the depths and the matrices, the shared-graphics list, VRAM, palette RAM, OAM, the registers of every line, and the picture.
+
+| Run | What it covers | Frames | Differences |
+| :--- | :--- | :--- | :--- |
+| No keys | the title card, the rings counter, the bumper touched, the checkpoint reached | 2618 | 0 |
+| Steering, jump held, tricks | rings taken, tricks, the fast flight | 2618 | 0 |
+| Sonic moved by pokes: to the bumper (then the bumper trick), 60 rings before the checkpoint, then to the token, a bomb and a diagonal pad (the backward pad and the forward pads come on their own), and 120 rings before the goal | the bumper trick and its jingle, COOL and the second title card, every kind of object (one of the four diagonal pads), the rings knocked out, the goal won, the fade to the emerald's scene | 2703 | 0 |
+| No keys, from the fall to the act again (work RAM, OAM and palette only) | the checkpoint failed, AAARGH!, the fade, the results, the act again on frame 3735 | 3695 | 0 after the first frame* |
+| The pokes above, from the fall to the act again (the same) | the emerald's scene and the results with it, the act again on frame 4195 | 4155 | 0 after the first frame* |
+
+\* On the fall's first frame, eight background colours differ: the act's palette animation still ran in that frame in the original, before the spring ended the act, and the check doesn't run the act.
+
+The bumper trick's jingle was timed in mGBA too (a run with the bumper trick forced): the sound effects stay off for 112 frames, as long as the sound engine plays song 43. The card, the counter and the results were also checked on their own (their VRAM, colours, OAM entries, registers and songs). The spring and the return were checked against the act's own recordings: the rise (40 frames), the return after a lost and a won stage, with the rings kept, the plain spring after it, and a death followed by the special spring again.
+
+**Only read in the code, not checked:** Tails, Knuckles and Amy in the special stage (their animations are the character's first animation plus the same numbers); Special Stages 2 to 7, whose data is read the same way; a second visit; the results after the goal's target was reached at the checkpoint (`unk0 == 2` with enough rings); Amy's hammer on the spring and the partner.
+
 ### Start positions
 
-A pair of 16-bit values (x, y) per level, in pixels, right after the collision table. Neo Green Hill Zone act 1 starts at (104, 444). The four multiplayer stages are (0, 0): they use a separate table of per-player positions.
+A pair of 16-bit values (x, y) per level, in pixels, right after the collision table. Neo Green Hill Zone act 1 starts at (104, 444), act 2 at (104, 684). The four multiplayer stages are (0, 0): they use a separate table of per-player positions.
 
 ### Sonic's animations
 
@@ -551,7 +772,26 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 
 | Sound | Song | Player | When |
 | :--- | ---: | ---: | :--- |
+| Intro | 1 | 0 | The intro starts; it stops when the intro is skipped, and otherwise ends on its own on the title screen |
+| SEGA's ring | 102 | 3 | Sonic Team's logo has closed up |
+| Title screen | 2 | 0 | The title screen opens after the logos' fade or the intro is skipped |
+| Select | 106 | 2 | Start on the title screen, A on Game Start |
+| Menu cursor | 108 | 2 | Up or Down in the main menu, and each repeat |
+| Boss fight | 29 | 0 | Started and stopped at once as Game Start leaves the menu, which stops the title's music |
 | Neo Green Hill Zone act 1 | 12 | 0 | The act starts, and starts over after a life is lost |
+| Neo Green Hill Zone act 2 | 13 | 0 | Act 2 starts, and starts over |
+| Goal | 135 | 3 | Sonic passes the goal signpost |
+| Act clear | 33 | 0 | The results start (34 after a zone's second act) |
+| Results count | 140, 141 | 2, 3 | Every fourth frame of the count, and its end |
+| Boss intro | 30 | 0 | The Egg Hammer Tank's intro (music state `0x11`) |
+| Boss | 29 | 0 | The Egg Hammer Tank's fight (music state `0x10`) |
+| Boss hit | 143 | 1 | The tank is hit |
+| Boss beaten | 144 | 3 | The eighth hit |
+| Hammer | 145 | 3 | The hammer hits the ground |
+| Capsule lands | 136 | 3 | The boss capsule lands |
+| Capsule opens | 137 | 3 | Sonic lands on its switch |
+| Water bridge | 177 | 2 | The bridge takes Sonic |
+| Bush | 178 | 2 | Sonic goes into a bush |
 | Jump | 116 | 2 | A jump from the ground, and the combo's backflip |
 | Spin | 109 | 3 | Spin dash start, rolling, the combo's first hit. Each spin dash rev plays it again, raised by the decayed charge (`charge & ~0x7F` in 1/256 semitones). |
 | Spin dash release | 110 | 2 | Letting go of down |
@@ -589,6 +829,33 @@ Sounds on the same player cut each other off, as in the original. There is no la
 - *The final output:* the DirectSound part of the port's audio lines up with mGBA's recorded output. The PSG part matches mGBA's in pitch, level and envelope (median spectrum correlation 0.98), but not sample for sample: a Game Boy channel's waveform phase depends on the exact CPU cycle the engine writes its registers, which the port does not model.
 
 The port mixes at the GBA's 65536 Hz, averages that down to the browser's output rate, removes the DC offset the unipolar PSG channels add, and plays at half of the GBA's full scale. The game itself still steps at 60 Hz while the sound engine keeps the GBA's 59.7275 frames per second, so a sound starts within one frame of the move that plays it.
+
+## Sonic Advance 2, for Boost Mode
+
+The optional Boost Mode (see the [README](../README.md#sonic-advance-2-boost-mode)) reads a few things from your own Sonic Advance 2 ROM, in your browser. Like the Sonic Advance ROM, it is never uploaded; it is kept in this browser's IndexedDB under a key of its own. The ROM is recognized by its header (title `SONICADVANC2`, a game code starting with `A2N`). Only the USA version (`A2NE`) has been tested. Sonic Advance 2 keeps its sprites and its sound engine in the same formats as Sonic Advance, so [`src/rom/sa2.js`](../src/rom/sa2.js) finds them with the same searches. [`src/rom/sa2boost.js`](../src/rom/sa2boost.js) then reads what Boost Mode uses.
+
+| Data | In the USA ROM | Used for |
+| :--- | :--- | :--- |
+| Sprite tables | `0x0F40D4` | Everything below |
+| Sonic's boost palette | Animation 74, whose script only loads palette 5 (16 colours) | The afterimages. Sonic's palettes in the two games use the same layout, so each of Sonic Advance's colours becomes the boost palette's colour at the same index. |
+| Boost particles | Animation 873: 8 × 8 frames in palette 23. Variant 0 loops two frames; variant 1 plays those two three times, then four more frames, and stops | The sparks at Boost Mode's start |
+| Music players and songs | `0xAD4F1C`, `0xAD4F4C` (507 songs) | Song 221, the start sound: one track on music player 2, priority 20 |
+
+The rules' numbers are in [`src/engine/constants.js`](../src/engine/constants.js) (`BOOST_MODE`). They come from these tables in the game's code, which are not read at run time:
+
+| Table | In the USA ROM | Values |
+| :--- | :--- | :--- |
+| Acceleration and deceleration by ring tier | `0x0D6902` | {8, 64}, {12, 64}, {14, 64}, {16, 64}, {18, 64} in 1/256 px. The tier is 0 for 10 rings or fewer, then 1 above 10, 2 from 50, 3 from 100 and 4 from 150. |
+| How full the meter must be, by tier | `0x0D6916` | `0x800`, `0x7F8`, `0x690`, `0x5A0`, `0x438` |
+| The afterimages' delays | `0x0D5674` | 2, 4 and 6 frames |
+
+**What the game does each frame**, before Sonic moves: it picks the tier from the ring count. Out of Boost Mode, it empties the meter while Sonic is in the air or slower than his top speed, and starts Boost Mode when he is on the ground at that speed with the meter at the tier's value. Then the start sound plays, the particles are made and the camera's sideways speed limit (normally 16 px, kept in 1/256 px) drops to 4 px, to climb back by 1/8 px on each of the camera's updates. In Boost Mode, the meter is set back to the tier's value on the ground, and the mode ends when the ground speed is under 4.5. While Sonic moves, holding the way he runs at or above his top speed adds the tier's acceleration to the meter instead of to his speed. Getting hurt, the act's start, boosters and fast side springs set or clear the mode outright.
+
+**The afterimages** keep Sonic's position and his sprite (animation, variant, speed, flags and angle) for the last 16 frames, at the end of his task. Three tasks after his each copy what he was 2, 4 or 6 frames before into a sprite of their own, step that sprite's animation, and turn it through the rotation hardware when his was. Each also counts 0, 1, 2 on every frame they run and is drawn only when its count is its own number, so one afterimage shows per frame, starting with the 4-frame one. The sprites go in Sonic's OAM order just after him, so behind him, with his background priority and the boost palette loaded as sprite palette 1. They are opaque, and they don't get the pixel Sonic's own sprite is moved by when he faces one way or the other.
+
+**The particles** are one sprite drawn up to eight times a frame, around Sonic's current position. All sixteen get their distance, direction and speed from Sonic Advance 2's own random numbers, seeded with Sonic's position and the camera's: sixteen to twenty-four pixels ahead of him, flying off across his path and slowing to 200/256 of their speed each frame. On the tenth frame the random numbers are seeded again and each gets a new speed in a random direction, while all of them drift back the way he came, 4 px a frame and a little more on each step. Every second frame the sprite's animation is stepped eight times, which the eight copies share, since they all show the same tiles.
+
+**How it was checked.** mGBA 0.10.5 recorded Leaf Forest act 1 in the tested ROM with Sonic running right and 200 rings, dumping his state, the camera and the sprite table after every frame. The meter rose by 18 a frame and started Boost Mode at 1080 with a top speed of 12 and a cap of 15, the camera's limit went from 1024 up by 32 a frame, and the afterimages showed at the delays and in the order above. The port's particles land on the same pixels as the recorded ones on all 25 frames they show.
 
 ## Sonic Advance 2 tricks
 

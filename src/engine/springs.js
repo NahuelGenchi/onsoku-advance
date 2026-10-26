@@ -2,9 +2,9 @@
 // src/game/sa1/stage/interactables/spring.c). Each spring waits until Sonic triggers it, then plays its
 // launch animation, still launching him if he touches it again, and goes back to waiting when it ends.
 
-import { PHYSICS as K, SA2_TRICKS } from './constants.js';
+import { PHYSICS as K, BOOST_MODE as B, SA2_TRICKS } from './constants.js';
 import { platform, springSide, overlap, LANDED, FROM_BELOW, LEFT_FACE, RIGHT_FACE, PUSHING } from './collide.js';
-import { land, standUp, endAttack } from './player.js';
+import { land, standUp, endAttack, enterBoostMode } from './player.js';
 import { SONG } from '../sound/songs.js';
 
 // interactable kinds
@@ -68,13 +68,16 @@ function down(o, p, { terrain: t }) {
 }
 
 // left and right (sub_80228D0): its face sends him running (or rolling) away, even from a standstill; its
-// back is a wall, and touching it counts as touching the ground, even in mid-air
-function side(o, p) {
+// back is a wall, and touching it counts as touching the ground, even in mid-air. With the optional Boost
+// Mode, a throw faster than 9 px a frame from the ground puts him in it, as Sonic Advance 2's springs do
+// (Player_TouchNormalSpring).
+function side(o, p, world) {
   const r = springSide(o, o.boxes[0], p);
   const face = r & LEFT_FACE ? -1 : r & RIGHT_FACE ? 1 : 0;
   if (!face) return false;
   const dir = o.kind === SPRING_LEFT ? -1 : 1;
   if (face === dir) {
+    if (world.boostMode && !world.actOver && !p.air && o.speed > B.sideSpring) enterBoostMode(p);
     p.xsp = p.gsp = o.speed * dir;
     endAttack(p);
     holdTricks(p, o);

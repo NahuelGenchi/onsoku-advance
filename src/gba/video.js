@@ -97,8 +97,6 @@ export function createVideo() {
   const ioTrue = new Float64Array(io.length).fill(NaN);
   const lineIo = Array.from({ length: SCREEN_H }, () => new Uint16Array(io.length));
   const lineTrue = Array.from({ length: SCREEN_H }, () => new Float64Array(io.length));
-  // where the rotating layers' lines started on the screen's first and last lines
-  const edgeCur = [0, 1].map(() => [[0, 0], [0, 0]]);
 
   /** Writes a 16-bit display register, as the CPU or a DMA does; `trueValue` is a scroll's value before it is
    *  cut to the register's 9 bits, for the widescreen view. */
@@ -408,10 +406,9 @@ export function createVideo() {
 
   // a text background over the row indices [start, end) of line y in the widescreen view's margins, as the
   // scene says the layer carries on (view.layers[index], by default wrapping both ways as the hardware does): per
-  // axis, { once, box: [from, to), edge, mirror }. A layer shown once has its picture at its true scroll, the
-  // register's value nearest 0 unless the scene gave it, between `box`'s columns or rows of its map (all of it by
-  // default), and past them its edge if `edge`, else nothing; with `mirror`, past their end the picture goes on
-  // mirrored instead.
+  // axis, { once, box: [from, to), edge }. A layer shown once has its picture at its true scroll, the register's
+  // value nearest 0 unless the scene gave it, between `box`'s columns or rows of its map (all of it by default),
+  // and past them its edge if `edge`, else nothing.
   function drawTextWide(bg, y, start, end, ctl) {
     if (!(ctl & (1 << bg.index))) return;
     const [flags, colors] = bgFlags(bg, ctl), blend = (flags & TARGET_2) !== 0;
@@ -431,10 +428,6 @@ export function createVideo() {
       if (!w?.once) return ((p % n) + n) % n;
       const [from, to] = w.box ?? [0, n];
       if (p >= from && p < to) return p;
-      if (w.mirror && p >= to) {
-        const twice = 2 * (to - from), q = (p - from) % twice;
-        return from + (q < to - from ? q : twice - 1 - q);
-      }
       if (!w.edge) return -1;
       return p < from ? from : to - 1;
     };
@@ -572,7 +565,7 @@ export function createVideo() {
           if (text) {
             if (margin) drawTextWide(bg, y, start, end, ctl);
             else drawText(bg, y, start - ox, end - ox, ctl);
-          } else if (affine) drawAffine(bg, start - ox, end - ox, ctl);
+          } else if (affine && !marginLine) drawAffine(bg, start - ox, end - ox, ctl);
         }
       }
     }
@@ -610,17 +603,11 @@ export function createVideo() {
   }
 
   // the registers of a line above or below the screen: those of its first or last line, with each layer's scroll
-  // carried on by as much as it changes between that line and the next one in, and the rotating layers' lines
-  // starting on from that line's as they would further down the screen
+  // carried on by as much as it changes between that line and the next one in
   const s9 = v => (v << 23) >> 23;
   function marginRegs(y) {
     const [edge, next, by] = y < 0 ? [0, 1, -y] : [SCREEN_H - 1, SCREEN_H - 2, y - SCREEN_H + 1];
     io.set(lineIo[edge]); ioTrue.set(lineTrue[edge]);
-    for (let k = 0; k < 2; k++) {
-      const r = (REG.BG2PA >> 1) + k * 8, from = edgeCur[edge ? 1 : 0][k], lines = y - edge;
-      cur[k][0] = from[0] + ((io[r + 1] << 16) >> 16) * lines;
-      cur[k][1] = from[1] + ((io[r + 3] << 16) >> 16) * lines;
-    }
     for (let k = REG.BG0HOFS >> 1; k < (REG.BG0HOFS >> 1) + 8; k++) {
       const a = lineTrue[edge][k], b = lineTrue[next][k];
       if (!Number.isNaN(a) && !Number.isNaN(b)) {
@@ -655,7 +642,6 @@ export function createVideo() {
       const oy = (wide.h - SCREEN_H) >> 1;
       for (let y = 0; y < SCREEN_H; y++) {
         lineIo[y].set(io); lineTrue[y].set(ioTrue);
-        if (y === 0 || y === SCREEN_H - 1) for (let k = 0; k < 2; k++) edgeCur[y ? 1 : 0][k] = cur[k].slice();
         drawLine(y, out, (y + oy) * lineW);
         hblank?.(y);
       }

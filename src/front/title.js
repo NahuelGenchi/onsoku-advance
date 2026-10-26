@@ -51,10 +51,8 @@ export function createTitleScreen(ctx, playMusic) {
   e.mapFill[2].rect.set([0, 0, 0xFF, 0x20]);
   vram.fill(0, 0, 64);
   vram.fill(0, 0xFFC0, 0xFFC0 + 0x80);
-  // for the widescreen view: the background's picture once, its left and top edges carried on, and mirrored past
-  // its right and bottom edges, where the checks and Sonic's hand are
-  const picture = to => ({ once: true, box: [0, to], edge: true, mirror: true });
-  e.wideLayers = [{ x: picture(240), y: picture(160) }, null, null, null];
+  // the title screen and the menu are made for the original screen alone: the widescreen view is black around it
+  e.wideBars = true;
 
   const title = {
     ctx, qBlend: BLEND_END, unkE2: 0, unkE4: 0, unkE6: 0,

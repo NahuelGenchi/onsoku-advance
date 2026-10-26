@@ -5,8 +5,11 @@ export const SONG = {
   INTRO: 1,                // MUS_INTRO
   TITLE_FANFARE: 2,        // MUS_TITLE_FANFARE
   NEO_GREEN_HILL_1: 12,
+  NEO_GREEN_HILL_2: 13,
   INVINCIBILITY: 28,       // MUS_INVINCIBILITY
   BOSS_FIGHT: 29,          // MUS_BOSS_FIGHT: also started and stopped at once to stop the menu's music
+  ACT_CLEAR: 33,           // MUS_ACT_CLEAR: the results of an act without a boss
+  BOSS_CLEAR: 34,          // MUS_BOSS_CLEAR: the results of a zone's second act, after its boss
   SPECIAL_STAGE_INTRO: 41, // MUS_SPECIAL_STAGE_INTRO: the fall into the special stage
   SPECIAL_STAGE: 42,       // MUS_SPECIAL_STAGE
   SPECIAL_STAGE_TRICK: 43, // MUS_SP_STAGE_TRICK: a trick in the bumpers' window
@@ -29,6 +32,7 @@ export const SONG = {
   RINGS_LOST: 118,         // SE_RINGS_LOST: the rings scatter
   LIFE_LOST: 119,          // SE_LIFE_LOST: Sonic dies
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
+  GOAL: 135,               // SE_GOAL: Sonic passes the goal signpost
   ENEMY_DEFEAT: 138,       // SE_ITEM_BOX: an enemy is defeated
   RESULT_COUNTER: 140,     // SE_STAGE_RESULT_COUNTER: a results tally counting
   RESULT_COUNTER_DONE: 141,
@@ -39,6 +43,8 @@ export const SONG = {
   SPECIAL_BUMPER: 150,     // SE_150: a special stage trick bumper
   SPECIAL_TOKEN: 151,      // SE_151: what the special stage's type 10 objects play
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
+  RESULTS_COUNT: 140,      // SE_STAGE_RESULT_COUNTER: every fourth frame of the results' count
+  RESULTS_DONE: 141,       // SE_STAGE_RESULT_COUNTER_DONE: the count is over
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
   CHECKPOINT: 169,
@@ -48,4 +54,6 @@ export const SONG = {
   CRUMBLING_PLATFORM: 173,
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
+  WATER_BRIDGE_SPLASH: 177, // SE_WATER_BRIDGE_SPLASH: the water bridge takes Sonic
+  SHRUBBERY: 178,          // SE_SHRUBBERY: Sonic goes into a bush
 };

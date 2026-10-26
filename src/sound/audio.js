@@ -36,6 +36,8 @@ export function createSound() {
 
     /** m4aSongNumStart */
     play(song) { call('songStart', song); },
+    /** m4aSongNumStartOrChange: starts the song unless it is already playing on its player */
+    playOrChange(song) { call('songStartOrChange', song); },
     /** Gives the engine Sonic Rush's sound archive and tables (rush.js) for the boost's sound effect */
     loadRush(sound) { rushSound = sound; node?.port.postMessage({ type: 'rush', sound }); },
     /** Plays a Sonic Rush sound effect, [sequence archive, sound], as the DS does (nitro.js) */
@@ -76,6 +78,8 @@ export function createSound() {
     /** What the music manager reads of Sonic each frame */
     playerState(invincible, speedUp, alive) { call('playerState', invincible, speedUp, alive); },
     stopAll() { call('allStop'); },
+    /** Switches the music manager off until the next stage's music starts, as the act's results do */
+    musicOff() { call('off'); },
 
     get muted() { return muted; },
     set muted(value) { muted = value; post({ type: 'gain', value: muted ? 0 : GAIN }); },

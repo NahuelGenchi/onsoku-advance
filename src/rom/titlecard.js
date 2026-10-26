@@ -28,7 +28,7 @@ export function findTitleCard(rom) {
 }
 
 // paints `count` 4bpp tiles of `tiles` from tile `first`, `wide` to a row, at (x, y); colour 0 is transparent
-function paint(img, x, y, tiles, first, wide, high, palette) {
+export function paint(img, x, y, tiles, first, wide, high, palette) {
   for (let t = 0; t < wide * high; t++) {
     const tx = x + (t % wide) * 8, ty = y + Math.floor(t / wide) * 8, at = (first + t) * TILE;
     for (let p = 0; p < 64; p++) {

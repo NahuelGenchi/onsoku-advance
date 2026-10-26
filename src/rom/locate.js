@@ -11,6 +11,7 @@ import { findSpecialStage, findSpecialLayouts, findCharacterAnims, findSpecialIn
 
 const MIN_CMD = -12;   // animation commands are -1 … -12
 const LEVEL_COUNT = 18;   // 14 single-player stages, then four multiplayer stages
+const MP_LEVEL_COUNT = 4;
 
 /**
  * The sprite tables are six consecutive ROM pointers (animations, frame sizes, OAM data, palettes,
@@ -110,6 +111,9 @@ export function locateTables(rom, known) {
     spriteTables: findSpriteTables(rom),
     tilemaps, collision,
     spawns: collision === null ? null : collision + LEVEL_COUNT * 4,
+    // after them the multiplayer stages' four spawn positions each, then the acts' loop points and distances
+    loopPoints: collision === null ? null : collision + LEVEL_COUNT * 4 * 2 + MP_LEVEL_COUNT * 4 * 4,
+    loopShifts: collision === null ? null : collision + LEVEL_COUNT * 4 * 3 + MP_LEVEL_COUNT * 4 * 4,
     // the ring lists are the table just before the interactables
     rings: interactables === null ? null : interactables - LEVEL_COUNT * 4,
     interactables,

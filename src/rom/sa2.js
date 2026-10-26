@@ -11,6 +11,12 @@ import { spriteTables } from './sprites.js';
 
 const TITLE = 'SONICADVANC2', CODE = 'A2N';   // A2NE (USA), A2NJ, A2NP
 
+/** Whether the header of `buffer` names Sonic Advance 2, before the full check: which game a file is. */
+export function isSa2(buffer) {
+  const rom = new Rom(buffer);
+  return rom.size >= 0x200 && rom.u8(0xB2) === 0x96 && readHeader(rom).title === TITLE;
+}
+
 /**
  * Checks that `buffer` is Sonic Advance 2 and finds its tables. Returns { rom, code, tables, sound: { rom:
  * buffer, layout } }: the ROM to read, its game code, its sprite tables (sprites.js), and its sound engine's

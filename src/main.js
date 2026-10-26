@@ -1,15 +1,16 @@
-// Game page: choose a ROM, extract its assets in the browser, then the game's start (the logos and the intro)
-// and the act, with its special stage between two runs of it. With ?debug the act starts straight away, and
-// with ?special the special stage does, as if Sonic had just left act 1 on its special spring.
+// Game page: the player's ROMs, each read in the browser as it is chosen (rom-setup.js), then the game's start
+// (the logos and the intro) and the act, with its special stage between two runs of it. With ?debug Play starts
+// the act straight away, and with ?special the special stage, as if Sonic had just left act 1 on its special spring.
 
 import './engine/cpucanvas.js';
-import { createRomPicker } from './ui/rom-picker.js';
-import { loadRememberedRom, rememberRom, RUSH_ROM, SA2_ROM } from './ui/rom-store.js';
+import { createRomSetup } from './ui/rom-setup.js';
+import { SA1_ROM, RUSH_ROM, SA2_ROM } from './ui/rom-store.js';
 import { extractAssets } from './rom/extract.js';
+import { isSonicAdvance, RomError } from './rom/identify.js';
 import { Rom } from './rom/rom.js';
 import { createFrontEnd } from './front/front.js';
-import { extractRush } from './rom/rush.js';
-import { openSa2 } from './rom/sa2.js';
+import { extractRush, isRush } from './rom/rush.js';
+import { openSa2, isSa2 } from './rom/sa2.js';
 import { readBoostArt } from './rom/sa2boost.js';
 import { trickArt } from './rom/sa2tricks.js';
 import { createInput } from './engine/input.js';
@@ -25,12 +26,10 @@ const help = document.getElementById('help');
 const stats = document.getElementById('stats');
 const wideButton = document.getElementById('wide');
 const rushButton = document.getElementById('rush');
-const rushStatus = document.getElementById('rush-status');
-const rushFile = document.getElementById('rush-file');
 const boostButton = document.getElementById('boost-mode');
 const tricksButton = document.getElementById('tricks');
-const sa2Status = document.getElementById('sa2-status');
-const sa2File = document.getElementById('sa2-file');
+const romFile = document.getElementById('rom-file');
+const romStatus = document.getElementById('rom-status');
 const params = new URLSearchParams(location.search);
 const debug = params.has('debug'), specialTest = params.has('special');
 
@@ -50,6 +49,24 @@ function setWide(on) {
 }
 wideButton.addEventListener('click', () => { setWide(!wide); screen.focus(); });
 
+// An extra turned on in the game without its ROM asks for the ROM there, and is turned on once it is read.
+let asked = null;
+function ask(slot, accept, then) {
+  asked = { slot, then };
+  romFile.accept = accept;
+  romFile.click();
+}
+romFile.addEventListener('change', async () => {
+  const files = [...romFile.files], wanted = asked;
+  romFile.value = '';
+  asked = null;
+  if (!files.length || !wanted) return;
+  const [{ key, error }] = await setup.add(files, wanted.slot, { auto: false });
+  romStatus.textContent = error ?? (key === wanted.slot ? '' : 'That ROM went to its own game; this extra needs another.');
+  if (!error && key === wanted.slot) wanted.then(true);
+  screen.focus();
+});
+
 // the Chaos Emeralds won, a bit per special stage: the save's record of them, kept in this browser; and the
 // continues the special stages have given, kept for this visit
 const EMERALDS_KEY = 'onsoku.emeralds';
@@ -61,13 +78,12 @@ function keepEmeralds(won) {
 }
 
 // Sonic Rush's boost, an extra on top of the original game: off unless chosen, like the widescreen view. Its
-// effects and sound come from the player's own Sonic Rush ROM, asked for the first time it is turned on and
-// then kept in this browser like the Sonic Advance ROM.
+// effects and sound come from the player's own Sonic Rush ROM.
 const RUSH_KEY = 'onsoku.rushBoost';
 let rush = false, rushArt = null;
 try { rush = localStorage.getItem(RUSH_KEY) === '1'; } catch { /* storage blocked: the default stands */ }
 function setRush(on) {
-  if (on && !rushArt) { rushFile.click(); return; }   // turned on once the ROM is read
+  if (on && !rushArt) { ask('rush', '.nds', setRush); return; }   // turned on once the ROM is read
   rush = on;
   try { localStorage.setItem(RUSH_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
   showRush();
@@ -80,41 +96,17 @@ function showRush() {
 function useRush(buffer) {
   rushArt = extractRush(buffer);
   sound.loadRush(rushArt.sound);
+  return rushArt.code;
 }
 rushButton.addEventListener('click', () => { setRush(!rush); screen.focus(); });
-rushFile.addEventListener('change', async () => {
-  const file = rushFile.files[0];
-  rushFile.value = '';
-  if (!file) return;
-  try {
-    const buffer = await file.arrayBuffer();
-    useRush(buffer);
-    rushStatus.textContent = '';
-    await rememberRom(file.name, buffer, RUSH_ROM);
-    setRush(true);
-  } catch (error) {
-    rushStatus.textContent = error.message || String(error);
-  }
-  screen.focus();
-});
-// with the setting on from an earlier visit, the remembered Sonic Rush ROM; without it the setting goes off
-(async () => {
-  const saved = await loadRememberedRom(RUSH_ROM);
-  try { if (saved) useRush(saved.buffer); } catch { /* not usable any more: asked for again */ }
-  if (rush && !rushArt) setRush(false);
-  showRush();
-})();
-showRush();
 
-// the extra that asked for the Sonic Advance 2 ROM, turned on once it is read
-let sa2For = null;
 // Sonic Advance 2's Boost Mode, another extra: off unless chosen. Its afterimages, particles and sound come from
-// the player's own Sonic Advance 2 ROM, asked for the first time it is turned on and then kept in this browser.
+// the player's own Sonic Advance 2 ROM.
 const BOOST_KEY = 'onsoku.boostMode';
 let boostMode = false, boostArt = null;
 try { boostMode = localStorage.getItem(BOOST_KEY) === '1'; } catch { /* storage blocked: the default stands */ }
 function setBoostMode(on) {
-  if (on && !boostArt) { sa2For = setBoostMode; sa2File.click(); return; }   // turned on once the ROM is read
+  if (on && !boostArt) { ask('sa2', '.gba', setBoostMode); return; }   // turned on once the ROM is read
   boostMode = on;
   try { localStorage.setItem(BOOST_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
   showBoostMode();
@@ -126,13 +118,12 @@ function showBoostMode() {
 }
 boostButton.addEventListener('click', () => { setBoostMode(!boostMode); screen.focus(); });
 // Sonic Advance 2's mid-air tricks, an extra on top of the original game: off unless chosen, like the Rush boost.
-// Their sprites and sounds come from the player's own Sonic Advance 2 ROM, asked for the first time they are
-// turned on and then kept in this browser like the Sonic Advance ROM.
+// Their sprites and sounds come from the player's own Sonic Advance 2 ROM too.
 const TRICKS_KEY = 'onsoku.sa2Tricks';
 let tricks = false, tricksArt = null;
 try { tricks = localStorage.getItem(TRICKS_KEY) === '1'; } catch { /* storage blocked: the default stands */ }
 function setTricks(on) {
-  if (on && !tricksArt) { sa2For = setTricks; sa2File.click(); return; }   // turned on once the ROM is read
+  if (on && !tricksArt) { ask('sa2', '.gba', setTricks); return; }   // turned on once the ROM is read
   tricks = on;
   try { localStorage.setItem(TRICKS_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
   showTricks();
@@ -142,52 +133,74 @@ function showTricks() {
   tricksButton.textContent = `SA2 tricks: ${tricks ? 'on' : 'off'}`;
   tricksButton.setAttribute('aria-pressed', String(tricks));
 }
+tricksButton.addEventListener('click', () => { setTricks(!tricks); screen.focus(); });
 // what the extras from Sonic Advance 2 read from its ROM, and its sound engine's tables
 function useSa2(buffer) {
-  const sa2 = openSa2(buffer);
-  boostArt = readBoostArt(sa2);
-  tricksArt = trickArt(sa2);
+  const sa2 = openSa2(buffer), boost = readBoostArt(sa2), trick = trickArt(sa2);
+  boostArt = boost;
+  tricksArt = trick;
   sound.loadSa2(sa2.sound);
+  return sa2.code;
 }
-tricksButton.addEventListener('click', () => { setTricks(!tricks); screen.focus(); });
-sa2File.addEventListener('change', async () => {
-  const file = sa2File.files[0];
-  sa2File.value = '';
-  if (!file) return;
-  try {
-    const buffer = await file.arrayBuffer();
-    useSa2(buffer);
-    sa2Status.textContent = '';
-    await rememberRom(file.name, buffer, SA2_ROM);
-    sa2For?.(true);
-    sa2For = null;
-  } catch (error) {
-    sa2Status.textContent = error.message || String(error);
-  }
-  screen.focus();
-});
-// with the setting on from an earlier visit, the remembered Sonic Advance 2 ROM; without it the setting goes off
-(async () => {
-  const saved = await loadRememberedRom(SA2_ROM);
-  try { if (saved) useSa2(saved.buffer); } catch { /* not usable any more: asked for again */ }
-  if (boostMode && !boostArt) setBoostMode(false);
-  if (tricks && !tricksArt) setTricks(false);
-  showBoostMode();
-  showTricks();
-})();
-showBoostMode();
-showTricks();
 
-createRomPicker(picker, {
+// the Sonic Advance ROM and what the extractor read from it, once it is chosen
+let sa1 = null;
+const REGIONS = { E: 'USA', J: 'Japan', P: 'Europe' };
+const region = code => REGIONS[code[3]] ?? code;
+const MAX_GBA_BYTES = 32 * 1024 * 1024;   // largest Game Boy Advance cartridge
+
+const setup = createRomSetup(picker, {
   heading: 'Play in your browser',
-  intro: 'Choose your Sonic Advance ROM. Its graphics are decoded on this device and the game starts right away.',
-  async onRom(buffer, name, setStatus) {
-    const assets = await extractAssets(buffer, setStatus);
-    setStatus('');
-    sound.load(buffer, assets.sound).catch(err => console.warn('No sound:', err));
-    start(buffer, assets);
+  intro: 'Add your ROMs and everything is ready before the game starts: Sonic Advance to play, Sonic Advance 2 and Sonic Rush for the extras they bring. Drop them anywhere on this page, or choose each one below.',
+  slots: [
+    {
+      key: 'sa1', store: SA1_ROM, title: 'Sonic Advance', platform: 'Game Boy Advance', icon: 'gba', color: '#4f86ff',
+      required: true, role: 'The game itself: Neo Green Hill Zone act 1, the intro, the music and the sound.',
+      accept: '.gba,.agb,.bin', kind: '.gba', claims: isSonicAdvance,
+      async read(buffer, progress) {
+        if (buffer.byteLength > MAX_GBA_BYTES) throw new RomError('This file is too large to be a Game Boy Advance ROM.');
+        const assets = await extractAssets(buffer, progress);
+        sa1 = { buffer, assets };
+        return `${assets.info.region} · ${assets.info.version ? 'tested version' : 'untested version'}`;
+      },
+      unload() { sa1 = null; },
+      extras: [{ label: 'Widescreen view', name: 'the widescreen view', hint: 'More of the game around the original screen · V', get: () => wide, set: setWide }],
+    },
+    {
+      key: 'sa2', store: SA2_ROM, title: 'Sonic Advance 2', platform: 'Game Boy Advance', icon: 'gba', color: '#ff8a3d',
+      required: false, role: 'Its Boost Mode with the afterimages, and its mid-air tricks, on top of the original game.',
+      accept: '.gba,.agb,.bin', kind: '.gba', claims: isSa2,
+      read: buffer => region(useSa2(buffer)),
+      unload() { boostArt = tricksArt = null; },
+      extras: [
+        { label: 'Boost Mode', name: 'Boost Mode', hint: 'Keep running at top speed · B', get: () => boostMode, set: setBoostMode, auto: true },
+        { label: 'Mid-air tricks', name: 'the mid-air tricks', hint: 'E or RB in the air · T', get: () => tricks, set: setTricks, auto: true },
+      ],
+    },
+    {
+      key: 'rush', store: RUSH_ROM, title: 'Sonic Rush', platform: 'Nintendo DS', icon: 'nds', color: '#b77dff',
+      required: false, role: 'Its boost, with the flames and the sound, on top of the original game.',
+      accept: '.nds', kind: '.nds', claims: isRush,
+      read: buffer => region(useRush(buffer)),
+      unload() { rushArt = null; },
+      extras: [{ label: 'Rush boost', name: 'the Rush boost', hint: 'Shift, L or X on a controller · R', get: () => rush, set: setRush, auto: true }],
+    },
+  ],
+  onPlay() {
+    sound.load(sa1.buffer, sa1.assets.sound).catch(err => console.warn('No sound:', err));
+    start(sa1.buffer, sa1.assets);
   },
 });
+// a setting left on from an earlier visit goes off when its ROM isn't kept any more
+setup.restored.then(() => {
+  if (rush && !rushArt) setRush(false);
+  if (boostMode && !boostArt) setBoostMode(false);
+  if (tricks && !tricksArt) setTricks(false);
+  setup.refresh();
+});
+showRush();
+showBoostMode();
+showTricks();
 
 function stopAll() {
   front?.stop(); front = null;
@@ -244,6 +257,8 @@ document.getElementById('change-rom').addEventListener('click', () => {
   stopAll();
   stage.hidden = true;
   picker.hidden = false;
+  setup.refresh();
+  setup.focus();
 });
 
 addEventListener('keydown', e => {

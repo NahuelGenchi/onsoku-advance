@@ -4,7 +4,7 @@
 // Nothing is sent anywhere; clearing site data or "Forget" removes it.
 
 const DB_NAME = 'onsoku-advance', STORE = 'rom', KEY = 'current';
-export const RUSH_ROM = 'rush', SA2_ROM = 'sa2';
+export const SA1_ROM = KEY, RUSH_ROM = 'rush', SA2_ROM = 'sa2';
 
 function openDb() {
   return new Promise((resolve, reject) => {

@@ -200,7 +200,7 @@ function walk(p, dir, world) {
     if (p.facing !== dir) { p.state = 'turn'; p.pushing = false; }
     p.facing = dir;
     // running at the top speed fills Boost Mode's meter (Player_HandleGroundMovement)
-    if (world.boostMode && p.gsp * dir >= max) p.boostMeter += B.acceleration[p.boostTier];
+    if (world.boostMode && !world.actOver && p.gsp * dir >= max) p.boostMeter += B.acceleration[p.boostTier];
     let g = p.gsp + acc * dir;
     if (g * dir > max) {
       g -= acc * dir;

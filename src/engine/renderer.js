@@ -373,7 +373,7 @@ export function createRenderer(canvas, assets) {
   // bottom of a taller view.
   function drawHud(sprites, sheet, [left, top, , bottom] = [0, 0, W, H]) {
     for (const [what, x, y] of sprites) {
-      const [sx, sy, w, h] = what === 'ring' ? hud.ring : what === 'face' ? hud.face : hud.glyphs[what];
+      const [sx, sy, w, h] = typeof what === 'string' ? hud[what] : hud.glyphs[what];
       ctx.drawImage(sheet, sx, sy, w, h, left + x, y < SCREEN_H / 2 ? top + y : y + bottom - SCREEN_H, w, h);
     }
   }
@@ -962,6 +962,14 @@ export function createRenderer(canvas, assets) {
   }
 
   /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */
+  // what another stage's renderer (extrarender.js) draws with: `use(c)` sends the drawing to canvas context c
+  // and gives back the one it replaced
+  render.parts = {
+    drawSprite, drawAffine, drawHud: sprites => drawHud(sprites, hud.sheet), drawCard: sprites => drawCard(sprites, card.sheet), darken, stack,
+    get ctx() { return ctx; }, get w() { return W; }, get h() { return H; },
+    use(c) { const old = ctx; ctx = c; return old; },
+  };
+
   render.resize = (w, h) => {
     W = w; H = h;
     whiteCanvas.width = w; whiteCanvas.height = h;

@@ -6,6 +6,8 @@
 // (14 single-player levels, then the four multiplayer stages). `sprites` { name: [anim, variant] } are the
 // level's own looks for objects whose animation the ROM picks from a per-level table.
 
+import { EXTRA_SPRITES } from './extra.js';
+
 export const LEVELS = {
   0: { name: 'Neo Green Hill Zone act 1', zone: 0, act: 0, paletteAnimations: [814, 815], music: 12 },
   // StageInit_Zone1Act2: act 1's two and 820, which steps rows 13 and 12 every 2 frames ([animation, variant])
@@ -121,6 +123,9 @@ export const LEVELS = {
     name: 'X Zone', zone: 6, act: 0, paletteAnimations: [], music: 24, backgroundScroll: 'xZone', hudFlash: 90,
     sprites: { thinPlatform: [605, 0], fallingBrick: [574, 0] },
   },
+  // StageInit_Zone7Act2 (0x0803DF31): only the Super Egg Robo's song. The Moon Zone is the extra stage, run by
+  // its own tasks (src/engine/extra.js), with Super Sonic's, the Super Egg Robo's and the WARNING sign's sprites
+  13: { name: 'The Moon Zone', zone: 6, act: 1, paletteAnimations: [], music: 26, extra: true, sprites: EXTRA_SPRITES },
 };
 
 /** The entry of `level`, or an error for one this game can't load yet. */

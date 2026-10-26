@@ -35,6 +35,7 @@ import { createEggRocket, EGG_ROCKET } from './eggrocket.js';
 import { SONG } from '../sound/songs.js';
 import { RUSH_BOOST_SE } from '../rom/rush.js';
 import { BOOST_MODE_SE } from '../rom/sa2boost.js';
+import { createExtraStage } from './extra.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
@@ -83,6 +84,8 @@ const SILENT = {
  * nothing more.
  */
 export function createGame(canvas, assets, input, sound = SILENT, options = {}) {
+  // the extra stage runs its own player and stage (extra.js)
+  if (assets.stage.extra) return createExtraStage(canvas, assets, input, sound, options);
   const { spinDashSpeeds } = assets.physics;
   // the animations, and which colours their palette loads last left in each row of the sprite palette (animator.js)
   const anims = { ...assets.sprites.anims, objPalette: new Array(16).fill(-1) };

@@ -16,6 +16,7 @@ import { hudGraphics } from './hud.js';
 import { titleCardGraphics } from './titlecard.js';
 import { resultsGraphics } from './results.js';
 import { levelInfo, LEVELS } from './levels.js';
+import { extraStageArt, EXTRA_SPRITES } from './extra.js';
 import { gameOverGraphics } from './gameover.js';
 import { createM4A } from '../sound/m4a.js';
 import { createApu } from '../sound/apu.js';
@@ -418,7 +419,8 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   await onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
   // the zone's acts from `level` on, which share the zone's looks for the objects that differ by level
-  const levels = Object.keys(LEVELS).map(Number).filter(l => l >= level && LEVELS[l].zone === info.zone).sort((a, b) => a - b);
+  // (the extra stage, the Moon Zone, is X Zone's act 2 but only ever comes on its own)
+  const levels = Object.keys(LEVELS).map(Number).filter(l => l >= level && LEVELS[l].zone === info.zone && (l === level || !LEVELS[l].extra)).sort((a, b) => a - b);
   // the zone's water, which its acts share
   const water = levels.map(l => LEVELS[l].water).find(Boolean);
   // the acts' sprites; one the zone's acts draw differently (Egg Rocket's square platforms and Cosmic Angel's)
@@ -440,6 +442,8 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
       results: sheet(resultsGraphics(rom, offsets.uiGraphics, offsets.titleCard, l)),
       anims: Object.fromEntries(own(i, l).map(([name, key]) => [name, sprites.anims[key]])),
     };
+    // the extra stage's robot body and the colours Super Sonic gives the HUD's face
+    if (act.extra) acts[l].stage.extra = extraStageArt(rom, offsets, tables, l);
   }
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
   // indexes into those in the original, so both are read
@@ -448,8 +452,8 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   return {
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },
     sprites, acts, first: level, stage: acts[level].stage, titleCard: acts[level].titleCard, physics: { spinDashSpeeds },
-    hud: extractHud(rom, offsets.uiGraphics, water),
-    gameOver: extractGameOver(rom, offsets),
+    hud: extractHud(rom, offsets.uiGraphics, water, acts[level].stage.extra?.facePalette),
+    gameOver: extractGameOver(rom, offsets, acts[level].stage.extra?.facePalette),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
   };
@@ -483,8 +487,9 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
     })),
   ];
   for (const group of groups) group.list = Object.fromEntries(Object.entries(group.list).filter(([name]) => !(name in levelSprites)));
-  for (const [name, [anim, variant]] of Object.entries(levelSprites)) {
-    groups.push({ list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, anim) });
+  // a third number is the animation whose colours it shows in, where another loads over its own
+  for (const [name, [anim, variant, colors]] of Object.entries(levelSprites)) {
+    groups.push({ list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, colors ?? anim), skipPalette: colors !== undefined });
   }
 
   // `made[i]` is how atlas entry i was drawn, and `rows` the sprite palette rows its animation loads
@@ -501,7 +506,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
       made.push({ name, anim, f, palette, rows, under });
     }
     const image = images[byKey.get(key)];
-    if (ROTATED.has(name) && !image.pieces) image.pieces = framePieces(rom, tables, anim, f.frame, f.tilesAt, palette, f.eightBpp);
+    if ((ROTATED.has(name) || name in EXTRA_SPRITES) && !image.pieces) image.pieces = framePieces(rom, tables, anim, f.frame, f.tilesAt, palette, f.eightBpp);
     return byKey.get(key);
   };
   for (const { list, palette, skipPalette, under: groupUnder = under } of groups) {
@@ -745,8 +750,8 @@ function paletteVariants(base, animations, banks) {
 
 // The HUD and the title card, and in an act with water their sheets in its colours (`under`): the HUD's
 // palettes are the ones palette 423 has in their slots, and the card is coloured from its own while it shows.
-function extractHud(rom, tableAt, water) {
-  const { image, ...rects } = hudGraphics(rom, tableAt);
+function extractHud(rom, tableAt, water, facePalette) {
+  const { image, ...rects } = hudGraphics(rom, tableAt, facePalette);
   return { sheet: toCanvas(image), under: water ? toCanvas(tintImage(image, water.blend)) : null, ...rects };
 }
 
@@ -758,14 +763,14 @@ function sheet({ image, ...rest }, water = null) {
 // the game over's song (MUS_GAME_OVER): the screen waits for it to end before it leaves, so the sound engine
 // plays it through here, without sound, to count its frames
 const GAME_OVER_SONG = 37;
-function extractGameOver(rom, offsets) {
+function extractGameOver(rom, offsets, facePalette) {
   const { image, palette, ...rest } = gameOverGraphics(rom, offsets.uiGraphics, offsets.titleCard);
   const engine = createM4A(rom.bytes, soundLayout(rom, offsets.musicPlayers), createApu());
   engine.songStart(GAME_OVER_SONG);
   const player = engine.players.find(p => p.songHeader === engine.songHeader(GAME_OVER_SONG));
   let songFrames = 0;
   do { engine.frame(); songFrames++; } while ((player.status & 0xFFFF) !== 0 && songFrames < 60 * 60);
-  return { sheet: toCanvas(image), ...rest, hudSheet: toCanvas(hudGraphics(rom, offsets.uiGraphics, palette).image), song: GAME_OVER_SONG, songFrames };
+  return { sheet: toCanvas(image), ...rest, hudSheet: toCanvas(hudGraphics(rom, offsets.uiGraphics, facePalette, palette).image), song: GAME_OVER_SONG, songFrames };
 }
 
 function toCanvas(img) {

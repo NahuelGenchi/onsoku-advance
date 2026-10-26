@@ -18,6 +18,7 @@ import { createGame, specialSpringStart } from './engine/game.js';
 import { createSpecialStageRun } from './special/run.js';
 import { createSound } from './sound/audio.js';
 import { SCREEN_W, SCREEN_H, VIEW_MAX_W, VIEW_MAX_H } from './engine/constants.js';
+import { THE_MOON, ALL_EMERALDS } from './engine/unlock.js';
 
 const picker = document.getElementById('picker');
 const stage = document.getElementById('stage');
@@ -257,6 +258,10 @@ async function restartGame() {
 // lives and the random numbers carried over (GameStageStart). Past the zones this game has, the screen stays.
 async function nextZone({ level, ...carry }) {
   continues = carry.continues ?? continues;
+  // past X Zone the Moon Zone opens with all seven Chaos Emeralds (unlock.js; the ROM also wants every
+  // character to have cleared X Zone, and only Sonic is in this game); otherwise the normal ending comes, which
+  // isn't built yet, and the screen keeps the results' last frame
+  if (level === THE_MOON && emeralds !== ALL_EMERALDS) return;
   const from = game;
   let assets;
   try {

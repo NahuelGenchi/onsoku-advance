@@ -91,3 +91,14 @@ export const SONG = {
   ROCKET: 200,             // SE_200: Mecha Knuckles' rocket, stopped as it goes
   MUD_SLIDE: 201,          // SE_201: Angel Island's forced slide takes Sonic
 };
+
+// what the Moon Zone, the Super Egg Robo and the true ending play besides those
+export const EXTRA_SONG = {
+  EXTRA_BOSS: 26,          // MUS_EXTRA_BOSS: the Moon Zone's music
+  DROWNING: 27,            // MUS_DROWNING, TAILS_FLYING (SE_TAILS_PROPELLER_FLYING) and INVINCIBILITY: what
+  TAILS_FLYING: 120,       // Super Sonic's death stops
+  EXTRA_CLEAR: 36,         // MUS_EXTRA_CLEAR: the Super Egg Robo's results
+  A_FEW_DAYS_LATER: 39,    // MUS_CUTSCENE_A_FEW_DAYS_LATER
+  ROCK_BREAK: 126,         // SE_126: a rock broken by a dash
+  LASER: 155,              // SE_155: the robot's laser
+};

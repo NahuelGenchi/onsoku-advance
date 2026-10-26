@@ -22,6 +22,7 @@ export const KNOWN_VERSIONS = [
       musicPlayers: 0x6D767C,
       uiGraphics: 0x680A38,
       titleCard: 0x681274,
+      trueEnding: 0x6B4B10,
       introGraphics: 0x69EC10,
       introTables: 0x684178,
       specialStage: 0x47FEF4,

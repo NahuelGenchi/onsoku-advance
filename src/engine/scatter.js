@@ -39,7 +39,11 @@ function touching(px, py, box, rx, ry) {
     && ((ry - 2 * TILE <= t && ry >= t) || (ry - 2 * TILE >= t && b >= ry - 2 * TILE));
 }
 
-export function createScatter(anims) {
+/**
+ * `gravity` is added to their fall speed each frame (1/256 px), and `floorX(x, tick)` is where the floor under a
+ * ring at x is read: on the extra stage they fall slower and bounce on the ground where the stage has scrolled it.
+ */
+export function createScatter(anims, { gravity = GRAVITY, floorX = x => x } = {}) {
   const anim = makeAnimator();
   anim.speed = 0x20;   // twice the rings' normal speed
   let rings = [];
@@ -60,6 +64,25 @@ export function createScatter(anims) {
      * InitScatteringRings: up to 48 rings from (x, y), in the free slots; the rest are lost. Under flipped
      * gravity they fly the other way up.
      */
+    /**
+     * InitScatteringRings_ExtraBossCapsule: up to 32 rings from (x, y), each at a random angle and one of two
+     * speeds, the angles going round from a random start by 16–79 steps of 256 each time.
+     */
+    launchCapsule(x, y, n, layer, random) {
+      n = Math.min(n, 32);
+      if (n === 0) return;
+      let angle = ((random() & 0xFF000) >>> 12) | 0x10, k = 0;
+      for (const r of rings) {
+        if (r.life) continue;
+        const shift = ((random() & 0x1000) >>> 12) + 5, a = (angle & 0xFF) * 4;
+        let vx = SINE[a] >> shift, vy = SINE[a + 256] >> shift;
+        vx -= vx >> 2; vy -= vy >> 2;
+        Object.assign(r, { x: x * 256, y: y * 256, vx, vy, life: LIFE, layer });
+        angle += ((random() & 0x3F000) >>> 12) + 16;
+        if (++k >= n) return;
+      }
+    },
+
     launch(x, y, n, layer, inverted = false) {
       const speeds = launchSpeeds(Math.min(n, SLOTS));
       let k = 0;
@@ -92,14 +115,14 @@ export function createScatter(anims) {
           continue;
         }
         if (up ? r.vy < 0 : r.vy > 0) {
-          const d = up ? tileFloor(terrain, rx, ry - 2 * TILE, r.layer, -8) : tileFloor(terrain, rx, ry, r.layer);
+          const d = up ? tileFloor(terrain, rx, ry - 2 * TILE, r.layer, -8) : tileFloor(terrain, floorX(rx, tick), ry, r.layer);
           if (d <= 0) { r.y += (up ? -d : d) * 256; r.vy = (r.vy >> 2) - r.vy; }
         }
         if (this.ceilings && !up && r.vy < 0) {
           const d = probeTile(terrain, ry - 16, rx, r.layer, -8, PROBE_FLOOR).d;
           if (d <= 0) { r.y -= d * 256; r.vy = (r.vy >> 2) - r.vy; }
         }
-        r.vy += up ? -GRAVITY : GRAVITY;
+        r.vy += up ? -gravity : gravity;
         // drawn where it was before the bounce; blinking in its last 32 frames with Sonic's blink
         const sx = rx - view.x, sy = ry - view.y;
         r.shown = sx + TILE > 0 && sx + TILE < view.w + 2 * TILE && sy > -TILE && sy < view.h + TILE

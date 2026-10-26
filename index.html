@@ -10,10 +10,10 @@
 </head>
 <body>
 <main>
-  <section class="picker" id="picker" aria-label="Choose a ROM"></section>
+  <section class="picker" id="picker" aria-label="Your ROMs"></section>
 
   <section class="stage" id="stage" hidden>
-    <canvas id="screen" tabindex="0" aria-label="Sonic in Neo Green Hill Zone act 1. Use the arrow keys to run, Z or Space to jump, X to attack, or a controller: A to jump, B or X to attack."></canvas>
+    <canvas id="screen" tabindex="0" aria-label="Sonic Advance: the SEGA and Sonic Team logos and the intro, which Enter, Z or X skips, the title screen, where Enter opens the menu, and the menu, where the arrow keys choose and Z picks Game Start, then Neo Green Hill Zone act 1. Use the arrow keys to run, Z or Space to jump, X to attack, or a controller: A to jump and pick, B or X to attack, Menu to skip the intro and open the menu."></canvas>
 
     <aside class="help" id="help">
       <dl>
@@ -24,19 +24,23 @@
         <dt><kbd>↓</kbd></dt><dd>Crouch · roll while moving</dd>
         <dt><kbd>↓</kbd>+<kbd>Z</kbd></dt><dd>Spin dash</dd>
         <dt><kbd>↑</kbd></dt><dd>Look up</dd>
+        <dt><kbd>Enter</kbd> <kbd>Backspace</kbd></dt><dd>Start and Select · Start, <kbd>Z</kbd> or <kbd>X</kbd> skips the intro · on the title screen, Start opens the menu: <kbd>↑</kbd><kbd>↓</kbd> choose, <kbd>Z</kbd> picks</dd>
         <dt><kbd>Z</kbd> / <kbd>X</kbd></dt><dd>Continue screen: continue / skip to the next number</dd>
         <dt><kbd>H</kbd></dt><dd>Hide this panel</dd>
         <dt><kbd>C</kbd></dt><dd>Show the collision</dd>
         <dt><kbd>M</kbd></dt><dd>Sound on or off</dd>
-        <dt><kbd>V</kbd></dt><dd>Widescreen: more of the act around the original screen</dd>
-        <dt><kbd>R</kbd></dt><dd>Rush boost: Sonic Rush's boost, on top of the original game (asks for your Sonic Rush ROM the first time)</dd>
+        <dt><kbd>V</kbd></dt><dd>Widescreen: more of the game around the original screen</dd>
+        <dt><kbd>R</kbd></dt><dd>Rush boost: Sonic Rush's boost, on top of the original game (with your Sonic Rush ROM)</dd>
         <dt><kbd>L</kbd> <kbd>Shift</kbd></dt><dd>With the Rush boost on: boost (press on the ground, hold to keep it)</dd>
-        <dt>Controller</dt><dd>D-pad or left stick: move · <kbd>A</kbd> jump · <kbd>B</kbd> or <kbd>X</kbd> attack · with the Rush boost on, <kbd>X</kbd> boosts · on the continue screen, <kbd>A</kbd> continues and <kbd>B</kbd> or <kbd>X</kbd> skips</dd>
+        <dt><kbd>B</kbd></dt><dd>Boost Mode: Sonic Advance 2's Boost Mode and its afterimages, on top of the original game (with your Sonic Advance 2 ROM). Keep running at top speed to enter it</dd>
+        <dt><kbd>T</kbd></dt><dd>SA2 tricks: Sonic Advance 2's mid-air tricks, on top of the original game (with your Sonic Advance 2 ROM)</dd>
+        <dt><kbd>E</kbd> <kbd>I</kbd></dt><dd>With the SA2 tricks on, once in the air: trick · with <kbd>↑</kbd> Hop Jump, <kbd>↓</kbd> Bound, forward Humming Top, alone or back Back Star</dd>
+        <dt>Controller</dt><dd>D-pad or left stick: move · <kbd>A</kbd> jump · <kbd>B</kbd> or <kbd>X</kbd> attack · with the Rush boost on, <kbd>X</kbd> boosts · on the continue screen, <kbd>A</kbd> continues and <kbd>B</kbd> or <kbd>X</kbd> skips · with the SA2 tricks on, <kbd>RB</kbd> tricks · <kbd>Menu</kbd> Start · <kbd>View</kbd> Select</dd>
       </dl>
       <p class="stats" id="stats" aria-live="off"></p>
-      <p class="actions"><button type="button" class="link" id="change-rom">Change ROM</button> · <button type="button" class="link" id="wide" aria-pressed="false">Widescreen: off</button> · <button type="button" class="link" id="rush" aria-pressed="false">Rush boost: off</button> · <a href="viewer.html">Asset viewer</a></p>
-      <p class="stats" id="rush-status" role="status" aria-live="polite"></p>
-      <input type="file" id="rush-file" accept=".nds" hidden>
+      <p class="actions"><button type="button" class="link" id="change-rom">Your ROMs</button> · <button type="button" class="link" id="wide" aria-pressed="false">Widescreen: off</button> · <button type="button" class="link" id="rush" aria-pressed="false">Rush boost: off</button> · <button type="button" class="link" id="boost-mode" aria-pressed="false">Boost Mode: off</button> · <button type="button" class="link" id="tricks" aria-pressed="false">SA2 tricks: off</button> · <a href="viewer.html">Asset viewer</a></p>
+      <p class="stats" id="rom-status" role="status" aria-live="polite"></p>
+      <input type="file" id="rom-file" hidden>
     </aside>
 
     <div class="touch" id="touch" aria-hidden="true">

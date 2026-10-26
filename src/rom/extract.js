@@ -126,8 +126,12 @@ export const PLATFORM_ANIMATIONS = {
 export const FERRIS_WHEEL_ANIMATIONS = { 530: { ferrisHub: 0 }, 531: { ferrisSpoke: 0 } };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
-// Ice Mountain's objects: the block of ice (555) and the large and small pieces a broken one leaves (556, 557)
-export const ICE_MOUNTAIN_ANIMATIONS = { 555: { iceBlock: 0 }, 556: { iceShardsLarge: 0 }, 557: { iceShardsSmall: 0 } };
+// Ice Mountain's objects: the block of ice (555) and the large and small pieces a broken one leaves (556, 557),
+// and the underwater lava platform's pool (561), spurt (560) and platform (525)
+export const ICE_MOUNTAIN_ANIMATIONS = {
+  555: { iceBlock: 0 }, 556: { iceShardsLarge: 0 }, 557: { iceShardsSmall: 0 },
+  561: { lava: 0 }, 560: { lavaSpurt: 0 }, 525: { lavaPlatform: 0 },
+};
 // the breakable wall (559); some levels have their own (levels.js `sprites`)
 export const WALL_ANIMATIONS = { 559: { breakableWall: 0 } };
 // the moving spring at rest and throwing (540); Ice Mountain has its own (levels.js `sprites`)
@@ -163,9 +167,11 @@ export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, 
 export const GOAL_ANIMATIONS = { 453: { goal: 0, goalSpin: 1 } };
 // Neo Green Hill's wall pole (468): at rest, and bending as Sonic swings on it
 export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
-// what bosses leave behind: the Egg Mobile and Eggman flying off in it (bosses_egg_mobile.c), the debris
+// the Egg Spider's (boss_4_egg_spider.c), and what bosses leave behind: the Egg Mobile and Eggman flying off in it (bosses_egg_mobile.c), the debris
 // (gUnknown_080BB41C) and the explosions (sub_8017540)
 export const BOSS_ANIMATIONS = {
+  628: { eggSpider: 0, eggSpiderDrop: 1, eggSpiderStill: 2 }, 629: { eggSpiderEggman: 0, eggSpiderEggmanLaugh: 1, eggSpiderEggmanHit: 2 },
+  626: { eggSpiderBody: 0 }, 627: { eggSpiderPart: 0, eggSpiderLeg: 1 }, 630: { icicle: 0 },
   693: { eggMobile: 0, eggMobileTurn: 1 }, 694: { eggman: 0, eggmanLaugh: 2, eggmanFlee: 4, eggmanTurn: 9 },
   // the Egg Ball's (boss_3_egg_ball.c): its pipes in the floor and the ceiling and in the walls, Eggman still,
   // laughing and wincing, the star disc it loses, the mobile and the spike ball
@@ -218,9 +224,9 @@ export const EGG_PRESS_ANIMATIONS = {
   617: { eggPressBase: 0 }, 618: { eggPressEggman: 0, eggPressEggmanLaugh: 1, eggPressEggmanHurt: 2 }, 619: { eggPressSpring: 0 },
   620: { eggPress: 0, eggPressSquash: 1, eggPressStomp: 2 }, 621: { eggPressNoSpring: 0 },
 };
-// the animations whose frames' first OAM entry (their dimensions' oamIndex) the game reads: the Egg Press's,
-// which places Eggman by it
-const OAM_INDEXED = new Set([620]);
+// the animations whose frames' first OAM entry (their dimensions' oamIndex) the game reads: the Egg Press's
+// and the Egg Spider's, which place Eggman by it
+const OAM_INDEXED = new Set([620, 628]);
 // Casino Paradise's red flag (469): at rest, and waving as Sonic swings round it
 export const RED_FLAG_ANIMATIONS = { 469: { redFlag: 0, redFlagTug: 1 } };
 // Casino Paradise's ship swing: the ship (491, half of it, drawn twice), the hook (490) and a link of its chain (489)
@@ -270,7 +276,8 @@ const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmal
   'hammerTankArm', 'hammerTankHammer', 'hammerTankBelt0', 'hammerTankBelt1', 'hammerTankBelt2', 'hammerTankBelt3',
   'capsuleSmall', 'capsuleShell', 'animalRobin', 'animalParrot', 'eggPressSpring', 'eggPressBase', 'eggBallStarDisc',
   'stoneDebrisSmall', 'stoneDebrisLarge', 'iceStoneDebrisSmall', 'iceStoneDebrisLarge',
-  'bubblesSmall', 'bubblesGroup', ...[0, 1, 2, 3, 4, 5].map(n => `drownCountdown${n}`)]);
+  'bubblesSmall', 'bubblesGroup', ...[0, 1, 2, 3, 4, 5].map(n => `drownCountdown${n}`),
+  'eggSpiderPart', 'eggSpiderLeg']);
 // the sprite palette that fills the whole OBJ palette when an act with water starts, and that the colours
 // under water are made from (LoadPalette423Anim, InitWaterPalettes)
 const UNDERWATER_OBJ_PALETTE = 423;
@@ -332,8 +339,9 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
 /**
  * Every animation's frames on one atlas. In an act with `water` they are drawn a second time, on an atlas with
  * the same layout, in the colours under the water line: palette 423 in the water's colours, whatever palette
- * the animation loads above it. `levelSprites` { name: [anim, variant] } are the level's own looks for objects
- * whose animation the ROM picks by level; they replace the default of the same name.
+ * the animation loads above it (`under`), and a third time in their own colours in the water's (`underOwn`).
+ * `levelSprites` { name: [anim, variant] } are the level's own looks for objects whose animation the ROM picks
+ * by level; they replace the default of the same name.
  */
 function extractSprites(rom, tables, water, levelSprites = {}) {
   const sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
@@ -444,6 +452,9 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
   const pieces = images.flatMap((image, i) => (image.pieces ?? []).map((p, k) => ({ img: p.img, frame: i, x: p.x, y: p.y, redraw: () => redraw(i).pieces[k].img })));
   const all = [...images, ...pieces], { canvas, rects } = packAtlas(all);
   const underAtlas = under && paintAtlas(canvas.width, canvas.height, rects, all.map((image, i) => (image.redraw ? image.redraw() : redraw(i).img)));
+  // and once the Egg Spider's task copies the OBJ palette as it is every frame, each in its own colours, in the
+  // water's
+  const underOwn = under && paintAtlas(canvas.width, canvas.height, [[0, 0]], [tintImage(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height), water.blend)]);
   pieces.forEach((p, k) => {
     const [ax, ay, w, h] = rects[images.length + k];
     (rects[p.frame][6] ??= []).push([p.x, p.y, w, h, ax, ay]);
@@ -455,7 +466,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
     frames: [...new Set(Object.keys(SONIC_ANIMATIONS).flatMap(name => anims[name].frames.map(f => f[0]).filter(i => i >= 0)))],
     colors: sonicPalette.slice(0, 16), under: under ? under.slice(0, 16) : null,
   };
-  return { atlas: canvas, under: underAtlas || null, frames: rects, anims, tiles, sonic, alts };
+  return { atlas: canvas, under: underAtlas || null, underOwn: underOwn || null, frames: rects, anims, tiles, sonic, alts };
 }
 
 // the sprite palette rows a palette load fills, each as [row, key]: the key (palId * 256 + the colour of that

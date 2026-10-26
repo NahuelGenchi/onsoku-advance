@@ -1,6 +1,6 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
-// platforms (thin, falling, sinking, rising and square), boulders, blocks of ice, breakable walls, moving springs, ferris wheels, waterfalls, boosters, checkpoints, wall poles, grind
+// platforms (thin, falling, sinking, rising and square), boulders, blocks of ice, breakable walls, moving springs, ferris wheels, underwater lava platforms, waterfalls, boosters, checkpoints, wall poles, grind
 // rails, the incline ramp, the half-pipe, the forced slide, the mini loops, the water bridge, the shrubbery, the
 // goal, the special spring, the hook rails, the deep snow, the air bubbles, the skating stones, the security gates, the conveyor belts, the steam exhausts, the swinging hooks, swing
 // ropes and crane claws, the visibility toggles, Secret Base's pipe curler, item boxes, enemies, and a stand-in
@@ -24,6 +24,7 @@ import { createSquarePlatform } from './squareplatforms.js';
 import { createFerrisWheel } from './ferriswheels.js';
 import { createMovingSpring } from './movingsprings.js';
 import { createSlowPlatform } from './slowplatforms.js';
+import { createLavaPlatform } from './lavaplatforms.js';
 import { createWaterfall } from './waterfalls.js';
 import { createBooster } from './boosters.js';
 import { createCheckpoint } from './checkpoints.js';
@@ -192,7 +193,7 @@ function standIn(e, slot) {
 function interactable(e, slot, anims, ctx, level, zone) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
-  return def ? objectTask(def, slot, anims) : createHidingSpikes(e, slot, anims) ?? createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createMovingSpring(e, slot, anims) ?? createSquarePlatform(e, slot, anims) ?? createSlowPlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createWaterfall(e, slot, anims)
+  return def ? objectTask(def, slot, anims) : createHidingSpikes(e, slot, anims) ?? createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createMovingSpring(e, slot, anims) ?? createSquarePlatform(e, slot, anims) ?? createSlowPlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createLavaPlatform(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createMiniLoop(e, slot)
     ?? createWaterBridge(e, slot, anims) ?? createBridgeSplash(e, slot, anims) ?? createShrub(e, slot, anims)

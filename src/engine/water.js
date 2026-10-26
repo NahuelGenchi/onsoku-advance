@@ -34,6 +34,7 @@ export function createWater(water) {
     snow: true,             // whether the snow (BG0) shows above the line: off while `seen` is 0
     bubbles: 0,             // gSmallAirBubbleCount
     shown: null,            // the palette animations' frames the colours under water were taken from
+    ownColours: false,      // whether the sprites' colours under water were taken from their own, not palette 423's
     surface: makeSprite('waterSurface', { order: 0, prio: 0 }),
   };
 }

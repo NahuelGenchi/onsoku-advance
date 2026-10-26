@@ -833,8 +833,14 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Block of ice | 193 | 2 | A block of ice breaks, after the item box's 138 |
 | Skating stone | 198 | 2 | A skating stone slides on after landing |
 | Skating stone breaks | 143 | 1 | A skating stone breaks |
+| Ice Mountain Zone act 2 | 19 | 0 | Act 2 starts, and starts over after a life is lost |
+| Boss | 29 | 0 | Two seconds after the Egg Spider spawns (the music manager's state `0x10`), in place of the act's music, until it is beaten and Eggman escapes (`0x30`) |
+| Boss hit | 143 | 1 | Sonic hits the Egg Spider |
+| Boss beaten | 144 | 3 | The Egg Spider's eighth hit, and every explosion it throws after it |
+| Icicle | 145 | 3 | Every icicle the Egg Spider drops |
+| Lava spurt | 182 | 2 | An underwater lava platform's lava spurts |
 
-Sounds on the same player cut each other off, as in the original. There is no landing sound in SA1.
+Sounds on the same player cut each other off, as in the original. There is no landing sound in SA1. Ice Mountain act 2's sounds and the boss music start where the decompiled code starts them; they weren't checked against mGBA's music players.
 
 **How it was checked.** The reference is mGBA 0.10.5, recording the tested ROM headlessly and dumping the engine's whole EWRAM state, the sound registers and the mixing buffer after every frame, through the act's first minute of music and a run of every move above:
 
@@ -1183,6 +1189,82 @@ Differences that remain, none of them in the game's state:
 - A sprite with a lower OAM index but a lower priority than another still hides it on the GBA (the lowest index decides the pixel, then the priority). The engine stacks by priority first. It showed on one pixel for three frames, where the points passed under the HUD's timer.
 
 Read in the code only: Pen snowball's other burst conditions, the hiding spikes' first-frame push in this act (checked on Angel Island), the music manager's restart of song 18 in the engine (mGBA shows it on time, the headless runs don't run the music), and the square platforms, moving springs and sinking platforms in act 1 (checked on act 2).
+
+## Ice Mountain Zone act 2
+
+### Ice Mountain's objects
+
+Ice Mountain is zone 4 in the original's numbering (3 counting from 0, as `levels.js` does). Act 2 is level 7 in the ROM's tables and starts with `?level=7`. Several objects pick their look by level or zone; act 2's are in its row of `levels.js`. Addresses are the USA ROM's.
+
+| Kind | Object | Act 2 | Task | Animation |
+| ---: | :--- | ---: | :--- | :--- |
+| 55 | Square platform | 2 | `Task_Platform_Square`, `0x0807D0F1` | `524` (48 × 48, box (−24, −23, 24, 24)) |
+| 75 | Hook rail | 2 | `Task_HookRail_Type1`, then `Type1_2` and `Shared0` | `569` in zone 4, `504` elsewhere |
+| 81 | Moving spring | 5 | `Task_MovingSpringMain`, `0x0808B131`; the launch `0x0808B2B5` | `526`: idle variant 1, launch 0 |
+| 85 | Sinking platform | 2 | `Task_Platform085`, `0x0808DCE9` | `528` |
+| 89 | Rising platform | 1 | `Task_Platform089`, `0x0808E1FD` | `523` |
+| 91 | Ferris wheel | 3 | `Task_FerrisWheel`, `0x0808F6B5` | seat `523`, hub `530`, spokes `531` |
+| 95 | Block of ice | 4 | `Task_IceBlock`, `0x080914F9`; the shards `0x08091949` | `555`, shards `556` and `557` |
+| 98 | Underwater lava platform | 6 | `0x08092469`; the spurt `0x080926A9` | pool `561`, spurt `560`, platform `525` |
+| 114 | Breakable wall | 2 | `Task_BreakableWall`, `0x08027A55`; falling `0x08027D59` | `594` (32 × 64) |
+
+- **Square platform:** it swings like the moving spring (below), across when `d2` is above `d3`. Sonic rides it carried by what it moved plus 1 px down. Walls beside him hold him back while he rides; its sides push him out, and holding toward a side on the ground moves him 1 px into it and sets his push. Act 2's two slide in 48-px tunnels. The original also crushes him against walls and ceilings, which no layout in act 2 can do. The look is per zone: `494` by default, `524` in zone 4, and in zones 5 and 6 a long variant when the other swing byte is set.
+- **Hook rail:** zone 4 only uses the kind that slides to the right (`d0` 1): Sonic hangs in character state 38 (animation 43) for 480 px across and 240 px down, then goes on walking at its speed, while song 180 plays.
+- **Moving spring:** it swings by `d2` × 8 px across when `d2` is above `d3`, otherwise `d3` × 8 px up and down, at `(d << 11) × sin(4 × (clock + phase)) >> 14`, with a phase of half a turn when the swing byte is negative. The frame after Sonic lands on it, it throws him up at 7.5 px a frame in the somersault (character state 17) with song 170, and shows its launch variant for 12 frames. Before the platform test it pushes him out of its sides with 8 px of slack; after it, pushing at it puts him back in the walk state.
+- **Sinking and rising platforms:** both land Sonic like a thin platform. The sinking one goes down 0.75 px a frame with him while the one-tile probe under it finds no floor, and rises back when he leaves. The rising one goes up 0.75 px a frame with him; past `d3` × 8 px it kills him on it. Landing on the sinking one puts him 2 px lower unless he is spin dashing. The sinking platform's look is per level (`gUnknown_086CEDC0`); the rising one is always `523`.
+- **Ferris wheel:** each seat is an entity of its own, at the angle `((±d1 × clock + ((d0 & 15) << 7)) & 0x7FF) >> 1` (+ when `d2` is above `d3`, with radius `d2`, otherwise − and `d3`), and `sin × radius >> 11` from its centre, in 8-px steps. Riding, Sonic moves by what the seat moved, an eighth of it in 1/256 px plus 1 on odd frames, and sits 20 px above it (15 curled). The seat sags by up to 6 px while he rides it. The seat's look is per level (`gUnknown_086CEE2C`).
+- **Block of ice:** solid like a boulder, and it breaks the same ways. It also breaks when Sonic's attack box touches it while he is curled up or charging a spin dash, or when he lands on it curled up, which stands him on it first, so it doesn't bounce him. Rolling into one doesn't break it. Songs 138 and then 193 play, and two large and two small shards fly out like the boulder's pieces, for 81 frames, growing by 1/256 a frame. It doesn't come back until the act starts over.
+- **Underwater lava platform:** a thin platform (`525`, OAM order 17) resting on a solid pool of lava, drawn 3 px higher. When the stage clock is a multiple of 102 while it rests, the lava spurts with song 182. The platform is thrown up at 5 px a frame, falls 37/256 px a frame faster each frame, and bounces twice more at 2/5 of the speed it came back with, taking Sonic with it. On spurt frames 7 to 53 the spurt's box 1, (−16, −17, 16, 8), hurts him.
+- **Breakable wall:** it pushes Sonic out of its sides like a gate (`Coll_Player_Gate`) until he touches it with his attack box out, curled up or attacking. Song 173 plays and its 32 tiles of 8 × 8 fall, column by column 10 frames apart, the column he came from first, and from the bottom up 2 frames apart: `dy = t × (42t − 512) >> 8` and `dx = t × v >> 8`, with `v` half his X speed or ±256. It ends when the top tile of the first column to fall passes the screen's bottom. Every tile is tested against that one line, and the tiles drawn before it on that frame still show. It never stays broken: the whole wall spawns again when its spawn point comes back into range. The look is per level (`gUnknown_080BB544`).
+
+Kept from the original: the lava's spurt doesn't step its animation for its first 6 frames, and its pool animation runs at twice its speed while the platform bounces. A spurt longer than 102 frames makes the next multiple of 102 pass without one.
+
+**How it was checked.** mGBA 0.10.5 with the USA ROM, from a savestate in act 2, Sonic placed by memory writes. Most recordings move the water line out of the way (`gWater` at `0x03006082`, its target at `0x03006084`, both set to `0x7FFF`). The engine's Sonic was run on the same inputs, and his position and every object's position, animation and frame matched on every frame:
+
+| Object | Recordings |
+| :--- | :--- |
+| Square platform | 6 runs of up to 700 frames: walking into it both ways, pushing, riding under the opening, walls holding him, falling off, jumping |
+| Hook rail | 500 frames, the rail at (2784, 576) from the catch to past its end |
+| Moving spring | the up-and-down one at x 1936 (4 landings, 500 frames) and the across one at 4008, with its side push |
+| Sinking and rising platforms | riding each to its end, 600 frames each |
+| Ferris wheel | the wheel at (5760, 672) over a turn, 900 frames |
+| Block of ice | 7 runs of 400 frames: jumping into its side, landing on it, a spring under it, a spin dash into it, and blocks that don't break |
+| Underwater lava platform | 700 frames over three platforms and two spurts, and a burn with no rings left |
+| Breakable wall | a jump, a spin dash, a push, and a jump from the right |
+
+Read in the code only: crushing on a square platform, vertical square platforms, flipped breakable walls, the moving spring's push-to-walk quirk, and other zones' looks.
+
+### Ice Mountain's enemies
+
+| Kind | Enemy | Act 2 | Animations | What it does |
+| ---: | :--- | ---: | :--- | :--- |
+| 18 | Drisame | 3 | `424` in its block of ice `573`, pieces `579` and `580` | Waits in its block until Sonic comes within 80 px on the side it faces, inside the angles it looks along (the rough angle of `sub_8004418`, USA `0x0800338C`, taken of (dy, dx)). The block then shatters into four pieces, moved and drawn two frames in every four, and the fish darts at where he was, about 1.8 px a frame, and keeps going. |
+| 19 | Kuraa | 5 | `425`: walking 0, snapping 1 | Walks a quarter of a pixel a frame between `d0` × 8 and (`d0` + `d2`) × 8 px right of its spawn point. Away from the ends it snaps its claws for 120 frames, then walks 500 frames before it can snap again. While it snaps it can't be destroyed and its box hurts Sonic. Its sprite is a left half, drawn again mirrored. |
+
+Kept from the original (issue #56): the Kuraa tests its snapping box at its spawn point, not where it has walked to (`Task_80737A8`, USA `0x080734B0`). Once the Drisame darts off, it tests its spawn point's x in place of its y for leaving the range (`sub_8072E68`, USA `0x08072B70`).
+
+**How it was checked.** mGBA 0.10.5, from the act 2 savestate: a Drisame breaking out and darting, twice (400 frames each), and a Kuraa walking and snapping with Sonic held near it. The enemies' positions, animations and frames, and Sonic, match on every frame.
+
+### Egg Spider
+
+Ice Mountain's boss is enemy 25, spawned at (8816, 1616) in act 2, on the ceiling of an arena whose floor is 180 px lower and whose water line starts at 1664. The tasks are `Task_EggSpiderInit` (USA `0x08030C75`), the fight `0x08030EB5`, the eighth hit `0x080311A4`, the fall `0x08031451` and the wreck `0x080316DD`; the USA addresses are the European ones less `0x30`. Its position is kept in 1/256 px from its spawn point, starting 48 px right of it and 16 px down. The spider is animation `628` (walking 0, dropping 1, still 2, box 0 (−23, 0, 23, 53)) in OAM order 22, and Eggman `629` (still 0, laughing 1, wincing 2) in order 21, drawn lower than its top by `gUnknown_084ACED8` (USA `0x084A5DD8`: 0, 1, 0, 1, 1, −1), indexed by the first OAM entry of the spider's frame.
+
+**The arena.** When it spawns, the camera's right edge stops at the spawn point and its left, top and bottom edges close in a pixel a frame on the arena: from 320 px left of the spawn point to it, and from it to 192 px below it (`Bosses_SetCamBounds`). Sonic's ground speed is set to 0 and his controls are held. From then on, scattered rings bounce off ceilings as well as floors, and a task at priority `0xFFFD` takes the colours under the water from the stage's every frame (`InitWaterPalettes`). Two seconds later the boss music starts (the music manager's state `0x10`). The spider walks in at a pixel a frame to 120 px left of the spawn point while the camera's target moves up 96 px, a pixel a frame. It stands still for a second, Eggman laughs, and a second after his laugh ends the camera's target comes back and Sonic's controls with it.
+
+**The fight** (`sub_8030EE4`): it walks at a pixel a frame to one of nine places 288 to 32 px left of the spawn point, in steps of 32 (`gUnknown_084ACEC6`, USA `0x084A5DC6`), picked with the game's random numbers. When it is already there it takes the one 5 further on. It stands still for half a second, then for two seconds shakes the screen and drops an icicle every `gUnknown_084ACEB4[hits]` frames (USA `0x084A5DB4`: 59 up to 3 hits, 39 up to 6, then 29 and 19), with song 145. After the drops it walks to two more places before it drops again.
+
+**The icicles** (`CreateIciclePlatform` and `sub_8031AB4`, USA `0x08031A85`, priority `0x2200`) are animation `630`, box 0 (−12, −17, 11, 6) and box 1 (−5, 5, 4, 15). Each starts 32 px above the spawn point, 10 to 310 px left of it in steps of 20, and falls 10 to 25/256 px a frame faster each frame, both picked at random. Under the water it falls an eighth as fast while the boss is whole. Its point (box 1) hurts Sonic while the boss is whole. Under the water he can land on it, and it takes him down with it a pixel a frame faster, until it is more than 196 px down. It goes 208 px down.
+
+**Hitting it** (`sub_80308A4`): while it isn't flashing, Sonic's attack box on its box 0 knocks him back (his speeds reversed) and hits it, with song 143 and Eggman wincing. Otherwise his body on that box hurts him, and Eggman laughs. A hit makes it flash white on two frames in every four for 120 frames. It takes 8 hits on the normal difficulty.
+
+**Beaten** (`sub_80311D4`), Eggman winces and song 144 plays. The spider is left as its body (`626`), and three parts (`627`) fly off through the rotation hardware for 60 frames: the top across to the left at 1 px a frame, and two legs to either side at 4 px a frame. The camera stops across, its top and bottom edges move a screen down, a pixel a frame, to the arena's floor, the water line's target goes 160 px down, and 1000 points are scored. A widescreen view's black follows the bounds to where they are going: that one screen at the arena's floor (`cam.arena`). The body falls 2/256 px a frame faster each frame, throwing a piece of debris (falling 5/256 px a frame faster each frame) and an explosion every 8 frames. After two seconds it stops when the back layer's floor is 56 px under it. 300 frames after it was beaten, Eggman escapes in the Egg Mobile from 40 px below it, the music manager's state `0x30` ends the boss music, and the original makes the capsule that ends the act there (`CreateBossCapsule`). The engine calls `world.bossDefeated(x, y)` at that moment, and the capsule and the act's end are left to [#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69).
+
+**How it was checked.** mGBA 0.10.5 with the USA ROM, from the act 2 savestate with Sonic placed in the arena, the boss's memory, the icicles, the parts and Sonic read after every frame:
+
+- 2400 frames of the fight: the arena, the intro, the camera, Eggman's place and laugh, the random walks, the drops, the icicles above and under the water, and Sonic drowning and starting over.
+- 1550 frames with the hit count set to 7 before Sonic's hit: the eighth hit, the parts, the fall, the debris and the wreck, up to where the capsule takes over.
+
+The spider's, Eggman's, the icicles' and the parts' positions, animations and frames, and Sonic's position, match on every frame, and so do the game's random numbers. Not checked: the boss's colours under the water, the white flash's picture, the left leg's mirroring through the rotation hardware, the jump and attack buttons held when Sonic's controls come back, the screen's windows and blending during the wreck, scattered rings hitting the arena's ceiling, the other difficulties, and the camera's bounds after Sonic dies in the arena.
 
 ## Sonic Advance 2, for Boost Mode
 

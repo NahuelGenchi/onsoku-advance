@@ -118,15 +118,15 @@ const DEBRIS = ['boltSmall', 'boltSmall2', 'boltMedium', 'boltMedium2', 'boltLar
 
 /**
  * What a beaten boss throws every 8 frames from (x, y): a piece of debris flung up at 6 px a frame at a random
- * angle, falling 40/256 px a frame faster each frame and kept for at least 32 frames, and an explosion up to
- * 63 px above and 32 px either side.
+ * angle, falling `ay`/256 px a frame faster each frame (40, or 5 for the Egg Spider's) and kept for at least
+ * 32 frames, and an explosion up to 63 px above and 32 px either side.
  */
-export function bossDebris(ctx, x, y) {
+export function bossDebris(ctx, x, y, ay = 40) {
   const random = ctx.world.random;
   const s = makeSprite(DEBRIS[random() % DEBRIS.length], { order: 17, prio: 2 });
   const angle = random() & 0x1FF;
   const vy = s16(-(SINE[angle] * 0x600) >> 14), vx = s16(-(SINE[angle + 256] * 0x600) >> 14);
-  ctx.add(nutsAndBolts(s, x << 8, y << 8, { vx, vy, ay: 40, hold: 32 }));
+  ctx.add(nutsAndBolts(s, x << 8, y << 8, { vx, vy, ay, hold: 32 }));
   const r = random();
   ctx.add(bossExplosion(ctx, (x + (r & 0x3F) - 32) << 8, (y - ((r & 0x3F0000) >> 16)) << 8));
 }

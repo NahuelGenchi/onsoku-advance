@@ -63,10 +63,13 @@ export function createRenderer(canvas, assets) {
     if (!pixels && !pixelsOfAtlas.has(atlas)) pixelsOfAtlas.set(atlas, atlas.getContext('2d').getImageData(0, 0, atlas.width, atlas.height).data);
     return { atlas, frames, pixels: pixels ?? pixelsOfAtlas.get(atlas) };
   };
-  // the sprites' sheet, or the one in the colours under water while the screen below the water line is drawn
+  // the sprites' sheet, or the one in the colours under water while the screen below the water line is drawn:
+  // palette 423's, or once a boss's task copies the sprite palette every frame (InitWaterPalettes, `ownColours`)
+  // each sprite's own
   const aboveSheet = sheetOf({ atlas, frames });
   const underSheet = assets.sprites.under ? sheetOf({ atlas: assets.sprites.under, frames }) : null;
-  let base = aboveSheet;
+  const ownSheet = assets.sprites.underOwn ? sheetOf({ atlas: assets.sprites.underOwn, frames }) : underSheet;
+  let base = aboveSheet, ownColours = false;
   // Another game's sheet in the colours under water: the colours in `swap` (by 'r,g,b') take the one it gives,
   // and every other colour is mixed with the water's, as the HUD's are
   const blend = stage.water?.blend;
@@ -106,7 +109,11 @@ export function createRenderer(canvas, assets) {
       const swap = new Map(under && other.palette ? other.palette.map((c, i) => [c.join(), under[i]]).slice(1) : []);
       sheets.set(other, { above: sheet, under: underSheet && underOf(sheet, swap) });
     }
-    return sheets.get(other)[base === underSheet ? 'under' : 'above'];
+    const made = sheets.get(other);
+    if (base === aboveSheet) return made.above;
+    if (!ownColours) return made.under;
+    // in its own colours, Sonic's row with the rest
+    return (made.own ??= underOf(made.above));
   };
 
   // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does
@@ -628,22 +635,23 @@ export function createRenderer(canvas, assets) {
   }
 
   // The snow (Ice Mountain) from map pixel (sx, sy) at the original screen's top left, in palette `colors`,
-  // added to what is under it or, with `opaque`, drawn over it, on the screen's lines above `end`.
-  // It is put together on a layer of its own and added onto the screen ('lighter' adds each channel and stops at
-  // 255, as the blend does), so the screen is never read back.
+  // added to what is under it or, with `opaque`, drawn over it, on the screen's lines above `end`; white in a
+  // hit flash's window with `flash` (whiteWindow). It is put together on a layer of its own and added onto the
+  // screen ('lighter' adds each channel and stops at 255, as the blend does), so the screen is never read back.
   const snowCanvas = document.createElement('canvas');
   let snowImg = null;
-  function drawSnow(frame, sx, sy, colors, opaque, ox, oy, end) {
+  function drawSnow(frame, sx, sy, colors, opaque, ox, oy, end, flash) {
     if (end <= 0) return;
     if (snowImg?.width !== W || snowImg?.height !== H) { snowImg = new ImageData(W, H); snowCanvas.width = W; snowCanvas.height = H; }
     const d = snowImg.data, sw = snow.width, sh = snow.height;
+    const win = flash && maskCtx.getImageData(0, 0, W, end).data;
     d.fill(0, 0, W * end * 4);
     for (let y = 0; y < end; y++) {
       const row = mod(sy + y - oy, sh) * sw;
       for (let x = 0; x < W; x++) {
         const c = frame[row + mod(sx + x - ox, sw)];
         if (!c) continue;
-        const k = (y * W + x) * 4, rgb = colors[c];
+        const k = (y * W + x) * 4, rgb = win && win[k + 3] ? [255, 255, 255] : colors[c];
         d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2]; d[k + 3] = 255;
       }
     }
@@ -681,14 +689,14 @@ export function createRenderer(canvas, assets) {
     for (const [first, end, below] of parts) {
       ctx.save();
       ctx.beginPath(); ctx.rect(0, first, W, end - first); ctx.clip();
-      base = below ? underSheet : aboveSheet;
+      base = below ? (ownColours ? ownSheet : underSheet) : aboveSheet;
       draw(below, first, end);
       ctx.restore();
     }
     base = aboveSheet;
   }
 
-  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water }) {
+  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, blendOff }) {
     ctx.imageSmoothingEnabled = false;
     if (art && art !== boostArt) {
       if (!boostSheets.has(art)) boostSheets.set(art, new WeakMap());
@@ -711,6 +719,7 @@ export function createRenderer(canvas, assets) {
     const line = water ? Math.max(0, Math.min(H, water.level - vy)) : H;
     const split = line > 0 && line < H ? line - 1 : line;
     parts = [[0, split, false], [split, H, true]].filter(([first, end]) => end > first);
+    ownColours = !!water?.ownColours;
     // the background is fixed to the view, as the original's is to its screen: it lines up with a 240 × 160
     // screen in the view's middle, and the sea scrolls with where that screen would be. Near the act's edges
     // the view stops before the camera does, and so does the background. A taller view shows the map's lines
@@ -778,9 +787,10 @@ export function createRenderer(canvas, assets) {
     drawFlashedLayer(flash, c => (ix ? indexOver(c, 'front', vx, vy, frame) : drawLayer(c, stage, 'front', vx, vy, W, H, frame, palettes, under)));
     drawAll(1, s => (s.prio ?? 0) >= 1);
     // the snow lies over everything but the sprites of priority 0; the title card's fade and its last frame show
-    // it as it is. Above the water it is off while the water line was at the screen's top the frame before.
+    // it as it is, as do the frames a boss has turned the blending off on (`blendOff`) or flashes on. Above the
+    // water it is off while the water line was at the screen's top the frame before.
     const fading = titleCard ? titleCard.sprites.length > 0 && (titleCard.sprites[0].a0 & 0xC00) === 0x400 : cardOver;
-    if (ice && tick > 1 && (!water || water.snow)) drawSnow(snow.frames[ice.snowFrame], ice.snowX, ice.snowY, snow.palettes[paletteVariant(stage, snow.follows, palettes)], fading, ox, oy, split);
+    if (ice && tick > 1 && (!water || water.snow)) drawSnow(snow.frames[ice.snowFrame], ice.snowX, ice.snowY, snow.palettes[paletteVariant(stage, snow.follows, palettes)], fading || blendOff || !!flash, ox, oy, split, flash);
     // the HUD's sprites are at priority 0 and OAM order 3, so the few of priority 0 with a lower order are in
     // front of them
     drawAll(1, s => (s.prio ?? 0) < 1 && s.order >= HUD_ORDER);

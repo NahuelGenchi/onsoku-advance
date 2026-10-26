@@ -22,6 +22,7 @@ import { hanabii, HANABII } from './hanabii.js';
 import { slotMachine, SLOT } from './slot.js';
 import { pierrot, PIERROT } from './pierrot.js';
 import { eggBall, EGG_BALL } from './eggball.js';
+import { eggSpider, EGG_SPIDER } from './eggspider.js';
 import { yukimaru, yukimaruWall, YUKIMARU, YUKIMARU_WALL } from './yukimaru.js';
 import { pen, PEN } from './pen.js';
 
@@ -359,5 +360,5 @@ export const ENEMIES = {
   [EGG_HAMMER_TANK_INTRO]: createEggHammerTankIntro, [EGG_HAMMER_TANK]: createEggHammerTank,
   [DRISAME]: drisame, [KURAA]: kuraa, [MOLE]: mole, [TENTOU]: tentou, [SENBON]: senbon, [FIREBALL]: fireball,
   [EGG_PRESS]: createEggPress, [HANABII]: hanabii, [SLOT]: slotMachine, [PIERROT]: pierrot, [EGG_BALL]: eggBall,
-  [YUKIMARU]: yukimaru, [YUKIMARU_WALL]: yukimaruWall, [PEN]: pen,
+  [YUKIMARU]: yukimaru, [YUKIMARU_WALL]: yukimaruWall, [PEN]: pen, [EGG_SPIDER]: eggSpider,
 };

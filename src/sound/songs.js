@@ -50,7 +50,7 @@ export const SONG = {
   RESULTS_DONE: 141,       // SE_STAGE_RESULT_COUNTER_DONE: the count is over
   BOSS_HIT: 143,           // SE_BOSS_HIT: also a skating stone breaking
   EXPLOSION: 144,          // SE_EXPLOSION: a boss is beaten
-  IMPACT: 145,             // SE_IMPACT: the Egg Hammer Tank's hammer lands, as the Egg Press does
+  IMPACT: 145,             // SE_IMPACT: the Egg Hammer Tank's hammer lands, as the Egg Press does, and the Egg Spider dropping an icicle
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
   CHECKPOINT: 169,
@@ -65,6 +65,7 @@ export const SONG = {
   HOOK_RAIL: 180,          // SE_HOOK_RAIL: while a hook rail carries Sonic
   LIFT: 181,               // SE_LIFT: a crane claw carries Sonic
   STEAM_EXHAUST: 182,      // SE_LAVA_PLATFORM_SPURT: a steam exhaust blows
+  LAVA_SPURT: 182,         // SE_LAVA_PLATFORM_SPURT
   BUMPER_A: 183,           // SE_BUMPER_A: a hexagonal or round bumper
   BUMPER_B: 184,           // SE_BUMPER_B: a triangular bumper
   PANEL_GATE: 185,         // SE_PANEL_GATE: a panel gate spins open

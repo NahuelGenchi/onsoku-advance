@@ -2,6 +2,7 @@
 // and the act, with its special stage between two runs of it. With ?debug the act starts straight away, and
 // with ?special the special stage does, as if Sonic had just left act 1 on its special spring.
 
+import './engine/cpucanvas.js';
 import { createRomPicker } from './ui/rom-picker.js';
 import { loadRememberedRom, rememberRom, RUSH_ROM } from './ui/rom-store.js';
 import { extractAssets } from './rom/extract.js';

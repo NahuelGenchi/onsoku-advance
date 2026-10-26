@@ -2,7 +2,8 @@
 // step. Each part is a task in one list, at the original's priority, so they run in its order and the tasks
 // the objects make fall in where the original's do. Each step also lists the sprites it shows, in the order
 // the original puts them in OAM, for the renderer. Once an act's results are over the next act starts, with
-// the score and the lives carried over.
+// the score and the lives carried over. A special spring hands the game over to the special stage
+// (options.onSpecialStage), and the act starts again from what that hands back (options.resume).
 
 import { TICK_MS, CAMERA, PHYSICS, SCREEN_W, SCREEN_H, RUSH_BOOST } from './constants.js';
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
@@ -23,6 +24,7 @@ import { createPaletteAnimation } from './palettes.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { createBossCapsule } from './capsule.js';
+import { SPECIAL_SPRING } from './specialspring.js';
 import { SONG } from '../sound/songs.js';
 import { RUSH_BOOST_SE } from '../rom/rush.js';
 
@@ -53,7 +55,13 @@ const SILENT = {
   playerState() {}, stopAll() {}, musicOff() {}, musicState() {},
 };
 
-export function createGame(canvas, assets, input, sound = SILENT) {
+/**
+ * The act on `canvas`. `options`: onSpecialStage(game), called the frame a special spring sends Sonic out of the
+ * act, after which it stops; resume, such a `game` as the special stage hands it back, to start the act again
+ * from; emeralds, the Chaos Emeralds won so far (a bit per special stage), and continues, the continues the
+ * player has, which it hands on.
+ */
+export function createGame(canvas, assets, input, sound = SILENT, options = {}) {
   const { anims } = assets.sprites, { spinDashSpeeds } = assets.physics;
   // the act being played (assets.acts), and what is its own: its map, its objects and their tasks, its rings
   // and its palette animations, and a renderer for its art
@@ -99,6 +107,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   let ended = false;  // past the last act built so far, the screen keeps its last frame
   let frozen = null;  // until then, the last act's last frame, which the screen keeps: { render, state }
   let drawShift = 0;   // how far right of the view the rest of this frame draws, after the act looped back
+  let special = null;   // the special spring Sonic left the act on, after which the act stops
+  let shiftX = 0, shiftY = 0;   // how far from the camera the layers are drawn with this frame's sprites are placed
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
   const newRenderer = () => {
     const r = createRenderer(canvas, { ...assets, stage, titleCard: act.titleCard, results: act.results });
@@ -144,11 +154,14 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     },
     // the act starts over: the original destroys every task, so nothing after Sonic's runs this frame
     lifeLost() { restart = true; tasks.stop(); },
+    get level() { return state.level; },   // gCurrentLevel, which the goal's rules depend on
     // the goal (goal.js): the clock and the rings stop (STAGE_FLAG__ACT_START and STAGE_FLAG__2), and it holds
     // the camera and, once Sonic is in his act-clear run, hands over to the results (CreateStageResults): the
     // act-clear jingle and no more music manager, and the results' task, which first runs this frame
     get goalReached() { return state.goalReached; },
     reachGoal() { state.goalReached = true; state.clockStopped = true; state.ringsStopped = true; },
+    // the act's end has Sonic now (STAGE_FLAG__2: past the goal, or a beaten boss), for the optional Boost Mode
+    get actOver() { return state.ringsStopped; },
     get camera() { return state.cam; },
     stageResults() {
       state.results = createResults(act.results, { rings: state.ringCount, courseTime: state.courseTime, level: state.level });
@@ -166,6 +179,20 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       cam.x += loop.shift; cam.wrapped += loop.shift; drawShift -= loop.shift;
       return loop.shift;
     },
+    // STAGE_FLAG__ACT_START: the course clock stops
+    stopClock() { state.clockStopped = true; },
+    // the special spring holds the camera (specialspring.js): it puts it back where it was after the camera's
+    // task has moved it and drawn the layers there, so what is drawn after it this frame is placed from there
+    holdCamera(x, y) {
+      shiftX += ctx.cam.x - x; shiftY += ctx.cam.y - y;
+      state.cam.x = x; state.cam.y = y;
+      ctx.cam = { x, y };
+    },
+    // whether there is a special stage to go to; without one the special springs are plain springs
+    specialStages: !!options.onSpecialStage,
+    // a special spring sent Sonic out of the top of the screen: the act stops here for the special stage
+    // (TasksDestroyAll, then CreateSpecialStageIntro), so nothing after the spring runs this frame
+    specialStage(x, y) { special = { x, y }; tasks.stop(); },
     get checkpointIndex() { return state.checkpointIndex; },
     // Sonic passed checkpoint `index`: the act starts over with his centre at (x, y) and the clock at this time
     passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.courseTime }; },
@@ -243,7 +270,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   // names the OAM matrix it shares with other sprites, which all show the last transform written to it.
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x: x + drawShift, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, white: s.white });
+    state.sprites.push({ frame: s.frame, x: x + drawShift + shiftX, y: y + shiftY, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, white: s.white });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
@@ -465,8 +492,30 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   }
   addStageTasks();
   startCard();
+  if (options.resume) comeBack(options.resume);
+
+  // sub_805D4F0, as the special stage's results end: its checkpoint 16 px up and left of the spring Sonic left
+  // on, the act starts again (CreateGameStage) as after a death but without losing a life, with its title
+  // card, and the original spends the next frame loading it. The checkpoint then goes back to the one he had
+  // passed, and the special springs are plain until the act starts over (unk99[1]). The course time, the
+  // stage clock, the rings, the last checkpoint passed and the next freed animal are what they were when he
+  // left; the score, the lives and the game's random numbers what the special stage leaves.
+  function comeBack({ level, score, lives, courseTime, seed, act }) {
+    while (state.level < level) startNextAct();
+    Object.assign(player, createPlayer({ x: act.spring.x - 16, y: act.spring.y - 16, spinDashSpeeds: assets.physics.spinDashSpeeds }));
+    player.plainSprings = true;
+    const checkpoint = act.checkpoint && { ...act.checkpoint };
+    if (courseTime >= MAX_COURSE_TIME && checkpoint) checkpoint.time = 0;
+    Object.assign(state, {
+      score, lives, courseTime, seed, tick: act.stageTime, ringCount: act.rings, animal: act.animal,
+      checkpoint, checkpointIndex: act.checkpointIndex, cam: newCamera(),
+    });
+    ctx.view = state.view = viewOf(state.cam, viewW, viewH);
+    loading = true;
+  }
 
   function step() {
+    if (special) return;
     input.poll?.();
     if (loading) { loading = false; return; }
     if (ended) return;
@@ -476,9 +525,10 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       if (nextAct > 0) return;
     }
     frozen = null;
-    state.sprites = []; drawShift = 0;
+    state.sprites = []; drawShift = 0; shiftX = 0; shiftY = 0;
     tasks.run(ctx);
     if (restart) { restart = false; restartAct(); }
+    if (special) options.onSpecialStage?.(handOver(state, special, { ...options, level: state.level }));
   }
 
   const show = () => (frozen ? frozen.render(frozen.state) : render(state));
@@ -486,7 +536,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
   function loop(now) {
     pending += Math.min(100, now - last);   // after a stall, catch up at most 100 ms instead of fast-forwarding
     last = now;
-    while (pending >= TICK_MS) { step(); pending -= TICK_MS; }
+    while (pending >= TICK_MS && !special) { step(); pending -= TICK_MS; }
+    if (special) return;   // the special stage has the screen now
     show();
     frame = requestAnimationFrame(loop);
   }
@@ -510,4 +561,34 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     },
     stop() { input.enabled = false; input.release(); cancelAnimationFrame(frame); sound.stopAll(); },
   };
+}
+
+/**
+ * What the act hands the special stage (options.onSpecialStage) when Sonic leaves it on the special spring at
+ * `spring`, and gets back to start again from (options.resume): { level, character, score, lives, courseTime,
+ * emeralds, continues, seed (gPseudoRandom, which the special stage goes on with), act }, where `act` is what
+ * only the act reads: the spring, the checkpoint he had (gSpecialStageReturnX and Y, with its course time, or
+ * null for the act's start), the last checkpoint passed (gBossIndex), the stage clock (gStageTime), the rings
+ * and the next freed animal.
+ */
+function handOver(state, spring, { level = 0, emeralds = 0, continues = 0 }) {
+  return {
+    level, character: 0, score: state.score, lives: state.lives, courseTime: state.courseTime, emeralds, continues, seed: state.seed,
+    act: {
+      spring, checkpoint: state.checkpoint, checkpointIndex: state.checkpointIndex, stageTime: state.tick, rings: state.ringCount,
+      animal: state.animal,
+    },
+  };
+}
+
+/**
+ * What the act would hand over had Sonic gone straight from its start to its special spring (the ?special test):
+ * a new game, with nothing done in the act. `options` as createGame's. Null for an act without a special spring.
+ */
+export function specialSpringStart(assets, options = {}) {
+  const spring = assets.stage.interactables.find(e => e.kind === SPECIAL_SPRING);
+  if (!spring) return null;
+  return handOver({
+    score: 0, lives: START_LIVES, courseTime: 0, seed: 0, checkpoint: null, checkpointIndex: 0, tick: 0, ringCount: 0, animal: 0,
+  }, { x: spring.x, y: spring.y }, { ...options, level: assets.stage.level });
 }

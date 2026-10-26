@@ -59,6 +59,16 @@ export function createSound() {
     },
     /** m4aSongNumStop */
     stop(song) { call('songStop', song); },
+    /** MPlayStart with the song on music player `player`, and nothing else */
+    startOn(player, song) { call('playerStart', player, song); },
+    /** MPlayStop on music player `player` */
+    stopPlayer(player) { call('playerStop', player); },
+    /** m4aSongNumStartOrContinue */
+    startOrContinue(song) { call('songStartOrContinue', song); },
+    /** m4aMPlayVolumeControl on the tracks `bits` of music player `player` */
+    volume(player, bits, volume) { call('volumeControl', player, bits, volume); },
+    /** m4aMPlayFadeIn on music player `player`, a step up every `speed` frames */
+    fadeIn(player, speed) { call('fadeIn', player, speed); },
     /** m4aMPlayFadeOut on music player `player`, a step down every `speed` frames */
     fadeOut(player, speed) { call('fadeOut', player, speed); },
     /** m4aMPlayTempoControl on the music (0x100 is normal speed) */

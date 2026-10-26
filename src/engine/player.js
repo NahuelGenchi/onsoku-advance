@@ -58,6 +58,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     heldInput: null,   // what he reads while it does (heldInput): nothing, or the right the goal holds
     forcedRoll: false, // MOVESTATE_200: a mini loop keeps him rolling (miniloops.js)
     actClear: false,   // MOVESTATE_800000: past the goal, running in his act-clear pose until the results count up
+    plainSprings: false, // unk99[1]: back from a special stage, the special springs are plain springs until the act starts over
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,

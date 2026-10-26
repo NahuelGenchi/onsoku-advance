@@ -147,6 +147,8 @@ The goal is a game that behaves *exactly* like the original, not one that looks 
 - **The game's own sound.** The music and sound effects are played by a rebuilt copy of the cartridge's sound engine, whose output matches the original's byte for byte.
 - **Sharp pixels.** The game draws at the Game Boy Advance's own 240 × 160 and scales up in whole steps, so every pixel stays crisp on any screen.
 
+The game opens as the original does, with the SEGA and Sonic Team logos, the intro timed to its music, the title screen and the main menu. Game Start goes straight to the act, where the character select would start; the menu's other modes are next.
+
 The act opens, and starts over after a lost life, with the original title card sliding in as the screen fades up from black. The original on-screen counters show your rings, score, time and lives.
 
 ## Extras you can switch on
@@ -159,7 +161,9 @@ Two optional additions on top of the original game. Both are off until you turn 
 <img src="docs/assets/gameplay/widescreen.webp" width="736" alt="The original 240 by 160 screen, outlined in the middle of a wider frame; the widescreen view then fades in around it, showing more of the loop and the grind rail">
 </div>
 
-See more of the act around the original screen, up to 368 × 208, filling the window at the same whole-step scale. The outline marks the Game Boy Advance's screen: the game plays exactly as it does there. Press <kbd>V</kbd> or use the *Widescreen* button in the help panel.
+See more of the game around the original screen, from the opening logos on, up to 368 × 208, filling the window at the same whole-step scale. The outline marks the Game Boy Advance's screen: the game plays exactly as it does there. Press <kbd>V</kbd> or use the *Widescreen* button in the help panel.
+
+Past the original screen, the view only shows what the game really has there. In an act that is more of the act, as far as the original's camera can go: the view stays inside the act's edges and inside a boss's arena. Where the original has nothing more to show, the view is black, like the frame around the Game Boy Advance's screen: beside an arena narrower than the view, and either side of a screen made for 240 × 160 alone. A picture's edge is never stretched or repeated to fill the space.
 
 ### Sonic Rush boost
 
@@ -214,18 +218,23 @@ drawn, and Sonic Advance's own sprites behind Sonic count as background when the
 | **Spin dash** | <kbd>↓</kbd> + <kbd>Z</kbd> | Down + <kbd>A</kbd> |
 | **Look up** | <kbd>↑</kbd> | Up |
 | **Boost**, with the [Rush boost](#sonic-rush-boost) on | <kbd>L</kbd> or <kbd>Shift</kbd> | <kbd>X</kbd> |
+| **Start**: skips the intro, as jump and attack do, and opens the menu from the title screen | <kbd>Enter</kbd> | <kbd>Menu</kbd> |
+| **In the menu:** choose, then pick | <kbd>↑</kbd> <kbd>↓</kbd>, then <kbd>Z</kbd> or <kbd>Space</kbd> | D-pad or left stick, then <kbd>A</kbd> |
+| **Select** | <kbd>Backspace</kbd> | <kbd>View</kbd> |
 | Help panel on or off | <kbd>H</kbd> | |
 | Sound on or off | <kbd>M</kbd> | |
 | Widescreen view on or off | <kbd>V</kbd> | |
 | Rush boost on or off | <kbd>R</kbd> | |
 | Show the collision (for checking the level) | <kbd>C</kbd> | |
 
+In a special stage the same controls fly Sonic down the tunnel: the D-pad or left stick steers, jump (A) speeds him up while held, and attack (B) does a trick. A trick just after touching a bumper pulls in its rings.
+
 Other controllers that your browser maps to the Xbox layout work the same way. Press a button once after the page loads so the browser notices the controller. On touch screens, on-screen buttons appear instead.
 
 ## Where it's at
 
 > [!NOTE]
-> **Early days: the first zone's two acts are playable.** You can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets, through to its goal signpost and score tally, and then **act 2** with its mini loops, water bridge, bushes and hiding spikes, through to its boss, the Egg Hammer Tank, and the capsule that frees the animals and ends the zone. The next zone isn't built yet, and there is no game over yet.
+> **Early days: the first zone's two acts are playable.** The game opens with the original [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67) and its [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70). You can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets, through to its goal signpost and score tally, and then **act 2** with its mini loops, water bridge, bushes and hiding spikes, through to its boss, the Egg Hammer Tank, and the capsule that frees the animals and ends the zone. Act 1's special spring leads to [Special Stage 1](https://github.com/NahuelGenchi/onsoku-advance/issues/75), with the Chaos Emerald and the results, then back to the act. The next zone isn't built yet, and there is no game over yet.
 
 Here's the road through the rest of the game. Each step has its own issue, so you can follow along.
 
@@ -246,7 +255,7 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 </tbody>
 </table>
 
-Also on the way: the [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67), the [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70), the [special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84), plus two more optional extras from Sonic Advance 2: its [Boost Mode](https://github.com/NahuelGenchi/onsoku-advance/issues/63) and its [mid-air tricks](https://github.com/NahuelGenchi/onsoku-advance/issues/65).
+Also on the way: the title screen's demos, the character select and the menu's other modes, the [other six special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84), plus two more optional extras from Sonic Advance 2: its [Boost Mode](https://github.com/NahuelGenchi/onsoku-advance/issues/63) and its [mid-air tricks](https://github.com/NahuelGenchi/onsoku-advance/issues/65).
 
 <details>
 <summary><b>Milestones</b></summary>
@@ -309,7 +318,7 @@ It's made for a current desktop browser, with a keyboard or a controller. On tou
 <summary><b>Is there sound?</b></summary>
 <br>
 
-Yes: the act's music, the extra-life and invincibility tunes, and the sound effects of Sonic, the rings, the enemies, the item boxes and the act's springs, platforms, boosters, rails and more, all read from your ROM. <kbd>M</kbd> turns the sound on or off.
+Yes: the intro's music, SEGA's ring at the Sonic Team logo, the title screen's music, the menu's sounds, the act's music, the extra-life and invincibility tunes, and the sound effects of Sonic, the rings, the enemies, the item boxes and the act's springs, platforms, boosters, rails and more, all read from your ROM. <kbd>M</kbd> turns the sound on or off.
 
 </details>
 
@@ -344,7 +353,7 @@ flowchart LR
 
 1. **Extract.** You pick your ROM. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory, entirely in the browser.
 2. **Simulate.** The engine steps 60 times per second with the original game's rules: acceleration, braking, gravity, jump height, roll friction, spin dash speeds and the camera's dead zones.
-3. **Draw.** Sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view draws up to 368 × 208 around the same screen; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds its trail and aura around Sonic.
+3. **Draw.** The logos, the intro, the title screen and the menu run on a port of the original's own engine (its tasks, sprites, backgrounds, line-by-line effects and V-blank) at the GBA's 59.73 frames a second, and a model of the GBA's video hardware draws them as mGBA does. In the act, sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view draws up to 368 × 208 around the same screen; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds its trail and aura around Sonic.
 4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The Rush boost's sound plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, added to the same output.
 
 ## Run it on your own computer
@@ -358,6 +367,8 @@ python -m http.server 8000
 ```
 
 Then open <http://localhost:8000> and choose your ROM to play.
+
+Two addresses skip ahead for testing: <http://localhost:8000/?debug> starts the act straight away, without the logos and the intro, and <http://localhost:8000/?special> starts Special Stage 1 as soon as the ROM is read, as if Sonic had just left act 1 on its special spring. When the stage ends, the act picks up again from that spring.
 
 To see everything the extractor decodes, open <http://localhost:8000/viewer.html>: Sonic's, the springs' and the rings' animations playing with their original timing, the sprite atlas, Neo Green Hill Zone act 1 with its collision, and the zone's background.
 

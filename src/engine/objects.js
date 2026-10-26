@@ -1,8 +1,9 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
 // platforms, boulders, waterfalls, boosters, checkpoints, wall poles, grind rails, the incline ramp, the
-// half-pipe, the forced slide, the mini loops, the water bridge, the shrubbery, the goal, item boxes, enemies,
-// and a stand-in for each kind that this game doesn't build yet, so that every task keeps its place in the list.
+// half-pipe, the forced slide, the mini loops, the water bridge, the shrubbery, the goal, the special spring,
+// item boxes, enemies, and a stand-in for each kind that this game doesn't build yet, so that every task keeps
+// its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
 // order, and the tasks of a priority in the order they were made. The original fetches the next task before
@@ -28,6 +29,7 @@ import { createMiniLoop } from './miniloops.js';
 import { createWaterBridge, createBridgeSplash } from './waterbridges.js';
 import { createShrub } from './shrubs.js';
 import { createGoal, STAGE_GOAL } from './goal.js';
+import { createSpecialSpring } from './specialspring.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -155,7 +157,7 @@ function interactable(e, slot, anims, ctx) {
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createMiniLoop(e, slot)
     ?? createWaterBridge(e, slot, anims) ?? createBridgeSplash(e, slot, anims) ?? createShrub(e, slot, anims)
-    ?? (e.kind === STAGE_GOAL ? createGoal(e, slot, anims) : standIn(e, slot));
+    ?? createSpecialSpring(e, slot, anims) ?? (e.kind === STAGE_GOAL ? createGoal(e, slot, anims) : standIn(e, slot));
 }
 
 /**

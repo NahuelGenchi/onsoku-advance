@@ -1,9 +1,12 @@
-// Game page: choose a ROM, extract its assets in the browser, then play.
+// Game page: choose a ROM, extract its assets in the browser, then the game's start (the logos and the intro)
+// and the act. With ?debug the act starts straight away.
 
 import './engine/cpucanvas.js';
 import { createRomPicker } from './ui/rom-picker.js';
 import { loadRememberedRom, rememberRom, RUSH_ROM } from './ui/rom-store.js';
 import { extractAssets } from './rom/extract.js';
+import { Rom } from './rom/rom.js';
+import { createFrontEnd } from './front/front.js';
 import { extractRush } from './rom/rush.js';
 import { createInput } from './engine/input.js';
 import { createGame } from './engine/game.js';
@@ -24,7 +27,7 @@ const debug = new URLSearchParams(location.search).has('debug');
 const input = createInput();
 input.bindTouch(document.getElementById('touch'));
 const sound = createSound();
-let game = null, statsTimer = 0;
+let game = null, front = null, statsTimer = 0;
 
 // the widescreen view: off unless chosen, as the original screen is what the game is checked against
 const WIDE_KEY = 'onsoku.widescreen';
@@ -90,15 +93,29 @@ createRomPicker(picker, {
     const assets = await extractAssets(buffer, setStatus);
     setStatus('');
     sound.load(buffer, assets.sound).catch(err => console.warn('No sound:', err));
-    start(assets);
+    start(buffer, assets);
   },
 });
 
-function start(assets) {
-  game?.stop();
-  game = createGame(screen, assets, input, sound);
+function stopAll() {
+  front?.stop(); front = null;
+  game?.stop(); game = null;
+  clearInterval(statsTimer);
+}
+
+function start(buffer, assets) {
+  stopAll();
   picker.hidden = true;
   stage.hidden = false;
+  if (debug) { play(assets); return; }
+  front = createFrontEnd(screen, new Rom(buffer), assets.info.offsets, input, sound, () => { front = null; play(assets); });
+  fitScreen();
+  screen.focus();
+}
+
+// the act, after the game's start
+function play(assets) {
+  game = createGame(screen, assets, input, sound);
   fitScreen();
   showRush();
   game.start();
@@ -109,8 +126,7 @@ function start(assets) {
 }
 
 document.getElementById('change-rom').addEventListener('click', () => {
-  game?.stop();
-  clearInterval(statsTimer);
+  stopAll();
   stage.hidden = true;
   picker.hidden = false;
 });
@@ -131,13 +147,15 @@ function showStats() {
 }
 
 // largest whole-number scale the original screen fits at, so every pixel stays square and sharp; the
-// widescreen view then fills what the window has around it at that scale, up to its largest size
+// widescreen view then fills what the window has around it at that scale, up to its largest size, in the
+// game's start as in the act
 function fitScreen() {
   const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
   const fit = Math.min(vw / SCREEN_W, vh / SCREEN_H);
   const scale = fit >= 1 ? Math.floor(fit) : Math.max(fit, 0.25);
   const size = (room, min, max) => (wide ? Math.max(min, Math.min(max, Math.floor(room / scale) & ~1)) : min);
   const w = size(vw, SCREEN_W, VIEW_MAX_W), h = size(vh, SCREEN_H, VIEW_MAX_H);
+  front?.setView(w, h);
   game?.setView(w, h);
   screen.style.width = `${w * scale}px`;
   screen.style.height = `${h * scale}px`;

@@ -2,8 +2,11 @@
 // include/constants/sa1/songs.h; where each is played is listed in docs/ROM.md). The 1-up jingle, 307, is
 // the music manager's, in synth.js.
 export const SONG = {
+  INTRO: 1,                // MUS_INTRO
+  TITLE_FANFARE: 2,        // MUS_TITLE_FANFARE
   NEO_GREEN_HILL_1: 12,
   INVINCIBILITY: 28,       // MUS_INVINCIBILITY
+  SEGA_RING: 102,          // SE_RING: Sonic Team's logo
   SPIN: 109,               // SE_SPIN_ATTACK: spin dash start and revs, rolling, the combo's first hit
   SPIN_DASH_RELEASE: 110,
   SLIDE: 111,              // SE_SONIC_SKID_ATTACK

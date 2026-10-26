@@ -31,6 +31,8 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 | Spin dash speeds | `0x4A7084` | Nine 8.8 fixed-point values from 6.0 to 9.0 in steps of 0.375 |
 | UI graphics | `0x680A38` | 28-byte entries of two ROM pointers and five words; the first is the 8 × 16 font `{2, 0, 2, 1, 2}` and the sixth the HUD ring `{16, 2, 0, 4, 4}` |
 | Title card tables | `0x681274` | The pieces' texts, 56 bytes at +`0x34` that are the same in every version (see [Title card](#title-card)) |
+| Intro graphics | `0x69EC10` | The code that loads the intro's green streaks keeps three pointers side by side: their tiles, the first scene's colours and their map, the tiles `0x200` bytes after the colours and the map `0x3100` after them. The colours are where the intro's pictures start (see [The game's start](#the-games-start)) |
+| Intro tables | `0x684178` | Where the four characters' names stop on the screen, eight 16-bit values (`0x14, 0x70, 0x5C, 0x5A, 0x58, 0x70, 0x1C, 0x5A`), with a pointer into sprite VRAM `0x18` bytes in: the first of the names' letters |
 | Music players and songs | `0x6D767C`, `0x6D76AC` | Four music player entries (two EWRAM pointers, a track count of 1–16, a zero byte, a 16-bit field), followed at once by song entries of a ROM pointer and the player's number twice |
 
 ### Sprites
@@ -433,6 +435,55 @@ The HUD runs after the rings and objects and before Sonic, so it shows the ring 
 - *Jingle:* the sound engine port with the music manager stays identical to mGBA's engine for 368 frames, from just before the 100th ring through the jingle, the music's restart and the end of its fade-in.
 - *Read in the code only:* the 10:00 reading. The stage doesn't end at 10:00 yet (the original's time over).
 
+### The game's start
+
+Before the act, Onsoku Advance shows what Sonic Advance shows when it starts with a saved game: the SEGA and Sonic Team logos (`CreateSegaLogo`), then the intro (`CreateIntroAnimation`). They are a port of the original's code ([`src/front/`](../src/front/)) on a port of the engine its screens are built on ([`src/gba/engine.js`](../src/gba/engine.js)): the tasks run once a frame in order of priority, the copies of the display registers they write, the graphics queue copied to VRAM in the V-blank, the sprites' OAM entries, the H-blank DMA that changes a register from one line to the next, and the keys. [`src/gba/video.js`](../src/gba/video.js) draws the result as the GBA's video hardware does, a line at a time. Everything is read from the ROM as the original reads it: the logos are entries 86 and 87 of the tilemap table, the intro's pictures come from the intro graphics, its sprites from the sprite tables and its names' letters from the intro tables. They run at the GBA's own 59.73 frames a second.
+
+Frames are counted as mGBA draws them from power-on, the first being frame 0:
+
+| Frames | What shows |
+| :--- | :--- |
+| 7–166 | SEGA's logo wipes in from the bottom, a line more each frame. The lines below the wipe are the logo, the lines above it the logo's first line, stretched (the H-blank DMA scrolls each line). |
+| 167–286 | It holds |
+| 287–446 | It wipes out the same way, its last line stretched up from the bottom. On the last frame Sonic Team's logo is set up. |
+| 447–586 | Sonic Team's logo opens out from its middle: its top and bottom 40 lines show at once, and its middle 80 start split apart, every other line shifted the other way, closing in 2 px a frame. On 586 SEGA's ring plays (song 102). |
+| 587–708 | It holds |
+| 709–740 | It fades to white, a 32nd a frame |
+| 741 | The intro is set up, black, and its music starts (song 1) |
+| 742–1062 | A Chaos Emerald falls down the green streaks as the screen fades in, slowing to a stop by the 90th frame, with two rings of eight sparkles turning around it. From the 153rd frame Dr. Eggman's colours fade in from black, from the 183rd he rises into view under the emerald, his hands following once he is past 80 lines, and from the 234th the emerald falls again, into his hands. He grins from the 311th. |
+| 1063–1567 | The sparkles go, a pair every 4 frames, and the screen darkens a little. On 1287 two spotlights come on and sweep across Eggman, everything else darker. |
+| 1568, 1982, 2396, 2810 | Sonic's, Tails's, Knuckles's and Amy's turns, 414 frames each. Each starts black with the character's silhouette. On the 31st frame the screen goes white and the silhouette turns into the character, and from the 43rd a large picture of them fades in behind over 32 frames. From the 91st their name's letters slide in from the right, 16 px a frame, each 15 frames after the one before, and from the 353rd the screen fades to white. |
+| 3224 | The intro ends, and the title screen would start |
+
+**The spotlights** (`CreateSpotlightBeamTask` and `Task_SpotlightBeam`) are windows 0 and 1, each a wedge from a point below the screen whose two edges are drawn into the window's sides a line at a time. The decompilation's C for them is Sonic Advance 2's, so the port follows Sonic Advance's own assembly (`sa1_Task_SpotlightBeam`), which differs: it has no check for a beam of width 0. An edge's slope is the tangent of its angle: the sine over the cosine, both taken down to 8.8 first, through the BIOS's `Div`. Where the cosine comes to 0 that is a division by 0, which the original makes and mGBA's BIOS answers with ±1.
+
+**An overflow in the original.** The window effects write one line past the end of the H-blank DMA's second buffer (`gBgOffsetsBuffer`). In work RAM the sprites' colours (`gObjPalette`) come right after it, so on most of the spotlights' frames, 1312 to 1566, the sprites' colours 0 and 1 hold a window's last line. The engine keeps the buffers and the colours side by side in the same way, so it does the same. Colour 0 is transparent and nothing drawn then uses colour 1, so it never changes the picture (the engine run with the colours kept apart draws the same frames).
+
+**Skipping.** The logos read no keys until Sonic Team's logo fades: then A or Start goes to the title screen on the next frame. In the intro, A, B or Start goes to the title screen on the next frame and stops the intro's music, so the title screen starts its own (song 2). When the intro ends after Amy, the title screen starts without starting its music (`IntroOpenTitlescreenSilent`). In Onsoku Advance, Enter or the controller's Menu button is Start, Backspace or View is Select, and A and B are the act's jump and attack.
+
+**Not built yet.** These are still to come, so the game goes on where they would start:
+
+- *The title screen*, its demo and the main menu: the act starts instead, wherever the title screen would.
+- *The language screen* that a new game, without a save, starts with before the logos: the game always starts as with a save.
+- *The soft reset:* A, B, Start and Select held together restart the original from Sonic Team's logo on; here they do nothing.
+
+**Lag.** The original skips a frame's keys and tasks when the V-blank's copies run past the V-blank. These screens never do on the recordings, so that isn't modelled.
+
+**The widescreen view.** With it on, the logos and the intro fill the same view as the act, with the original screen in its middle drawn exactly as at 240 × 160; the game runs the same either way. Past the screen's edges each scene goes on as it really is:
+
+- *Layers:* the logos' map once across, with nothing either side. Eggman and his hands appear once, with nothing past their pictures (their maps' last 16 columns, and the rows past the pictures, are left over). Each character's picture and the backdrop behind it appear once, their edges carried on. The streaks carry on down for ever and out to the sides by their outer columns.
+- *Sprites:* where they really are, not where OAM wraps them, so the emerald and the sparkles show above the screen before they fall into it. A name's letters, which slide in from just past the screen's right edge, slide in from just past the view's.
+- *Effects:* the spotlights are the whole wedges they are. The fades, the darkening and the SEGA wipe's stretched lines carry on above, below and to the sides.
+- *Screens made for 240 × 160 alone:* a screen with nothing of its own past the screen's edges sets the engine's `wideBars`. The view then shows the original screen, drawn as at 240 × 160, in its middle with black around it, rather than a stretched or repeated edge.
+
+Turning it on or off (<kbd>V</kbd>) re-fits the view at once. It was checked on every frame of the runs above: at 240 × 160 the pictures are the same as before, and at every view size tried, the middle of the view is the original screen.
+
+**How it was checked.** mGBA 0.10.5 recorded the game from power-on to the title screen, with a save and nothing pressed, dumping VRAM, palette RAM, OAM, the work RAM and every line's display registers after each frame. Three more runs, recorded around the press, skip with A held from frame 720 (in Sonic Team's fade), Start from 1500 (during the spotlights) and B from 2100 (in Tails's turn).
+
+- *Every frame:* from the SEGA logo's first frame to the intro's last (7 to 3223), the engine's VRAM, palette RAM, OAM and each line's registers match the recording's, except for some VRAM on frames 445 and 3223. On those the next screen clears VRAM straight rather than in the V-blank (on 445 Sonic Team's logo its first two tiles, on 3223 the title screen, which isn't built), and the recording catches that write a frame before it shows. Nothing on screen uses those bytes then: the recorded state draws the same picture as the engine.
+- *Skipping:* in all three runs the frames match up to the press, and the engine leaves for the title screen on the same frame as the original, the one after the press is read (722, 1502 and 2102).
+- *Sound:* two more runs dumped the sound engine's state too. The original starts SEGA's ring and the intro's music on the same frames as the engine, and on the skip at 1500 the intro's music gives way to the title screen's on the next frame, as the engine stops it.
+
 ### Title card
 
 The title card (`sub_80550F8`, task `0x2100` at `0x08055425` in the USA ROM) plays when the act starts and every time it starts over. It makes six tasks (`0x2120`), one per piece of the card, and passes them its frame count each frame; they run right after it. Each piece is a row of sprites at background priority 0, so the card is in front of every layer and sprite. Its graphics come from the UI graphics table (see [HUD](#hud)):
@@ -549,6 +600,8 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 
 | Sound | Song | Player | When |
 | :--- | ---: | ---: | :--- |
+| Intro | 1 | 0 | The intro starts; it stops when the intro is skipped |
+| SEGA's ring | 102 | 3 | Sonic Team's logo has closed up |
 | Neo Green Hill Zone act 1 | 12 | 0 | The act starts, and starts over after a life is lost |
 | Jump | 116 | 2 | A jump from the ground, and the combo's backflip |
 | Spin | 109 | 3 | Spin dash start, rolling, the combo's first hit. Each spin dash rev plays it again, raised by the decayed charge (`charge & ~0x7F` in 1/256 semitones). |

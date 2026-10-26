@@ -13,7 +13,7 @@
   <section class="picker" id="picker" aria-label="Choose a ROM"></section>
 
   <section class="stage" id="stage" hidden>
-    <canvas id="screen" tabindex="0" aria-label="Sonic in Neo Green Hill Zone act 1. Use the arrow keys to run, Z or Space to jump, X to attack, or a controller: A to jump, B or X to attack."></canvas>
+    <canvas id="screen" tabindex="0" aria-label="Sonic Advance: the SEGA and Sonic Team logos and the intro, which Enter, Z or X skips, then Neo Green Hill Zone act 1. Use the arrow keys to run, Z or Space to jump, X to attack, or a controller: A to jump, B or X to attack, Menu to skip the intro."></canvas>
 
     <aside class="help" id="help">
       <dl>
@@ -24,13 +24,14 @@
         <dt><kbd>↓</kbd></dt><dd>Crouch · roll while moving</dd>
         <dt><kbd>↓</kbd>+<kbd>Z</kbd></dt><dd>Spin dash</dd>
         <dt><kbd>↑</kbd></dt><dd>Look up</dd>
+        <dt><kbd>Enter</kbd> <kbd>Backspace</kbd></dt><dd>Start and Select · Start, <kbd>Z</kbd> or <kbd>X</kbd> skips the intro</dd>
         <dt><kbd>H</kbd></dt><dd>Hide this panel</dd>
         <dt><kbd>C</kbd></dt><dd>Show the collision</dd>
         <dt><kbd>M</kbd></dt><dd>Sound on or off</dd>
-        <dt><kbd>V</kbd></dt><dd>Widescreen: more of the act around the original screen</dd>
+        <dt><kbd>V</kbd></dt><dd>Widescreen: more of the game around the original screen</dd>
         <dt><kbd>R</kbd></dt><dd>Rush boost: Sonic Rush's boost, on top of the original game (asks for your Sonic Rush ROM the first time)</dd>
         <dt><kbd>L</kbd> <kbd>Shift</kbd></dt><dd>With the Rush boost on: boost (press on the ground, hold to keep it)</dd>
-        <dt>Controller</dt><dd>D-pad or left stick: move · <kbd>A</kbd> jump · <kbd>B</kbd> or <kbd>X</kbd> attack · with the Rush boost on, <kbd>X</kbd> boosts</dd>
+        <dt>Controller</dt><dd>D-pad or left stick: move · <kbd>A</kbd> jump · <kbd>B</kbd> or <kbd>X</kbd> attack · with the Rush boost on, <kbd>X</kbd> boosts · <kbd>Menu</kbd> Start · <kbd>View</kbd> Select</dd>
       </dl>
       <p class="stats" id="stats" aria-live="off"></p>
       <p class="actions"><button type="button" class="link" id="change-rom">Change ROM</button> · <button type="button" class="link" id="wide" aria-pressed="false">Widescreen: off</button> · <button type="button" class="link" id="rush" aria-pressed="false">Rush boost: off</button> · <a href="viewer.html">Asset viewer</a></p>

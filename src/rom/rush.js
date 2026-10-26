@@ -107,13 +107,22 @@ function soundTables(rom) {
   };
 }
 
+// every DS cartridge header holds the Nintendo logo, with its checksum, 0xCF56, at 0x15C
+const isNds = rom => rom.size >= 0x200 && rom.u16(0x15C) === 0xCF56;
+
+/** Whether the header of `buffer` names Sonic Rush, before the full check: which game a file is. */
+export function isRush(buffer) {
+  const rom = new NdsRom(buffer);
+  return isNds(rom) && rom.header().title === TITLE;
+}
+
 /**
  * Checks that `buffer` is Sonic Rush and reads what the boost needs from it: the aura and burst animations and
  * the stage's sound archive with the SDK's tables. Throws RomError with a message meant for the player when it is not.
  */
 export function extractRush(buffer) {
   const rom = new NdsRom(buffer);
-  if (rom.size < 0x200) throw new RomError('This file is not a Nintendo DS ROM.');
+  if (!isNds(rom)) throw new RomError('This file is not a Nintendo DS ROM.');
   const { title, code } = rom.header();
   if (title !== TITLE || !code.startsWith(CODE)) {
     throw new RomError(`This is not Sonic Rush (its header says "${title}", ${code}).`);

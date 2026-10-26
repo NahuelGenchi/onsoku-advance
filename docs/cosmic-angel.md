@@ -54,7 +54,7 @@ Zone 6 act 2 draws the pipes with animations 590 and 591, and the air corner wit
 | 24 | Crumbling platform | 602 | `sPlatformCrumblingAnims` (`0x0B8528`) |
 | 25 | Bounce block | 601 | `sBounceBlockAnims` (`0x6C8C20`) |
 | 31, 47 | Boosters, flat and on a wall | 471, 472 | One task with two looks; it sends Sonic on at 12 px a frame |
-| 55 | Square platform | 599, long 600 | `CreateEntity_PlatformSquare` picks zone 6 act 2's pair; a long one has its other byte set |
+| 55 | Square platform | 599, long 600 | `CreateEntity_PlatformSquare` picks zone 6 act 2's pair; a long one has its other byte set. Egg Rocket, zone 6 act 1, has its own pair (518 and 519), and the game reads both: going on from Egg Rocket puts Cosmic Angel's in their place (each act's `anims`, `extract.js`) |
 | 69 | Conveyor belt | none (drawn in the layers) | Carries Sonic while he stands in its box |
 | 81 | Moving spring | 582, variant 1; launching, variant 0 | `CreateEntity_MovingSpring`'s zone 6 branch |
 | 87 | Antigravity unit | 511 (one, `d0` set), 512 (two, `d0` = 0) | The torch's kind (`torch.c`): Angel Island draws it as a torch (558), zone 6 and Chao Hunt D as these. It only animates, in OAM order 28 |
@@ -90,7 +90,7 @@ Enemy 27, `boss_6_egg_snake.c`. The segments' task, `Task_8033AA0`, follows its 
 - 60 frames after it lands, Eggman rises in the Egg Mobile. Sonic is held still, then walks after him, and the act's results come.
 - A widescreen view's black follows the camera's bounds to where they are going (`cam.arena`): the one screen across the camera stops on, 160 px further down once it is beaten, down to a bottom of 2368 once it has landed, and 240 px further right when Sonic is held still.
 
-A beaten boss stops the clock, the rings and the entities manager (`STAGE_FLAG__ACT_START` and `STAGE_FLAG__2`), and zeroes the camera's speed caps. The game provides those hooks (`world.stopStage`, `cam.speedX`, `player.heldInput`). The results themselves are the act clear's work ([#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69)), called through `world.stageResults`.
+A beaten boss stops the clock, the rings and the entities manager (`STAGE_FLAG__ACT_START` and `STAGE_FLAG__2`), and zeroes the camera's speed caps. The game provides those hooks (`world.stopStage`, `cam.speedX`, `player.heldInput`). The results then come as at the end of any act, through `world.stageResults`.
 
 **What the C doesn't show.**
 - `TaskCreate` doesn't clear a task's memory. The boss's `unk9B`, `qUnk9E`, `unkA6`, `unk90` and `unk92` start as whatever was there, but each is written before it is read.

@@ -1,5 +1,6 @@
-// Neo Green Hill act 1's enemies and their shots, following SA1's enemy code (SAT-R decompilation,
-// src/game/sa1/stage/enemies/kiki.c, buzzer.c, gamigami.c, rhinotank.c and kerokero.c). Each one works
+// Neo Green Hill act 1's and Angel Island's enemies and their shots, following SA1's enemy code (SAT-R
+// decompilation, src/game/sa1/stage/enemies/kiki.c, buzzer.c, gamigami.c, rhinotank.c, kerokero.c, leon.c and
+// wamu.c, and the USA ROM's own code where the decompilation doesn't match it). Each one works
 // out its position from its spawn point every frame and goes when both that and the screen leave the range
 // around the camera; a defeated one is gone until the act starts over. Speeds and offsets in 1/256 px are
 // kept as the original's integers. The quirks the original has are kept too: they are noted where they are.
@@ -8,14 +9,30 @@
 // projectile(s, x, y), add(task, priority = 0x2000), draw(s, x, y) }.
 
 import { makeSprite, startAnim, animate } from './objects.js';
+import { overlap } from './collide.js';
 import { tileFloor } from './terrain.js';
 import { SINE } from './trig.js';
+import { createEggHammerTankIntro, createEggHammerTank, EGG_HAMMER_TANK_INTRO, EGG_HAMMER_TANK } from './boss1.js';
+import { drisame, DRISAME } from './drisame.js';
+import { kuraa, KURAA } from './kuraa.js';
+import { mole, MOLE } from './mole.js';
+import { tentou, TENTOU } from './tentou.js';
+import { senbon, SENBON } from './senbon.js';
+import { fireball, FIREBALL } from './fireball.js';
+import { createEggPress, EGG_PRESS } from './eggpress.js';
+import { hanabii, HANABII } from './hanabii.js';
+import { slotMachine, SLOT } from './slot.js';
+import { pierrot, PIERROT } from './pierrot.js';
+import { eggBall, EGG_BALL } from './eggball.js';
+import { eggSpider, EGG_SPIDER } from './eggspider.js';
+import { yukimaru, yukimaruWall, YUKIMARU, YUKIMARU_WALL } from './yukimaru.js';
+import { pen, PEN } from './pen.js';
+import { createMechaKnuckles, MECHA_KNUCKLES } from './mechaknuckles.js';
 import { oct, OCT } from './oct.js';
 import { mirror, MIRROR } from './mirror.js';
-import { mole, MOLE } from './mole.js';
 import { eggSnake, EGG_SNAKE } from './eggsnake.js';
 
-export const KIKI = 0, BUZZER = 1, GAMIGAMI = 2, RHINOTANK = 3, KEROKERO = 4;
+export const KIKI = 0, BUZZER = 1, GAMIGAMI = 2, RHINOTANK = 3, KEROKERO = 4, LEON = 11, WAMU = 13;
 
 export const TILE = 8;
 export const I = v => v >> 8;                        // Q8.8 to pixels, rounding down
@@ -30,6 +47,12 @@ const offDisplay = (wx, wy, cam) => wx > cam.x + 368 || wx < cam.x - 128 || wy >
 export const gone = (spawnX, spawnY, x, y, cam) => offDisplay(spawnX, spawnY, cam) && offCam(x - cam.x, y - cam.y);
 
 export const sonicX = ctx => Math.floor(ctx.player.x), sonicY = ctx => Math.floor(ctx.player.y);
+
+// a hitbox of the enemy's own that hurts Sonic's body (HB_COLLISION, then Coll_DamagePlayer)
+function hurts(box, x, y, ctx) {
+  const p = ctx.player;
+  if (box && p.boxes[0] && overlap(x, y, box, sonicX(ctx), sonicY(ctx), p.boxes[0])) ctx.world.damage();
+}
 
 // a new enemy's sprite has run its script once, so its hitbox is set from the first frame
 export function sprite(name, anims, opts) {
@@ -343,6 +366,102 @@ function kerokero(e, slot, anims) {
   };
 }
 
+// Leon (leon.c, Task_LeonInit at 0x0806E7C0 in the USA ROM): a chameleon that walks at 0.625 px a frame and
+// turns round at each end in 14 frames, standing still. When Sonic is within 80 px in front of it and between
+// 32 px above and 8 px below it, it shoots its tongue for 31 frames: the tongue's box hurts him. It then has
+// to walk 60 frames before it can shoot again, counted only away from the ends. It follows the ground. Absent
+// from Angel Island on Easy in the original; this game has no difficulty setting. The original never sets that
+// count when it makes the Leon (unk4E): it starts with whatever the memory held, which delays or prevents the
+// first shot; this game starts it at 0. The tongue's box stays set after the shot, so it hurts again from the
+// first frame of the next one, where it was then.
+function leon(e, slot, anims) {
+  const { d0, d2 } = data(e), s = sprite('leonWalk', anims);
+  let vx = -160, off = 0, yoff = 0, t = 0, wait = 0, state = 'walk';
+  return {
+    run(ctx) {
+      if (state === 'walk') off += vx;
+      const x = s16(e.x + I(off)), y = s16(e.y + yoff);
+      if (gone(e.x, e.y, x, y, ctx.cam)) { slot.live = null; return false; }
+      if (state === 'shoot') hurts(s.boxes[1], x, y, ctx);
+      if (ctx.attack(s, x, y)) { slot.gone = true; slot.live = null; return false; }
+      yoff = s16(yoff + tileFloor(ctx.world.terrain, x, y + 3, 1));
+      if (state === 'walk') {
+        if (I(off) <= d0 * TILE) {
+          if (!s.flipX) { vx = 160; t = 0; startAnim(s, 'leonTurn'); state = 'turn'; s.flipX = true; }
+        } else if (I(off) >= (d0 + d2) * TILE) {
+          if (s.flipX) { vx = -160; t = 0; startAnim(s, 'leonTurn'); state = 'turn'; s.flipX = false; }
+        } else if (wait === 0) {
+          const px = sonicX(ctx), py = sonicY(ctx);
+          if (py <= y + 8 && y - 32 <= py && (s.flipX ? px >= x && x + 80 >= px : px <= x && x - 80 <= px)) {
+            wait = 60; t = 0; startAnim(s, 'leonShoot'); state = 'shoot';
+          }
+        } else wait--;
+      } else if (++t === (state === 'turn' ? 14 : 31)) { startAnim(s, 'leonWalk'); state = 'walk'; }
+      animate(s, ctx.anims);
+      ctx.draw(s, x, y);
+      return true;
+    },
+  };
+}
+
+// Wamu (wamu.c, Task_Wamu at 0x0806EFF8 in the USA ROM): a flying snake whose head swings to and fro on an
+// arc, its angle stepping by 5 or 8 (1024 a turn) between two limits, and turns round at a swing's end beyond
+// its range. It keeps its last 64 positions: two body segments and two tail segments follow it, each where the
+// head was some frames before, across 24, 19, 14 and 7 frames back and up 40, 30, 20 and 10, and each leaning
+// out by half its distance from the head. Only the head can be destroyed; every segment's box hurts Sonic, at
+// the segment's own place (the decompilation's C tests them at the head's, the ROM doesn't).
+const WAMU_SEGMENTS = [['wamuTail', 24, 40], ['wamuTail', 19, 30], ['wamuBody', 14, 20], ['wamuBody', 7, 10]];
+function wamu(e, slot, anims) {
+  const { d0, d2, d3 } = data(e);
+  const head = sprite('wamuHead', anims), body = sprite('wamuBody', anims), tail = sprite('wamuTail', anims);
+  const xs = new Int16Array(64).fill(e.x), ys = new Int16Array(64).fill(e.y);
+  let angle = 100, out = true, qx = 0, qy = 0, n = 0;
+  return {
+    run(ctx) {
+      let ended = false;
+      qx += Div(COS(angle & 1023), 80 - d3 * 4);
+      qy += Div(SIN(angle & 1023), 80);
+      const x = s16(e.x + (qx >> 8)), y = s16(e.y + (qy >> 8));
+      // facing right it swings between 100 and 924 the short way round, over 0; facing left between 412 and 612
+      if (head.flipX) {
+        angle = (angle + (out ? 5 : -5)) & 0xFFFF;
+        if ((((angle & 1023) - 101) & 0xFFFF) < 823) { angle = out ? 100 : 924; out = !out; ended = true; }
+      } else if (out) {
+        angle = (angle + 5) & 0xFFFF;
+        if ((angle & 1023) > 612) { angle = 612; out = false; ended = true; }
+      } else {
+        angle = (angle - 8) & 0xFFFF;
+        if ((angle & 1023) < 412) { angle = 412; out = true; ended = true; }
+      }
+      n = (n + 1) & 0xFF;
+      xs[n & 63] = x; ys[n & 63] = y;
+      if (gone(e.x, e.y, x, y, ctx.cam)) { slot.live = null; return false; }
+      if (ctx.attack(head, x, y)) { slot.gone = true; slot.live = null; return false; }
+      const turn = right => { head.flipX = body.flipX = tail.flipX = right; angle ^= 0x100; };
+      if (I(qx) <= d0 * TILE) { if (!head.flipX && ended) turn(true); }
+      else if (I(qx) >= (d0 + d2) * TILE) { if (head.flipX && ended) turn(false); }
+      animate(head, ctx.anims);
+      ctx.draw(head, x, y);
+      for (const [name, back, up] of WAMU_SEGMENTS) {
+        const s = name === 'wamuBody' ? body : tail, px = xs[(n - back) & 63];
+        const sx = s16(px - (s16(x - px) >> 1)), sy = ys[(n - up) & 63];
+        // each sprite's animation steps once, as its first segment is drawn
+        if (back === 24 || back === 14) animate(s, ctx.anims);
+        ctx.draw(s, sx, sy);
+        hurts(s.boxes[0], sx, sy, ctx);
+      }
+      return true;
+    },
+  };
+}
+
 /** Makers by enemy kind (gSpriteInits_Enemies): (entity, slot, anims, ctx) → task. */
-export const ENEMIES = { [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero,
-  [OCT]: oct, [MIRROR]: mirror, [MOLE]: mole, [EGG_SNAKE]: eggSnake };
+export const ENEMIES = {
+  [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero,
+  [EGG_HAMMER_TANK_INTRO]: createEggHammerTankIntro, [EGG_HAMMER_TANK]: createEggHammerTank,
+  [DRISAME]: drisame, [KURAA]: kuraa, [MOLE]: mole, [TENTOU]: tentou, [SENBON]: senbon, [FIREBALL]: fireball,
+  [EGG_PRESS]: createEggPress, [HANABII]: hanabii, [SLOT]: slotMachine, [PIERROT]: pierrot, [EGG_BALL]: eggBall,
+  [YUKIMARU]: yukimaru, [YUKIMARU_WALL]: yukimaruWall, [PEN]: pen, [EGG_SPIDER]: eggSpider,
+  [LEON]: leon, [WAMU]: wamu,
+  [MECHA_KNUCKLES]: createMechaKnuckles, [OCT]: oct, [MIRROR]: mirror, [EGG_SNAKE]: eggSnake,
+};

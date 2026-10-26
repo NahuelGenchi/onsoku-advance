@@ -70,6 +70,7 @@ function createTrack(e, slot) {
     priority: OBJECTS | step,
     run(ctx) {
       const p = ctx.player;
+      if (p.dead) p.invisible = false;   // dead, it shows him, held or not (visibility.js)
       if (held) {
         if (p.dead) { p.carried = false; held = false; }
         else if (p.track !== step) held = false;   // the next step has him

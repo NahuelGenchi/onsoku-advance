@@ -5,7 +5,7 @@
 
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { SINE } from './trig.js';
-import { tileFloor } from './terrain.js';
+import { tileFloor, probeTile, PROBE_FLOOR } from './terrain.js';
 
 const SLOTS = 48;
 const LIFE = 256, PICKUP_AFTER = 224, BLINK_BELOW = 32;   // frames
@@ -45,10 +45,15 @@ export function createScatter(anims) {
   let rings = [];
 
   return {
+    // set by a boss (unk2B6 bit 0): the rings also bounce off ceilings while rising, until the stage starts over
+    ceilings: false,
+
     /** Clears every slot, as a new stage task does. */
     reset() {
+      this.ceilings = false;
       rings = Array.from({ length: SLOTS }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, layer: 0, shown: false }));
       setAnim(anim, 'ring', true);
+      this.ceilings = false;
     },
 
     /**
@@ -68,9 +73,9 @@ export function createScatter(anims) {
 
     /**
      * One frame for every ring: it moves, may be picked up, bounces off the floor while falling (they go
-     * through walls and ceilings), falls, and ages; under flipped gravity, as it is this frame, they fall up
-     * and bounce off the ceiling, probed from 16 px above them. Returns the rings picked up, as { x, y }.
-     * `view` is what the screen shows (camera.js viewOf): only drawing depends on it.
+     * through walls, and through ceilings unless `ceilings` is set), falls, and ages; under flipped gravity, as
+     * it is this frame, they fall up and bounce off the ceiling, probed from 16 px above them. Returns the rings
+     * picked up, as { x, y }. `view` is what the screen shows (camera.js viewOf): only drawing depends on it.
      */
     update(player, view, terrain, tick) {
       tickAnim(anim, anims);
@@ -89,6 +94,10 @@ export function createScatter(anims) {
         if (up ? r.vy < 0 : r.vy > 0) {
           const d = up ? tileFloor(terrain, rx, ry - 2 * TILE, r.layer, -8) : tileFloor(terrain, rx, ry, r.layer);
           if (d <= 0) { r.y += (up ? -d : d) * 256; r.vy = (r.vy >> 2) - r.vy; }
+        }
+        if (this.ceilings && !up && r.vy < 0) {
+          const d = probeTile(terrain, ry - 16, rx, r.layer, -8, PROBE_FLOOR).d;
+          if (d <= 0) { r.y -= d * 256; r.vy = (r.vy >> 2) - r.vy; }
         }
         r.vy += up ? -GRAVITY : GRAVITY;
         // drawn where it was before the bounce; blinking in its last 32 frames with Sonic's blink

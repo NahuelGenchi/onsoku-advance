@@ -19,10 +19,12 @@ const toward = (v, to) => (to > v ? v + 1 : to < v ? v - 1 : v);
  * Bosses_SetCamBounds: the camera's bounds close in on the arena from where it is. The right edge goes to `maxX`
  * at once; the top, bottom and left edges start at the screen's and move 1 px a frame to `minY`, `maxY` and
  * `minX` (Task_8017244), a bottom edge further down than the screen's starting 160 px below it instead. The
- * arguments are the screen's edges in the act, as the original has them.
+ * arguments are the screen's edges in the act, as the original has them. They are the arena's walls, which the
+ * widescreen view doesn't show past (camera.js viewOf).
  */
 export function setBossCamBounds(cam, minY, maxY, minX, maxX) {
   const x = Math.floor(cam.x), y = Math.floor(cam.y);
+  cam.arena = { minX, maxX, minY, maxY };
   cam.minY = y; cam.maxY = y; cam.minX = x; cam.maxX = maxX - SCREEN_W;
   if (maxY > y + SCREEN_H) cam.maxY = y + 320 - SCREEN_H;
   return {
@@ -116,8 +118,8 @@ const DEBRIS = ['boltSmall', 'boltSmall2', 'boltMedium', 'boltMedium2', 'boltLar
 
 /**
  * What a beaten boss throws every 8 frames from (x, y): a piece of debris flung up at 6 px a frame at a random
- * angle, falling `ay`/256 px a frame faster each frame (40, or the Egg Snake's 5) and kept for at least 32
- * frames, and an explosion up to 63 px above and 32 px either side.
+ * angle, falling `ay`/256 px a frame faster each frame (40, or 5 for the Egg Spider's and the Egg Snake's) and kept for at least
+ * 32 frames, and an explosion up to 63 px above and 32 px either side.
  */
 export function bossDebris(ctx, x, y, ay = 40) {
   const random = ctx.world.random;

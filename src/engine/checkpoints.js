@@ -5,6 +5,7 @@
 // pole does.
 
 import { makeSprite, startAnim, animate, offCam } from './objects.js';
+import { createEggRocketCheckpoint } from './eggrocket.js';
 import { SONG } from '../sound/songs.js';
 
 export const CHECKPOINT = 7;
@@ -12,6 +13,9 @@ export const CHECKPOINT = 7;
 /** The task for a checkpoint entity, or null when `e` is not one. */
 export function createCheckpoint(e, slot, anims, ctx) {
   if (e.kind !== CHECKPOINT) return null;
+  // Egg Rocket's have no post: passing them is the rocket's launch and its stage separations
+  const rocket = createEggRocketCheckpoint(e, slot, ctx);
+  if (rocket) return rocket;
   const index = (e.d[0] << 24) >> 24;
   // waiting (Task_CheckpointMain), spinning (Task_Checkpoint1) or passed (Task_Checkpoint2)
   let phase = index <= ctx.world.checkpointIndex ? 'passed' : 'waiting';

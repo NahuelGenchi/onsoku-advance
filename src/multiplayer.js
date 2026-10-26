@@ -38,7 +38,7 @@ export function startMultiplayer({ container, assets, count, sound, seed = DEFAU
         gba.screen = createResultsScreen({ canvas, assets, link, id, count, ranks: mp.ranks.slice(), sound: gbaSound, input });
       },
     });
-    gba.game = createGame(canvas, assets, input, gbaSound, mode);
+    gba.game = createGame(canvas, assets, input, gbaSound, { mode });
     gba.mode = mode;
     gba.screen = gba.game;
     gbas.push(gba);

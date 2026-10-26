@@ -1,13 +1,25 @@
-// Game page: choose a ROM, extract its assets in the browser, then play.
+// Game page: the player's ROMs, each read in the browser as it is chosen (rom-setup.js), then the game's start
+// (the logos and the intro) and the act, with its special stage between two runs of it. With ?debug Play starts
+// the act straight away, and with ?special the special stage, as if Sonic had just left act 1 on its special spring.
 
-import { createRomPicker } from './ui/rom-picker.js';
-import { loadRememberedRom, rememberRom, RUSH_ROM } from './ui/rom-store.js';
+import './engine/cpucanvas.js';
+import { createRomSetup } from './ui/rom-setup.js';
+import { SA1_ROM, RUSH_ROM, SA2_ROM } from './ui/rom-store.js';
 import { extractAssets } from './rom/extract.js';
-import { extractRush } from './rom/rush.js';
+import { isSonicAdvance, RomError } from './rom/identify.js';
+import { Rom } from './rom/rom.js';
+import { createFrontEnd } from './front/front.js';
+import { extractRush, isRush } from './rom/rush.js';
+import { openSa2, isSa2 } from './rom/sa2.js';
+import { readBoostArt } from './rom/sa2boost.js';
+import { trickArt } from './rom/sa2tricks.js';
 import { createInput } from './engine/input.js';
-import { createGame } from './engine/game.js';
+import { createGame, specialSpringStart } from './engine/game.js';
+import { createSpecialStageRun } from './special/run.js';
+import { createNormalEnding } from './engine/normalending.js';
 import { createSound } from './sound/audio.js';
 import { SCREEN_W, SCREEN_H, VIEW_MAX_W, VIEW_MAX_H } from './engine/constants.js';
+import { THE_MOON, ALL_EMERALDS } from './engine/unlock.js';
 import { levelInfo } from './rom/levels.js';
 import { startMultiplayer, DEFAULT_SEED, DEFAULT_CHAO_PLACE } from './multiplayer.js';
 
@@ -18,11 +30,13 @@ const help = document.getElementById('help');
 const stats = document.getElementById('stats');
 const wideButton = document.getElementById('wide');
 const rushButton = document.getElementById('rush');
-const rushStatus = document.getElementById('rush-status');
-const rushFile = document.getElementById('rush-file');
+const boostButton = document.getElementById('boost-mode');
+const tricksButton = document.getElementById('tricks');
+const romFile = document.getElementById('rom-file');
+const romStatus = document.getElementById('rom-status');
 const params = new URLSearchParams(location.search);
-const debug = params.has('debug');
-// `?level=N` starts the level the ROM's tables number N (6 is Ice Mountain Zone act 1) instead of the first
+const debug = params.has('debug'), specialTest = params.has('special');
+// `?level=N` starts the level the ROM's tables number N (2 is Secret Base Zone act 1) instead of the first
 const firstLevel = Number(params.get('level') ?? 0) | 0;
 // a multiplayer stage (`?level=14`) is played by `&players=N` players, 2 to 4 (2 if not given), each on their
 // own screen; `&seed=` and `&chao=` set what the link hands the GBAs as the round starts (the shared random
@@ -36,7 +50,7 @@ const screens = document.getElementById('screens');
 const input = createInput();
 input.bindTouch(document.getElementById('touch'));
 const sound = createSound();
-let game = null, statsTimer = 0;
+let game = null, front = null, specialStage = null, round = null, rom = null, statsTimer = 0;
 
 // the widescreen view: off unless chosen, as the original screen is what the game is checked against
 const WIDE_KEY = 'onsoku.widescreen';
@@ -49,14 +63,41 @@ function setWide(on) {
 }
 wideButton.addEventListener('click', () => { setWide(!wide); screen.focus(); });
 
+// An extra turned on in the game without its ROM asks for the ROM there, and is turned on once it is read.
+let asked = null;
+function ask(slot, accept, then) {
+  asked = { slot, then };
+  romFile.accept = accept;
+  romFile.click();
+}
+romFile.addEventListener('change', async () => {
+  const files = [...romFile.files], wanted = asked;
+  romFile.value = '';
+  asked = null;
+  if (!files.length || !wanted) return;
+  const [{ key, error }] = await setup.add(files, wanted.slot, { auto: false });
+  romStatus.textContent = error ?? (key === wanted.slot ? '' : 'That ROM went to its own game; this extra needs another.');
+  if (!error && key === wanted.slot) wanted.then(true);
+  screen.focus();
+});
+
+// the Chaos Emeralds won, a bit per special stage: the save's record of them, kept in this browser; and the
+// continues the special stages have given, kept for this visit
+const EMERALDS_KEY = 'onsoku.emeralds';
+let emeralds = 0, continues = 0;
+try { emeralds = Number(localStorage.getItem(EMERALDS_KEY)) & 0x7F; } catch { /* storage blocked: none yet */ }
+function keepEmeralds(won) {
+  emeralds = won;
+  try { localStorage.setItem(EMERALDS_KEY, String(won)); } catch { /* kept for this visit only */ }
+}
+
 // Sonic Rush's boost, an extra on top of the original game: off unless chosen, like the widescreen view. Its
-// effects and sound come from the player's own Sonic Rush ROM, asked for the first time it is turned on and
-// then kept in this browser like the Sonic Advance ROM.
+// effects and sound come from the player's own Sonic Rush ROM.
 const RUSH_KEY = 'onsoku.rushBoost';
 let rush = false, rushArt = null;
 try { rush = localStorage.getItem(RUSH_KEY) === '1'; } catch { /* storage blocked: the default stands */ }
 function setRush(on) {
-  if (on && !rushArt) { rushFile.click(); return; }   // turned on once the ROM is read
+  if (on && !rushArt) { ask('rush', '.nds', setRush); return; }   // turned on once the ROM is read
   rush = on;
   try { localStorage.setItem(RUSH_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
   showRush();
@@ -69,72 +110,221 @@ function showRush() {
 function useRush(buffer) {
   rushArt = extractRush(buffer);
   sound.loadRush(rushArt.sound);
+  return rushArt.code;
 }
 rushButton.addEventListener('click', () => { setRush(!rush); screen.focus(); });
-rushFile.addEventListener('change', async () => {
-  const file = rushFile.files[0];
-  rushFile.value = '';
-  if (!file) return;
-  try {
-    const buffer = await file.arrayBuffer();
-    useRush(buffer);
-    rushStatus.textContent = '';
-    await rememberRom(file.name, buffer, RUSH_ROM);
-    setRush(true);
-  } catch (error) {
-    rushStatus.textContent = error.message || String(error);
-  }
-  screen.focus();
-});
-// with the setting on from an earlier visit, the remembered Sonic Rush ROM; without it the setting goes off
-(async () => {
-  const saved = await loadRememberedRom(RUSH_ROM);
-  try { if (saved) useRush(saved.buffer); } catch { /* not usable any more: asked for again */ }
-  if (rush && !rushArt) setRush(false);
-  showRush();
-})();
-showRush();
 
-createRomPicker(picker, {
-  heading: 'Play in your browser',
-  intro: 'Choose your Sonic Advance ROM. Its graphics are decoded on this device and the game starts right away.',
-  async onRom(buffer, name, setStatus) {
-    romBuffer = buffer;
-    const assets = await extractAssets(buffer, setStatus, { level: firstLevel });
-    setStatus('');
-    sound.load(buffer, assets.sound, players).catch(err => console.warn('No sound:', err));
-    start(assets);
-  },
-});
-
-let romBuffer = null;
-/**
- * Decodes level `level` from the ROM already chosen and starts it: the way on to another act (the end of an
- * act's flow, issue #69, calls it with the next level).
- */
-async function playLevel(level) {
-  start(await extractAssets(romBuffer, () => {}, { level }));
+// Sonic Advance 2's Boost Mode, another extra: off unless chosen. Its afterimages, particles and sound come from
+// the player's own Sonic Advance 2 ROM.
+const BOOST_KEY = 'onsoku.boostMode';
+let boostMode = false, boostArt = null;
+try { boostMode = localStorage.getItem(BOOST_KEY) === '1'; } catch { /* storage blocked: the default stands */ }
+function setBoostMode(on) {
+  if (on && !boostArt) { ask('sa2', '.gba', setBoostMode); return; }   // turned on once the ROM is read
+  boostMode = on;
+  try { localStorage.setItem(BOOST_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
+  showBoostMode();
+}
+function showBoostMode() {
+  game?.setBoostMode(boostMode, boostArt);
+  boostButton.textContent = `Boost Mode: ${boostMode ? 'on' : 'off'}`;
+  boostButton.setAttribute('aria-pressed', String(boostMode));
+}
+boostButton.addEventListener('click', () => { setBoostMode(!boostMode); screen.focus(); });
+// Sonic Advance 2's mid-air tricks, an extra on top of the original game: off unless chosen, like the Rush boost.
+// Their sprites and sounds come from the player's own Sonic Advance 2 ROM too.
+const TRICKS_KEY = 'onsoku.sa2Tricks';
+let tricks = false, tricksArt = null;
+try { tricks = localStorage.getItem(TRICKS_KEY) === '1'; } catch { /* storage blocked: the default stands */ }
+function setTricks(on) {
+  if (on && !tricksArt) { ask('sa2', '.gba', setTricks); return; }   // turned on once the ROM is read
+  tricks = on;
+  try { localStorage.setItem(TRICKS_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
+  showTricks();
+}
+function showTricks() {
+  game?.setSa2Tricks(tricks, tricksArt);
+  tricksButton.textContent = `SA2 tricks: ${tricks ? 'on' : 'off'}`;
+  tricksButton.setAttribute('aria-pressed', String(tricks));
+}
+tricksButton.addEventListener('click', () => { setTricks(!tricks); screen.focus(); });
+// what the extras from Sonic Advance 2 read from its ROM, and its sound engine's tables
+function useSa2(buffer) {
+  const sa2 = openSa2(buffer), boost = readBoostArt(sa2), trick = trickArt(sa2);
+  boostArt = boost;
+  tricksArt = trick;
+  sound.loadSa2(sa2.sound);
+  return sa2.code;
 }
 
-function start(assets) {
-  game?.stop();
-  round?.stop();
+// the Sonic Advance ROM and what the extractor read from it, once it is chosen
+let sa1 = null;
+const REGIONS = { E: 'USA', J: 'Japan', P: 'Europe' };
+const region = code => REGIONS[code[3]] ?? code;
+const MAX_GBA_BYTES = 32 * 1024 * 1024;   // largest Game Boy Advance cartridge
+
+const setup = createRomSetup(picker, {
+  heading: 'Play in your browser',
+  intro: 'Add your ROMs and everything is ready before the game starts: Sonic Advance to play, Sonic Advance 2 and Sonic Rush for the extras they bring. Drop them anywhere on this page, or choose each one below.',
+  slots: [
+    {
+      key: 'sa1', store: SA1_ROM, title: 'Sonic Advance', platform: 'Game Boy Advance', icon: 'gba', color: '#4f86ff',
+      required: true, role: 'The game itself: Neo Green Hill Zone act 1, the intro, the music and the sound.',
+      accept: '.gba,.agb,.bin', kind: '.gba', claims: isSonicAdvance,
+      async read(buffer, progress) {
+        if (buffer.byteLength > MAX_GBA_BYTES) throw new RomError('This file is too large to be a Game Boy Advance ROM.');
+        const assets = await extractAssets(buffer, progress, { level: firstLevel });
+        sa1 = { buffer, assets };
+        return `${assets.info.region} · ${assets.info.version ? 'tested version' : 'untested version'}`;
+      },
+      unload() { sa1 = null; },
+      extras: [{ label: 'Widescreen view', name: 'the widescreen view', hint: 'More of the game around the original screen · V', get: () => wide, set: setWide }],
+    },
+    {
+      key: 'sa2', store: SA2_ROM, title: 'Sonic Advance 2', platform: 'Game Boy Advance', icon: 'gba', color: '#ff8a3d',
+      required: false, role: 'Its Boost Mode with the afterimages, and its mid-air tricks, on top of the original game.',
+      accept: '.gba,.agb,.bin', kind: '.gba', claims: isSa2,
+      read: buffer => region(useSa2(buffer)),
+      unload() { boostArt = tricksArt = null; },
+      extras: [
+        { label: 'Boost Mode', name: 'Boost Mode', hint: 'Keep running at top speed · B', get: () => boostMode, set: setBoostMode, auto: true },
+        { label: 'Mid-air tricks', name: 'the mid-air tricks', hint: 'E or RB in the air · T', get: () => tricks, set: setTricks, auto: true },
+      ],
+    },
+    {
+      key: 'rush', store: RUSH_ROM, title: 'Sonic Rush', platform: 'Nintendo DS', icon: 'nds', color: '#b77dff',
+      required: false, role: 'Its boost, with the flames and the sound, on top of the original game.',
+      accept: '.nds', kind: '.nds', claims: isRush,
+      read: buffer => region(useRush(buffer)),
+      unload() { rushArt = null; },
+      extras: [{ label: 'Rush boost', name: 'the Rush boost', hint: 'Shift, L or X on a controller · R', get: () => rush, set: setRush, auto: true }],
+    },
+  ],
+  onPlay() {
+    sound.load(sa1.buffer, sa1.assets.sound, players).catch(err => console.warn('No sound:', err));
+    start(sa1.buffer, sa1.assets);
+  },
+});
+// a setting left on from an earlier visit goes off when its ROM isn't kept any more
+setup.restored.then(() => {
+  if (rush && !rushArt) setRush(false);
+  if (boostMode && !boostArt) setBoostMode(false);
+  if (tricks && !tricksArt) setTricks(false);
+  setup.refresh();
+});
+showRush();
+showBoostMode();
+showTricks();
+
+function stopAll() {
+  front?.stop(); front = null;
+  specialStage?.stop(); specialStage = null;
+  game?.stop(); game = null;
+  round?.stop(); round = null;
+  clearInterval(statsTimer);
+}
+
+function start(buffer, assets) {
+  stopAll();
+  rom = new Rom(buffer);
   picker.hidden = true;
   stage.hidden = false;
-  wideButton.disabled = rushButton.disabled = !!assets.stage.multiplayerSpawns;
-  if (assets.stage.multiplayerSpawns) { startRound(assets); return; }
-  game = createGame(screen, assets, input, sound);
+  // the extras are single-player options
+  const multi = !!assets.stage.multiplayerSpawns;
+  wideButton.disabled = rushButton.disabled = boostButton.disabled = tricksButton.disabled = multi;
+  if (multi) { startRound(assets); return; }
+  const leaving = specialTest && specialSpringStart(assets, { emeralds, continues });
+  if (leaving) { enterSpecialStage(assets, leaving); return; }
+  if (debug) { play(assets); return; }
+  front = createFrontEnd(screen, rom, assets.info.offsets, input, sound, () => { front = null; play(assets); });
+  fitScreen();
+  screen.focus();
+}
+
+// the act, after the game's start, again from what the special stage hands back (`resume`), or the next zone's
+// first act with what the game carries over (`carry`)
+function play(assets, resume = null, carry = null) {
+  game = createGame(screen, assets, input, sound, {
+    resume, carry, emeralds, continues, levelPick: assets.first !== 0 && assets.first === firstLevel && !carry,
+    onSpecialStage: handover => enterSpecialStage(assets, handover),
+    onNextZone: next => nextZone(next),
+    // a game over without a continue goes back to the start of the game, the SEGA logo
+    onTitle: () => queueMicrotask(restartGame),
+    // after the true ending, the staff credits; called from inside a step, so the game changes once that
+    // frame is over
+    onCredits: () => queueMicrotask(() => endGame(assets, 'credits')),
+  });
+  playing = assets;
   fitScreen();
   showRush();
+  showBoostMode();
+  showTricks();
   game.start();
   screen.focus();
   clearInterval(statsTimer);
   statsTimer = setInterval(showStats, 100);
-  if (debug) globalThis.onsoku = { game, assets, input, sound, playLevel };
+  if (debug) globalThis.onsoku = { game, assets, input, sound, nextZone, endGame: from => endGame(assets, from) };
+}
+
+// the zone being played, whose art the ending after it reads
+let playing = null;
+
+// the ending after the last stage (normalending.js): without all seven Chaos Emeralds the congratulations after
+// X Zone's results, with them the credits after the true ending; at its end the game starts over from the
+// SEGA logo
+function endGame(assets, from) {
+  const { seed } = game.state;
+  game.stop();
+  game = createNormalEnding(screen, assets, input, sound, { from, emeralds: from === 'credits', seed, onEnd: () => queueMicrotask(restartGame) });
+  fitScreen();
+  game.start();
+  if (debug) globalThis.onsoku = { game, assets, input, sound, nextZone, endGame: from => endGame(assets, from) };
+}
+
+// back to the start of the game, the SEGA logo, with no continues and act 1's art (read again if another
+// act's is loaded)
+async function restartGame() {
+  continues = 0;
+  const assets = sa1.assets.first === 0 ? sa1.assets : await extractAssets(sa1.buffer, () => {}, { level: 0 });
+  start(sa1.buffer, assets);
+}
+
+// the last act decoded is over: the next zone's acts, decoded from the ROM now, played on with the score, the
+// lives and the random numbers carried over (GameStageStart). Past the zones this game has, the screen stays.
+async function nextZone({ level, ...carry }) {
+  continues = carry.continues ?? continues;
+  // past X Zone the Moon Zone opens with all seven Chaos Emeralds (unlock.js; the ROM also wants every
+  // character to have cleared X Zone, and only Sonic is in this game); otherwise the normal ending comes
+  if (level === THE_MOON && emeralds !== ALL_EMERALDS) { queueMicrotask(() => endGame(playing, 'congratulations')); return; }
+  const from = game;
+  let assets;
+  try {
+    assets = await extractAssets(sa1.buffer, () => {}, { level });
+  } catch (err) {
+    console.warn(err);
+    return;
+  }
+  if (game !== from) return;   // the player left the game meanwhile
+  game.stop();
+  play(assets, null, carry);
+}
+
+// a special spring sent Sonic out of the act: the special stage on the same screen, then the act again from
+// what it hands back, with the Chaos Emeralds and the continues it leaves kept
+function enterSpecialStage(assets, handover) {
+  game?.stop(); game = null;
+  specialStage = createSpecialStageRun(screen, rom, assets.info.offsets, input, sound, handover, back => {
+    specialStage = null;
+    keepEmeralds(back.emeralds);
+    continues = back.continues;
+    play(assets, back);
+  });
+  fitScreen();
+  screen.focus();
+  if (debug) globalThis.onsoku = { special: specialStage, assets, input, sound };
 }
 
 // the multiplayer stage's round, on a screen for each player
-let round = null;
 function startRound(assets) {
   game = null;
   screen.hidden = true;
@@ -142,15 +332,15 @@ function startRound(assets) {
   round = startMultiplayer({ container: screens, assets, count: players, sound, seed, chaoPlace });
   fitScreen();
   clearInterval(statsTimer);
-  if (debug) globalThis.onsoku = { round, assets, sound, playLevel };
+  if (debug) globalThis.onsoku = { round, assets, sound };
 }
 
 document.getElementById('change-rom').addEventListener('click', () => {
-  game?.stop();
-  round?.stop(); round = null;
-  clearInterval(statsTimer);
+  stopAll();
   stage.hidden = true;
   picker.hidden = false;
+  setup.refresh();
+  setup.focus();
 });
 
 addEventListener('keydown', e => {
@@ -158,26 +348,32 @@ addEventListener('keydown', e => {
   // C shows the terrain collision over the stage, for checking it against the art
   if (e.code === 'KeyC' && game && !stage.hidden && !e.repeat) game.state.showCollision = !game.state.showCollision;
   if (e.code === 'KeyM' && !stage.hidden && !e.repeat) sound.muted = !sound.muted;
-  // the widescreen view and the Rush boost are single-player options
-  if (e.code === 'KeyV' && game && !stage.hidden && !e.repeat) setWide(!wide);
-  if (e.code === 'KeyR' && game && !stage.hidden && !e.repeat) setRush(!rush);
+  // the widescreen view and the extras are single-player options
+  if (e.code === 'KeyV' && !round && !stage.hidden && !e.repeat) setWide(!wide);
+  if (e.code === 'KeyR' && !round && !stage.hidden && !e.repeat) setRush(!rush);
+  if (e.code === 'KeyB' && !round && !stage.hidden && !e.repeat) setBoostMode(!boostMode);
+  if (e.code === 'KeyT' && !round && !stage.hidden && !e.repeat) setTricks(!tricks);
 });
 
 function showStats() {
-  if (!game) return;
+  if (!game) { stats.textContent = specialStage ? 'special stage' : ''; return; }
   const { player } = game.state;
+  if (!player) { stats.textContent = ''; return; }
   const speed = Math.abs(player.air ? player.xsp : player.gsp);
   stats.textContent = `speed ${speed.toFixed(2)} · ${player.state} · ${player.anim.name}`;
 }
 
 // largest whole-number scale the original screen fits at, so every pixel stays square and sharp; the
-// widescreen view then fills what the window has around it at that scale, up to its largest size
+// widescreen view then fills what the window has around it at that scale, up to its largest size, in the
+// game's start as in the act
 function fitScreen() {
   const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
   const fit = Math.min(vw / SCREEN_W, vh / SCREEN_H);
   const scale = fit >= 1 ? Math.floor(fit) : Math.max(fit, 0.25);
   const size = (room, min, max) => (wide ? Math.max(min, Math.min(max, Math.floor(room / scale) & ~1)) : min);
   const w = size(vw, SCREEN_W, VIEW_MAX_W), h = size(vh, SCREEN_H, VIEW_MAX_H);
+  front?.setView(w, h);
+  specialStage?.setView(w, h);
   game?.setView(w, h);
   screen.style.width = `${w * scale}px`;
   screen.style.height = `${h * scale}px`;

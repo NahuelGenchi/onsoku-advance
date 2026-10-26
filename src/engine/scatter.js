@@ -1,11 +1,11 @@
 // The rings Sonic drops when he is hurt (SAT-R decompilation, src/game/shared/stage/rings_scatter.c,
-// InitScatteringRings and the single-player normal-gravity update). Their task runs after the objects and
-// before the HUD and Sonic, so a ring dropped this frame already moves once. Positions and speeds are kept
-// in 1/256 px, as the original's Q24.8 and Q8.8 integers.
+// InitScatteringRings and the single-player updates for normal and flipped gravity). Their task runs after the
+// objects and before the HUD and Sonic, so a ring dropped this frame already moves once. Positions and speeds
+// are kept in 1/256 px, as the original's Q24.8 and Q8.8 integers.
 
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { SINE } from './trig.js';
-import { tileFloor } from './terrain.js';
+import { tileFloor, probeTile, PROBE_FLOOR } from './terrain.js';
 
 const SLOTS = 48;
 const LIFE = 256, PICKUP_AFTER = 224, BLINK_BELOW = 32;   // frames
@@ -39,39 +39,71 @@ function touching(px, py, box, rx, ry) {
     && ((ry - 2 * TILE <= t && ry >= t) || (ry - 2 * TILE >= t && b >= ry - 2 * TILE));
 }
 
-export function createScatter(anims) {
+/**
+ * `gravity` is added to their fall speed each frame (1/256 px), and `floorX(x, tick)` is where the floor under a
+ * ring at x is read: on the extra stage they fall slower and bounce on the ground where the stage has scrolled it.
+ */
+export function createScatter(anims, { gravity = GRAVITY, floorX = x => x } = {}) {
   const anim = makeAnimator();
   anim.speed = 0x20;   // twice the rings' normal speed
   let rings = [];
 
   return {
+    // set by a boss (unk2B6 bit 0): the rings also bounce off ceilings while rising, until the stage starts over
+    ceilings: false,
+
     /** Clears every slot, as a new stage task does. */
     reset() {
+      this.ceilings = false;
       rings = Array.from({ length: SLOTS }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, layer: 0, shown: false }));
       setAnim(anim, 'ring', true);
+      this.ceilings = false;
     },
 
-    /** InitScatteringRings: up to 48 rings from (x, y), in the free slots; the rest are lost. */
-    launch(x, y, n, layer) {
+    /**
+     * InitScatteringRings: up to 48 rings from (x, y), in the free slots; the rest are lost. Under flipped
+     * gravity they fly the other way up.
+     */
+    /**
+     * InitScatteringRings_ExtraBossCapsule: up to 32 rings from (x, y), each at a random angle and one of two
+     * speeds, the angles going round from a random start by 16–79 steps of 256 each time.
+     */
+    launchCapsule(x, y, n, layer, random) {
+      n = Math.min(n, 32);
+      if (n === 0) return;
+      let angle = ((random() & 0xFF000) >>> 12) | 0x10, k = 0;
+      for (const r of rings) {
+        if (r.life) continue;
+        const shift = ((random() & 0x1000) >>> 12) + 5, a = (angle & 0xFF) * 4;
+        let vx = SINE[a] >> shift, vy = SINE[a + 256] >> shift;
+        vx -= vx >> 2; vy -= vy >> 2;
+        Object.assign(r, { x: x * 256, y: y * 256, vx, vy, life: LIFE, layer });
+        angle += ((random() & 0x3F000) >>> 12) + 16;
+        if (++k >= n) return;
+      }
+    },
+
+    launch(x, y, n, layer, inverted = false) {
       const speeds = launchSpeeds(Math.min(n, SLOTS));
       let k = 0;
       for (const r of rings) {
         if (k === speeds.length) break;
         if (r.life) continue;
-        Object.assign(r, { x: x * 256, y: y * 256, vx: speeds[k][0], vy: speeds[k][1], life: LIFE, layer });
+        Object.assign(r, { x: x * 256, y: y * 256, vx: speeds[k][0], vy: inverted ? -speeds[k][1] : speeds[k][1], life: LIFE, layer });
         k++;
       }
     },
 
     /**
      * One frame for every ring: it moves, may be picked up, bounces off the floor while falling (they go
-     * through walls and ceilings), falls, and ages. Returns the rings picked up, as { x, y }. `view` is what
-     * the screen shows (camera.js viewOf): only drawing depends on it.
+     * through walls, and through ceilings unless `ceilings` is set), falls, and ages; under flipped gravity, as
+     * it is this frame, they fall up and bounce off the ceiling, probed from 16 px above them. Returns the rings
+     * picked up, as { x, y }. `view` is what the screen shows (camera.js viewOf): only drawing depends on it.
      */
     update(player, view, terrain, tick) {
       tickAnim(anim, anims);
       const px = Math.floor(player.x), py = Math.floor(player.y), box = player.boxes[0];
-      const canTake = !player.dead && (player.state !== 'hurt' || player.invulnerable === 0) && box;
+      const canTake = !player.dead && (player.state !== 'hurt' || player.invulnerable === 0) && box, up = player.inverted;
       const taken = [];
       for (const r of rings) {
         r.shown = false;
@@ -82,11 +114,15 @@ export function createScatter(anims) {
           taken.push({ x: rx, y: ry }); r.life = 0;
           continue;
         }
-        if (r.vy > 0) {
-          const d = tileFloor(terrain, rx, ry, r.layer);
-          if (d <= 0) { r.y += d * 256; r.vy = (r.vy >> 2) - r.vy; }
+        if (up ? r.vy < 0 : r.vy > 0) {
+          const d = up ? tileFloor(terrain, rx, ry - 2 * TILE, r.layer, -8) : tileFloor(terrain, floorX(rx, tick), ry, r.layer);
+          if (d <= 0) { r.y += (up ? -d : d) * 256; r.vy = (r.vy >> 2) - r.vy; }
         }
-        r.vy += GRAVITY;
+        if (this.ceilings && !up && r.vy < 0) {
+          const d = probeTile(terrain, ry - 16, rx, r.layer, -8, PROBE_FLOOR).d;
+          if (d <= 0) { r.y -= d * 256; r.vy = (r.vy >> 2) - r.vy; }
+        }
+        r.vy += up ? -gravity : gravity;
         // drawn where it was before the bounce; blinking in its last 32 frames with Sonic's blink
         const sx = rx - view.x, sy = ry - view.y;
         r.shown = sx + TILE > 0 && sx + TILE < view.w + 2 * TILE && sy > -TILE && sy < view.h + TILE

@@ -101,15 +101,35 @@ export function scan(terrain, p0, p1, layer, step, probe) {
 }
 
 /**
+ * The one-tile probe along either axis (sub_801F100), with p0 along the probe's axis as scan() takes it: the
+ * distance from p0 to the edge of the solid part of its tile, negative when p0 is inside it. An empty tile
+ * gives the distance to the next tile along `step` and a full one to the tile before it.
+ */
+export function tileScan(terrain, p0, p1, layer, step, probe) {
+  const v = probe(terrain, p0, p1, layer).v, r = p0 & 7;
+  if (v === 0) return step > 0 ? 8 - r : r + 1;
+  if (v === 8) return step > 0 ? -1 - r : r - 8;
+  return v > 0 ? v - 1 - r : v + r;
+}
+
+/**
  * The one-tile floor probe (sub_801F100 and sub_801F07C, scanning down): the distance from (x, y) to the
  * floor within the tile holding y, ≤ 0 at or inside it. An empty tile sends it on to the next tile down and a
- * full one up into the tile above, so whatever uses it moves at most 8 px a frame.
+ * full one up into the tile above, so whatever uses it moves at most 8 px a frame. With `dir` negative it
+ * scans up, as the rings falling up do: only the empty and full tiles answer differently.
  */
-export function tileFloor(terrain, x, y, layer) {
-  const v = terrain.columnHeight(x, y, layer), r = y & 7;
-  if (v === 0) return 8 - r;
-  if (v === 8) return -1 - r;
-  return v > 0 ? v - 1 - r : v + r;
+export const tileFloor = (terrain, x, y, layer, dir = 8) => tileScan(terrain, y, x, layer, dir, vertical);
+
+/**
+ * The one-tile probe along either axis and either way (sub_801F07C): the distance from p0 to the surface within
+ * the tile holding p0, negative inside it, with the tile's angle (undefined in an empty tile). Its arguments are
+ * scan()'s.
+ */
+export function probeTile(terrain, p0, p1, layer, step, probe) {
+  const { v, rot } = probe(terrain, p0, p1, layer), r = p0 & 7;
+  if (v === 0) return { d: step > 0 ? 8 - r : r + 1, rot: undefined };
+  if (v === 8) return { d: step > 0 ? -1 - r : r - 8, rot };
+  return { d: v > 0 ? v - 1 - r : v + r, rot };
 }
 
 /** True when the pixel (px, py) is inside the solid part of its column, by the floor heights. */

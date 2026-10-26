@@ -43,20 +43,26 @@ export function arcTan2(x, y) {
 }
 
 const s16 = v => (v << 16) >> 16;
+// the octants of sub_8004418, by the signs of x and y and which of them is larger
 const OCTANTS = [1, 0, 2, 3, 6, 7, 5, 4];
 
 /**
- * The angle (0–1023 per turn) the sprite code finds for a vector from its octant and the ratio of its smaller
- * part to its larger one (sub_8004418), −1 for (0, 0). Its callers pass the vector's y first. The parts are s16
- * and the arithmetic keeps to s16, as the original's does.
+ * sub_8004418 (0x0800338C in the USA ROM): a rough angle of (x, y) in 1024 steps a turn, from its octant and
+ * the ratio of the smaller coordinate to the larger, linear within the octant; -1 for (0, 0). x and y are s16,
+ * and the smaller one times 128 wraps as an s16, as in the original.
  */
-export function vectorAngle(x, y) {
+export function octantAngle(x, y) {
+  x = s16(x); y = s16(y);
   if ((x | y) === 0) return -1;
   let i = 0, f;
   if (x <= 0) { x = s16(-x); i = 4; }
   if (y <= 0) { y = s16(-y); i += 2; }
-  if (x >= y) { y = s16(y * 128); f = x === 0 ? y : s16(Math.trunc(y / x)); }
-  else { i++; x = s16(x * 128); f = y === 0 ? x : s16(Math.trunc(x / y)); }
-  if (OCTANTS[i] & 1) f = s16(128 - f);
+  if (x >= y) f = x === 0 ? s16(y << 7) : div(s16(y << 7), x);
+  else { i++; f = y === 0 ? s16(x << 7) : div(s16(x << 7), y); }
+  f = s16(f);
+  if (OCTANTS[i] & 1) f = s16(0x80 - f);
   return (f + OCTANTS[i] * 128) & 0x3FF;
 }
+
+// the name Chao Hunt's code gives sub_8004418; its callers pass s16 parts, so the two agree
+export const vectorAngle = octantAngle;

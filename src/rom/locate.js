@@ -6,10 +6,12 @@ import { rlDecompress } from './entities.js';
 import { findMusicPlayers } from './sound.js';
 import { findUiGraphics } from './hud.js';
 import { findTitleCard } from './titlecard.js';
+import { findIntroGraphics, findIntroTables } from './intro.js';
+import { findSpecialStage, findSpecialLayouts, findCharacterAnims, findSpecialIntro, findSpecialClouds } from './special.js';
 
 const MIN_CMD = -12;   // animation commands are -1 … -12
 const LEVEL_COUNT = 18;   // 14 single-player stages, then four multiplayer stages
-const MULTIPLAYER_STAGES = 4;
+const MP_LEVEL_COUNT = 4;
 
 /**
  * The sprite tables are six consecutive ROM pointers (animations, frame sizes, OAM data, palettes,
@@ -108,7 +110,7 @@ export function findSpinDashSpeeds(rom) {
  * looks like it.
  */
 export function findChaoSpawns(rom) {
-  const n = MULTIPLAYER_STAGES * 8, fits = v => v >= 64 && v < 2048;
+  const n = MP_LEVEL_COUNT * 8, fits = v => v >= 64 && v < 2048;
   let run = 0;
   for (let at = 0; at + 4 <= rom.size; at += 4) {
     if (fits(rom.s16(at)) && fits(rom.s16(at + 2))) { run++; continue; }
@@ -126,6 +128,9 @@ export function locateTables(rom, known) {
     spriteTables: findSpriteTables(rom),
     tilemaps, collision,
     spawns: collision === null ? null : collision + LEVEL_COUNT * 4,
+    // after them the multiplayer stages' four spawn positions each, then the acts' loop points and distances
+    loopPoints: collision === null ? null : collision + LEVEL_COUNT * 4 * 2 + MP_LEVEL_COUNT * 4 * 4,
+    loopShifts: collision === null ? null : collision + LEVEL_COUNT * 4 * 3 + MP_LEVEL_COUNT * 4 * 4,
     // the ring lists are the table just before the interactables
     rings: interactables === null ? null : interactables - LEVEL_COUNT * 4,
     interactables,
@@ -136,6 +141,13 @@ export function locateTables(rom, known) {
     musicPlayers: findMusicPlayers(rom),
     uiGraphics: findUiGraphics(rom),
     titleCard: findTitleCard(rom),
+    introGraphics: findIntroGraphics(rom),
+    introTables: findIntroTables(rom),
+    specialStage: findSpecialStage(rom),
+    specialLayouts: findSpecialLayouts(rom),
+    characterAnims: findCharacterAnims(rom),
+    specialIntro: findSpecialIntro(rom),
+    specialClouds: findSpecialClouds(rom),
   };
   const missing = Object.entries(offsets).filter(([, v]) => v === null).map(([k]) => k);
   // only the multiplayer stages need it

@@ -39,6 +39,15 @@ export function readSpawn(rom, spawnsAt, level) {
 }
 
 /**
+ * Where the act loops back near its end, and by how much (sa2__gUnknown_080D650C and sa2__gUnknown_080D661C): an
+ * s16 pair per level in each table, x and y, -1 where there is none; null when the act has no loop sideways.
+ */
+export function readLoop(rom, pointsAt, shiftsAt, level) {
+  const x = rom.s16(pointsAt + level * 4);
+  return x < 0 ? null : { x, shift: rom.s16(shiftsAt + level * 4) };
+}
+
+/**
  * The four start positions of multiplayer stage `level` (14–17), one per player, from the table right after
  * the per-level one (gSpawnPositions_Modes_4_and_5, which Chao Hunt reads).
  */

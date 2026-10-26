@@ -18,7 +18,7 @@ import { SINE } from './trig.js';
 import { rushObjEntries, rushTrailStrips, TRAIL_COLOR } from './rushfx.js';
 import { rasterizeStrips, objLayer as dsObjLayer, to6, out8 } from './dsdraw.js';
 import { boostAtlas } from './boostmode.js';
-import { BACKGROUND_SCROLL } from './backgrounds.js';
+import { BACKGROUND_SCROLL, BACKGROUND_DRAW } from './backgrounds.js';
 import { beamSpan } from './spotlights.js';
 import { bgr555ToRgb, tintRgb, waterTint } from '../rom/colors.js';
 import { ICE_MOUNTAIN, iceMountainScroll } from './icemountain.js';
@@ -571,11 +571,15 @@ export function createRenderer(canvas, assets) {
     ix.loads.forEach((frames, k) => { for (let f = 0; f <= shown[k]; f++) for (const l of frames[f]) l.colors.forEach((c, i) => { p[l.insert + i] = c; }); });
     p.forEach(([r, g, b], i) => { pal32[i] = 0xFF000000 | (b << 16) | (g << 8) | r; });
   }
-  // a layer's pixels under the view into `out`, where they aren't transparent
-  function indexLayer(out, layer, vx, vy, frame) {
+  // a layer's pixels under the view into `out`, where they aren't transparent; `split` (an Egg Rocket stage
+  // separation's, on the back layer) leaves its rows from split.y a gap for split.shift rows, then shows the
+  // rows above moved down by that much
+  function indexLayer(out, layer, vx, vy, frame, split = null) {
     const { size, pixels, slots } = ix.metatiles, slot = slots[frame], map = stage.layers[layer];
     for (let y = 0; y < H; y++) {
-      const wy = vy + y, my = Math.floor(wy / size), row = (wy - my * size) * size;
+      let wy = vy + y;
+      if (split && wy >= split.y) { if (wy < split.y + split.shift) continue; wy -= split.shift; }
+      const my = Math.floor(wy / size), row = (wy - my * size) * size;
       if (wy < 0 || my >= stage.levelY) continue;
       for (let x = 0; x < W;) {
         const wx = vx + x, mx = Math.floor(wx / size), col = wx - mx * size, n = Math.min(size - col, W - x);
@@ -591,10 +595,10 @@ export function createRenderer(canvas, assets) {
     }
   }
   // a layer drawn over what `c` has so far
-  function indexOver(c, layer, vx, vy, frame) {
+  function indexOver(c, layer, vx, vy, frame, split = null) {
     const out = new Uint32Array(ixFront.data.buffer);
     out.fill(0);
-    indexLayer(out, layer, vx, vy, frame);
+    indexLayer(out, layer, vx, vy, frame, split);
     ixCanvas.getContext('2d').putImageData(ixFront, 0, 0);
     c.drawImage(ixCanvas, 0, 0);
   }
@@ -617,9 +621,11 @@ export function createRenderer(canvas, assets) {
   }
 
   // the background through its scroll function, lined up with the original screen in the view's middle; the
-  // map wraps both ways and colour 0 is the backdrop
-  function indexBackground(out, tick, ox, oy, cx, cy, terrain) {
+  // map wraps both ways and colour 0 is the backdrop. A zone that draws its own (BACKGROUND_DRAW) does so from
+  // the act's state.bg
+  function indexBackground(out, tick, ox, oy, cx, cy, terrain, bgState) {
     const bg = ix.background;
+    if (BACKGROUND_DRAW[stage.backgroundScroll]) { BACKGROUND_DRAW[stage.backgroundScroll](out, pal32, bg, bgState, W, H, ox, oy); return; }
     if (!scroll) { neoGreenHillIndexed(out, bg, tick, ox, oy, cx); return; }
     for (let y = 0; y < H; y++) {
       const [bx, by] = scroll(y - oy, tick, cx, cy, terrain), row = (by + y - oy) & 0xFF;
@@ -733,7 +739,7 @@ export function createRenderer(canvas, assets) {
     base = aboveSheet;
   }
 
-  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, blendOff }) {
+  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, bg, backLines, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, blendOff }) {
     ctx.imageSmoothingEnabled = false;
     if (art && art !== boostArt) {
       if (!boostSheets.has(art)) boostSheets.set(art, new WeakMap());
@@ -767,7 +773,7 @@ export function createRenderer(canvas, assets) {
     const under = split < H ? { line: split, colors: underColors(stage, water, palettes) } : null;
     if (ix) {
       loadPalette(palettes);
-      indexBackground(new Uint32Array(ixBack.data.buffer), tick - 1, ox, oy, cx, vy + oy, terrain);
+      indexBackground(new Uint32Array(ixBack.data.buffer), tick - 1, ox, oy, cx, vy + oy, terrain, bg);
       ctx.putImageData(ixBack, 0, 0);
     } else {
       const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
@@ -816,7 +822,7 @@ export function createRenderer(canvas, assets) {
       }
     });
     drawAll(3);
-    if (ix) indexOver(ctx, 'back', vx, vy, frame);
+    if (ix) indexOver(ctx, 'back', vx, vy, frame, backLines);
     else drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes, under);
     // the background and the back layer fill the screen, so the window turns everything drawn so far white
     const flash = whiteWindow(sprites.filter(s => s.white), vx, vy);

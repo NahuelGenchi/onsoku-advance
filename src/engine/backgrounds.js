@@ -6,6 +6,7 @@
 // also make tasks of their own (BACKGROUND_UPDATE), run by the camera's task right after it moves, as
 // UpdateCamera calls the update.
 
+import { drawEggRocketBackground } from './eggrocket.js';
 import { SCREEN_W, SCREEN_H } from './constants.js';
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 
@@ -91,3 +92,8 @@ function firework(x, y, name, cam) {
     },
   };
 }
+// The zones whose background is more than one map scrolled per line (two backgrounds, sizes that change,
+// blending): each draws all of it into the frame, from the act's state.bg
+export const BACKGROUND_DRAW = {
+  eggRocket: drawEggRocketBackground,
+};

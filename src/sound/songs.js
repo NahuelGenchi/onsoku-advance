@@ -51,13 +51,14 @@ export const SONG = {
   BOSS_HIT: 143,           // SE_BOSS_HIT: also a skating stone breaking
   EXPLOSION: 144,          // SE_EXPLOSION: a boss is beaten
   IMPACT: 145,             // SE_IMPACT: the Egg Hammer Tank's hammer lands, as the Egg Press does, and the Egg Spider dropping an icicle
+  TIME_UP: 166,            // SE_TIME_UP: the course time ran out
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
   CHECKPOINT: 169,
   SPRING: 170,
   SPIKES: 171,             // SE_171: hurt by spikes
   BOOSTER: 172,            // SE_BOOSTER: every frame a booster sends Sonic on
-  CRUMBLING_PLATFORM: 173,
+  CRUMBLING_PLATFORM: 173, // SE_173: also an Egg Rocket stage separation's start
   POLE: 175,               // SE_POLE: a wall pole catches Sonic
   TRAMPOLINE: 176,
   WATER_BRIDGE_SPLASH: 177, // SE_WATER_BRIDGE_SPLASH: the water bridge takes Sonic

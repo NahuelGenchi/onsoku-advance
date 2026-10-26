@@ -76,6 +76,9 @@ import { createUpdraft } from './updrafts.js';
 import { createIronBall } from './ironballs.js';
 import { createTube as createRollTube } from './tubes.js';
 import { createHangBar } from './hangbars.js';
+import { createConveyorBeltObject } from './conveyorobject.js';
+import { createSpikedBarrel } from './spikedbarrel.js';
+import { createPropeller } from './propeller.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -217,7 +220,7 @@ function interactable(e, slot, anims, ctx, level, zone) {
     ?? createCarousel(e, slot, anims) ?? createSnow(e, slot, ctx) ?? createAirBubbles(e, slot, anims) ?? createSkatingStone(e, slot, anims, ctx)
     ?? createTorch(e, slot) ?? createBoulderSpawner(e, slot, anims) ?? createFloat(e, slot) ?? createLift(e, slot, anims)
     ?? createRunWheel(e, slot, anims) ?? createUpdraft(e, slot, anims) ?? createIronBall(e, slot, anims)
-    ?? createRollTube(e, slot) ?? createHidingSpring(e, slot, anims) ?? createHangBar(e, slot)
+    ?? createRollTube(e, slot) ?? createHidingSpring(e, slot, anims) ?? createHangBar(e, slot) ?? createConveyorBeltObject(e, slot, anims) ?? createSpikedBarrel(e, slot, anims) ?? createPropeller(e, slot, anims)
     ?? (e.kind === STAGE_GOAL ? createGoal(e, slot, anims) : standIn(e, slot));
 }
 

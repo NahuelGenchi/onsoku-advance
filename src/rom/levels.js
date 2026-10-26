@@ -49,7 +49,6 @@ export const LEVELS = {
   // tilemap 71 (TM_ICE_PARADISE_SNOW) on BG0 (CreateStageBg_Zone4); zone 4's thin platforms are 523
   // (sPlatformThinAnims), and so are its ferris wheels' seats (gUnknown_086CEE2C), its sinking platform 528
   // (gUnknown_086CEDC0), its square platform 524 and moving spring 526 (their CreateEntity_), its breakable
-  // (gUnknown_086CEDC0), its square platform 524 and moving spring 526 (their CreateEntity_), its breakable
   // wall 594 (gUnknown_080BB544, 0x080B854C), its hook rail's hook 569 (CreateEntity_HookRail), its crumbling
   // platform 527 (sPlatformCrumblingAnims), its bounce block 543 (sBounceBlockAnims) and its slides' splash 562
   // (gAnimSlideSplashes)
@@ -57,7 +56,6 @@ export const LEVELS = {
     name: 'Ice Mountain Zone act 1', zone: 3, act: 0, paletteAnimations: [822, 821], music: 18, water: { level: 1546, blend: 0x7F207F20 }, snow: 71,
     sprites: {
       thinPlatform: [523, 0], sinkingPlatform: [528, 0], squarePlatform: [524, 0], ferrisSeat: [523, 0], breakableWall: [594, 0],
-      movingSpring: [526, 1], movingSpringLaunch: [526, 0], hookRail: [569, 0],
       movingSpring: [526, 1], movingSpringLaunch: [526, 0], hookRail: [569, 0],
       crumblingPlatform: [527, 0], bounceBlock: [543, 0], slideSplash: [562, 0],
     },
@@ -93,6 +91,18 @@ export const LEVELS = {
     name: 'Angel Island Zone act 2', zone: 4, act: 1, paletteAnimations: [823], music: 21, clouds: 72,
     sprites: { thinPlatform: [535, 0], bounceBlock: [543, 0], waterSplash: [552, 0], slideSplash: [568, 0] },
     boss: 'mechaKnuckles',
+  },
+  // StageInit_Zone6Act1 (0x0803D9C5): 839 and 842 both step row 13 of the stage palette, 840 row 12 and 841 row
+  // 10; the act's only, so its zone keeps act 1's index. Its background and its launch and stage separations
+  // are eggrocket.js's. Picked from the course select, the HUD's task data lands on memory holding 0 (hud.js). The breakable wall is 596 (gUnknown_080BB544); zone 6 act 1's square
+  // platforms are 518 and, long, 519, and zone 6's moving spring 582 (their CreateEntity_). Its thin platform (sPlatformThinAnims), crumbling platform (sPlatformCrumblingAnims) and
+  // bounce block (sBounceBlockAnims) are its own, and so is its trampoline (505, CreateEntity_Trampoline)
+  10: { name: 'Egg Rocket Zone', zone: 5, act: 0, paletteAnimations: [839, 840, 841, 842], music: 22,
+    backgroundScroll: 'eggRocket', hudFlash: 0,
+    sprites: {
+      thinPlatform: [517, 0], crumblingPlatform: [513, 0], bounceBlock: [507, 0], trampoline: [505, 0], trampolineBounce: [505, 1],
+      breakableWall: [596, 0], squarePlatform: [518, 0], squarePlatformLong: [519, 0], movingSpring: [582, 1], movingSpringLaunch: [582, 0],
+    },
   },
 };
 

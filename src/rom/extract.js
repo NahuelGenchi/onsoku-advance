@@ -115,6 +115,10 @@ export const ENEMY_ANIMATIONS = {
   // animation); the Pen walking and throwing, its snowball and the snowball's pieces
   422: { yukimaruThrow: 0, yukimaruWalk: 1 }, 423: { yukimaruWallThrow: 0, yukimaruWallWalk: 1 }, 427: { yukimaruSnowball: 0 },
   426: { penWalk: 0, penThrow: 1 }, 428: { penSnowball: 0 }, 429: { penSnowballPiece: 0 },
+  // Egg Rocket's Oct, patrolling and shooting, and its shot
+  433: { oct: 0, octShoot: 1 }, 436: { octShot: 0 },
+  // Cosmic Angel's Mirror, walking and shooting, and its shot
+  432: { mirror: 0, mirrorShoot: 1 }, 435: { mirrorShot: 0 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their
@@ -150,6 +154,13 @@ export const MOVING_SPRING_ANIMATIONS = { 540: { movingSpring: 0, movingSpringLa
 export const SQUARE_PLATFORM_ANIMATIONS = { 494: { squarePlatform: 0 } };
 // the iron ball (510); Angel Island has its own (levels.js `sprites`)
 export const IRON_BALL_ANIMATIONS = { 510: { ironBall: 0 } };
+// the rollers along a conveyor belt (kind 99): wide and slim, two variants each; act 1s use 508 and 509 (act 2s
+// 604 and 603, which no act built so far needs)
+export const CONVEYOR_OBJECT_ANIMATIONS = { 508: { conveyorWide: 0, conveyorWideB: 1 }, 509: { conveyorSlim: 0, conveyorSlimB: 1 } };
+// Egg Rocket's spiked barrel (516): spikes on top, turning, underneath, turning back
+export const SPIKED_BARREL_ANIMATIONS = { 516: { spikedBarrel: 0, spikedBarrel1: 1, spikedBarrel2: 2, spikedBarrel3: 3 } };
+// Egg Rocket's propeller (515)
+export const PROPELLER_ANIMATIONS = { 515: { propeller: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // an act's water: its surface (563) and the splash where Sonic goes in or out (581), the drowning countdown's
@@ -172,7 +183,7 @@ export const STONE_ANIMATIONS = {
 };
 // the speed boosters (471): flat, on a slight slope up to the right, and up to the left; and on a steep slope
 export const BOOSTER_ANIMATIONS = {
-  471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 },
+  471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 }, 472: { boosterWall: 0 },
   571: { boosterSteep: 0 }, 570: { boosterSteep2: 0 },   // steep, turned counter-clockwise and clockwise
 };
 // Angel Island's torches (558)
@@ -182,6 +193,19 @@ export const TORCH_ANIMATIONS = { 558: { torch: 0 } };
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };
 // the goal signpost (453): Eggman's face, and spinning once Sonic has passed it
 export const GOAL_ANIMATIONS = { 453: { goal: 0, goalSpin: 1 } };
+// the animation tables as one, by animation number: two tables that name variants of the same animation (X Zone's
+// bosses and Egg Rocket's nuts and bolts both use 695 to 697) keep each other's names
+const mergeAnimations = (...tables) => {
+  const out = {};
+  for (const t of tables) for (const [anim, variants] of Object.entries(t)) out[anim] = { ...out[anim], ...variants };
+  return out;
+};
+
+// the nuts and bolts Egg Rocket's launch and stage separations rain down (gUnknown_080BB41C and
+// gUnknown_080BB42C, 0x0B8424 in the USA ROM, pick a piece from these): three pieces, two variants each
+export const NUTS_AND_BOLTS_ANIMATIONS = {
+  695: { debris695: 0, debris695b: 1 }, 696: { debris696: 0, debris696b: 1 }, 697: { debris697: 0, debris697b: 1 },
+};
 // Neo Green Hill's wall pole (468): at rest, and bending as Sonic swings on it
 export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
 // the Egg Spider's (boss_4_egg_spider.c), and what bosses leave behind: the Egg Mobile and Eggman flying off in it (bosses_egg_mobile.c), the debris
@@ -397,7 +421,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true, under: underYellow },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...CARRIER_ANIMATIONS, ...IRON_BALL_ANIMATIONS, ...TORCH_ANIMATIONS, ...UPDRAFT_ANIMATIONS, ...WALL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...SHRUB_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GOAL_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_HAMMER_TANK_ANIMATIONS, ...CAPSULE_ANIMATIONS, ...SPECIAL_SPRING_ANIMATIONS, ...STEAM_EXHAUST_ANIMATIONS, ...EGG_PRESS_ANIMATIONS, ...HOOK_RAIL_ANIMATIONS, ...SECURITY_GATE_ANIMATIONS, ...HOOK_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...PIPE_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...STONE_ANIMATIONS, ...(water ? UNDERWATER_ANIMATIONS : {}), ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...BARREL_ANIMATIONS, ...BOWL_ANIMATIONS, ...BUMPER_ANIMATIONS, ...CAROUSEL_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...PANEL_GATE_ANIMATIONS, ...RED_FLAG_ANIMATIONS, ...SHIP_SWING_ANIMATIONS, ...SPIKED_PLATFORM_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries(mergeAnimations(ENEMY_ANIMATIONS, ITEM_ANIMATIONS, PLATFORM_ANIMATIONS, ROCK_ANIMATIONS, ICE_MOUNTAIN_ANIMATIONS, NUTS_AND_BOLTS_ANIMATIONS, CONVEYOR_OBJECT_ANIMATIONS, SPIKED_BARREL_ANIMATIONS, PROPELLER_ANIMATIONS, CARRIER_ANIMATIONS, IRON_BALL_ANIMATIONS, TORCH_ANIMATIONS, UPDRAFT_ANIMATIONS, WALL_ANIMATIONS, WATER_ANIMATIONS, SLIDE_ANIMATIONS, SHRUB_ANIMATIONS, BOOSTER_ANIMATIONS, CHECKPOINT_ANIMATIONS, POLE_ANIMATIONS, GOAL_ANIMATIONS, BOSS_ANIMATIONS, EGG_HAMMER_TANK_ANIMATIONS, CAPSULE_ANIMATIONS, SPECIAL_SPRING_ANIMATIONS, STEAM_EXHAUST_ANIMATIONS, EGG_PRESS_ANIMATIONS, HOOK_RAIL_ANIMATIONS, SECURITY_GATE_ANIMATIONS, HOOK_ANIMATIONS, MARBLE_TRACK_ANIMATIONS, PIPE_ANIMATIONS, MOVING_SPRING_ANIMATIONS, STONE_ANIMATIONS, (water ? UNDERWATER_ANIMATIONS : {}), BACKGROUND_ANIMATIONS, BALLOON_ANIMATIONS, BARREL_ANIMATIONS, BOWL_ANIMATIONS, BUMPER_ANIMATIONS, CAROUSEL_ANIMATIONS, FERRIS_WHEEL_ANIMATIONS, FLIPPER_ANIMATIONS, LETTER_ANIMATIONS, PANEL_GATE_ANIMATIONS, RED_FLAG_ANIMATIONS, SHIP_SWING_ANIMATIONS, SPIKED_PLATFORM_ANIMATIONS, SQUARE_PLATFORM_ANIMATIONS)).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

@@ -30,6 +30,7 @@ import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS,
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { createBossCapsule } from './capsule.js';
 import { SPECIAL_SPRING } from './specialspring.js';
+import { createEggRocket, EGG_ROCKET } from './eggrocket.js';
 import { SONG } from '../sound/songs.js';
 import { RUSH_BOOST_SE } from '../rom/rush.js';
 import { BOOST_MODE_SE } from '../rom/sa2boost.js';
@@ -53,6 +54,9 @@ const NEXT_ACT_FRAMES = 16, NEXT_ACT_LOADS = 2;
 // frame it is 3838 when the act is started straight from the course select (the Egg Ball seeds the random numbers
 // with it)
 const START_FRAME_COUNT = 3838;
+// what an act adds to the stage: its StageInit's settings on each start (init) and its background's update
+// after the camera's (background), by level
+const LEVEL_EXTRAS = { [EGG_ROCKET]: createEggRocket };
 // what Sonic reads while the title card holds him: the jump and attack buttons InitializePlayer leaves held, never pressed
 const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, boost: false, trick: false, jumpPressed: false, attackPressed: false, boostPressed: false, trickPressed: false };
 // and while an object holds his controls (the forced slide): nothing, as it clears his input
@@ -87,6 +91,10 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     level: act.level,   // gCurrentLevel: 0 is Neo Green Hill act 1, 1 its act 2, 2 Secret Base act 1
     tick: 0, player, terrain, tasks, rings, scatter, cam: null, effects: [], sprites: [],
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
+    checkpointTime: 0,    // gCheckpointTime: counts up with the clock even while the course time counts down
+    timerReversed: false, // STAGE_FLAG__TIMER_REVERSED: the course time counts down, to a time over at 0
+    bg: null,             // the act's own background state, for its drawing (Egg Rocket's: eggrocket.js)
+    backLines: null,      // the back layer split at a world row (an Egg Rocket stage separation): { y, shift }
     animal: 0,   // gTrappedAnimalVariant: the next defeat's animal
     blendOff: false,   // whether a boss turned the colour blending off this frame (gBldRegs.bldCnt = 0)
     seed: 0,     // gPseudoRandom: the game's random numbers, one sequence for the whole game, from 0
@@ -246,8 +254,6 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       cam.x += loop.shift; cam.wrapped += loop.shift; drawShift -= loop.shift;
       return loop.shift;
     },
-    // STAGE_FLAG__ACT_START: the course clock stops
-    stopClock() { state.clockStopped = true; },
     // the special spring holds the camera (specialspring.js): it puts it back where it was after the camera's
     // task has moved it and drawn the layers there, so what is drawn after it this frame is placed from there
     holdCamera(x, y) {
@@ -262,7 +268,14 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     specialStage(x, y) { special = { x, y }; tasks.stop(); },
     get checkpointIndex() { return state.checkpointIndex; },
     // Sonic passed checkpoint `index`: the act starts over with his centre at (x, y) and the clock at this time
-    passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.courseTime }; },
+    passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.checkpointTime }; },
+    // the bounds Sonic is kept inside
+    // what the act adds to the stage (LEVEL_EXTRAS), for its own objects
+    get act() { return extras; },
+    get edges() { const c = state.cam; return { minX: c.minX, minY: c.minY, maxX: c.maxX + SCREEN_W, maxY: c.maxY + SCREEN_H }; },
+    // the stage clock: stopped (STAGE_FLAG__ACT_START), or counting down from `time` (TIMER_REVERSED)
+    stopClock(stopped = true) { state.clockStopped = stopped; },
+    countDown(time) { state.timerReversed = true; state.courseTime = time; },
     // Sonic's attack box destroyed an enemy at (x, y)
     defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }, stage.level >> 1); },
     playSound: song => sound.play(song),
@@ -511,6 +524,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     const at = state.checkpoint ?? stage.spawn;
     Object.assign(player, createPlayer({ x: at.x, y: at.y, spinDashSpeeds }));
     if (state.courseTime >= MAX_COURSE_TIME && state.checkpoint) state.checkpoint.time = 0;
+    state.checkpointTime = state.checkpoint?.time ?? 0; state.timerReversed = false;
     state.cam = newCamera();
     state.view = viewOf(state.cam, viewW, viewH);
     tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear();
@@ -522,6 +536,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     if (state.water) Object.assign(state.water, createWater(stage.water));
     startCard();
     sound.playStageMusic(stage.music);
+    extras?.init();
     loading = true; starMusic = false;
   }
 
@@ -564,6 +579,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       ctx.view = state.view = viewOf(state.cam, viewW, viewH, state.view);
       // once it moves, it updates the zone's background (backgrounds.js)
       if (moves) BACKGROUND_UPDATE[stage.backgroundScroll]?.(ctx, state.cam);
+      extras?.background(ctx.cam);
     }],
     [0x2000, ctx => collectRings(ctx)],
     [0x2000, ctx => entities.manager.run(ctx)],
@@ -628,7 +644,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
         state.sprites.push({ frame, x, y, flipX: false, flipY: false, affine: null, order: 8, prio: 2, boost: true });
       });
     }],
-    [0xFF00, () => { if (!state.clockStopped) state.courseTime++; state.tick++; }],
+    [0xFF00, () => { if (!state.clockStopped) tickClock(); state.tick++; }],
     // the water's (water.js), after the clock has ticked
     ...(state.water ? [[WATER_TASK, (run => ctx => run(ctx))(waterTask(state.water, () => state.tick).run)]] : []),
   ];
@@ -638,6 +654,24 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   if (options.carry) Object.assign(state, options.carry);
   addStageTasks();
   startCard();
+  const extras = LEVEL_EXTRAS[stage.level]?.({ state, world, ctx, player }) ?? null;
+  extras?.init();
+
+  // the stage clock (the end of Task_GameStage): counting down, the course time running out is a time over:
+  // the clock stops, Sonic loses his shields and items and dies thrown up as high as a jump, with SE_TIME_UP
+  // (and a screen shake in Egg Rocket)
+  function tickClock() {
+    state.checkpointTime++;
+    if (!state.timerReversed) { state.courseTime++; return; }
+    if (--state.courseTime > 0) return;
+    state.clockStopped = true;
+    player.shield = null; player.invincible = 0; player.speedUp = 0;
+    player.ysp = -PHYSICS.jumpSpeed;
+    if (stage.level === EGG_ROCKET) tasks.add(screenShake(0x800, 8, 16, -1, SHAKE.VERTICAL | SHAKE.HORIZONTAL | SHAKE.RANDOM), SCREEN_SHAKE);
+    player.dead = true;
+    sound.play(SONG.TIME_UP);
+  }
+
   if (options.resume) comeBack(options.resume);
 
   // sub_805D4F0, as the special stage's results end: its checkpoint 16 px up and left of the spring Sonic left

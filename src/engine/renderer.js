@@ -338,22 +338,30 @@ export function createRenderer(canvas, assets) {
 
   // The snow (Ice Mountain) from map pixel (sx, sy) at the original screen's top left, in palette `colors`,
   // added to what is under it or, with `opaque`, drawn over it, on the screen's lines above `end`; white in the
-  // window's shape with `shape` (windowShape)
+  // window's shape with `shape` (windowShape).
+  // It is put together on a layer of its own and added onto the screen ('lighter' adds each channel and stops at
+  // 255, as the blend does), so the screen is never read back.
+  const snowCanvas = document.createElement('canvas');
+  let snowImg = null;
   function drawSnow(frame, sx, sy, colors, opaque, ox, oy, end, shape) {
     if (end <= 0) return;
-    const img = ctx.getImageData(0, 0, W, end), d = img.data, sw = snow.width, sh = snow.height;
+    if (snowImg?.width !== W || snowImg?.height !== H) { snowImg = new ImageData(W, H); snowCanvas.width = W; snowCanvas.height = H; }
+    const d = snowImg.data, sw = snow.width, sh = snow.height;
     const win = shape && winCtx.getImageData(0, 0, W, end).data;
+    d.fill(0, 0, W * end * 4);
     for (let y = 0; y < end; y++) {
       const row = mod(sy + y - oy, sh) * sw;
       for (let x = 0; x < W; x++) {
         const c = frame[row + mod(sx + x - ox, sw)];
         if (!c) continue;
         const k = (y * W + x) * 4, rgb = win && win[k + 3] ? [255, 255, 255] : colors[c];
-        if (opaque) { d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2]; continue; }
-        d[k] = Math.min(255, d[k] + rgb[0]); d[k + 1] = Math.min(255, d[k + 1] + rgb[1]); d[k + 2] = Math.min(255, d[k + 2] + rgb[2]);
+        d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2]; d[k + 3] = 255;
       }
     }
-    ctx.putImageData(img, 0, 0);
+    snowCanvas.getContext('2d').putImageData(snowImg, 0, 0, 0, 0, W, end);
+    ctx.globalCompositeOperation = opaque ? 'source-over' : 'lighter';
+    ctx.drawImage(snowCanvas, 0, 0, W, end, 0, 0, W, end);
+    ctx.globalCompositeOperation = 'source-over';
   }
 
   // back to front: higher orders first, and the later entries of an order before the earlier ones

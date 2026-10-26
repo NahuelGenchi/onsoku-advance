@@ -3,8 +3,9 @@
 // platforms (thin, falling, sinking, rising and square), boulders, blocks of ice, breakable walls, moving springs, ferris wheels, underwater lava platforms, waterfalls, boosters, checkpoints, wall poles, grind
 // rails, the incline ramp, the half-pipe, the forced slide, the mini loops, the water bridge, the shrubbery, the
 // goal, the special spring, the hook rails, the deep snow, the air bubbles, the skating stones, the security gates, the conveyor belts, the steam exhausts, the swinging hooks, Angel Island's torches, floats, lifts, bowls, run wheels, updrafts and iron balls, swing
-// ropes and crane claws, the visibility toggles, Secret Base's pipe curler, item boxes, enemies, and a stand-in
-// for each kind that this game doesn't build yet, so that every task keeps its place in the list.
+// ropes and crane claws, the visibility toggles, Secret Base's pipe curler, the multiplayer stages' mystery item
+// boxes, item boxes, enemies, and a stand-in for each kind that this game doesn't build yet, so that every task
+// keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
 // order, and the tasks of a priority in the order they were made. The original fetches the next task before
@@ -80,6 +81,7 @@ import { createConveyorBeltObject } from './conveyorobject.js';
 import { createSpikedBarrel } from './spikedbarrel.js';
 import { createPropeller } from './propeller.js';
 import { createToggleGravity } from './gravity.js';
+import { createMysteryBox } from './mysterybox.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -228,6 +230,7 @@ function interactable(e, slot, anims, ctx, level, zone) {
     ?? createTorch(e, slot, ctx.world) ?? createBoulderSpawner(e, slot, anims) ?? createFloat(e, slot) ?? createLift(e, slot, anims)
     ?? createRunWheel(e, slot, anims) ?? createUpdraft(e, slot, anims) ?? createIronBall(e, slot, anims)
     ?? createRollTube(e, slot) ?? createHidingSpring(e, slot, anims) ?? createHangBar(e, slot) ?? createConveyorBeltObject(e, slot, anims) ?? createSpikedBarrel(e, slot, anims) ?? createPropeller(e, slot, anims) ?? createToggleGravity(e, slot, ctx)
+    ?? createMysteryBox(e, slot, anims, ctx)
     ?? (e.kind === STAGE_GOAL ? createGoal(e, slot, anims) : standIn(e, slot));
 }
 
@@ -241,14 +244,16 @@ function interactable(e, slot, anims, ctx, level, zone) {
  * starts over, and a task that changes its entity's data bytes (the act's copy, in the original) keeps them
  * in its slot's `d` until then.
  *
- * `stage` has interactables, itemBoxes, enemies and entityRegions; `tasks` is the list it adds to.
+ * `stage` has interactables, itemBoxes, enemies and entityRegions; `tasks` is the list it adds to. Each game
+ * keeps its own copy of the entities' data, which some objects change (the mystery item boxes' counts).
  */
 export function createEntities(stage, anims, tasks) {
   const { x: regionsX, y: regionsY } = stage.entityRegions;
   const regions = Array.from({ length: regionsX * regionsY }, () => []);
-  const slot = (e, spawn) => ({ e, live: null, gone: false, d: null, spawn });
+  const slot = (e, spawn) => ({ e: { ...e, d: e.d.slice() }, live: null, gone: false, d: null, spawn });
+  const interactables = (s, ctx) => interactable(s.e, s, anims, ctx, stage.level, stage.zone);
   for (const [list, spawn] of [
-    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx, stage.level, stage.zone)],
+    [stage.interactables, interactables],
     [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
     [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s)],
   ]) {
@@ -267,6 +272,7 @@ export function createEntities(stage, anims, tasks) {
         for (const s of regions[rx + ry * regionsX]) {
           const { x, y } = s.e;
           if (s.live || s.gone || x < x0 || x > x1 || y < y0 || y > y1) continue;
+          s.e.changed = false;
           const task = s.spawn(s, ctx);
           if (!task) continue;
           s.live = task;
@@ -297,10 +303,22 @@ export function createEntities(stage, anims, tasks) {
         return true;
       },
     },
+    /** The interactable at place `id` in region (rx, ry)'s list, as the room events name one. */
+    interactable(rx, ry, id) { return regions[rx + ry * regionsX]?.find(s => s.spawn === interactables && s.e.id === id)?.e ?? null; },
+    /**
+     * Another player's change to that interactable (ReceiveRoomEvent_PlatformChange): a live one sees it as
+     * `changed` until it leaves (MAP_ENTITY_STATE_MINUS_THREE); with action 0 one that isn't live never
+     * spawns again.
+     */
+    change(rx, ry, id, action) {
+      const s = regions[rx + ry * regionsX]?.find(s => s.spawn === interactables && s.e.id === id);
+      if (s?.live) s.e.changed = true;
+      else if (s && action === 0) s.gone = true;
+    },
     /** Everything leaves and the next scan spawns what is in range, as when the act starts over. */
     reset() {
       prev = null;
-      for (const r of regions) for (const s of r) { s.live = null; s.gone = false; s.d = null; }
+      for (const r of regions) for (const s of r) { s.live = null; s.gone = false; s.d = null; s.e.changed = false; }
     },
   };
 }

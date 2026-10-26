@@ -20,7 +20,31 @@ const RUSH_PAD_BUTTONS = { ...PAD_BUTTONS, attack: [1], boost: [2] };
 const TRICK_PAD_BUTTONS = [5];
 const DEAD_ZONE = 0.5;
 
-export function createInput() {
+// the multiplayer modes' two players on one keyboard: the first on WASD with F to jump and G to attack, the
+// second on the arrows with . to jump and / to attack; the players after them play with controllers
+export const PLAYER_KEYS = [
+  { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyF: 'jump', KeyG: 'attack' },
+  { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Period: 'jump', Slash: 'attack' },
+  {}, {},
+];
+
+/** The connected controllers in the browser's order. */
+export const connectedPads = () => [...(navigator.getGamepads?.() ?? [])].filter(p => p?.connected);
+
+/**
+ * The controllers player `player` of `count` plays with: they go to the players without keys first, the
+ * third and the fourth, then to the first and the second.
+ */
+export function playerPads(player, count) {
+  const order = [...Array.from({ length: Math.max(0, count - 2) }, (_, i) => i + 2), 0, 1];
+  return () => connectedPads().filter((_, k) => order[k] === player);
+}
+
+/**
+ * The buttons one player holds: from `keys` (the single-player keys by default) and the controllers `pads()`
+ * gives (all of them by default).
+ */
+export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
   const input = {
     left: false, right: false, up: false, down: false, jump: false, attack: false, boost: false, trick: false, start: false, select: false,
     jumpPressed: false, attackPressed: false, boostPressed: false, trickPressed: false, enabled: false,
@@ -74,8 +98,7 @@ export function createInput() {
   input.poll = () => {
     if (!input.enabled) return;
     const now = {};
-    for (const pad of navigator.getGamepads?.() ?? []) {
-      if (!pad?.connected) continue;
+    for (const pad of pads()) {
       const on = i => pad.buttons[i]?.pressed, map = input.rush ? RUSH_PAD_BUTTONS : PAD_BUTTONS;
       for (const b of BUTTONS) if (map[b].some(on)) now[b] = true;
       if (input.tricks && TRICK_PAD_BUTTONS.some(on)) now.trick = true;
@@ -98,13 +121,13 @@ export function createInput() {
   };
 
   addEventListener('keydown', e => {
-    const button = KEYS[e.code];
+    const button = keys[e.code];
     if (!input.enabled || !button || off(button) || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
     if (!e.repeat) input.press(button, true);
   });
   addEventListener('keyup', e => {
-    const button = KEYS[e.code];
+    const button = keys[e.code];
     if (!button || off(button)) return;
     if (input.enabled) e.preventDefault();
     input.press(button, false);

@@ -82,11 +82,17 @@ const SILENT = {
  * { score, lives, seed, continues } to start with; levelPick, set when the act is started from the level pick (?level=N);
  * onTitle(), called when a game over sends the game back to its start (the SEGA logo), after which the act does
  * nothing more.
+ *
+ * `options.mode` makes it one GBA's game in a multiplayer mode (chaohunt.js): where Sonic starts (`start`), its
+ * tasks (`setup(game)`), what ends the title card (`cardEnd()`), his life lost (`lifeLost()`), what he reads of
+ * the controls (`input(held)`), the stage's clock (`clock()`), what he sends the others at the end of his frame
+ * (`send()`), and what the camera centres on (`follow()`).
  */
 export function createGame(canvas, assets, input, sound = SILENT, options = {}) {
   // the extra stage runs its own player and stage (extra.js)
   if (assets.stage.extra) return createExtraStage(canvas, assets, input, sound, options);
   const { spinDashSpeeds } = assets.physics;
+  const mode = options.mode ?? null;
   // the animations, and which colours their palette loads last left in each row of the sprite palette (animator.js)
   const anims = { ...assets.sprites.anims, objPalette: new Array(16).fill(-1) };
   // the act being played (assets.acts, by level), and what is its own: its map, its objects and their tasks,
@@ -95,7 +101,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   Object.assign(anims, act.anims);   // the act's own look for sprites its zone's acts draw differently
   let tasks = createTasks(), entities = createEntities(stage, anims, tasks), rings = createRings(stage.rings, anims);
   let palettes = stage.paletteAnimations.map(createPaletteAnimation);
-  const player = createPlayer({ ...stage.spawn, spinDashSpeeds });
+  const player = createPlayer({ ...(mode?.start ?? stage.spawn), spinDashSpeeds });
   const scatter = createScatter(anims);
   rings.reset(); scatter.reset();
   const state = {
@@ -145,6 +151,10 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // null while they are his own); only drawing reads `shown`
     spriteRow: { bytes: new Uint8Array(32), written: 0, shown: null, uploaded: false },
     water: createWater(stage.water),   // the act's water (water.js), or null
+    // a mode's screen effects, for drawing: darkness ({ y: bldY, spans: each line's lit [x1, x2) or null }), a
+    // fade to white (bldY), and the object window (objWindow, with the layers it shows: objWindowLayers 0x08
+    // the background alone, 0 nothing but the backdrop)
+    effects2d: null,
   };
   let boostAnims = null;   // the particles' animations, numbered as the renderer's boost atlas has them
   let playerAnims = anims;   // Sonic's animations, with the tricks' once their art is read
@@ -266,8 +276,10 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     },
     // HandleLifeLost: Sonic's task ends with his rings gone and a life less. With lives left the act starts
     // over, and the original destroys every task, so nothing after Sonic's runs this frame. The last one lost
-    // brings the game over, with the act still running behind it; a continue left is used for it.
+    // brings the game over, with the act still running behind it; a continue left is used for it. In a
+    // multiplayer mode he starts again where he started, and the stage goes on.
     lifeLost() {
+      if (mode) { mode.lifeLost(); return; }
       state.ringCount = 0;
       state.lives = (state.lives - 1) & 0xFF;
       if (state.lives !== 0) { restart = restartAct; tasks.stop(); return; }
@@ -427,11 +439,16 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   // matrix it shares with other sprites, which all show the last transform written to it.
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x: x + drawShift + shiftX, y: y + shiftY, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, sheet: s.sheet, white: s.white, allWhite: s.allWhite });
+    state.sprites.push({ frame: s.frame, x: x + drawShift + shiftX, y: y + shiftY, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, sheet: s.sheet, white: s.white, allWhite: s.allWhite, window: s.window });
+  }
+  // the same at a place on the screen, as the HUD's sprites are put
+  function drawOnScreen(s, x, y, affine = null) {
+    if (s.frame < 0) return;
+    state.sprites.push({ frame: s.frame, x, y, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, screen: true });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
-    player, world, anims, tiles: assets.sprites.tiles, cam: { x: 0, y: 0 }, view: state.view, draw, input, get level() { return stage.level; },
+    player, world, anims, tiles: assets.sprites.tiles, cam: { x: 0, y: 0 }, view: state.view, draw, drawOnScreen, input, get level() { return stage.level; },
     attack: (s, x, y) => attackTest(s, x, y, ctx),
     projectile: (s, x, y) => projectileTest(s, x, y, ctx),
     add: (task, priority) => tasks.add(task, priority),
@@ -565,6 +582,17 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     },
   };
 
+  // the multiplayer modes' InitializePlayer and Task_PlayerHandleDeath after a life lost: Sonic starts again at
+  // (x, y), still and standing, the buttons he holds not counting as presses, on the back layer, with the
+  // camera centred on him again and following him, and the music's tempo back to normal
+  function respawn({ x, y }) {
+    Object.assign(player, createPlayer({ x, y, spinDashSpeeds: assets.physics.spinDashSpeeds }), { itemEffect: 0, confusion: 0 });
+    input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
+    state.cam = newCamera();
+    ctx.view = state.view = viewOf(state.cam, viewW, viewH);
+    sound.tempo(NORMAL_TEMPO);
+  }
+
   // The act starts over with everything in it after a life is lost, keeping the score, the stage clock and the
   // last checkpoint passed. Sonic starts at that checkpoint, or at the act's start without one, and the course
   // time goes back to what it was there (to 0 if it had run out); the camera starts from him. The act's music
@@ -643,7 +671,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     [0x0F00, () => {
       if (state.shake >= 0 && ++state.shake >= RUSH_BOOST.shake.length) state.shake = -1;
       const moves = state.cam.started;
-      updateCamera(state.cam, player);
+      updateCamera(state.cam, player, mode?.follow() ?? player);
       animateStageTiles(stage, state.cam.tiles);
       ctx.cam = { x: Math.floor(state.cam.x), y: Math.floor(state.cam.y) };
       ctx.view = state.view = viewOf(state.cam, viewW, viewH, state.view);
@@ -672,9 +700,11 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       const pressed = input.jumpPressed || input.attackPressed || pad.some(k => !cardPad.includes(k));
       cardPad = pad;
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
-      if (runTitleCard(state.card, pressed)) return;
+      // only the single-player game's card can be cut short
+      if (runTitleCard(state.card, pressed && !mode)) return;
       state.card = null; state.clockStopped = false; state.cardsShown = state.level;
       state.cardOver = true;   // its last frame, which clears the blend it set
+      if (mode) { firstCard = false; mode.cardEnd(); return; }
       state.hud = createHud(firstCard ? hudFlash : 1);
       firstCard = false;
       tasks.add(hudTask, 0x2180);
@@ -682,7 +712,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // Sonic's task has ended at the game over; his effects run on
     [0x3000, () => {
       if (!state.gameOver) {
-        const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? player.heldInput ?? NO_INPUT : input;
+        const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? player.heldInput ?? NO_INPUT : mode ? mode.input(input) : input;
         stepPlayer(player, held, world);
         animatePlayer(player, held, playerAnims, world);
         if (!player.dead) recordSonic(state.boostFx, player);
@@ -690,7 +720,9 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
         if (player.anim.loaded) state.spriteRow.written = 0;
         // the boost's effects run after him, as Rush's objects run after its player
         if (state.rushArt && (state.rush || state.rushFx.list.length > 0)) stepRushFx(state.rushFx, player, state.rushArt, player.boost);
-        drawSonic();
+        // in a multiplayer mode he tells the others where he is and how he looks, and is drawn as they see him
+        if (mode) mode.send();
+        else drawSonic();
       }
       state.effects = state.effects.filter(updateEffect);
       for (const e of state.effects) draw({ frame: frameOf(e.anim, anims), flipX: e.flipX, flipY: e.flipY, order: 8, prio: 2 }, e.x, e.y);
@@ -718,7 +750,12 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       });
     }],
     // the stage clock, which also keeps this frame's gravity for the next (gPrevStageFlags)
-    [0xFF00, () => { player.wasInverted = player.inverted; if (!state.clockStopped) tickClock(); state.tick++; }],
+    [0xFF00, () => {
+      player.wasInverted = player.inverted;
+      if (mode) mode.clock();
+      else if (!state.clockStopped) tickClock();
+      state.tick++;
+    }],
     // the water's (water.js), after the clock has ticked
     ...(state.water ? [[WATER_TASK, (run => ctx => run(ctx))(waterTask(state.water, () => state.tick).run)]] : []),
   ];
@@ -777,6 +814,10 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     row.shown = row.written ? Array.from({ length: 16 }, (_, c) => (row.written >> c & 1 ? row.bytes[c * 2] | row.bytes[c * 2 + 1] << 8 : null)) : null;
   }
 
+  // what a multiplayer mode reaches of this GBA's game
+  const game = { state, get tasks() { return tasks; }, get entities() { return entities; }, ctx, world, player, respawn, sound };
+  mode?.setup(game);
+
   function step() {
     if (special || toTitle) return;
     input.poll?.();
@@ -811,8 +852,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     frame = requestAnimationFrame(loop);
   }
 
-  return {
-    state, step,
+  return Object.assign(game, {
+    step,
     draw: show,
     /** Sets the size of what the screen shows: 240 × 160, the original's, or wider and taller (widescreen). */
     setView(w, h) {
@@ -835,13 +876,15 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       if (art && art !== state.trickArt) playerAnims = { ...anims, ...art.anims };
       state.trickArt = art; state.tricks = on && !!art; input.setTricks?.(state.tricks);
     },
-    // the act's music starts with the act, as the stage's init does (StageInit_ZoneNActM)
-    start() {
-      input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);
+    // the act's music starts with the act, as the stage's init does (StageInit_ZoneNActM); a multiplayer game
+    // steps its GBAs together itself (`ownLoop` false)
+    start(ownLoop = true) {
+      input.enabled = true; last = performance.now(); pending = 0;
+      if (ownLoop) frame = requestAnimationFrame(loop);
       sound.playStageMusic(stage.music);
     },
     stop() { input.enabled = false; input.release(); cancelAnimationFrame(frame); sound.stopAll(); },
-  };
+  });
 }
 
 /**

@@ -63,3 +63,6 @@ export function octantAngle(x, y) {
   if (OCTANTS[i] & 1) f = s16(0x80 - f);
   return (f + OCTANTS[i] * 128) & 0x3FF;
 }
+
+// the name Chao Hunt's code gives sub_8004418; its callers pass s16 parts, so the two agree
+export const vectorAngle = octantAngle;

@@ -127,6 +127,12 @@ export const LEVELS = {
   // StageInit_Zone7Act2 (0x0803DF31): only the Super Egg Robo's song. The Moon Zone is the extra stage, run by
   // its own tasks (src/engine/extra.js), with Super Sonic's, the Super Egg Robo's and the WARNING sign's sprites
   13: { name: 'The Moon Zone', zone: 6, act: 1, paletteAnimations: [], music: 26, extra: true, sprites: { ...EXTRA_SPRITES, ...CREDITS_SPRITES }, ending: true },
+  // StageInit_ForestChaoGarden (0x0803DF3D), the first multiplayer stage (Chao Hunt's stage A, called Forest Chao
+  // Garden in the ROM's own text): Neo Green Hill's two palette animations, then 820's variants 1 and 0 (a
+  // palette animation given as [animation, variant]), and act 1's song; its background scrolls as zone 1's does
+  // (StageBgUpdate_Zone1Acts12) and its objects look like Neo Green Hill's. It is played only in the multiplayer
+  // modes (`multiplayer`), each player starting from their own place in the table after the start positions.
+  14: { name: 'Forest Chao Garden', zone: 7, act: 0, paletteAnimations: [814, 815, [820, 1], [820, 0]], music: 12, multiplayer: true },
 };
 
 /** The entry of `level`, or an error for one this game can't load yet. */

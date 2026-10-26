@@ -94,6 +94,9 @@ export function createM4A(rom, layout, io) {
   const r8 = addr => rom[addr - ROM_BASE];
 
   const info = { reverb: 0, dmaCounter: 0, c15: 0, pcm: new Int8Array(2 * HALF), memAcc: new Uint8Array(256) };
+  // what is left out of the output: `music` silences the notes of the first music player (the BGM's), as the
+  // second and later GBAs of a multiplayer game do on one page, where the first one's music is heard
+  const muted = { music: false };
   // the five DirectSound channels and the four PSG ones sit in EWRAM in this order (gSoundInfo, gCgbChans)
   const chans = Array.from({ length: NUM_CHANS }, (_, i) => newChannel(0x02001450 + 0x40 * i));
   const cgbChans = Array.from({ length: 4 }, (_, i) => newChannel(0x02002440 + 0x40 * i));
@@ -334,7 +337,7 @@ export function createM4A(rom, layout, io) {
     clearChain(C);
     C.prev = null; C.next = T.chan;
     if (T.chan) T.chan.prev = C;
-    T.chan = C; C.track = T;
+    T.chan = C; C.track = T; C.music = P === players[0];
     T.lfoDelayCounter = T.lfoDelay;
     if (T.lfoDelay) clearModM(T);
     trkVolPitSet(T);
@@ -464,6 +467,7 @@ export function createM4A(rom, layout, io) {
 
   // the software envelope follows the hardware one, writing the registers and retriggering at each phase change
   function cgbSound() {
+    if (muted.music) io.muted = cgbChans.reduce((m, C, i) => m | (C.music ? 1 << i : 0), 0);
     info.c15 = info.c15 ? info.c15 - 1 : 14;
     for (let ch = 1; ch <= 4; ch++) {
       const C = cgbChans[ch - 1];
@@ -634,7 +638,8 @@ export function createM4A(rom, layout, io) {
     const pcm = info.pcm, wav = C.wav - ROM_BASE, data = wav + 16;
     const size = u32(wav + 12), loopStart = u32(wav + 8);
     const loopLen = C.status & LOOP ? size - loopStart : 0;
-    const vr = C.envR, vl = C.envL;
+    // with the music muted, its notes still play out, unheard
+    const quiet = muted.music && C.music, vr = quiet ? 0 : C.envR, vl = quiet ? 0 : C.envL;
     let cur = C.current - C.wav - 16, count = C.count;
     if (C.type & 0x08) {
       // fixed rate: one sample in per sample out
@@ -723,7 +728,7 @@ export function createM4A(rom, layout, io) {
   const eachTrack = (P, bits, f) => P.tracks.forEach((T, i) => { if ((bits & (1 << i)) && (T.flags & EXIST)) f(T); });
 
   return {
-    info, chans, cgbChans, players,
+    info, chans, cgbChans, players, muted,
 
     /** One GBA frame: the V-blank's DMA bookkeeping, then SoundMain. Returns the offset of the 176 bytes just
      *  mixed into info.pcm (right side; the left side is HALF bytes later). */

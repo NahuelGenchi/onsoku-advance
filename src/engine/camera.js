@@ -20,6 +20,7 @@ export function createCamera(p, terrain) {
     x: Math.floor(p.x) - SCREEN_W / 2, y: centreY(p) - (SCREEN_H / 2 + 4),
     targetX: 0, targetY: 0, freeze: 0, locked: false, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
     minX: 0, minY: 0, maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false, shakeX: 0, shakeY: 0,
+    hold: 0,
     // the act's size, which X Zone's bosses open the bounds back up to
     width: terrain.width, height: terrain.height,
     // the speed caps (unk8 and unkC, which the results set to 0), the target's shift up or down (shiftY, which
@@ -91,7 +92,11 @@ function updateLead(cam, p) {
   cam.leadY = ease(cam.leadY, cam.leadTargetY);
 }
 
-export function updateCamera(cam, p) {
+// `follow`, in the multiplayer modes, is what the camera centres on in place of Sonic: this GBA's player as
+// its own packets showed it, { x, y, offsetY } (the multiplayer player task's pos and unk58[0])
+// `hold` keeps it still for that many more frames before its task starts
+export function updateCamera(cam, p, follow = p) {
+  if (cam.hold > 0) { cam.hold--; return; }
   if (!cam.started) { cam.started = true; return; }
   // it moves from where it was, kept a pixel further in from the far edges than it may end up: at the
   // bottom of the act, a dead zone can leave it a pixel up
@@ -102,13 +107,13 @@ export function updateCamera(cam, p) {
   // a dead Sonic leaves the target where it was (unk50 bits 0–1); the view still eases onto it
   if (cam.freeze > 0) cam.freeze--;
   else if (!cam.locked) {
-    cam.targetX = Math.floor(p.x) + cam.shiftX - SCREEN_W / 2 - (cam.leadX >> 8);
+    cam.targetX = Math.floor(follow.x) + cam.shiftX - SCREEN_W / 2 - (cam.leadX >> 8);
     // eases toward spriteOffsetY - 4 (up from his centre under flipped gravity) so curling up (offset 14 -> 9)
     // doesn't jolt the view
-    const want = (p.offsetY - 4) * (p.inverted ? -1 : 1);
+    const want = (follow.offsetY - 4) * (p.inverted ? -1 : 1);
     if (cam.offsetY < want) cam.offsetY = Math.min(want, cam.offsetY + 5);
     else if (cam.offsetY > want) cam.offsetY = Math.max(want, cam.offsetY - 5);
-    cam.targetY = centreY(p) + cam.shiftY - SCREEN_H / 2 + cam.look + cam.offsetY - (cam.leadY >> 8);
+    cam.targetY = centreY(follow) + cam.shiftY - SCREEN_H / 2 + cam.look + cam.offsetY - (cam.leadY >> 8);
   }
   const dx = cam.targetX - cam.x;
   // with a lead, it keeps to the target sideways as Rush's does, without a dead zone or a speed limit

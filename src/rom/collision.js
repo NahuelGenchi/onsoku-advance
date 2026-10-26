@@ -47,6 +47,21 @@ export function readLoop(rom, pointsAt, shiftsAt, level) {
   return x < 0 ? null : { x, shift: rom.s16(shiftsAt + level * 4) };
 }
 
+/**
+ * The four start positions of multiplayer stage `level` (14–17), one per player, from the table right after
+ * the per-level one (gSpawnPositions_Modes_4_and_5, which Chao Hunt reads).
+ */
+export function readMultiplayerSpawns(rom, spawnsAt, level, levelCount = 18, firstMultiplayer = 14) {
+  const at = spawnsAt + levelCount * 4 + (level - firstMultiplayer) * 16;
+  return [0, 1, 2, 3].map(i => ({ x: rom.s16(at + i * 4), y: rom.s16(at + i * 4 + 2) }));
+}
+
+/** The Chao's eight places in multiplayer stage `level` (sChaoSpawnPositions), from the table at `at`. */
+export function readChaoSpawns(rom, at, level, firstMultiplayer = 14) {
+  const base = at + (level - firstMultiplayer) * 32;
+  return Array.from({ length: 8 }, (_, i) => ({ x: rom.s16(base + i * 4), y: rom.s16(base + i * 4 + 2) }));
+}
+
 function copy16(rom, at, count) {
   const out = new Uint16Array(count);
   for (let i = 0; i < count; i++) out[i] = rom.u16(at + i * 2);

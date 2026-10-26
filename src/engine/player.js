@@ -1071,15 +1071,17 @@ function flipBox(box, flipX, flipY) {
   return [l, t, r, b];
 }
 
-// a new animation clears both his hitboxes until its script sets them (sub_802486C). Bouncing off a bounce
-// block shows the walk animation (4, variant 0): only a new animation or variant restarts the sprite, so
-// between the two states the cycle carries on where it was.
+// a new animation clears both his hitboxes until its script sets them (sub_802486C); true if it starts one.
+// Bouncing off a bounce block shows the walk animation (4, variant 0): only a new animation or variant
+// restarts the sprite, so between the two states the cycle carries on where it was.
 const SAME_ANIMATION = { bounce: 'walk' };
 function choose(p, name, restart = false) {
   const was = p.anim.name;
-  if (!restart && was !== name && (SAME_ANIMATION[was] ?? was) === (SAME_ANIMATION[name] ?? name)) { p.anim.name = name; return; }
+  if (!restart && was !== name && (SAME_ANIMATION[was] ?? was) === (SAME_ANIMATION[name] ?? name)) { p.anim.name = name; return false; }
+  const fresh = was !== name || restart;
   if (was !== name) p.boxes = [null, null];
   setAnim(p.anim, name, restart);
+  return fresh;
 }
 
 // steps his animation; the hitboxes set before a frame take effect when it appears, and stay until the
@@ -1100,7 +1102,9 @@ function stepAnim(p, anims) {
  */
 export function animatePlayer(p, input, anims, world) {
   if (p.death === 'gone') return;
-  choose(p, chooseAnimation(p, input), p.animRestart);
+  // whether this frame's pick starts an animation, which a multiplayer packet tells the others; the original
+  // reads it as its sprite routine starts, so the picks after an animation ends below don't count
+  p.newAnim = choose(p, chooseAnimation(p, input), p.animRestart);
   p.animRestart = false;
   if (p.state === 'brake' && world.tick % 4 === 0) world.spawnBrakeDust();
   for (let guard = 0; guard < 4; guard++) {
@@ -1113,6 +1117,8 @@ export function animatePlayer(p, input, anims, world) {
   p.prevState = p.state;
   if (p.trickDelay > 0) p.trickDelay--;
   p.hidden = !p.dead && (p.invisible || (p.invulnerable > 0 && (world.tick & 2) !== 0));
+  // the timers as they were before this frame's countdown, which a multiplayer packet sends
+  p.sent = { invulnerable: p.invulnerable, invincible: p.invincible, speedUp: p.speedUp };
   // dead, the timers count down only on the frame he dies: the tasks that take over from then on leave them
   if (p.dead && p.invulnerable === 1) return;
   if (p.state !== 'hurt' && p.invulnerable > 0) p.invulnerable--;

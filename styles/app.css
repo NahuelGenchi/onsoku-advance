@@ -240,6 +240,10 @@ button { font: inherit; }
 .stage { position: fixed; inset: 0; display: grid; place-items: center; background: #000; }
 .stage[hidden] { display: none; }
 #screen { display: block; image-rendering: pixelated; image-rendering: crisp-edges; outline: none; }
+#screen[hidden] { display: none; }
+.screens { display: grid; gap: 8px; justify-content: center; align-content: center; }
+.screens[hidden] { display: none; }
+.screens .screen { display: block; image-rendering: pixelated; image-rendering: crisp-edges; outline: none; }
 .help {
   position: fixed; left: 12px; top: 12px; max-width: calc(100vw - 24px); padding: 12px 14px; border-radius: 12px;
   background: rgba(8, 20, 60, .78); border: 1px solid var(--line); font-size: 13px; backdrop-filter: blur(4px);

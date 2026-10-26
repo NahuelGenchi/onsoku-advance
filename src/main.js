@@ -20,6 +20,8 @@ import { createNormalEnding } from './engine/normalending.js';
 import { createSound } from './sound/audio.js';
 import { SCREEN_W, SCREEN_H, VIEW_MAX_W, VIEW_MAX_H } from './engine/constants.js';
 import { THE_MOON, ALL_EMERALDS } from './engine/unlock.js';
+import { levelInfo } from './rom/levels.js';
+import { startMultiplayer, DEFAULT_SEED, DEFAULT_CHAO_PLACE } from './multiplayer.js';
 
 const picker = document.getElementById('picker');
 const stage = document.getElementById('stage');
@@ -36,11 +38,19 @@ const params = new URLSearchParams(location.search);
 const debug = params.has('debug'), specialTest = params.has('special');
 // `?level=N` starts the level the ROM's tables number N (2 is Secret Base Zone act 1) instead of the first
 const firstLevel = Number(params.get('level') ?? 0) | 0;
+// a multiplayer stage (`?level=14`) is played by `&players=N` players, 2 to 4 (2 if not given), each on their
+// own screen; `&seed=` and `&chao=` set what the link hands the GBAs as the round starts (the shared random
+// number and the Chao's place, 0–7)
+const multiplayer = (() => { try { return levelInfo(firstLevel).multiplayer ?? false; } catch { return false; } })();
+const players = multiplayer ? Math.min(4, Math.max(2, Number(params.get('players') ?? 2) | 0)) : 1;
+const seed = params.has('seed') ? Number(params.get('seed')) >>> 0 : DEFAULT_SEED;
+const chaoPlace = params.has('chao') ? (Number(params.get('chao')) | 0) & 7 : DEFAULT_CHAO_PLACE;
+const screens = document.getElementById('screens');
 
 const input = createInput();
 input.bindTouch(document.getElementById('touch'));
 const sound = createSound();
-let game = null, front = null, specialStage = null, rom = null, statsTimer = 0;
+let game = null, front = null, specialStage = null, round = null, rom = null, statsTimer = 0;
 
 // the widescreen view: off unless chosen, as the original screen is what the game is checked against
 const WIDE_KEY = 'onsoku.widescreen';
@@ -191,7 +201,7 @@ const setup = createRomSetup(picker, {
     },
   ],
   onPlay() {
-    sound.load(sa1.buffer, sa1.assets.sound).catch(err => console.warn('No sound:', err));
+    sound.load(sa1.buffer, sa1.assets.sound, players).catch(err => console.warn('No sound:', err));
     start(sa1.buffer, sa1.assets);
   },
 });
@@ -210,6 +220,7 @@ function stopAll() {
   front?.stop(); front = null;
   specialStage?.stop(); specialStage = null;
   game?.stop(); game = null;
+  round?.stop(); round = null;
   clearInterval(statsTimer);
 }
 
@@ -218,6 +229,10 @@ function start(buffer, assets) {
   rom = new Rom(buffer);
   picker.hidden = true;
   stage.hidden = false;
+  // the extras are single-player options
+  const multi = !!assets.stage.multiplayerSpawns;
+  wideButton.disabled = rushButton.disabled = boostButton.disabled = tricksButton.disabled = multi;
+  if (multi) { startRound(assets); return; }
   const leaving = specialTest && specialSpringStart(assets, { emeralds, continues });
   if (leaving) { enterSpecialStage(assets, leaving); return; }
   if (debug) { play(assets); return; }
@@ -309,6 +324,17 @@ function enterSpecialStage(assets, handover) {
   if (debug) globalThis.onsoku = { special: specialStage, assets, input, sound };
 }
 
+// the multiplayer stage's round, on a screen for each player
+function startRound(assets) {
+  game = null;
+  screen.hidden = true;
+  screens.hidden = false;
+  round = startMultiplayer({ container: screens, assets, count: players, sound, seed, chaoPlace });
+  fitScreen();
+  clearInterval(statsTimer);
+  if (debug) globalThis.onsoku = { round, assets, sound };
+}
+
 document.getElementById('change-rom').addEventListener('click', () => {
   stopAll();
   stage.hidden = true;
@@ -322,10 +348,11 @@ addEventListener('keydown', e => {
   // C shows the terrain collision over the stage, for checking it against the art
   if (e.code === 'KeyC' && game && !stage.hidden && !e.repeat) game.state.showCollision = !game.state.showCollision;
   if (e.code === 'KeyM' && !stage.hidden && !e.repeat) sound.muted = !sound.muted;
-  if (e.code === 'KeyV' && !stage.hidden && !e.repeat) setWide(!wide);
-  if (e.code === 'KeyR' && !stage.hidden && !e.repeat) setRush(!rush);
-  if (e.code === 'KeyB' && !stage.hidden && !e.repeat) setBoostMode(!boostMode);
-  if (e.code === 'KeyT' && !stage.hidden && !e.repeat) setTricks(!tricks);
+  // the widescreen view and the extras are single-player options
+  if (e.code === 'KeyV' && !round && !stage.hidden && !e.repeat) setWide(!wide);
+  if (e.code === 'KeyR' && !round && !stage.hidden && !e.repeat) setRush(!rush);
+  if (e.code === 'KeyB' && !round && !stage.hidden && !e.repeat) setBoostMode(!boostMode);
+  if (e.code === 'KeyT' && !round && !stage.hidden && !e.repeat) setTricks(!tricks);
 });
 
 function showStats() {
@@ -350,8 +377,25 @@ function fitScreen() {
   game?.setView(w, h);
   screen.style.width = `${w * scale}px`;
   screen.style.height = `${h * scale}px`;
+  if (round) fitScreens();
   wideButton.textContent = `Widescreen: ${wide ? 'on' : 'off'}`;
   wideButton.setAttribute('aria-pressed', String(wide));
+}
+// the players' screens, side by side or one above the other, whichever fits them larger; four in two rows
+function fitScreens() {
+  const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight, gap = 8;
+  const layouts = players === 2 ? [[2, 1], [1, 2]] : [[2, 2], [players, 1]];
+  let best = null;
+  for (const [cols, rows] of layouts) {
+    const fit = Math.min((vw - gap * (cols - 1)) / (cols * SCREEN_W), (vh - gap * (rows - 1)) / (rows * SCREEN_H));
+    const scale = fit >= 1 ? Math.floor(fit) : Math.max(fit, 0.25);
+    if (!best || scale > best.scale) best = { cols, scale };
+  }
+  screens.style.gridTemplateColumns = `repeat(${best.cols}, auto)`;
+  for (const c of screens.children) {
+    c.style.width = `${SCREEN_W * best.scale}px`;
+    c.style.height = `${SCREEN_H * best.scale}px`;
+  }
 }
 addEventListener('resize', fitScreen);
 new ResizeObserver(fitScreen).observe(document.documentElement);

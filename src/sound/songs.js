@@ -4,6 +4,9 @@
 export const SONG = {
   INTRO: 1,                // MUS_INTRO
   TITLE_FANFARE: 2,        // MUS_TITLE_FANFARE
+  VS_WIN: 7,               // MUS_007: the multiplayer results screen when this player won,
+  VS_LOSE: 8,              // MUS_008: lost,
+  VS_DRAW: 9,              // MUS_009: or drew
   NEO_GREEN_HILL_1: 12,
   NEO_GREEN_HILL_2: 13,
   DROWNING: 27,            // MUS_DROWNING: the countdown music under water
@@ -53,6 +56,12 @@ export const SONG = {
   IMPACT: 145,             // SE_IMPACT: the Egg Hammer Tank's hammer lands, as the Egg Press does, and the Egg Spider dropping an icicle
   TIME_UP: 166,            // SE_TIME_UP: the course time ran out
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
+  VS_WIN_SE: 157,          // SE_157: 45 frames into the results screen when this player won,
+  VS_LOSE_SE: 158,         // SE_158: lost,
+  VS_DRAW_SE: 159,         // SE_159: or drew
+  KNOCK_TEAMMATE: 161,     // SE_KNOCK_TEAMMATE: a player standing on another is knocked off at speed
+  KNOCK_OPPONENT: 162,     // SE_KNOCK_OPPONENT: one runs into another at speed
+  CHAO_HUH: 163,           // SE_CHAO_HUH: a Chao goes to a player
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
   CHECKPOINT: 169,
   SPRING: 170,
@@ -90,6 +99,7 @@ export const SONG = {
   RUN_WHEEL_FAST: 214,
   ROCKET: 200,             // SE_200: Mecha Knuckles' rocket, stopped as it goes
   MUD_SLIDE: 201,          // SE_201: Angel Island's forced slide takes Sonic
+  ROUND_OVER: 304,         // SE_VS_MULTIPAK_ROUND_OVER: a multiplayer round's time is up
 };
 
 // what the Moon Zone, the Super Egg Robo and the true ending play besides those

@@ -30,6 +30,7 @@ export const KNOWN_VERSIONS = [
       characterAnims: 0x4A6F04,
       specialIntro: 0x684480,
       specialClouds: 0x6B4B10,
+      chaoSpawns: 0x0B8570,
       credits: 0x6815B4,
       emeraldMessage: 0x6C5650,
     },

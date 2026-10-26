@@ -103,6 +103,23 @@ export function findSpinDashSpeeds(rom) {
   return null;
 }
 
+/**
+ * The Chao's places in the multiplayer stages (sChaoSpawnPositions): eight (x, y) pairs of s16 for each of the
+ * four stages, each inside a stage of at most 2048 × 2048 px. A table of such pairs ends where they stop;
+ * the table of byte pairs before it looks like pairs too, so it is found from its end. Null when nothing
+ * looks like it.
+ */
+export function findChaoSpawns(rom) {
+  const n = MP_LEVEL_COUNT * 8, fits = v => v >= 64 && v < 2048;
+  let run = 0;
+  for (let at = 0; at + 4 <= rom.size; at += 4) {
+    if (fits(rom.s16(at)) && fits(rom.s16(at + 2))) { run++; continue; }
+    if (run >= n) return at - n * 4;
+    run = 0;
+  }
+  return null;
+}
+
 /** Offsets for this ROM: the known ones when the checksum matches, otherwise a search. */
 export function locateTables(rom, known) {
   if (known) return { ...known.offsets, searched: false };
@@ -133,6 +150,8 @@ export function locateTables(rom, known) {
     specialClouds: findSpecialClouds(rom),
   };
   const missing = Object.entries(offsets).filter(([, v]) => v === null).map(([k]) => k);
+  // only the multiplayer stages need it
+  offsets.chaoSpawns = findChaoSpawns(rom);
   if (missing.length) {
     throw new RomError(`This Sonic Advance ROM version is not supported yet (could not find: ${missing.join(', ')}).`);
   }

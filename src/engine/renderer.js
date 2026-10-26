@@ -833,7 +833,51 @@ export function createRenderer(canvas, assets) {
     ctx.putImageData(img, 0, 0);
   }
 
-  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, gameOver, bg, backLines, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, display, blendOff }) {
+  // the multiplayer modes' screen effects. Darkness darkens everything but the lit span of each line (the
+  // window WIN0, its lines from H-blank DMA); the screen fades to white by brightening all of it; an
+  // invisible player's sprite is a window (the OBJ window) that shows only the background, or only the
+  // backdrop, through everything drawn in front of it.
+  function darkenSpans(bldY, spans, ox, oy) {
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
+    for (let line = 0; line < H; line++) {
+      const span = spans[line - oy];
+      for (let x = 0; x < W; x++) {
+        if (span && x - ox >= span[0] && x - ox < span[1]) continue;
+        const i = (line * W + x) * 4;
+        d[i] -= (d[i] * bldY) >> 4;
+        d[i + 1] = (d[i + 1] * (16 - bldY)) >> 4;
+        d[i + 2] = (d[i + 2] * (16 - bldY)) >> 4;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+  function brightenAll(bldY) {
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
+    for (let i = 0; i < d.length; i += 4) for (let c = 0; c < 3; c++) d[i + c] += ((255 - d[i + c]) * bldY) >> 4;
+    ctx.putImageData(img, 0, 0);
+  }
+  function objWindow(list, vx, vy, behind, layers) {
+    const main = ctx;
+    ctx = maskCtx;
+    maskCtx.imageSmoothingEnabled = false;
+    maskCtx.clearRect(0, 0, W, H);
+    for (const s of list) {
+      if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+      else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+    }
+    ctx = main;
+    const mask = maskCtx.getImageData(0, 0, W, H).data, img = ctx.getImageData(0, 0, W, H), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (!mask[i + 3]) continue;
+      if (layers & 0x08) { d[i] = behind[i]; d[i + 1] = behind[i + 1]; d[i + 2] = behind[i + 2]; }
+      else { d[i] = backdrop[0]; d[i + 1] = backdrop[1]; d[i + 2] = backdrop[2]; }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+  const backdrop = stage.backdrop ?? [0, 0, 0];
+
+
+  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, gameOver, bg, backLines, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, display, effects2d, blendOff }) {
     const stops = gameOver?.endsNext ? SCROLL_STOPS_AT : Infinity;
     ctx.imageSmoothingEnabled = false;
     if (art && art !== boostArt) {
@@ -888,6 +932,9 @@ export function createRenderer(canvas, assets) {
       }
     }
     if (ice && under) drawUnderBackground(ice.bgX, ice.bgY, under.colors, tick, split, line, ox, oy);
+    // what an invisible multiplayer player's OBJ window shows through: the background alone
+    const windows = sprites.filter(s => s.window);
+    const behind = windows.length && effects2d?.objWindow ? ctx.getImageData(0, 0, W, H).data : null;
     const frame = cam.tiles.shown;
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first; past the
     // goal it draws none
@@ -905,16 +952,18 @@ export function createRenderer(canvas, assets) {
     // whose priority is the same as its own or lower; `shows` picks some of them
     const drawAll = (level, shows = () => true) => byPart((below, first, end) => {
       for (const s of list) {
-        if (Math.min(Math.max(s.prio ?? 0, 1), 3) !== level || s.white || !shows(s)) continue;
+        if (Math.min(Math.max(s.prio ?? 0, 1), 3) !== level || s.white || s.window || !shows(s)) continue;
+        // the HUD's and the multiplayer modes' screen sprites are placed on the original screen
+        const dx = s.screen ? -ox : vx, dy = s.screen ? -oy : vy;
         const sheet = s.boost ? (below ? boostUnder : boost) : sheetFor(s.sheet);
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy, [first, end], below);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic, [first, end], below);
         else if (!sheet) continue;
         else {
           const own = !s.sheet && s.sonicRow && spriteRow?.shown ? tint(spriteRow.shown) : sheet;
-          if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine, own, matrices[s.affine.matrix]);
-          else if (s.allWhite) drawAllWhite(s, vx, vy, own);
-          else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY, own);
+          if (s.affine) drawAffine(s.frame, s.x - dx, s.y - dy, s.affine, own, matrices[s.affine.matrix]);
+          else if (s.allWhite) drawAllWhite(s, dx, dy, own);
+          else drawSprite(s.frame, s.x - dx, s.y - dy, s.flipX, s.flipY, own);
         }
       }
     });
@@ -932,6 +981,7 @@ export function createRenderer(canvas, assets) {
     // water it is off while the water line was at the screen's top the frame before.
     const fading = titleCard ? titleCard.sprites.length > 0 && (titleCard.sprites[0].a0 & 0xC00) === 0x400 : cardOver;
     if (ice && tick > 1 && (!water || water.snow)) drawSnow(snow.frames[ice.snowFrame], ice.snowX, ice.snowY, snow.palettes[paletteVariant(stage, snow.follows, palettes)], fading || blendOff || !!flash, ox, oy, split, flash);
+    if (behind) objWindow(windows, vx, vy, behind, effects2d.objWindowLayers);
     // the HUD's sprites are at priority 0 and OAM order 3, so the few of priority 0 with a lower order are in
     // front of them
     drawAll(1, s => (s.prio ?? 0) < 1 && s.order >= HUD_ORDER);
@@ -941,6 +991,8 @@ export function createRenderer(canvas, assets) {
     byPart(below => drawHud(hudState.sprites, gameOver?.hudPalette ? over.hudSheet : below ? hud.under : hud.sheet, view.clip ?? undefined));
     drawAll(1, s => (s.prio ?? 0) < 1 && s.order < HUD_ORDER);
     if (gameOver) drawGameOver(gameOver);
+    if (effects2d?.darkness) darkenSpans(effects2d.darkness.y, effects2d.darkness.spans, ox, oy);
+    if (effects2d?.fade) brightenAll(effects2d.fade);
     if (display) brighten(display);
     if (actResults) {
       // the band is semi-transparent from when the fade starts, and blending it at full weight over what's

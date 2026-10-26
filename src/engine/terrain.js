@@ -138,3 +138,15 @@ export function solidPixel(terrain, px, py, layer) {
   if (v === 0) return false;
   return v > 0 ? row >= (v & 7) : row < -v;
 }
+
+/**
+ * The one-tile probe in either direction (sub_801F100): the distance from p0 to the solid part of the tile
+ * holding it along `dir` (+8 or −8), ≤ 0 at or inside it, read with `probe` (PROBE_FLOOR or PROBE_WALL) at
+ * (p0, p1). An empty tile sends it on into the next tile that way and a full one back into the last.
+ */
+export function tileEdge(terrain, p0, p1, layer, dir, probe) {
+  const { v } = probe(terrain, p0, p1, layer), r = p0 & 7;
+  if (v === 0) return dir > 0 ? 8 - r : r + 1;
+  if (v === 8) return dir > 0 ? ~r : r - 8;
+  return v > 0 ? v - 1 - r : v + r;
+}

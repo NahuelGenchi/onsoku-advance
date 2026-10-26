@@ -8,9 +8,9 @@ import { identify } from './identify.js';
 import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation, frameLayout } from './sprites.js';
 import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks, mapHoles, indexMetatiles, indexPlainMap, metatileIndices, plainMapIndices } from './tilemaps.js';
-import { readCollision, readSpawn, readLoop } from './collision.js';
+import { readCollision, readSpawn, readLoop, readMultiplayerSpawns, readChaoSpawns } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
-import { readColors, tintRgb, tintImage } from './colors.js';
+import { readColors, tintRgb, tintImage, bgr555ToRgb } from './colors.js';
 import { soundLayout } from './sound.js';
 import { hudGraphics } from './hud.js';
 import { titleCardGraphics } from './titlecard.js';
@@ -36,8 +36,8 @@ export const SONIC_ANIMATIONS = {
   push: [12, 0],
   // standing still at an edge, facing the drop (charState 12) or with his back to it (13)
   balanceForward: [13, 0], balanceBack: [14, 0],
-  // knocked back (charState 15) and dying (1)
-  hurt: [19, 0], dead: [21, 0],
+  // knocked back (charState 15) and dying (1), and knocked away by another player's attack (41)
+  hurt: [19, 0], dead: [21, 0], knocked: [81, 0],
   // hanging from a wall pole (charState 31), and swinging round a red flag (30)
   pole: [38, 0], flagSwing: [37, 0],
   // holding on to a carousel (charState 33)
@@ -376,11 +376,31 @@ const bossSprites = boss => Object.fromEntries(Object.entries(LEVEL_BOSS_ANIMATI
 // the weaker up springs are yellow: they skip the animation's red palette (33) and draw with sprite
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
+// what the multiplayer modes add (src/engine/chaohunt.js): the mystery item box (the item box's 705) and its
+// icons (706: confusion, invisibility, darkness), the Chao (698–704: shocked
+// when it jumps to another player and landing, hovering, facing the player, turning, sitting), the HUD's Chao
+// counter (606) and clock digits (905: 0–9 and ':', then the same in red), the round's result over each
+// player (902: win, lose, draw), the confusion bubble (794), the arrow toward an opponent off screen (767),
+// and the results screen's Chao (885) and messages (883), each in the variants the round can end with
+export const MULTIPLAYER_ANIMATIONS = {
+  mysteryBox: [705, 0], icon13: [706, 13], icon14: [706, 14], icon16: [706, 16],
+  chaoShocked: [698, 0], chaoLand: [698, 2], chaoHover: [699, 0], chaoFront: [700, 0], chaoDiagonalL: [701, 0],
+  chaoDiagonalR: [702, 0], chaoTurn: [703, 0], chaoSitting: [704, 0],
+  chaoCounter: [606, 0],
+  ...Object.fromEntries(Array.from({ length: 22 }, (_, v) => [`mpDigit${v}`, [905, v]])),
+  vsWin: [902, 0], vsLose: [902, 1], vsDraw: [902, 2],
+  confusion: [794, 0], indicator: [767, 0],
+  ...Object.fromEntries([2, 3, 4].flatMap(v => [[`resultChao${v}`, [885, v]], [`resultMessage${v}`, [883, v]]])),
+};
+// the Chao counter and the arrows skip their animations' palettes (sprite flag 18) and are drawn in the OBJ
+// palette slot of their player's character, so with everyone Sonic in Sonic's
+const PLAYER_PALETTE = new Set(['chaoCounter', 'indicator']);
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
 // block, and carried through a marble track), the boulders' and the ice blocks' debris, the Egg Ball's star disc, Secret Base's swinging
 // hook, the Egg Hammer Tank's arm, hammer and belt, and the capsule rising, its shell and the birds circling it, and the Egg Press's spring and base;
 // the skating stones' debris, and the bubbles Sonic lets out under water and the drowning countdown's numbers,
-// which grow to full size, and the game over's words; their frames also keep their OAM pieces as the hardware reads them
+// which grow to full size, and in the multiplayer modes the mystery item box growing and shrinking and the
+// arrows toward the opponents, and the game over's words; their frames also keep their OAM pieces as the hardware reads them
 const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge', 'swingingHook',
   'hammerTankArm', 'hammerTankHammer', 'hammerTankBelt0', 'hammerTankBelt1', 'hammerTankBelt2', 'hammerTankBelt3',
   'capsuleSmall', 'capsuleShell', 'animalRobin', 'animalParrot', 'eggPressSpring', 'eggPressBase', 'eggBallStarDisc',
@@ -389,7 +409,7 @@ const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmal
   'eggSpiderPart', 'eggSpiderLeg',
   'mkRocket', 'mkPart0', 'mkPart1', 'mkPart2', 'mkPart3', 'mkPart4', 'eggSnakeSpike',
   'grabbed', 'eggXHand0', 'eggXHand1', 'eggXHand2', 'eggXBall0',
-  ...Object.keys(GAME_OVER_ANIMATIONS[715])]);
+  'mysteryBox', 'icon13', 'icon14', 'icon16', 'indicator', ...Object.keys(GAME_OVER_ANIMATIONS[715])]);
 // the sprite palette that fills the whole OBJ palette when an act with water starts, and that the colours
 // under water are made from (LoadPalette423Anim, InitWaterPalettes)
 const UNDERWATER_OBJ_PALETTE = 423;
@@ -431,7 +451,9 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
     .filter(name => new Set(actSprites.filter(a => name in a).map(a => a[name].join())).size > 1);
   const own = (i, l) => differs.filter(name => name in actSprites[i]).map(name => [name, `${name}@${l}`]);
   const sprites = extractSprites(rom, tables, water, Object.assign({}, ...actSprites,
-    ...levels.map((l, i) => Object.fromEntries(own(i, l).map(([name, key]) => [key, actSprites[i][name]])))));
+    ...levels.map((l, i) => Object.fromEntries(own(i, l).map(([name, key]) => [key, actSprites[i][name]]))),
+    // the multiplayer modes' own (src/engine/chaohunt.js)
+    info.multiplayer ? MULTIPLAYER_ANIMATIONS : {}));
   const acts = [];
   for (const [i, l] of levels.entries()) {
     const act = levelInfo(l);
@@ -459,7 +481,20 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
     gameOver: extractGameOver(rom, offsets, acts[level].stage.extra?.facePalette),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
+    results: info.multiplayer ? extractResults(rom, offsets) : null,
   };
+}
+
+// the multiplayer round's results screen (CreateMultiplayerResultsScreen): its background, tilemap 88, a
+// strip for each player, over a light blue backdrop (CM_BACKGROUND_COLOR)
+const RESULTS_MAP = 88, RESULTS_BACKDROP = 0 | (27 << 5) | (30 << 10);
+function extractResults(rom, offsets) {
+  const header = tilemapHeader(rom, offsets.tilemaps, RESULTS_MAP);
+  const palette = new Array(256).fill([0, 0, 0]);
+  readColors(rom, header.palette, header.paletteLength).forEach((c, i) => { palette[header.paletteOffset + i] = c; });
+  // colour 0 of every bank is see-through, onto the backdrop: the only layer on that screen is this one
+  for (let bank = 0; bank < 16; bank++) palette[bank * 16] = bgr555ToRgb(RESULTS_BACKDROP);
+  return { background: toCanvas(renderPlainMap(rom, header, palette)), backdrop: palette[0] };
 }
 
 /**
@@ -492,7 +527,10 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
   for (const group of groups) group.list = Object.fromEntries(Object.entries(group.list).filter(([name]) => !(name in levelSprites)));
   // a third number is the animation whose colours it shows in, where another loads over its own
   for (const [name, [anim, variant, colors]] of Object.entries(levelSprites)) {
-    groups.push({ list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, colors ?? anim), skipPalette: colors !== undefined });
+    // the multiplayer HUD's Chao counter and arrows skip theirs, drawn in their player's character's (Sonic's)
+    groups.push(PLAYER_PALETTE.has(name)
+      ? { list: { [name]: [anim, variant] }, palette: sonicPalette, skipPalette: true }
+      : { list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, colors ?? anim), skipPalette: colors !== undefined });
   }
 
   // `made[i]` is how atlas entry i was drawn, and `rows` the sprite palette rows its animation loads
@@ -665,6 +703,10 @@ function extractStage(rom, offsets, tables, info) {
     hudFlash: info.hudFlash ?? 1,
     spawn: readSpawn(rom, offsets.spawns, level),
     loop: readLoop(rom, offsets.loopPoints, offsets.loopShifts, level),
+    // each player's start in the multiplayer modes, by link id
+    multiplayerSpawns: info.multiplayer ? readMultiplayerSpawns(rom, offsets.spawns, level) : null,
+    // and where the Chao can start
+    chaoSpawns: info.multiplayer ? readChaoSpawns(rom, offsets.chaoSpawns, level) : null,
     interactables, layerToggles: layerToggles(interactables),
     rings: readRings(rom, offsets.rings, level),
     itemBoxes: readItemBoxes(rom, offsets.itemBoxes, level),

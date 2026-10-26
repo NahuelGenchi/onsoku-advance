@@ -23,6 +23,7 @@ import { createResults, runResults } from './results.js';
 import { createPaletteAnimation } from './palettes.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
+import { createBossCapsule } from './capsule.js';
 import { SPECIAL_SPRING } from './specialspring.js';
 import { SONG } from '../sound/songs.js';
 import { RUSH_BOOST_SE } from '../rom/rush.js';
@@ -51,7 +52,7 @@ const NO_INPUT = { left: false, right: false, up: false, down: false, jump: fals
 
 const SILENT = {
   play() {}, playOrChange() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
-  playerState() {}, stopAll() {}, musicOff() {},
+  playerState() {}, stopAll() {}, musicOff() {}, musicState() {},
 };
 
 /**
@@ -103,6 +104,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   let cardPad = [];   // the pad directions held on the title card's last frame
   let extraLife = false, restart = false, loading = false, starMusic = false;
   let nextAct = 0;    // the frames left until the next act starts, once the results are over
+  let ended = false;  // past the last act built so far, the screen keeps its last frame
   let frozen = null;  // until then, the last act's last frame, which the screen keeps: { render, state }
   let drawShift = 0;   // how far right of the view the rest of this frame draws, after the act looped back
   let special = null;   // the special spring Sonic left the act on, after which the act stops
@@ -198,6 +200,18 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
     playSound: song => sound.play(song),
     playSoundOrChange: song => sound.playOrChange(song),
+    // a boss's music state (gMusicManagerState.unk1), which the music manager reads (synth.js)
+    musicState: value => sound.musicState(value),
+    // INCREMENT_SCORE_A: points with a life every 50000, without the jingle
+    addScore(points) {
+      const before = state.score;
+      state.score += points;
+      if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) state.lives = (state.lives + 1) & 0xFF;
+    },
+    // a boss is beaten at (x, y): it leaves the capsule that ends the act (CreateBossCapsule)
+    bossDefeated(x, y) { tasks.add(createBossCapsule(x, y, anims, state.level >> 1), 0x2000); },
+    // the capsule opens: the clock and the rings stop as at the goal (STAGE_FLAG__ACT_START and STAGE_FLAG__2)
+    stopStage() { state.clockStopped = true; state.ringsStopped = true; },
     random,
     // an item box's prize (Task_Itembox2)
     prize(kind) {
@@ -251,10 +265,12 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
 
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
   // background priority: 2 behind the front layer, 0 and 1 in front of it); `affine` sends it through the
-  // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }
+  // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }. With
+  // `white`, it is a window that turns everything in its shape white (a boss's hit flash). An affine's `matrix`
+  // names the OAM matrix it shares with other sprites, which all show the last transform written to it.
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x: x + drawShift + shiftX, y: y + shiftY, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio });
+    state.sprites.push({ frame: s.frame, x: x + drawShift + shiftX, y: y + shiftY, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, white: s.white });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
@@ -366,7 +382,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       state.results = null;
       tasks.stop();
       sound.stopAll();
-      nextAct = NEXT_ACT_FRAMES;
+      if (assets.acts[state.level + 1]) nextAct = NEXT_ACT_FRAMES;
+      else ended = true;
       return false;
     },
   };
@@ -501,6 +518,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     if (special) return;
     input.poll?.();
     if (loading) { loading = false; return; }
+    if (ended) return;
     // between two acts the screen keeps the last act's last frame
     if (nextAct > 0) {
       if (--nextAct === NEXT_ACT_LOADS) startNextAct();

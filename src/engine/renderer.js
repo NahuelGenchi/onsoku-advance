@@ -71,13 +71,17 @@ export function createRenderer(canvas, assets) {
   // TransformSprite builds the matrix and moves the sprite so its anchor stays at (x, y) once turned;
   // DisplaySprite puts each OAM piece where the frame has it, in a box twice its size with the double-size
   // flag, and every piece turns around its own centre
-  function drawAffine(index, x, y, { rotation, scaleX, scaleY, double }) {
+  // `matrix` is the transform of the rotation matrix it is drawn through when that isn't its own: sprites that
+  // share one OAM matrix all show the last one written to it in the frame, each where its own put it
+  function drawAffine(index, x, y, { rotation, scaleX, scaleY, double }, matrix = null) {
     if (index < 0) return;
     const [, , w, h, ax, ay, pieces] = frames[index];
     if (!pieces) { drawSprite(index, x, y, scaleX < 0, scaleY < 0); return; }   // a frame the extractor kept no pieces for
     const cos = SINE[(rotation & 1023) + 256] >> 6, sin = SINE[rotation & 1023] >> 6;
-    const rx = s16(Math.trunc(0x10000 / scaleX)), ry = s16(Math.trunc(0x10000 / scaleY));
-    const mat = [s16((cos * rx) >> 8), s16((sin * rx) >> 8), s16((-sin * ry) >> 8), s16((cos * ry) >> 8)];
+    const m = matrix ?? { rotation, scaleX, scaleY };
+    const mc = SINE[(m.rotation & 1023) + 256] >> 6, ms = SINE[m.rotation & 1023] >> 6;
+    const rx = s16(Math.trunc(0x10000 / m.scaleX)), ry = s16(Math.trunc(0x10000 / m.scaleY));
+    const mat = [s16((mc * rx) >> 8), s16((ms * rx) >> 8), s16((-ms * ry) >> 8), s16((mc * ry) >> 8)];
     const kx = Math.abs(scaleX), ky = Math.abs(scaleY);
     const u0 = s16((cos * kx) >> 8), u1 = s16((-sin * kx) >> 8), u2 = s16((sin * ky) >> 8), u3 = s16((cos * ky) >> 8);
     const hw = w >> 1, hh = h >> 1, ox = (scaleX > 0 ? ax : w - ax) - hw, oy = (scaleY > 0 ? ay : h - ay) - hh;
@@ -147,6 +151,9 @@ export function createRenderer(canvas, assets) {
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = W; maskCanvas.height = H;
   const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+  const flashCanvas = document.createElement('canvas');
+  flashCanvas.width = W; flashCanvas.height = H;
+  const flashCtx = flashCanvas.getContext('2d');
   function drawRushTrail(fx, vx, vy) {
     trailBox = null;
     const strips = rushTrailStrips(fx, vx, vy);
@@ -195,6 +202,40 @@ export function createRenderer(canvas, assets) {
       }
     }
     ctx.putImageData(img, x0, y0);
+  }
+
+  // Sprites in OBJ window mode with every layer brightened to full inside the window (a boss's hit flash): the
+  // sprites themselves aren't drawn, and the layers in their shape turn white. mGBA 0.10.5 leaves every other
+  // sprite as it is there, Sonic and the HUD included. Returns the window's shape in white, or null.
+  function whiteWindow(whites, vx, vy) {
+    if (!whites.length) return null;
+    const main = ctx;
+    ctx = maskCtx;
+    maskCtx.imageSmoothingEnabled = false;
+    maskCtx.clearRect(0, 0, W, H);
+    for (const s of whites) {
+      if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+      else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+    }
+    ctx = main;
+    maskCtx.globalCompositeOperation = 'source-in';
+    maskCtx.fillStyle = '#fff';
+    maskCtx.fillRect(0, 0, W, H);
+    maskCtx.globalCompositeOperation = 'source-over';
+    return maskCanvas;
+  }
+  // a layer drawn over what is there, white inside the window where it has pixels
+  function drawFlashedLayer(flash, draw) {
+    if (!flash) { draw(ctx); return; }
+    flashCtx.imageSmoothingEnabled = false;
+    flashCtx.globalCompositeOperation = 'source-over';
+    flashCtx.clearRect(0, 0, W, H);
+    draw(flashCtx);
+    ctx.drawImage(flashCanvas, 0, 0);
+    flashCtx.globalCompositeOperation = 'source-in';
+    flashCtx.drawImage(flash, 0, 0);
+    flashCtx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(flashCanvas, 0, 0);
   }
 
   // debug overlay: the collision under the view, drawn through a scratch canvas so it blends
@@ -354,21 +395,27 @@ export function createRenderer(canvas, assets) {
     }
     const frame = cam.tiles.shown;
     drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
+    // the background and the back layer fill the screen, so the window turns everything drawn so far white
+    const flash = whiteWindow(sprites.filter(s => s.white), vx, vy);
+    if (flash) ctx.drawImage(flash, 0, 0);
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first; past the
     // goal it draws none
     const shown = ringsStopped ? { list: [] } : rings.visible(view);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
+    // the last transform written to each shared OAM matrix (an affine's `matrix`) this frame
+    const matrices = {};
+    for (const s of sprites) if (s.affine?.matrix !== undefined) matrices[s.affine.matrix] = s.affine;
     const drawAll = behind => {
       for (const s of list) {
-        if ((s.prio >= 2) !== behind) continue;
+        if ((s.prio >= 2) !== behind || s.white) continue;
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
-        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+        else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine, matrices[s.affine.matrix]);
         else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
       }
     };
     drawAll(true);
-    drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
+    drawFlashedLayer(flash, c => drawLayer(c, stage, 'front', vx, vy, W, H, frame, palettes));
     drawAll(false);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
@@ -392,8 +439,8 @@ export function createRenderer(canvas, assets) {
   /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */
   render.resize = (w, h) => {
     W = w; H = h;
-    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = w;
-    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = h;
+    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = flashCanvas.width = w;
+    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = flashCanvas.height = h;
     objLayer = new ImageData(w, h);
     trailBuf = new Uint8Array(w * h);
   };

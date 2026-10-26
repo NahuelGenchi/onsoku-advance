@@ -33,6 +33,8 @@ export const SONG = {
   LIFE_LOST: 119,          // SE_LIFE_LOST: Sonic dies
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
   GOAL: 135,               // SE_GOAL: Sonic passes the goal signpost
+  CAPSULE_LANDS: 136,      // SE_136: the boss capsule lands
+  CAPSULE_OPENS: 137,      // SE_137: Sonic lands on its switch
   ENEMY_DEFEAT: 138,       // SE_ITEM_BOX: an enemy is defeated
   RESULT_COUNTER: 140,     // SE_STAGE_RESULT_COUNTER: a results tally counting
   RESULT_COUNTER_DONE: 141,
@@ -45,6 +47,9 @@ export const SONG = {
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
   RESULTS_COUNT: 140,      // SE_STAGE_RESULT_COUNTER: every fourth frame of the results' count
   RESULTS_DONE: 141,       // SE_STAGE_RESULT_COUNTER_DONE: the count is over
+  BOSS_HIT: 143,           // SE_BOSS_HIT
+  EXPLOSION: 144,          // SE_EXPLOSION: a boss is beaten
+  IMPACT: 145,             // SE_IMPACT: the Egg Hammer Tank's hammer lands, as the Egg Press does
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
   SHIELD: 168,             // SE_ACTIVATE_SHIELD
   CHECKPOINT: 169,

@@ -144,32 +144,48 @@ function beamStep(b, blend, row) {
   p[6] = mul8(tan(c), b.y - 160) + (b.x & 0xFF);
   p[7] = 160;
   const put = writer(blend.buf, blend.base, b.half, row);
+  // the whole wedge, for the widescreen view, kept with the table it is drawn into
+  const shape = { x: b.x, y: b.y, a, c };
   if (b.swing <= 0x1FF) {
     if (s14[1] > 159) return;
     blend.v[b.half] = (p[5] << 8) | 160;
     blend.drawn = true;
+    blend.shapes[blend.base ? 1 : 0][b.half] = shape;
     if (s10[1] > 159) edge(put, p[4], p[5], p[6], p[7], 0, true);
     else triangle(put, p);
   } else {
     if (s10[1] > 159) return;
     blend.v[b.half] = (p[1] << 8) | 160;
     blend.drawn = true;
+    blend.shapes[blend.base ? 1 : 0][b.half] = shape;
     if (s14[1] > 159) edge(put, p[0], p[1], p[2], p[3], 0, false);
     else triangle(put, p);
   }
 }
 
 /**
+ * Where a beam's wedge `shape` ({ x, y, a, c }: the point it shines from and its sides' angles) is lit on screen
+ * line `line`, which may be above or below the screen, as [from, to) in the screen's columns, which may be past
+ * its edges: the same sides the beam draws its table from, carried on past the screen.
+ */
+export function beamSpan({ x, y, a, c }, line) {
+  if (line >= y) return [0, 0];
+  return [x - mul8(tan(a), y - line), mul8(tan(c), y - line) + x];
+}
+
+/**
  * The spotlights' manager and its two beams: `tasks`, to run at the objects' priority in that order, and
  * `blend`, what the renderer reads of them while they last (null once they're gone): { bldY, windows,
- * v: [WIN0V, WIN1V], h: [WIN0H, WIN1H], buf, base, drawn }. `buf` holds both tables and `base` is where the
- * one shown starts, used when a beam drew this frame (`drawn`); `h` is what the windows show otherwise.
+ * v: [WIN0V, WIN1V], h: [WIN0H, WIN1H], buf, base, drawn, shapes }. `buf` holds both tables and `base` is where
+ * the one shown starts, used when a beam drew this frame (`drawn`); `h` is what the windows show otherwise.
+ * `shapes` holds, for each table and window, the wedge of the beam that last drew there (beamSpan), or null.
  * `spriteRow` is Sonic's row of the sprite palette (game.js).
  */
 export function createSpotlights(spriteRow) {
   const out = {
     // the window registers as the title card's fade leaves them when it is made (as mGBA shows them)
-    blend: { bldY: 16, windows: false, v: [0x00A0, 0x00A0], h: [0x00F0, 0x00F0], buf: new Uint8Array(2 * TABLE), base: 0, drawn: false },
+    blend: { bldY: 16, windows: false, v: [0x00A0, 0x00A0], h: [0x00F0, 0x00F0], buf: new Uint8Array(2 * TABLE), base: 0, drawn: false,
+      shapes: [[null, null], [null, null]] },
     tasks: [],
   };
   const { blend } = out;

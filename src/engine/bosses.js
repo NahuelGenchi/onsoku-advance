@@ -34,6 +34,25 @@ export function setBossCamBounds(cam, minY, maxY, minX, maxX) {
 }
 
 /**
+ * CreatePreBossCameraPan: the camera's top and bottom bounds start at the screen's and move 1 px a frame to
+ * `minY` and `maxY` (Task_PreBossCameraPan), a bottom edge further down than the screen's starting 160 px below
+ * it instead. The arguments are the screen's edges in the act, as the original has them.
+ */
+export function preBossCameraPan(cam, minY, maxY) {
+  const y = Math.floor(cam.y);
+  cam.minY = y; cam.maxY = y;
+  if (maxY > y + SCREEN_H) cam.maxY = y + 320 - SCREEN_H;
+  const toward = (v, to) => (to > v ? v + 1 : to < v ? v - 1 : v);
+  return {
+    run() {
+      cam.minY = toward(cam.minY, minY);
+      cam.maxY = toward(cam.maxY + SCREEN_H, maxY) - SCREEN_H;
+      return !(cam.minY === minY && cam.maxY + SCREEN_H === maxY);
+    },
+  };
+}
+
+/**
  * A part of a boss flying off (sub_80168F0, Task_8016A14) for `frames` frames: it falls 40/256 px a frame
  * faster each frame, turns `spin` steps of 1024 a frame, one way moving right and the other moving left, and its
  * horizontal scale moves by `grow` toward twice its size, mirrored (the vertical follows it). It is drawn

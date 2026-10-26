@@ -1,19 +1,21 @@
 // Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects, the
-// springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, the title card, Neo Green Hill Zone act 1 with its collision, objects,
-// enemies and rings, and the zone's background. Runs entirely in the browser.
+// springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, the title card, the act's
+// results, Neo Green Hill Zone's two acts with their collision, objects, enemies and rings, and the zone's
+// background. Runs entirely in the browser.
 
 import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation, frameLayout } from './sprites.js';
 import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks, mapHoles } from './tilemaps.js';
-import { readCollision, readSpawn } from './collision.js';
+import { readCollision, readSpawn, readLoop } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
 import { soundLayout } from './sound.js';
 import { hudGraphics } from './hud.js';
 import { titleCardGraphics } from './titlecard.js';
-import { levelInfo } from './levels.js';
+import { resultsGraphics } from './results.js';
+import { levelInfo, LEVELS } from './levels.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -37,8 +39,14 @@ export const SONIC_ANIMATIONS = {
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
   halfPipeLow: [36, 0], halfPipeMid: [36, 1], halfPipeHigh: [36, 2],
+  // running on past the goal (charState 28)
+  actClearRun: [22, 0],
+  // standing in his act-clear pose once the boss capsule opens (charState 29)
+  actClearPose: [23, 0],
   // hanging from a hook rail, a swinging hook or a crane claw (charState 38) and swinging round a rope (34)
   hook: [43, 0], swingRope: [40, 1],
+  // carried through a marble track, curled up and scaled (charState 32, drawn through the rotation hardware)
+  marbleTrack: [39, 0],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -51,11 +59,16 @@ export const OBJECT_ANIMATIONS = {
   springUp: [SPRING_ANIM, 0], springUpLaunch: [SPRING_ANIM, 1], springSide: [SPRING_ANIM, 2], springSideLaunch: [SPRING_ANIM, 3],
   springBig: [SPRING_ANIM, 4], springBigLaunch: [SPRING_ANIM, 5], springSmall: [SPRING_ANIM, 6], springSmallLaunch: [SPRING_ANIM, 7],
 };
-// the spikes (animation 454, palette 35): pointing up, and sideways (flipped to point left)
+// the spikes (animation 454, palette 35): pointing up, and sideways (pointing right, flipped to point left);
+// the hiding ones come up through the first two variants
 export const SPIKES_ANIM = 454;
-export const SPIKE_ANIMATIONS = { spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3] };
-// act 1's enemies and their shots, the dust and points a defeat leaves and the freed animals, by animation;
-// each loads its own palette
+export const SPIKE_ANIMATIONS = {
+  spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3], spikesLow: [SPIKES_ANIM, 0], spikesMid: [SPIKES_ANIM, 1],
+  // the hiding spikes rising and sinking
+  spikesHiding0: [SPIKES_ANIM, 0], spikesHiding1: [SPIKES_ANIM, 1],
+};
+// act 1's enemies and their shots, the dust and points a defeat leaves and every zone's freed animals, by
+// animation; each loads its own palette
 export const ENEMY_ANIMATIONS = {
   401: { kikiBob: 1, kikiThrow: 2 }, 408: { coconut: 0 }, 402: { coconutPiece: 0 },
   403: { buzzerFly: 0, buzzerShoot: 1, buzzerTurn: 2 }, 409: { buzzerShot: 0 },
@@ -64,11 +77,22 @@ export const ENEMY_ANIMATIONS = {
   406: { keroJump: 0, keroCroak: 1 },
   407: { dustCloud: 0 },
   709: { score0: 0, score1: 1, score2: 2, score3: 3, score4: 4 },
-  445: { animalOtter: 0 }, 450: { animalKoala: 0 }, 449: { animalKangaroo: 0 },
+  437: { animalSeal: 0 }, 438: { animalGorilla: 0 }, 439: { animalPeacock: 0 }, 440: { animalLion: 0 },
+  441: { animalMole: 0 }, 442: { animalParrot: 0 }, 443: { animalPenguin: 0 }, 444: { animalRabbit: 0 },
+  445: { animalOtter: 0 }, 446: { animalDeer: 0 }, 447: { animalSkunk: 0 }, 448: { animalRobin: 0 },
+  449: { animalKangaroo: 0 }, 450: { animalKoala: 0 }, 451: { animalElephant: 0 },
   // Ice Mountain's: Drisame, its block of ice and the block's large and small pieces, and Kuraa walking and
   // snapping its claws
   424: { drisame: 0 }, 573: { drisameIce: 0 }, 579: { drisameDebrisLarge: 0 }, 580: { drisameDebrisSmall: 0 },
   425: { kuraaWalk: 0, kuraaSnap: 1 },
+  // the Mole of Secret Base, Egg Rocket and Cosmic Angel, down in its mound and popping up
+  434: { moleDown: 0, moleUp: 1 },
+  // Secret Base's Tentou hovering, flying and firing (its shots are GamiGami's)
+  412: { tentouHover: 0, tentouFly: 1, tentouFire: 2 },
+  // and its Senbon walking and with its spikes out
+  411: { senbonWalk: 0, senbonSpikes: 1 },
+  // and its fireball rising and falling, and the fireball's sparks
+  413: { fireballRise: 0, fireballFall: 1 }, 414: { fireballSpark: 0 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their
@@ -91,35 +115,70 @@ export const ICE_MOUNTAIN_ANIMATIONS = { 555: { iceBlock: 0 }, 556: { iceShardsL
 export const WALL_ANIMATIONS = { 559: { breakableWall: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
-// the splash under Sonic on a forced slide
-export const SLIDE_ANIMATIONS = { 474: { slideSplash: 0 } };
+// the splash under Sonic on a forced slide, which a water bridge also shows under him, and the splash that
+// stays at one end of a water bridge (473)
+export const SLIDE_ANIMATIONS = { 474: { slideSplash: 0 }, 473: { bridgeSplash: 0 } };
+// the leaves a shrub throws up as Sonic goes into it (467)
+export const SHRUB_ANIMATIONS = { 467: { leaves: 0 } };
 // the speed boosters (471): flat, on a slight slope up to the right, and up to the left
 export const BOOSTER_ANIMATIONS = { 471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 } };
 // the checkpoints (452): waiting, spinning as Sonic passes (its script starts song 169, which the game plays,
 // src/engine/checkpoints.js), and passed
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };
+// the goal signpost (453): Eggman's face, and spinning once Sonic has passed it
+export const GOAL_ANIMATIONS = { 453: { goal: 0, goalSpin: 1 } };
 // Neo Green Hill's wall pole (468): at rest, and bending as Sonic swings on it
 export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
+// what bosses leave behind: the Egg Mobile and Eggman flying off in it (bosses_egg_mobile.c), the debris
+// (gUnknown_080BB41C) and the explosions (sub_8017540)
+export const BOSS_ANIMATIONS = {
+  693: { eggMobile: 0, eggMobileTurn: 1 }, 694: { eggman: 0, eggmanLaugh: 2, eggmanFlee: 4, eggmanTurn: 9 },
+  695: { boltMedium: 0, boltMedium2: 1 }, 696: { boltLarge: 0, boltLarge2: 1 }, 697: { boltSmall: 0, boltSmall2: 1 },
+  611: { bossExplosion: 0 },
+};
+// Neo Green Hill's boss, the Egg Hammer Tank (boss_1_egg_hammer_tank.c): its body on its two alternating scripts and
+// without its belt, an arm segment, the hammer, Eggman (still, laughing, hurt) and the belt's four pieces
+export const EGG_HAMMER_TANK_ANIMATIONS = {
+  607: { hammerTank: 1, hammerTank2: 2 }, 608: { hammerTankArm: 0 }, 609: { hammerTankHammer: 0 },
+  610: { hammerTankEggman: 0, hammerTankEggmanLaugh: 1, hammerTankEggmanHurt: 2 }, 612: { hammerTankBeaten: 0 },
+  613: { hammerTankBelt0: 0 }, 614: { hammerTankBelt1: 0 }, 615: { hammerTankBelt2: 0 }, 616: { hammerTankBelt3: 0 },
+};
+// the capsule a beaten boss leaves (bosses_misc.c): small while it rises, then full size shut, opening and open,
+// its switch, a half of its shell, and the animals inside: each zone's two hopping kinds (gUnknown_080BB43C,
+// besides the kangaroo the enemies already let out) and the birds every zone shares
+export const CAPSULE_ANIMATIONS = {
+  578: { capsuleSmall: 0 }, 575: { capsule: 0, capsuleOpening: 1, capsuleOpen: 2 }, 576: { capsuleSwitch: 0 },
+  577: { capsuleShell: 0 }, 438: { animalGorilla: 0 }, 439: { animalPeacock: 0 }, 443: { animalPenguin: 0 },
+  444: { animalRabbit: 0 }, 446: { animalDeer: 0 }, 447: { animalSkunk: 0 }, 448: { animalRobin: 0 }, 442: { animalParrot: 0 },
+};
+// the special spring (specialspring.js): waiting, and its launch
+export const SPECIAL_SPRING_ANIMATIONS = { 572: { specialSpring: 1, specialSpringLaunch: 0 } };
 // the hook rail's hook (504; Ice Mountain's is 569), and Secret Base's swinging hook
 export const HOOK_RAIL_ANIMATIONS = { 504: { hookRail: 0, swingingHook: 1 } };
+// the marble tracks' entrance and exit (488)
+export const MARBLE_TRACK_ANIMATIONS = { 488: { marbleTrackExit: 0 } };
 // the security gate's shutter (534)
 export const SECURITY_GATE_ANIMATIONS = { 534: { securityGate: 0 } };
-// Secret Base act 2's steam exhaust: the vent and its lid (501), and the vent blowing steam and the steam's end (567)
-export const STEAM_EXHAUST_ANIMATIONS = { 501: { steamExhaust: 0, steamExhaustLid: 2 }, 567: { steamExhaustBlow: 0, steamExhaustBlowEnd: 1 } };
 // the swinging hook's chain (503: the trolley a crane claw runs on, a link and the anchor), and the crane claw
 // (498: open, closing, opening, and a piece of its cable)
 export const HOOK_ANIMATIONS = {
   503: { craneTrolley: 0, hookLink: 1, hookAnchor: 2 },
   498: { craneClaw: 0, craneClawClose: 1, craneClawOpen: 2, craneCable: 3 },
 };
-// the Egg Press (boss_2_egg_press.c) and what bosses leave behind: the Egg Mobile and Eggman flying off in it
-// (bosses_egg_mobile.c), the debris (gUnknown_080BB41C) and the explosions (sub_8017540)
-export const BOSS_ANIMATIONS = {
+// the tubes' pipe ends (pipe.c): entrances and exits standing up and lying across, the other levels' and zone 6's
+// two acts' own (Cosmic Angel, Egg Rocket); and Cosmic Angel's air corners (maze_air_corner.c)
+export const PIPE_ANIMATIONS = {
+  589: { pipeV: 0, pipeExitV: 1 }, 588: { pipeH: 0, pipeExitH: 1 },
+  591: { pipeVCosmic: 0, pipeExitVCosmic: 1 }, 590: { pipeHCosmic: 0, pipeExitHCosmic: 1 },
+  584: { pipeVRocket: 0 }, 585: { pipeExitVRocket: 0 }, 586: { pipeHRocket: 0 }, 587: { pipeExitHRocket: 0 },
+  592: { airCorner: 0 },
+};
+// Secret Base act 2's steam exhaust: the vent and its lid (501), and the vent blowing steam and the steam's end (567)
+export const STEAM_EXHAUST_ANIMATIONS = { 501: { steamExhaust: 0, steamExhaustLid: 2 }, 567: { steamExhaustBlow: 0, steamExhaustBlowEnd: 1 } };
+// Secret Base's boss, the Egg Press (boss_2_egg_press.c)
+export const EGG_PRESS_ANIMATIONS = {
   617: { eggPressBase: 0 }, 618: { eggPressEggman: 0, eggPressEggmanLaugh: 1, eggPressEggmanHurt: 2 }, 619: { eggPressSpring: 0 },
   620: { eggPress: 0, eggPressSquash: 1, eggPressStomp: 2 }, 621: { eggPressNoSpring: 0 },
-  693: { eggMobile: 0, eggMobileTurn: 1 }, 694: { eggman: 0, eggmanFlee: 4, eggmanTurn: 9 },
-  695: { boltMedium: 0, boltMedium2: 1 }, 696: { boltLarge: 0, boltLarge2: 1 }, 697: { boltSmall: 0, boltSmall2: 1 },
-  611: { bossExplosion: 0 },
 };
 // the animations whose frames' first OAM entry (their dimensions' oamIndex) the game reads: the Egg Press's,
 // which places Eggman by it
@@ -131,40 +190,55 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block), the boulders' and the ice blocks' debris, Secret Base's swinging hook and the Egg Press's spring and
-// base; their frames also keep their OAM pieces as the hardware reads them
-const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge', 'swingingHook', 'eggPressSpring', 'eggPressBase']);
+// block, and carried through a marble track), the boulders' and the ice blocks' debris, Secret Base's swinging
+// hook, the Egg Hammer Tank's arm, hammer and belt, and the capsule rising, its shell and the birds circling it, and the Egg Press's spring and base;
+// their frames also keep their OAM pieces as the hardware reads them
+const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge', 'swingingHook',
+  'hammerTankArm', 'hammerTankHammer', 'hammerTankBelt0', 'hammerTankBelt1', 'hammerTankBelt2', 'hammerTankBelt3',
+  'capsuleSmall', 'capsuleShell', 'animalRobin', 'animalParrot', 'eggPressSpring', 'eggPressBase']);
 
 // each level's three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
 // background
 const MAP = { front: 0, back: 1, background: 2 };
 
 /**
- * Identifies and decodes `buffer`, with the level `level` (levels.js). `onProgress(message)` reports each stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles }, hud: { sheet, glyphs, ring, face }, titleCard: { sheet, slots, text }, stage: { level, zone, act, music, backgroundScroll, hudFlash, width, height, layers, atlas, collision, spawn, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgroundHoles, backdrop, backgrounds }, physics, sound }
+ * Identifies and decodes `buffer`, with the zone of level `level` (levels.js) from that level on: its acts, each
+ * with its title card and its results. `onProgress(message)` reports each stage, and is awaited, so it can let
+ * the page draw the message before the next stage.
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles, sonic, alts }, hud: { sheet, glyphs, ring, face }, acts, first, stage, titleCard, physics, sound }, where `acts[level]` is { level, stage, titleCard, results } for each act decoded, `first` the level asked for, and stage and titleCard are its; each act's stage is { level, zone, act, music, backgroundScroll, hudFlash, width, height, layers, atlas, collision, spawn, loop, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgroundHoles, backdrop, backgrounds }, its titleCard { sheet, slots, text } and its results { sheet, slots, text }
  */
 export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
   const info = levelInfo(level);
   const rom = new Rom(buffer);
-  onProgress('Checking the ROM…');
+  await onProgress('Checking the ROM…');
   const id = await identify(rom);
-  onProgress(id.known ? `Found ${id.known.name}.` : 'Unrecognized version, searching for the data…');
+  await onProgress(id.known ? `Found ${id.known.name}.` : 'Unrecognized version, searching for the data…');
   const offsets = locateTables(rom, id.known);
 
-  onProgress('Decoding Sonic…');
+  await onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
-  const sprites = extractSprites(rom, tables, info.sprites);
-  onProgress(`Decoding ${info.name}…`);
-  const stage = extractStage(rom, offsets, tables, info);
+  // the zone's acts from `level` on, which share the zone's looks for the objects that differ by level
+  const levels = Object.keys(LEVELS).map(Number).filter(l => l >= level && LEVELS[l].zone === info.zone).sort((a, b) => a - b);
+  const sprites = extractSprites(rom, tables, Object.assign({}, ...levels.map(l => LEVELS[l].sprites ?? {})));
+  const acts = [];
+  for (const l of levels) {
+    const act = levelInfo(l);
+    await onProgress(`Decoding ${act.name}…`);
+    acts[l] = {
+      level: l,
+      stage: extractStage(rom, offsets, tables, act),
+      titleCard: sheet(titleCardGraphics(rom, offsets.uiGraphics, offsets.titleCard, l)),
+      results: sheet(resultsGraphics(rom, offsets.uiGraphics, offsets.titleCard, l)),
+    };
+  }
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
   // indexes into those in the original, so both are read
   const spinDashSpeeds = Array.from({ length: 18 }, (_, i) => rom.s16(offsets.spinDashSpeeds + i * 2) / 256);
 
   return {
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },
-    sprites, stage, physics: { spinDashSpeeds },
+    sprites, acts, first: level, stage: acts[level].stage, titleCard: acts[level].titleCard, physics: { spinDashSpeeds },
     hud: extractHud(rom, offsets.uiGraphics),
-    titleCard: extractTitleCard(rom, offsets.uiGraphics, offsets.titleCard, level),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
   };
@@ -184,7 +258,7 @@ function extractSprites(rom, tables, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...HOOK_RAIL_ANIMATIONS, ...SECURITY_GATE_ANIMATIONS, ...STEAM_EXHAUST_ANIMATIONS, ...HOOK_ANIMATIONS, ...BOSS_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...SHRUB_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GOAL_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_HAMMER_TANK_ANIMATIONS, ...CAPSULE_ANIMATIONS, ...SPECIAL_SPRING_ANIMATIONS, ...STEAM_EXHAUST_ANIMATIONS, ...EGG_PRESS_ANIMATIONS, ...HOOK_RAIL_ANIMATIONS, ...SECURITY_GATE_ANIMATIONS, ...HOOK_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...PIPE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
@@ -290,7 +364,7 @@ function paletteRows({ palId, insert, count }) {
 }
 
 // shelf packing with a 1px gap; rects are [x, y, w, h, anchorX, anchorY]
-function packAtlas(images, width = 512) {
+export function packAtlas(images, width = 512) {
   let x = 0, y = 0, shelf = 0;
   const rects = images.map(({ img, anchorX, anchorY }) => {
     if (x + img.width > width) { x = 0; y += shelf + 1; shelf = 0; }
@@ -319,11 +393,11 @@ function extractStage(rom, offsets, tables, info) {
   }
   const palette = readColors(rom, front.palette, 256);
   const interactables = readInteractables(rom, offsets.interactables, level);
-  const animations = info.paletteAnimations.map(anim => paletteAnimation(rom, tables, anim));
+  const animations = info.paletteAnimations.map(a => paletteAnimation(rom, tables, ...[a].flat()));
   // the two layers share one tileset and its animated tiles, so one atlas serves both
   const count = collision.metatiles.length / 144;
   const tiles = paletteVariants(palette, animations, mapBanks(rom, front, count * front.xTiles * front.yTiles));
-  const atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.rows), follows: tiles.follows };
+  const atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.varying), follows: tiles.follows };
   const sky = paletteVariants(palette, animations, mapBanks(rom, background, background.xTiles * background.yTiles));
 
   return {
@@ -333,6 +407,7 @@ function extractStage(rom, offsets, tables, info) {
     level, zone: info.zone, act: info.act, music: info.music, backgroundScroll: info.backgroundScroll ?? null,
     hudFlash: info.hudFlash ?? 1,
     spawn: readSpawn(rom, offsets.spawns, level),
+    loop: readLoop(rom, offsets.loopPoints, offsets.loopShifts, level),
     interactables, layerToggles: layerToggles(interactables),
     rings: readRings(rom, offsets.rings, level),
     itemBoxes: readItemBoxes(rom, offsets.itemBoxes, level),
@@ -349,24 +424,24 @@ function extractStage(rom, offsets, tables, info) {
  * The stage palette under each state of the palette animations that load colours into the rows in `banks`:
  * its own colours, then those of each frame, which loads over the frames before it. The palettes are indexed
  * by the states of those animations (`follows`) in turn, the first the most significant (stage.js picks
- * one), and `rows` holds the rows they change.
+ * one), and `varying` holds, for each of them, the rows it changes and its number of states.
  */
 function paletteVariants(base, animations, banks) {
   const rowsOf = a => new Set(a.frames.flatMap(f => f.loads.flatMap(l => l.colors.map((_, i) => (l.insert + i) >> 4))));
-  const follows = [], rows = new Set();
+  const follows = [], varying = [];
   let palettes = [base];
   animations.forEach((a, k) => {
     const changes = [...rowsOf(a)].filter(r => banks.has(r));
     if (!changes.length) return;
     follows.push(k);
-    for (const r of changes) rows.add(r);
+    varying.push({ rows: new Set(changes), radix: a.frames.length + 1 });
     palettes = palettes.flatMap(p => [p, ...a.frames.map((_, s) => {
       const q = p.slice();
       for (const f of a.frames.slice(0, s + 1)) for (const l of f.loads) l.colors.forEach((c, i) => { q[l.insert + i] = c; });
       return q;
     })]);
   });
-  return { palettes, follows, rows };
+  return { palettes, follows, varying };
 }
 
 function extractHud(rom, tableAt) {
@@ -374,9 +449,9 @@ function extractHud(rom, tableAt) {
   return { sheet: toCanvas(image), ...rects };
 }
 
-function extractTitleCard(rom, uiAt, cardAt, level) {
-  const { image, ...card } = titleCardGraphics(rom, uiAt, cardAt, level);
-  return { sheet: toCanvas(image), ...card };
+// the title card's or the results' graphics with their image as a canvas
+function sheet({ image, ...rest }) {
+  return { sheet: toCanvas(image), ...rest };
 }
 
 function toCanvas(img) {

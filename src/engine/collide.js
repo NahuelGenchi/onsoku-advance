@@ -24,20 +24,21 @@ const flank = p => [-(SOX + 5), 1 - p.offsetY, SOX + 5, p.offsetY - 1];
 const at = p => [Math.floor(p.x), Math.floor(p.y)];
 
 // onto the top of the box or out below it, keeping the subpixel (sub_800C934). The position moves before
-// the speed is checked, so a rising Sonic in the box's top half is put on top and keeps rising.
+// the speed is checked, so a rising Sonic in the box's top half is put on top and keeps rising. Under flipped
+// gravity he stands on its bottom and is put out of its top, and a tie at its middle still stands him on it.
 function vertical(o, hb, p, rect, stoodHere, res) {
   const [px, py] = at(p);
   if (!overlap(o.x, o.y, hb, px, py, rect)) return false;
-  const frac = p.y - py, steep = !p.air && ((p.rotation + 0x20) & 0x40);
-  if (py > o.y + ((hb[1] + hb[3]) >> 1)) {
-    p.y = o.y + hb[3] - rect[1] + frac;
+  const frac = p.y - py, steep = !p.air && ((p.rotation + 0x20) & 0x40), mid = o.y + ((hb[1] + hb[3]) >> 1);
+  if (p.inverted ? py < mid : py > mid) {
+    p.y = (p.inverted ? o.y + hb[1] + rect[1] : o.y + hb[3] - rect[1]) + frac;
     res.flags |= FROM_BELOW;
     if (p.ysp > 0) return false;
     p.ysp = 0;
     if (steep) p.gsp = 0;
     return true;
   }
-  p.y = o.y + hb[1] - rect[3] + frac;
+  p.y = (p.inverted ? o.y + hb[3] + rect[3] : o.y + hb[1] - rect[3]) + frac;
   if (p.ysp < 0) return false;
   p.ysp = 0;
   if (steep) p.gsp = 0;
@@ -93,8 +94,8 @@ export function platform(o, hb, p, terrain) {
 /**
  * A platform Sonic can only land on (Coll_Player_PlatformCrumbling): he passes through it from below and
  * from the sides, and lands on its top whenever his body touches its box while he isn't rising, wherever in
- * the box he is. This test keeps his subpixel position against the box's edges. `o` is what he stands on;
- * (x, y) is where its box is this frame. Returns LANDED while he is on it.
+ * the box he is; under flipped gravity, on its bottom. This test keeps his subpixel position against the box's
+ * edges. `o` is what he stands on; (x, y) is where its box is this frame. Returns LANDED while he is on it.
  */
 export function platformTop(o, x, y, hb, p) {
   if (!hb || p.dead) return 0;
@@ -109,7 +110,7 @@ export function platformTop(o, x, y, hb, p) {
     p.onObject = o; p.air = false;
     if (!stoodHere) { land(p); p.gsp = p.xsp; p.rotation = 0; }
     p.ysp = 0;
-    p.y = ot - oy + (p.y - Math.floor(p.y));
+    p.y = (p.inverted ? ob + oy : ot - oy) + (p.y - Math.floor(p.y));
     return LANDED;
   }
   if (stoodHere) p.air = true;   // walked or jumped off
@@ -172,7 +173,8 @@ export function gate(o, hb, p, terrain, attack = true) {
  * An item box (Coll_Player_Itembox): Sonic's attack box on it breaks it (PUSHING), bouncing him back up if
  * he was falling. In the air his body on its upper half, falling or level, breaks it too (LANDED) and bounces
  * him; rising into its lower half stops him under it (FROM_BELOW); beside it, it stops him moving into it.
- * On the ground nothing but the attack box counts.
+ * On the ground nothing but the attack box counts. Under flipped gravity its halves swap, and rising into it
+ * moves him by the original's sum with its sign turned, which doesn't put him beside it.
  */
 export function itemBox(o, hb, p) {
   let flags = 0;
@@ -185,11 +187,13 @@ export function itemBox(o, hb, p) {
   if (!p.air) return flags;
   const b = body(p), a = flank(p);
   if (overlap(o.x, o.y, hb, px, py, b)) {
-    if (py <= o.y + ((hb[1] + hb[3]) >> 1)) {
+    const mid = o.y + ((hb[1] + hb[3]) >> 1);
+    if (p.inverted ? py >= mid : py <= mid) {
       if (p.ysp >= 0) { flags |= LANDED; if (p.ysp > 0) p.ysp = -p.ysp; }
     } else if (p.ysp < 0) {
       p.ysp = 0;
-      p.y = o.y + hb[3] - b[1] + (p.y - py);
+      const under = o.y + hb[3] - b[1];
+      p.y = p.inverted ? p.y + py - under : under + (p.y - py);
       flags |= FROM_BELOW;
     }
   } else if (overlap(o.x, o.y, hb, px, py, a)) {

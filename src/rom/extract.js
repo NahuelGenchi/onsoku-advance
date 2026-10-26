@@ -186,8 +186,8 @@ export const BOOSTER_ANIMATIONS = {
   471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 }, 472: { boosterWall: 0 },
   571: { boosterSteep: 0 }, 570: { boosterSteep2: 0 },   // steep, turned counter-clockwise and clockwise
 };
-// Angel Island's torches (558)
-export const TORCH_ANIMATIONS = { 558: { torch: 0 } };
+// Angel Island's torches (558), and Cosmic Angel's antigravity units, one (511) and two (512)
+export const TORCH_ANIMATIONS = { 558: { torch: 0 }, 511: { antigravity: 0 }, 512: { antigravityDouble: 0 } };
 // the checkpoints (452): waiting, spinning as Sonic passes (its script starts song 169, which the game plays,
 // src/engine/checkpoints.js), and passed
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };
@@ -307,6 +307,15 @@ export const BARREL_ANIMATIONS = { 493: { barrelMini: 0 } };
 export const CARRIER_ANIMATIONS = { 542: { runWheelBack: 0, runWheel: 1 }, 545: { liftHandle: 1, liftChain: 0 } };
 // the three kinds of debris rising in Angel Island Zone's whirlwinds (564 to 566)
 export const UPDRAFT_ANIMATIONS = { 564: { debrisA: 0 }, 565: { debrisB: 0 }, 566: { debrisC: 0 } };
+// Cosmic Angel's boss, the Egg Snake (boss_6_egg_snake.c): a segment of its body, Eggman in its head (open,
+// laughing, hit; then the same with the head shut), the spikes it loses, its head (closing, opening, open, shut),
+// the laser's flash and its shot
+export const EGG_SNAKE_ANIMATIONS = {
+  659: { eggSnakeSegment: 0 },
+  660: { eggSnakeEggmanOpen: 0, eggSnakeEggmanOpenLaugh: 1, eggSnakeEggmanOpenHit: 2, eggSnakeEggman: 3, eggSnakeEggmanLaugh: 4, eggSnakeEggmanHit: 5 },
+  661: { eggSnakeSpike: 0 }, 662: { eggSnakeClose: 0, eggSnakeOpen: 1, eggSnakeOpened: 2, eggSnakeHead: 3 },
+  663: { eggSnakeLaser: 0 }, 664: { eggSnakeShot: 0 },
+};
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -340,7 +349,7 @@ const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmal
   'stoneDebrisSmall', 'stoneDebrisLarge', 'iceStoneDebrisSmall', 'iceStoneDebrisLarge',
   'bubblesSmall', 'bubblesGroup', ...[0, 1, 2, 3, 4, 5].map(n => `drownCountdown${n}`),
   'eggSpiderPart', 'eggSpiderLeg',
-  'mkRocket', 'mkPart0', 'mkPart1', 'mkPart2', 'mkPart3', 'mkPart4']);
+  'mkRocket', 'mkPart0', 'mkPart1', 'mkPart2', 'mkPart3', 'mkPart4', 'eggSnakeSpike']);
 // the sprite palette that fills the whole OBJ palette when an act with water starts, and that the colours
 // under water are made from (LoadPalette423Anim, InitWaterPalettes)
 const UNDERWATER_OBJ_PALETTE = 423;
@@ -358,7 +367,7 @@ const MAX_ATLAS_PALETTES = 16;
  * Identifies and decodes `buffer`, with the zone of level `level` (levels.js) from that level on: its acts, each
  * with its title card and its results. `onProgress(message)` reports each stage, and is awaited, so it can let
  * the page draw the message before the next stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles, sonic, alts }, hud: { sheet, glyphs, ring, face }, acts, first, stage, titleCard, physics, sound }, where `acts[level]` is { level, stage, titleCard, results } for each act decoded, `first` the level asked for, and stage and titleCard are its; each act's stage is { level, zone, act, music, backgroundScroll, hudFlash, width, height, layers, atlas, collision, spawn, loop, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgroundHoles, backdrop, backgrounds }, its titleCard { sheet, slots, text } and its results { sheet, slots, text }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles, sonic, alts }, hud: { sheet, glyphs, ring, face }, acts, first, stage, titleCard, physics, sound }, where `acts[level]` is { level, stage, titleCard, results, anims } for each act decoded (`anims` the animations that act draws its own way), `first` the level asked for, and stage and titleCard are its; each act's stage is { level, zone, act, music, backgroundScroll, hudFlash, width, height, layers, atlas, collision, spawn, loop, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgroundHoles, backdrop, backgrounds }, its titleCard { sheet, slots, text } and its results { sheet, slots, text }
  */
 export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
   const info = levelInfo(level);
@@ -374,9 +383,16 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   const levels = Object.keys(LEVELS).map(Number).filter(l => l >= level && LEVELS[l].zone === info.zone).sort((a, b) => a - b);
   // the zone's water, which its acts share
   const water = levels.map(l => LEVELS[l].water).find(Boolean);
-  const sprites = extractSprites(rom, tables, water, Object.assign({}, ...levels.map(l => ({ ...LEVELS[l].sprites, ...bossSprites(LEVELS[l].boss) }))));
+  // the acts' sprites; one the zone's acts draw differently (Egg Rocket's square platforms and Cosmic Angel's)
+  // is also read for each act as `name@level`, which that act's `anims` puts in its place
+  const actSprites = levels.map(l => ({ ...LEVELS[l].sprites, ...bossSprites(LEVELS[l].boss) }));
+  const differs = [...new Set(actSprites.flatMap(Object.keys))]
+    .filter(name => new Set(actSprites.filter(a => name in a).map(a => a[name].join())).size > 1);
+  const own = (i, l) => differs.filter(name => name in actSprites[i]).map(name => [name, `${name}@${l}`]);
+  const sprites = extractSprites(rom, tables, water, Object.assign({}, ...actSprites,
+    ...levels.map((l, i) => Object.fromEntries(own(i, l).map(([name, key]) => [key, actSprites[i][name]])))));
   const acts = [];
-  for (const l of levels) {
+  for (const [i, l] of levels.entries()) {
     const act = levelInfo(l);
     await onProgress(`Decoding ${act.name}…`);
     acts[l] = {
@@ -384,6 +400,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
       stage: extractStage(rom, offsets, tables, act),
       titleCard: sheet(titleCardGraphics(rom, offsets.uiGraphics, offsets.titleCard, l), act.water),
       results: sheet(resultsGraphics(rom, offsets.uiGraphics, offsets.titleCard, l)),
+      anims: Object.fromEntries(own(i, l).map(([name, key]) => [name, sprites.anims[key]])),
     };
   }
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
@@ -421,7 +438,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true, under: underYellow },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries(mergeAnimations(ENEMY_ANIMATIONS, ITEM_ANIMATIONS, PLATFORM_ANIMATIONS, ROCK_ANIMATIONS, ICE_MOUNTAIN_ANIMATIONS, NUTS_AND_BOLTS_ANIMATIONS, CONVEYOR_OBJECT_ANIMATIONS, SPIKED_BARREL_ANIMATIONS, PROPELLER_ANIMATIONS, CARRIER_ANIMATIONS, IRON_BALL_ANIMATIONS, TORCH_ANIMATIONS, UPDRAFT_ANIMATIONS, WALL_ANIMATIONS, WATER_ANIMATIONS, SLIDE_ANIMATIONS, SHRUB_ANIMATIONS, BOOSTER_ANIMATIONS, CHECKPOINT_ANIMATIONS, POLE_ANIMATIONS, GOAL_ANIMATIONS, BOSS_ANIMATIONS, EGG_HAMMER_TANK_ANIMATIONS, CAPSULE_ANIMATIONS, SPECIAL_SPRING_ANIMATIONS, STEAM_EXHAUST_ANIMATIONS, EGG_PRESS_ANIMATIONS, HOOK_RAIL_ANIMATIONS, SECURITY_GATE_ANIMATIONS, HOOK_ANIMATIONS, MARBLE_TRACK_ANIMATIONS, PIPE_ANIMATIONS, MOVING_SPRING_ANIMATIONS, STONE_ANIMATIONS, (water ? UNDERWATER_ANIMATIONS : {}), BACKGROUND_ANIMATIONS, BALLOON_ANIMATIONS, BARREL_ANIMATIONS, BOWL_ANIMATIONS, BUMPER_ANIMATIONS, CAROUSEL_ANIMATIONS, FERRIS_WHEEL_ANIMATIONS, FLIPPER_ANIMATIONS, LETTER_ANIMATIONS, PANEL_GATE_ANIMATIONS, RED_FLAG_ANIMATIONS, SHIP_SWING_ANIMATIONS, SPIKED_PLATFORM_ANIMATIONS, SQUARE_PLATFORM_ANIMATIONS)).map(([anim, variants]) => ({
+    ...Object.entries(mergeAnimations(ENEMY_ANIMATIONS, ITEM_ANIMATIONS, PLATFORM_ANIMATIONS, ROCK_ANIMATIONS, ICE_MOUNTAIN_ANIMATIONS, NUTS_AND_BOLTS_ANIMATIONS, EGG_SNAKE_ANIMATIONS, CONVEYOR_OBJECT_ANIMATIONS, SPIKED_BARREL_ANIMATIONS, PROPELLER_ANIMATIONS, CARRIER_ANIMATIONS, IRON_BALL_ANIMATIONS, TORCH_ANIMATIONS, UPDRAFT_ANIMATIONS, WALL_ANIMATIONS, WATER_ANIMATIONS, SLIDE_ANIMATIONS, SHRUB_ANIMATIONS, BOOSTER_ANIMATIONS, CHECKPOINT_ANIMATIONS, POLE_ANIMATIONS, GOAL_ANIMATIONS, BOSS_ANIMATIONS, EGG_HAMMER_TANK_ANIMATIONS, CAPSULE_ANIMATIONS, SPECIAL_SPRING_ANIMATIONS, STEAM_EXHAUST_ANIMATIONS, EGG_PRESS_ANIMATIONS, HOOK_RAIL_ANIMATIONS, SECURITY_GATE_ANIMATIONS, HOOK_ANIMATIONS, MARBLE_TRACK_ANIMATIONS, PIPE_ANIMATIONS, MOVING_SPRING_ANIMATIONS, STONE_ANIMATIONS, (water ? UNDERWATER_ANIMATIONS : {}), BACKGROUND_ANIMATIONS, BALLOON_ANIMATIONS, BARREL_ANIMATIONS, BOWL_ANIMATIONS, BUMPER_ANIMATIONS, CAROUSEL_ANIMATIONS, FERRIS_WHEEL_ANIMATIONS, FLIPPER_ANIMATIONS, LETTER_ANIMATIONS, PANEL_GATE_ANIMATIONS, RED_FLAG_ANIMATIONS, SHIP_SWING_ANIMATIONS, SPIKED_PLATFORM_ANIMATIONS, SQUARE_PLATFORM_ANIMATIONS)).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

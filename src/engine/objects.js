@@ -79,6 +79,7 @@ import { createHangBar } from './hangbars.js';
 import { createConveyorBeltObject } from './conveyorobject.js';
 import { createSpikedBarrel } from './spikedbarrel.js';
 import { createPropeller } from './propeller.js';
+import { createToggleGravity } from './gravity.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -218,9 +219,9 @@ function interactable(e, slot, anims, ctx, level, zone) {
     ?? createBarrelOfDoomMini(e, slot, anims) ?? createRedFlag(e, slot, anims) ?? createShipSwing(e, slot, anims)
     ?? createSpikedPlatform(e, slot, anims, zone) ?? createBowl(e, slot, anims) ?? createPanelGate(e, slot, anims)
     ?? createCarousel(e, slot, anims) ?? createSnow(e, slot, ctx) ?? createAirBubbles(e, slot, anims) ?? createSkatingStone(e, slot, anims, ctx)
-    ?? createTorch(e, slot) ?? createBoulderSpawner(e, slot, anims) ?? createFloat(e, slot) ?? createLift(e, slot, anims)
+    ?? createTorch(e, slot, ctx.world) ?? createBoulderSpawner(e, slot, anims) ?? createFloat(e, slot) ?? createLift(e, slot, anims)
     ?? createRunWheel(e, slot, anims) ?? createUpdraft(e, slot, anims) ?? createIronBall(e, slot, anims)
-    ?? createRollTube(e, slot) ?? createHidingSpring(e, slot, anims) ?? createHangBar(e, slot) ?? createConveyorBeltObject(e, slot, anims) ?? createSpikedBarrel(e, slot, anims) ?? createPropeller(e, slot, anims)
+    ?? createRollTube(e, slot) ?? createHidingSpring(e, slot, anims) ?? createHangBar(e, slot) ?? createConveyorBeltObject(e, slot, anims) ?? createSpikedBarrel(e, slot, anims) ?? createPropeller(e, slot, anims) ?? createToggleGravity(e, slot, ctx)
     ?? (e.kind === STAGE_GOAL ? createGoal(e, slot, anims) : standIn(e, slot));
 }
 

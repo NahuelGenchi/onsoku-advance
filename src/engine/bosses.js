@@ -118,7 +118,7 @@ const DEBRIS = ['boltSmall', 'boltSmall2', 'boltMedium', 'boltMedium2', 'boltLar
 
 /**
  * What a beaten boss throws every 8 frames from (x, y): a piece of debris flung up at 6 px a frame at a random
- * angle, falling `ay`/256 px a frame faster each frame (40, or 5 for the Egg Spider's) and kept for at least
+ * angle, falling `ay`/256 px a frame faster each frame (40, or 5 for the Egg Spider's and the Egg Snake's) and kept for at least
  * 32 frames, and an explosion up to 63 px above and 32 px either side.
  */
 export function bossDebris(ctx, x, y, ay = 40) {

@@ -115,9 +115,10 @@ export function tileScan(terrain, p0, p1, layer, step, probe) {
 /**
  * The one-tile floor probe (sub_801F100 and sub_801F07C, scanning down): the distance from (x, y) to the
  * floor within the tile holding y, ≤ 0 at or inside it. An empty tile sends it on to the next tile down and a
- * full one up into the tile above, so whatever uses it moves at most 8 px a frame.
+ * full one up into the tile above, so whatever uses it moves at most 8 px a frame. With `dir` negative it
+ * scans up, as the rings falling up do: only the empty and full tiles answer differently.
  */
-export const tileFloor = (terrain, x, y, layer) => tileScan(terrain, y, x, layer, 8, vertical);
+export const tileFloor = (terrain, x, y, layer, dir = 8) => tileScan(terrain, y, x, layer, dir, vertical);
 
 /**
  * The one-tile probe along either axis and either way (sub_801F07C): the distance from p0 to the surface within

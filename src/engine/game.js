@@ -82,6 +82,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   // the act being played (assets.acts, by level), and what is its own: its map, its objects and their tasks,
   // its rings and its palette animations, and a renderer for its art
   let act = assets.acts[assets.first ?? 0], stage = act.stage, terrain = createTerrain(stage.collision);
+  Object.assign(anims, act.anims);   // the act's own look for sprites its zone's acts draw differently
   let tasks = createTasks(), entities = createEntities(stage, anims, tasks), rings = createRings(stage.rings, anims);
   let palettes = stage.paletteAnimations.map(createPaletteAnimation);
   const player = createPlayer({ ...stage.spawn, spinDashSpeeds });
@@ -104,7 +105,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
     goalReached: false,   // gMultiplayerRanks[0] is no longer -1: a goal has been passed
-    ringsStopped: false,  // STAGE_FLAG__2: past the goal the rings manager neither takes nor draws rings
+    ringsStopped: false,  // STAGE_FLAG__2: past the goal or a beaten boss the rings manager neither takes nor draws
+                          // rings, and the entities manager spawns nothing
     card: null,           // the title card (titlecard.js) while it holds Sonic and the clock
     results: null,        // the act's results (results.js) once Sonic is past the goal
     cardsShown: -1,       // gFinalBossActive: the last level whose title card has ended
@@ -173,7 +175,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     state.effects.push(e);
     return e;
   }
-  const feetY = () => player.y + player.offsetY;
+  // his feet, above his centre under flipped gravity
+  const feetY = () => player.y + (player.inverted ? -player.offsetY : player.offsetY);
   const centreY = () => player.y;
 
   const world = {
@@ -204,7 +207,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
         sound.play(SONG.LIFE_LOST);
         player.shield = null;
       } else if (state.ringCount > 0) {
-        scatter.launch(Math.floor(player.x), Math.floor(player.y), state.ringCount, player.layer);
+        scatter.launch(Math.floor(player.x), Math.floor(player.y), state.ringCount, player.layer, player.inverted);
         sound.play(SONG.RINGS_LOST);
         state.ringCount = 0;
       } else player.dead = true;
@@ -367,8 +370,9 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       spawn('brake', 'brakeDust', x, y, (r & 0x400) !== 0, (r & 0x800) !== 0);
     },
     spawnBrakeDust() { world.brakeDust(player.x, feetY()); },
-    // spin dash dust follows Sonic's feet while he charges, bigger while the charge is above 2.0
-    spawnDashDust() { spawn('dash', 'dashDust', player.x, feetY(), player.facing > 0); },
+    // spin dash dust follows Sonic's feet while he charges, bigger while the charge is above 2.0, and turned
+    // over with him under flipped gravity
+    spawnDashDust() { spawn('dash', 'dashDust', player.x, feetY(), player.facing > 0, player.inverted); },
     // the insta-shield's flash follows Sonic, facing the way he faced when it started
     spawnInstaShield() { spawn('shield', 'instaShieldFlash', player.x, centreY(), player.facing > 0); },
   };
@@ -396,7 +400,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     if (e.kind === 'dash') {
       if (!player.spinDashing) return false;
       setAnim(e.anim, player.dashAccel > PHYSICS.dashDustBigAbove ? 'dashDustBig' : 'dashDust');
-      e.x = player.x; e.y = feetY(); e.flipX = player.facing > 0;
+      e.x = player.x; e.y = feetY(); e.flipX = player.facing > 0; e.flipY = player.inverted;
       tickAnim(e.anim, anims);
       return true;
     }
@@ -453,8 +457,10 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   // Sonic's sprite (OAM order 16): the walk and run frames go through the rotation hardware (matrix 0, normal
   // size) and follow the slope, mirrored with a negative scale when he faces right, which also moves him 1px
   // left; facing left, the original shifts the other frames 1px right. In a marble track he goes through it
-  // too, at his scale, keeping the rotation he was last drawn with. Dying or grinding puts him in front of
-  // the front layer, and half of his swing round a rope behind both.
+  // too, at his scale, keeping the rotation he was last drawn with. Under flipped gravity the other frames are
+  // turned over, and the rotated ones mirrored the other way and turned by half a turn less their angle
+  // (MACRO_8024B10_PSI_UPDATE). Dying or grinding puts him in front of the front layer, and half of his swing
+  // round a rope behind both.
   // the Rush boost's sprite effects go just in front of him and its trail just behind (renderer.js)
   function drawSonic() {
     player.prio = anims[player.anim.name]?.prio?.[player.anim.i] ?? player.prio;
@@ -464,10 +470,10 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     else if (player.state !== 'marbleTrack') player.drawRotation = player.rotation << 2;
     if (fx) state.sprites.push(fx);
     if (!player.hidden) {
-      const s = { frame: frameOf(player.anim, playerAnims), flipX: player.facing > 0, flipY: false, order: player.order, prio, sheet: playerAnims[player.anim.name]?.sheet };
+      const inv = player.inverted, s = { frame: frameOf(player.anim, playerAnims), flipX: player.facing > 0, flipY: inv, order: player.order, prio, sheet: playerAnims[player.anim.name]?.sheet };
       if (affine) {
-        const right = player.facing > 0, scale = player.scale;
-        draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.drawRotation, scaleX: right ? -scale : scale, scaleY: scale, double: false });
+        const right = (player.facing > 0) !== inv, scale = player.scale, rotation = player.drawRotation;
+        draw(s, player.x - (right ? 1 : 0), player.y, { rotation: inv ? (512 - rotation) & 1023 : rotation, scaleX: right ? -scale : scale, scaleY: scale, double: false });
       } else draw(s, player.x + (player.facing < 0 ? 1 : 0), player.y);
       if (s.frame >= 0) state.sprites[state.sprites.length - 1].sonicRow = true;   // palette row 0, his
       if (fx && s.frame >= 0) fx.sonic = state.sprites[state.sprites.length - 1];
@@ -544,7 +550,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   // numbers carried over, and its music (its stage init)
   function startNextAct() {
     state.level++;
-    act = assets.acts[state.level]; stage = act.stage;
+    act = assets.acts[state.level]; stage = act.stage; Object.assign(anims, act.anims);
     terrain = createTerrain(stage.collision);
     Object.assign(player, createPlayer({ ...stage.spawn, spinDashSpeeds }));
     tasks = createTasks(); entities = createEntities(stage, anims, tasks); rings = createRings(stage.rings, anims);
@@ -582,7 +588,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       extras?.background(ctx.cam);
     }],
     [0x2000, ctx => collectRings(ctx)],
-    [0x2000, ctx => entities.manager.run(ctx)],
+    [0x2000, ctx => state.ringsStopped || entities.manager.run(ctx)],
     ...palettes.map(a => [0x2000, () => { a.run(); state.palettes = palettes.map(b => b.shown); }]),
     // a sparkle the scattered rings leave first runs on the next frame
     [0x2001, () => {
@@ -644,7 +650,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
         state.sprites.push({ frame, x, y, flipX: false, flipY: false, affine: null, order: 8, prio: 2, boost: true });
       });
     }],
-    [0xFF00, () => { if (!state.clockStopped) tickClock(); state.tick++; }],
+    // the stage clock, which also keeps this frame's gravity for the next (gPrevStageFlags)
+    [0xFF00, () => { player.wasInverted = player.inverted; if (!state.clockStopped) tickClock(); state.tick++; }],
     // the water's (water.js), after the clock has ticked
     ...(state.water ? [[WATER_TASK, (run => ctx => run(ctx))(waterTask(state.water, () => state.tick).run)]] : []),
   ];
@@ -692,15 +699,6 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     });
     ctx.view = state.view = viewOf(state.cam, viewW, viewH);
     loading = true;
-  }
-
-  // the VBlank copy of the sprite palette, on the frames a script loaded colours into it
-  function endFrame() {
-    const row = state.spriteRow;
-    row.uploaded = spritePalette.update;
-    if (!spritePalette.update) return;
-    spritePalette.update = false;
-    row.shown = row.written ? Array.from({ length: 16 }, (_, c) => (row.written >> c & 1 ? row.bytes[c * 2] | row.bytes[c * 2 + 1] << 8 : null)) : null;
   }
 
   // the VBlank copy of the sprite palette, on the frames a script loaded colours into it

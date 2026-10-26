@@ -17,18 +17,23 @@ function hurt(world) {
   if (world.damage()) world.playSound(SONG.SPIKES);
 }
 
-// up (sub_8020D44): landing on them hurts
-function up(o, p, world) {
+// sub_8020D44: landing on them hurts
+function landing(o, p, world) {
   if (platform(o, o.boxes[0], p, world.terrain) & LANDED) hurt(world);
   return false;
 }
 
-// down (sub_8020E98): hitting them from below hurts; not while an object carries Sonic
-function down(o, p, world) {
+// sub_8020E98: hitting them from below hurts; not while an object carries Sonic
+function bumping(o, p, world) {
   if (p.carried) return false;
-  if ((platform(o, o.boxes[0], p, world.terrain) & FROM_BELOW) && world.damage()) world.playSound(SONG.SPIKES);
+  if (platform(o, o.boxes[0], p, world.terrain) & FROM_BELOW) hurt(world);
   return false;
 }
+
+// up (Task_Spikes_Up) and down (Task_Spikes_Down): under flipped gravity they swap tests, so the side they point
+// to still hurts
+const up = (o, p, world) => (p.inverted ? bumping : landing)(o, p, world);
+const down = (o, p, world) => (p.inverted ? landing : bumping)(o, p, world);
 
 // sideways (Task_Spikes_Horizontal): the top and bottom are only solid and the face they point to hurts;
 // touching the back face puts Sonic out beyond the other one, as the code reads (in act 1 their backs are

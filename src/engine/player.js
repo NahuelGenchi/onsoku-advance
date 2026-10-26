@@ -5,7 +5,7 @@
 
 import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R, BOOST_MODE as B, SA2_TRICKS as T, SCREEN_W, SCREEN_H } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
-import { groundSensors, wallPush, airCollision, clearance, setOffsetY } from './sensors.js';
+import { groundSensors, wallPush, airCollision, clearance, setOffsetY, actAngle } from './sensors.js';
 import { LAYER_BACK, scan, PROBE_FLOOR } from './terrain.js';
 import { sin8, cos8, s8 } from './trig.js';
 import { SONG } from '../sound/songs.js';
@@ -68,7 +68,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js), or the water
                        // bridge has splashed (waterbridges.js)
     ignoreInput: false, // MOVESTATE_IGNORE_INPUT: an object holds his controls, as the forced slide does
-    heldInput: null,   // what he reads while it does (heldInput): nothing, or the right the goal holds
+    heldInput: null,   // what he reads while it does (heldInput): nothing, the right the goal holds, or the way a beaten boss walks him
     forcedRoll: false, // MOVESTATE_200: a mini loop keeps him rolling (miniloops.js)
     actClear: false,   // MOVESTATE_800000: past the goal, running in his act-clear pose until the results count up
     plainSprings: false, // unk99[1]: back from a special stage, the special springs are plain springs until the act starts over
@@ -100,6 +100,9 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     trick: null,       // the one under way: { kind: 'up' | 'forward' | 'back' | 'bound', phase, spin }
     trickUsed: false,  // one trick each time he leaves the ground
     trickDelay: 0,     // frames after a spring before one can start (disableTrickTimer)
+    // gravity flipped (gStageFlags' GRAVITY_INVERTED), and as it was when the stage clock last ran (gPrevStageFlags'):
+    // see sensors.js
+    inverted: false, wasInverted: false,
     held: new Array(HISTORY).fill(0), pressed: new Array(HISTORY).fill(0),
   };
 }
@@ -128,6 +131,14 @@ function followGround(p, t) {
 // fixed-point helpers: speeds are multiples of 1/256, and the original does this arithmetic on 8.8 integers
 const q8 = v => Math.round(v * 256);
 
+// a frame's move (PLAYERFN_UPDATE_POSITION): gravity flipped since the stage clock last ran turns his Y speed
+// around, and flipped, it moves him up the act
+function move(p) {
+  p.x += p.xsp;
+  if (p.inverted !== p.wasInverted) p.ysp = -p.ysp;
+  p.y += p.inverted ? -p.ysp : p.ysp;
+}
+
 // ground speed along the surface (sub_8029CA0 walking, sub_8029D14 rolling): not on ceilings, never from a
 // standstill, and rolling uphill only gets a quarter of the pull
 function slope(p) {
@@ -151,13 +162,15 @@ function alongSurface(p) {
 // the camera's bounds, the act's edges unless a boss has set its arena (sub_80232D0): past the point near its
 // end where an act loops back (act 1's run after the goal), Sonic and the camera go back by the act's distance,
 // while the camera moves; Sonic stops at the sides (the right one short of the act's own on act 2) and the top,
-// and falling out of the bottom kills him, thrown up as high as a jump
+// and falling out of the bottom kills him, thrown up as high as a jump; under flipped gravity he stops at the
+// bottom and dies out of the top
 function bounds(p, world) {
   p.x += world.loopBack(p.x);
   const c = world.camera, maxX = world.rightEdge - 1 / 256, maxY = c.maxY + SCREEN_H - 1 / 256;
-  if (p.y >= maxY && !p.dead) { p.dead = true; p.ysp = -rules(p).jumpSpeed; p.y = maxY; }
+  if (!p.dead && (p.inverted ? p.y <= c.minY : p.y >= maxY)) { p.dead = true; p.ysp = -rules(p).jumpSpeed; p.y = p.inverted ? c.minY : maxY; }
   if (p.x < c.minX || p.x > maxX) { p.x = Math.min(Math.max(p.x, c.minX), maxX); p.xsp = 0; p.gsp = 0; }
   if (p.y < c.minY) { p.y = c.minY; p.ysp = 0; p.gsp = 0; }
+  if (p.inverted && p.y > maxY) { p.y = maxY; p.ysp = 0; p.gsp = 0; }
 }
 
 // walls, ceilings and steep slopes drop Sonic when he is too slow for them, and lock his controls for
@@ -184,7 +197,7 @@ function doubleTap(p) {
 
 // jumps away from the surface, if there are at least 4 px of room that way
 function tryJump(p, c, world) {
-  if (!c.jumpPressed || clearance(p, world.terrain, p.rotation + 0x80) < 4) return false;
+  if (!c.jumpPressed || clearance(p, world.terrain, actAngle(p) + 0x80) < 4) return false;
   p.air = true; p.jumped = true; p.pushing = false; p.grinding = false; p.state = 'spin';
   const a = (p.rotation - 0x40) & 0xFF, jump = q8(rules(p).jumpSpeed);
   p.xsp = (q8(p.xsp) + ((jump * cos8(a)) >> 8)) / 256;
@@ -330,11 +343,12 @@ function balanceOnObject(p) {
 }
 
 // at a ledge (Player_8044E48): no ground within 8 px under his centre, none under one side of him (2 px
-// past his half-width) and ground right under the other
+// past his half-width) and ground right under the other. Under flipped gravity the sides look up, but the
+// first look is still down the act, as in the original.
 function balanceOnTerrain(p, t) {
-  const x = Math.floor(p.x), feet = Math.floor(p.y) + p.offsetY;
-  if (scan(t, feet, x, p.layer, 8, PROBE_FLOOR).d <= 8) return;
-  const left = scan(t, feet, x - 2 - SOX, p.layer, 8, PROBE_FLOOR).d, right = scan(t, feet, x + 2 + SOX, p.layer, 8, PROBE_FLOOR).d;
+  const x = Math.floor(p.x), y = Math.floor(p.y), up = p.inverted ? -1 : 1, feet = y + up * p.offsetY;
+  if (scan(t, y + p.offsetY, x, p.layer, 8, PROBE_FLOOR).d <= 8) return;
+  const left = scan(t, feet, x - 2 - SOX, p.layer, 8 * up, PROBE_FLOOR).d, right = scan(t, feet, x + 2 + SOX, p.layer, 8 * up, PROBE_FLOOR).d;
   if (left > 8 && right === 0) balance(p, -1);
   else if (left === 0 && right > 8) balance(p, 1);
 }
@@ -403,7 +417,7 @@ export function endAttack(p) { p.attack = 0; p.attackNext = 0; p.midAir = 0; p.j
 function tryRailJump(p, c, world) {
   if (!c.jumpPressed) return false;
   p.layer ^= 1;
-  if (clearance(p, world.terrain, p.rotation + 0x80) < 4) { p.layer ^= 1; return false; }
+  if (clearance(p, world.terrain, actAngle(p) + 0x80) < 4) { p.layer ^= 1; return false; }
   world.stopSound(SONG.GRINDING);
   p.air = true; p.jumped = true; p.pushing = false; p.grinding = false; p.state = 'spin';
   p.ysp = ((q8(rules(p).jumpSpeed) * sin8((p.rotation - 0x40) & 0xFF)) >> 8) / 256;
@@ -562,7 +576,7 @@ function groundStep(p, c, world, input) {
     if (tryRailJump(p, c, world)) return;
     grindStep(p, c, input);
     bounds(p, world);
-    p.x += p.xsp; p.y += p.ysp;
+    move(p);
     followGround(p, t);
     return;
   } else if (p.boost) {
@@ -582,17 +596,19 @@ function groundStep(p, c, world, input) {
     walkStep(p, c, world);
   }
   bounds(p, world);
-  p.x += p.xsp; p.y += p.ysp;
+  move(p);
   followGround(p, t);
   fallOff(p);
 }
 
 function airStep(p, c, world) {
-  // knocked back, he flies on as he was thrown: no moves, no control and no drag (Player_AirInputControls)
+  // knocked back, he flies on as he was thrown: no moves, no control and no drag (Player_AirInputControls), but
+  // his tilt still eases back
   if (p.state === 'hurt') {
     bounds(p, world);
-    p.x += p.xsp; p.y += p.ysp;
+    move(p);
     p.ysp += rules(p).gravity;
+    tumble(p);
     airCollision(p, world.terrain, () => land(p));
     return;
   }
@@ -622,13 +638,17 @@ function airStep(p, c, world) {
   if (p.ysp < 0 && !p.boost) airDrag(p);
 
   bounds(p, world);
-  p.x += p.xsp; p.y += p.ysp;
+  move(p);
   p.ysp += rules(p).gravity;
-  // the angle he left the ground at eases back to upright; off a bounce block he tumbles the way he faces
-  // instead (Player_8047224)
+  tumble(p);
+  airCollision(p, world.terrain, () => land(p));
+}
+
+// the angle he left the ground at eases back to upright; off a bounce block he tumbles the way he faces
+// instead (Player_8047224)
+function tumble(p) {
   if (p.state === 'bounce') p.rotation = (p.rotation + 4 * p.facing) & 0xFF;
   else upright(p);
-  airCollision(p, world.terrain, () => land(p));
 }
 
 // left or right in the air (Player_AirInputControls): twice the walking acceleration up to the top speed,
@@ -851,8 +871,8 @@ export function knockAside(p, xsp, ysp) {
 
 // dead (Task_PlayerMain's death block, then Task_PlayerDied and Task_PlayerHandleDeath): on the first frame he
 // stops moving sideways (his ground speed is left as it was) and the camera and clock stop; then he falls through everything until he is 80 px
-// below the screen, and the act restarts 61 frames later. Drowned, the death has its own sound, and he
-// sinks as slowly as anything under water.
+// below the screen (above it under flipped gravity), and the act restarts 61 frames later. Drowned, the death
+// has its own sound, and he sinks as slowly as anything under water.
 function deadStep(p, world) {
   if (!p.death) {
     p.death = 'falling'; p.state = 'dead';
@@ -862,8 +882,9 @@ function deadStep(p, world) {
     return;
   }
   if (p.death === 'falling') {
-    if (p.y >= world.cameraY + K.deadBelowScreen - 1 / 256) { p.death = 'gone'; p.countdown = K.deadRestart; p.hidden = true; return; }
-    p.y += p.ysp;
+    const gone = p.inverted ? p.y <= world.cameraY - K.deadBelowScreen + SCREEN_H : p.y >= world.cameraY + K.deadBelowScreen - 1 / 256;
+    if (gone) { p.death = 'gone'; p.countdown = K.deadRestart; p.hidden = true; return; }
+    move(p);
     p.ysp += rules(p).gravity;
     return;
   }
@@ -1040,8 +1061,15 @@ function afterAnimation(p, world) {
   }
 }
 
-// a hitbox under his facing, as the sprite system applies it when the box is set
-const flipBox = (box, flip) => (box && flip ? [-box[2], box[1], -box[0], box[3]] : box);
+// a hitbox under his facing, and turned over under flipped gravity, as the sprite system applies his
+// sprite's flips when the box is set
+function flipBox(box, flipX, flipY) {
+  if (!box) return box;
+  let [l, t, r, b] = box;
+  if (flipY) [t, b] = [-b, -t];
+  if (flipX) [l, r] = [-r, -l];
+  return [l, t, r, b];
+}
 
 // a new animation clears both his hitboxes until its script sets them (sub_802486C). Bouncing off a bounce
 // block shows the walk animation (4, variant 0): only a new animation or variant restarts the sprite, so
@@ -1059,7 +1087,7 @@ function choose(p, name, restart = false) {
 function stepAnim(p, anims) {
   const i = p.anim.i, ended = tickAnim(p.anim, anims);
   const f = p.anim.i !== i && anims[p.anim.name].frames[p.anim.i];
-  if (f?.[2]) for (const [slot, box] of Object.entries(f[2])) if (slot < 2) p.boxes[slot] = flipBox(box, p.facing > 0);
+  if (f?.[2]) for (const [slot, box] of Object.entries(f[2])) if (slot < 2) p.boxes[slot] = flipBox(box, p.facing > 0, p.inverted);
   // it keeps the order a frame sets (animCmd_SetOamOrder) after the animation
   if (f?.[3] !== undefined) p.order = f[3];
   return ended;

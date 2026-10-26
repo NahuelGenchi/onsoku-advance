@@ -104,6 +104,15 @@ export const LEVELS = {
       breakableWall: [596, 0], squarePlatform: [518, 0], squarePlatformLong: [519, 0], movingSpring: [582, 1], movingSpringLaunch: [582, 0],
     },
   },
+  // StageInit_Zone6Act2: eight palette animations, each cycling one row of the background palette, and
+  // MUS_COSMIC_ANGEL. StageBgUpdate_Zone6Act2 scrolls the background (backgrounds.js). The HUD's task data lands
+  // on memory the menus last used, which holds 90 when the act is picked from the course select (hud.js). Zone 6
+  // act 2's square platforms are 599 and, long, 600, and zone 6's moving spring 582 (their CreateEntity_)
+  11: {
+    name: 'Cosmic Angel Zone', zone: 5, act: 1, paletteAnimations: [829, 830, 831, 850, 851, 848, 846, 847], music: 23,
+    backgroundScroll: 'cosmicAngel', hudFlash: 90,
+    sprites: { squarePlatform: [599, 0], squarePlatformLong: [600, 0], movingSpring: [582, 1], movingSpringLaunch: [582, 0] },
+  },
 };
 
 /** The entry of `level`, or an error for one this game can't load yet. */

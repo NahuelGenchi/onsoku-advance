@@ -16,7 +16,7 @@ Other Sonic Advance versions are recognized by their cartridge header. When the 
 
 To check your ROM, open [`viewer.html`](../viewer.html): it shows the version, checksum, table offsets and everything decoded from them.
 
-Each zone up to Angel Island has its own section below. [Egg Rocket Zone](egg-rocket.md) has a page of its own.
+Each zone up to Angel Island has its own section below. [Egg Rocket Zone](egg-rocket.md) and [Cosmic Angel Zone](cosmic-angel.md) have pages of their own.
 
 ## What the extractor reads
 

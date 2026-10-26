@@ -36,6 +36,7 @@ const zone3 = (cx, cy, terrain) => [
 // Casino Paradise's map lines from which the hedges' bands and the railing scroll faster through HBlank, and by
 // how much of the camera's x: the update first sets the lines from 134 to x / 64 and then writes x / 32 over them
 const ZONE3_BANDS = [[134, 5], [140, 4], [152, 3], [168, 2], [192, 1], [256, null]];
+const BELT_A = [120, 136], BELT_B = [176, 192];   // the conveyor belts' lines in Cosmic Angel's map
 
 export const BACKGROUND_SCROLL = {
   // StageBgUpdate_Zone2Act1: outside, before x 1488, all of it scrolls a 78th of the camera's way across and
@@ -52,6 +53,17 @@ export const BACKGROUND_SCROLL = {
     for (let b = ZONE3_BANDS.length - 2; b >= 0; b--) {
       if (row >= ZONE3_BANDS[b][0] && row < ZONE3_BANDS[b + 1][0]) return [(x + (cx >> ZONE3_BANDS[b][1])) & 0xFF, y];
     }
+    return [x, y];
+  },
+  // StageBgUpdate_Zone6Act2: the 512 × 256 map moves across 272 px over the act's width and 72 px down over
+  // its height (Div, rounding toward 0), and through HBlank its two belts slide by half the stage clock, the
+  // upper one left and the lower one right.
+  cosmicAngel(line, tick, cx, cy, terrain) {
+    const x = Math.trunc(((cx << 8) + (cx << 4)) / (terrain.width - 240));
+    const y = Math.trunc(((cy << 6) + (cy << 3)) / (terrain.height - 160));
+    const row = y + line;
+    if (row >= BELT_A[0] && row < BELT_A[1]) return [(x - (tick >> 1)) & 0x1FF, y];
+    if (row >= BELT_B[0] && row < BELT_B[1]) return [((tick >> 1) + x) & 0x1FF, y];
     return [x, y];
   },
 };

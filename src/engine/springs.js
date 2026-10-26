@@ -104,13 +104,15 @@ function diagonal(o, p, { terrain: t }) {
   const px = Math.floor(p.x), upLeft = o.kind === SPRING_BIG_UPLEFT || o.kind === SPRING_SMALL_UPLEFT;
   const dir = upLeft && px < o.x - 20 ? -1 : px > o.x + 20 ? 1 : 0;
   if (!dir) { platform(o, o.boxes[0], p, t); return false; }
-  p.ysp = -o.speed; p.xsp = o.speed * dir;
+  p.ysp = p.inverted ? o.speed : -o.speed; p.xsp = o.speed * dir;   // under flipped gravity, still world up
   throwUp(p, o);
   return true;
 }
 
+// under flipped gravity the up and down springs swap handlers (Task_Spring_Normal_Up / _Down)
 const COLLIDE = {
-  [SPRING_UP]: up, [SPRING_DOWN]: down, [SPRING_LEFT]: side, [SPRING_RIGHT]: side,
+  [SPRING_UP]: (o, p, w) => (p.inverted ? down : up)(o, p, w), [SPRING_DOWN]: (o, p, w) => (p.inverted ? up : down)(o, p, w),
+  [SPRING_LEFT]: side, [SPRING_RIGHT]: side,
   [SPRING_BIG_UPLEFT]: diagonal, [SPRING_BIG_UPRIGHT]: diagonal, [SPRING_SMALL_UPLEFT]: diagonal, [SPRING_SMALL_UPRIGHT]: diagonal,
 };
 

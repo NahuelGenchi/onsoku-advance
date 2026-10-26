@@ -211,7 +211,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
 /**
  * Every animation's frames on one atlas. In an act with `water` they are drawn a second time, on an atlas with
  * the same layout, in the colours under the water line: palette 423 in the water's colours, whatever palette
- * the animation loads above it. `levelSprites` { name: [anim, variant] } are the level's own looks for objects
+ * the animation loads above it (`under`), and a third time in their own colours in the water's (`underOwn`). `levelSprites` { name: [anim, variant] } are the level's own looks for objects
  * whose animation the ROM picks by level; they replace the default of the same name.
  */
 function extractSprites(rom, tables, water, levelSprites = {}) {
@@ -284,12 +284,15 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
   const pieces = images.flatMap((image, i) => (image.pieces ?? []).map((p, k) => ({ img: p.img, frame: i, x: p.x, y: p.y, redraw: () => redraw(i).pieces[k].img })));
   const all = [...images, ...pieces], { canvas, rects } = packAtlas(all);
   const underAtlas = under && paintAtlas(canvas.width, canvas.height, rects, all.map((image, i) => (image.redraw ? image.redraw() : redraw(i).img)));
+  // and once the Egg Spider's task copies the OBJ palette as it is every frame, each in its own colours, in the
+  // water's
+  const underOwn = under && paintAtlas(canvas.width, canvas.height, [[0, 0]], [tintImage(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height), water.blend)]);
   pieces.forEach((p, k) => {
     const [ax, ay, w, h] = rects[images.length + k];
     (rects[p.frame][6] ??= []).push([p.x, p.y, w, h, ax, ay]);
   });
   rects.length = images.length;
-  return { atlas: canvas, under: underAtlas || null, frames: rects, anims, tiles };
+  return { atlas: canvas, under: underAtlas || null, underOwn: underOwn || null, frames: rects, anims, tiles };
 }
 
 // the 8 × 8 tile of `img` with its top left corner at (tx, ty)

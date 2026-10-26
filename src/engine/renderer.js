@@ -58,7 +58,7 @@ export function createRenderer(canvas, assets) {
 
   // the rotation hardware's sprites are put together here pixel by pixel, then drawn over the frame
   const pixelsOf = a => a && a.getContext('2d').getImageData(0, 0, a.width, a.height).data;
-  const abovePixels = pixelsOf(atlas), underPixels = pixelsOf(assets.sprites.under);
+  const abovePixels = pixelsOf(atlas), underPixels = pixelsOf(assets.sprites.under), ownPixels = pixelsOf(assets.sprites.underOwn);
   let atlasPixels = abovePixels;
   let objLayer = new ImageData(W, H);
   const objCanvas = document.createElement('canvas');
@@ -201,21 +201,45 @@ export function createRenderer(canvas, assets) {
     ctx.putImageData(img, x0, y0);
   }
 
-  // A sprite in OBJ window mode with every layer brightened to full inside the window (a boss's hit flash):
-  // the sprite itself isn't drawn, and everything in its shape, whatever is in front, turns white.
-  function drawWhite(s, vx, vy) {
+  // Sprites in OBJ window mode with the layers brightened to full inside the window (a boss's hit flash): the
+  // sprites themselves aren't drawn, and the layers and the backdrop in their shape turn white. The sprites and
+  // the HUD in front of them keep their colours: with the colour effects on only inside the OBJ window, mGBA
+  // 0.10.5 takes them out of the effect's first target (src/gba/renderers/software-obj.c). `windowShape` puts
+  // their shape in white on `winCanvas` and says whether there is any.
+  const winCanvas = document.createElement('canvas'), layerCanvas = document.createElement('canvas');
+  winCanvas.width = layerCanvas.width = W; winCanvas.height = layerCanvas.height = H;
+  const winCtx = winCanvas.getContext('2d', { willReadFrequently: true }), layerCtx = layerCanvas.getContext('2d');
+  function windowShape(list, vx, vy) {
+    const shapes = list.filter(s => s.white);
+    if (shapes.length === 0) return false;
     const main = ctx;
-    ctx = maskCtx;
-    maskCtx.imageSmoothingEnabled = false;
-    maskCtx.clearRect(0, 0, W, H);
-    if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
-    else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+    ctx = winCtx;
+    winCtx.imageSmoothingEnabled = false;
+    winCtx.clearRect(0, 0, W, H);
+    for (const s of shapes) {
+      if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
+      else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
+    }
     ctx = main;
-    maskCtx.globalCompositeOperation = 'source-in';
-    maskCtx.fillStyle = '#fff';
-    maskCtx.fillRect(0, 0, W, H);
-    maskCtx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(maskCanvas, 0, 0);
+    whiten(winCtx);
+    return true;
+  }
+  // every pixel already on `g` in white
+  function whiten(g) {
+    g.globalCompositeOperation = 'source-in';
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = 'source-over';
+  }
+  // a layer `draw(g)` puts on the frame, white where it is in the window's shape
+  function drawLayerInWindow(draw) {
+    layerCtx.clearRect(0, 0, W, H);
+    draw(layerCtx);
+    ctx.drawImage(layerCanvas, 0, 0);
+    layerCtx.globalCompositeOperation = 'destination-in';
+    layerCtx.drawImage(winCanvas, 0, 0);
+    whiten(layerCtx);
+    ctx.drawImage(layerCanvas, 0, 0);
   }
 
   // debug overlay: the collision under the view, drawn through a scratch canvas so it blends
@@ -313,16 +337,18 @@ export function createRenderer(canvas, assets) {
   }
 
   // The snow (Ice Mountain) from map pixel (sx, sy) at the original screen's top left, in palette `colors`,
-  // added to what is under it or, with `opaque`, drawn over it, on the screen's lines above `end`
-  function drawSnow(frame, sx, sy, colors, opaque, ox, oy, end) {
+  // added to what is under it or, with `opaque`, drawn over it, on the screen's lines above `end`; white in the
+  // window's shape with `shape` (windowShape)
+  function drawSnow(frame, sx, sy, colors, opaque, ox, oy, end, shape) {
     if (end <= 0) return;
     const img = ctx.getImageData(0, 0, W, end), d = img.data, sw = snow.width, sh = snow.height;
+    const win = shape && winCtx.getImageData(0, 0, W, end).data;
     for (let y = 0; y < end; y++) {
       const row = mod(sy + y - oy, sh) * sw;
       for (let x = 0; x < W; x++) {
         const c = frame[row + mod(sx + x - ox, sw)];
         if (!c) continue;
-        const k = (y * W + x) * 4, rgb = colors[c];
+        const k = (y * W + x) * 4, rgb = win && win[k + 3] ? [255, 255, 255] : colors[c];
         if (opaque) { d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2]; continue; }
         d[k] = Math.min(255, d[k] + rgb[0]); d[k + 1] = Math.min(255, d[k + 1] + rgb[1]); d[k + 2] = Math.min(255, d[k + 2] + rgb[2]);
       }
@@ -352,21 +378,21 @@ export function createRenderer(canvas, assets) {
 
   // `draw(below, first, end)` once for each part of the screen, the lines [first, end): above the water line
   // and below it, where the sprites, the HUD and the title card take their colours under water
-  let parts = [[0, SCREEN_H, false]];
+  let parts = [[0, SCREEN_H, false]], own = false;
   function byPart(draw) {
     if (parts.length === 1 && !parts[0][2]) { draw(false, 0, H); return; }
     for (const [first, end, below] of parts) {
       ctx.save();
       ctx.beginPath(); ctx.rect(0, first, W, end - first); ctx.clip();
-      atlas = below ? assets.sprites.under : assets.sprites.atlas;
-      atlasPixels = below ? underPixels : abovePixels;
+      atlas = !below ? assets.sprites.atlas : own ? assets.sprites.underOwn : assets.sprites.under;
+      atlasPixels = !below ? abovePixels : own ? ownPixels : underPixels;
       draw(below, first, end);
       ctx.restore();
     }
     atlas = assets.sprites.atlas; atlasPixels = abovePixels;
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, cardOver, showCollision, rushFx, rushArt, shake, water }) {
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, cardOver, showCollision, rushFx, rushArt, shake, water, blendOff }) {
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -382,6 +408,7 @@ export function createRenderer(canvas, assets) {
     const line = water ? Math.max(0, Math.min(H, water.level - vy)) : H;
     const split = line > 0 && line < H ? line - 1 : line;
     parts = [[0, split, false], [split, H, true]].filter(([first, end]) => end > first);
+    own = !!water?.ownColours;
     // the background is fixed to the view, as the original's is to its screen: it lines up with a 240 × 160
     // screen in the view's middle, and the sea scrolls with where that screen would be. Near the act's edges
     // the view stops before the camera does, and so does the background. A taller view shows the map's lines
@@ -407,6 +434,9 @@ export function createRenderer(canvas, assets) {
     // the rings manager runs first among the tasks that draw, so its rings (OAM order 20) come first
     const shown = rings.visible(view);
     const list = stack([...shown.list.map(r => ({ frame: shown.frame, x: r.x, y: r.y, order: 20, prio: 2 })), ...sprites]);
+    // a hit flash's window: the background, the back layer and the backdrop under them are white in its shape
+    const shape = windowShape(list, vx, vy);
+    if (shape) ctx.drawImage(winCanvas, 0, 0);
     // the sprites of BG priority `prio` (2 and 3 together, behind the front layer) that `shows` picks
     const drawAll = (prio, shows = () => true) => byPart((below, first, end) => {
       for (const s of list) {
@@ -418,19 +448,20 @@ export function createRenderer(canvas, assets) {
       }
     });
     drawAll(2);
-    drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes, under);
+    if (shape) drawLayerInWindow(g => drawLayer(g, stage, 'front', vx, vy, W, H, frame, palettes, under));
+    else drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes, under);
     drawAll(1);
     // the snow lies over everything but the sprites of priority 0; the title card's fade and its last frame show
-    // it as it is. Above the water it is off while the water line was at the screen's top the frame before.
+    // it as it is, as do the frames a boss has turned the blending off on (`blendOff`) or flashes on. Above the
+    // water it is off while the water line was at the screen's top the frame before.
     const fading = titleCard ? titleCard.sprites.length > 0 && (titleCard.sprites[0].a0 & 0xC00) === 0x400 : cardOver;
-    if (ice && tick > 1 && (!water || water.snow)) drawSnow(snow.frames[ice.snowFrame], ice.snowX, ice.snowY, snow.palettes[paletteVariant(stage, snow.follows, palettes)], fading, ox, oy, split);
+    if (ice && tick > 1 && (!water || water.snow)) drawSnow(snow.frames[ice.snowFrame], ice.snowX, ice.snowY, snow.palettes[paletteVariant(stage, snow.follows, palettes)], fading || blendOff || shape, ox, oy, split, shape);
     // the HUD's sprites are at priority 0 and OAM order 3, so the few of priority 0 with a lower order are in
     // front of them
     drawAll(0, s => s.order >= HUD_ORDER);
     if (showCollision) drawCollision(terrain, vx, vy);
     byPart(below => drawHud(hudState.sprites, below ? hud.under : hud.sheet));
     drawAll(0, s => s.order < HUD_ORDER);
-    for (const s of list) if (s.white) drawWhite(s, vx, vy);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
     // behind keeps them out of the fade
@@ -444,8 +475,8 @@ export function createRenderer(canvas, assets) {
   /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */
   render.resize = (w, h) => {
     W = w; H = h;
-    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = w;
-    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = h;
+    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = winCanvas.width = layerCanvas.width = w;
+    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = winCanvas.height = layerCanvas.height = h;
     objLayer = new ImageData(w, h);
     trailBuf = new Uint8Array(w * h);
   };

@@ -105,7 +105,8 @@ export function eggSpider(e, slot, anims, ctx0) {
       const p = ctx.player;
       boss.qx += boss.qvx; boss.qy += boss.qvy;
       const [x, y] = pos();
-      // sub_80308A4: Sonic against it while it isn't flashing
+      // sub_80308A4: the blending off while Sonic is alive, and Sonic against it while it isn't flashing
+      if (!p.dead) ctx.world.blendOff();
       if (boss.flash === 0) {
         const hit = bossHit(s, x, y, ctx);
         if (hit === HIT_ENEMY) {
@@ -156,12 +157,13 @@ export function eggSpider(e, slot, anims, ctx0) {
       }
     },
     // Task_8031480: it falls 2/256 px a frame faster each frame, throwing debris, until 2 seconds have passed
-    // and the floor is under its feet
+    // and the floor is under its feet; the blending is off while Sonic is alive
     fall(ctx) {
       boss.qvFall += 2; boss.qy += boss.qvFall;
       const [x, y] = pos();
       if (boss.t > 120 && tileFloor(ctx.world.terrain, x, y + 56, LAYER_BACK) < 0) { boss.qvFall = 0; state = 'wreck'; }
       s.white = false;
+      if (!ctx.player.dead) ctx.world.blendOff();
       if ((++boss.t & 7) === 0) bossDebris(ctx, x, y + 32, 5);
       animate(s, anims); animate(s2, anims);
       show(ctx, x, y);
@@ -179,6 +181,8 @@ export function eggSpider(e, slot, anims, ctx0) {
         return false;
       }
       if ((boss.t & 7) === 0) bossDebris(ctx, x, y + 32, 5);
+      // the blending off, whether Sonic is alive or not
+      ctx.world.blendOff();
       animate(s, anims); animate(s2, anims);
       show(ctx, x, y);
     },

@@ -56,6 +56,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     tick: 0, player, terrain, tasks, rings, scatter, cam: createCamera(player, terrain), effects: [], sprites: [],
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
     animal: 0,   // gTrappedAnimalVariant: the next defeat's animal
+    blendOff: false,   // whether a boss turned the colour blending off this frame (gBldRegs.bldCnt = 0)
     seed: 0,     // gPseudoRandom: the game's random numbers, one sequence for the whole game, from 0
     frameCount: START_FRAME_COUNT - 1,   // gFrameCount: every frame counts, the title card's and restarts' too
     palettes: palettes.map(a => a.shown),   // the frame each palette animation has loaded (palettes.js)
@@ -98,9 +99,13 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     terrain,
     // the rings Sonic drops (scatter.js), which a boss lets bounce off ceilings
     scatter,
-    // InitWaterPalettes: the colours under the water line taken from the stage's as they are now (a boss's task
-    // does it every frame)
-    initWaterPalettes() { if (state.water) state.water.shown = state.palettes.slice(); },
+    // InitWaterPalettes: the colours under the water line taken from the stage's and the sprites' as they are now
+    // (a boss's task does it every frame). The sprites' are each one's own by then, not palette 423's from the act's
+    // start.
+    initWaterPalettes() { if (state.water) { state.water.shown = state.palettes.slice(); state.water.ownColours = true; } },
+    // a boss clears the colour blending the stage's background sets every frame: Ice Mountain's snow is drawn
+    // over the frame then, not added to it
+    blendOff() { state.blendOff = true; },
     // a hazard touched Sonic (Coll_DamagePlayer): a shield takes the hit, or with rings he drops them all, up
     // to 48 of them scattering, and without any he dies; returns false while he is invincible or still
     // blinking from the last hit
@@ -397,6 +402,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     state.frameCount = (state.frameCount + 1) >>> 0;
     if (loading) { loading = false; return; }
     state.sprites = [];
+    state.blendOff = false;
     tasks.run(ctx);
     if (state.water) endFrame(state.water);
     if (restart) { restart = false; restartAct(); }

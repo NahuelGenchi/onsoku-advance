@@ -1,9 +1,10 @@
 // Keeps the player's ROM in this browser's IndexedDB so it doesn't have to be chosen every visit: the Sonic
-// Advance ROM, and under its own key the Sonic Rush ROM the optional Rush boost reads.
+// Advance ROM, and under their own keys the Sonic Rush ROM the optional Rush boost reads and the Sonic Advance
+// 2 ROM the optional Boost Mode reads.
 // Nothing is sent anywhere; clearing site data or "Forget" removes it.
 
 const DB_NAME = 'onsoku-advance', STORE = 'rom', KEY = 'current';
-export const RUSH_ROM = 'rush';
+export const RUSH_ROM = 'rush', SA2_ROM = 'sa2';
 
 function openDb() {
   return new Promise((resolve, reject) => {

@@ -4,11 +4,13 @@
 
 import './engine/cpucanvas.js';
 import { createRomPicker } from './ui/rom-picker.js';
-import { loadRememberedRom, rememberRom, RUSH_ROM } from './ui/rom-store.js';
+import { loadRememberedRom, rememberRom, RUSH_ROM, SA2_ROM } from './ui/rom-store.js';
 import { extractAssets } from './rom/extract.js';
 import { Rom } from './rom/rom.js';
 import { createFrontEnd } from './front/front.js';
 import { extractRush } from './rom/rush.js';
+import { openSa2 } from './rom/sa2.js';
+import { readBoostArt } from './rom/sa2boost.js';
 import { createInput } from './engine/input.js';
 import { createGame, specialSpringStart } from './engine/game.js';
 import { createSpecialStageRun } from './special/run.js';
@@ -24,6 +26,9 @@ const wideButton = document.getElementById('wide');
 const rushButton = document.getElementById('rush');
 const rushStatus = document.getElementById('rush-status');
 const rushFile = document.getElementById('rush-file');
+const boostButton = document.getElementById('boost-mode');
+const boostStatus = document.getElementById('boost-status');
+const sa2File = document.getElementById('sa2-file');
 const params = new URLSearchParams(location.search);
 const debug = params.has('debug'), specialTest = params.has('special');
 
@@ -99,6 +104,52 @@ rushFile.addEventListener('change', async () => {
 })();
 showRush();
 
+// Sonic Advance 2's Boost Mode, another extra: off unless chosen. Its afterimages, particles and sound come from
+// the player's own Sonic Advance 2 ROM, asked for the first time it is turned on and then kept in this browser.
+const BOOST_KEY = 'onsoku.boostMode';
+let boostMode = false, boostArt = null;
+try { boostMode = localStorage.getItem(BOOST_KEY) === '1'; } catch { /* storage blocked: the default stands */ }
+function setBoostMode(on) {
+  if (on && !boostArt) { sa2File.click(); return; }   // turned on once the ROM is read
+  boostMode = on;
+  try { localStorage.setItem(BOOST_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
+  showBoostMode();
+}
+function showBoostMode() {
+  game?.setBoostMode(boostMode, boostArt);
+  boostButton.textContent = `Boost Mode: ${boostMode ? 'on' : 'off'}`;
+  boostButton.setAttribute('aria-pressed', String(boostMode));
+}
+function useSa2(buffer) {
+  const sa2 = openSa2(buffer);
+  boostArt = readBoostArt(sa2);
+  sound.loadSa2(sa2.sound);
+}
+boostButton.addEventListener('click', () => { setBoostMode(!boostMode); screen.focus(); });
+sa2File.addEventListener('change', async () => {
+  const file = sa2File.files[0];
+  sa2File.value = '';
+  if (!file) return;
+  try {
+    const buffer = await file.arrayBuffer();
+    useSa2(buffer);
+    boostStatus.textContent = '';
+    await rememberRom(file.name, buffer, SA2_ROM);
+    setBoostMode(true);
+  } catch (error) {
+    boostStatus.textContent = error.message || String(error);
+  }
+  screen.focus();
+});
+// with the setting on from an earlier visit, the remembered Sonic Advance 2 ROM; without it the setting goes off
+(async () => {
+  const saved = await loadRememberedRom(SA2_ROM);
+  try { if (saved) useSa2(saved.buffer); } catch { /* not usable any more: asked for again */ }
+  if (boostMode && !boostArt) setBoostMode(false);
+  showBoostMode();
+})();
+showBoostMode();
+
 createRomPicker(picker, {
   heading: 'Play in your browser',
   intro: 'Choose your Sonic Advance ROM. Its graphics are decoded on this device and the game starts right away.',
@@ -137,6 +188,7 @@ function play(assets, resume = null) {
   });
   fitScreen();
   showRush();
+  showBoostMode();
   game.start();
   screen.focus();
   clearInterval(statsTimer);
@@ -172,6 +224,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyM' && !stage.hidden && !e.repeat) sound.muted = !sound.muted;
   if (e.code === 'KeyV' && !stage.hidden && !e.repeat) setWide(!wide);
   if (e.code === 'KeyR' && !stage.hidden && !e.repeat) setRush(!rush);
+  if (e.code === 'KeyB' && !stage.hidden && !e.repeat) setBoostMode(!boostMode);
 });
 
 function showStats() {

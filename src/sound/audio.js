@@ -1,11 +1,12 @@
 // The page's side of the sound: starts the AudioWorklet (worklet.js) with a copy of the ROM and forwards the
-// game's calls to it, and the optional Sonic Rush boost's sound archive when it is given one. Browsers keep audio paused until the page has been interacted with; choosing the ROM
+// game's calls to it, the optional Sonic Rush boost's sound archive when it is given one, and the optional
+// Boost Mode's Sonic Advance 2 ROM when it is given that. Browsers keep audio paused until the page has been interacted with; choosing the ROM
 // counts, and any later key press or tap resumes it too.
 
 const GAIN = 0.5;   // the GBA's full scale is loud next to other pages; half of it leaves headroom
 
 export function createSound() {
-  let ctx = null, node = null, muted = false, songPlayers = null, rushSound = null;
+  let ctx = null, node = null, muted = false, songPlayers = null, rushSound = null, sa2Sound = null;
   const waiting = [];
   const post = msg => (node ? node.port.postMessage(msg) : waiting.push(msg));
   const call = (name, ...args) => post({ type: 'call', name, args });
@@ -29,6 +30,7 @@ export function createSound() {
       node.connect(c.destination);
       node.port.postMessage({ type: 'rom', rom: romBuffer, layout });
       if (rushSound) node.port.postMessage({ type: 'rush', sound: rushSound });
+      if (sa2Sound) node.port.postMessage({ type: 'sa2', ...sa2Sound });
       node.port.postMessage({ type: 'gain', value: muted ? 0 : GAIN });
       for (const msg of waiting.splice(0)) node.port.postMessage(msg);
       resume();
@@ -42,6 +44,10 @@ export function createSound() {
     loadRush(sound) { rushSound = sound; node?.port.postMessage({ type: 'rush', sound }); },
     /** Plays a Sonic Rush sound effect, [sequence archive, sound], as the DS does (nitro.js) */
     playRush(se) { post({ type: 'rushSe', se }); },
+    /** Gives the engine the Sonic Advance 2 ROM and its sound layout (sa2.js), for the extras' sound effects */
+    loadSa2(sound) { sa2Sound = sound; node?.port.postMessage({ type: 'sa2', ...sound }); },
+    /** m4aSongNumStart on Sonic Advance 2's own engine */
+    playSa2(song) { post({ type: 'sa2Call', name: 'songStart', args: [song] }); },
     /** Starts the stage's music and the music manager that brings it back after the 1-up jingle */
     playStageMusic(song) { call('stageMusic', song); },
     /** The music manager's extra life: the 1-up jingle in place of the music */

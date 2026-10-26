@@ -5,10 +5,11 @@
 // the score and the lives carried over. A special spring hands the game over to the special stage
 // (options.onSpecialStage), and the act starts again from what that hands back (options.resume).
 
-import { TICK_MS, CAMERA, PHYSICS, SCREEN_W, SCREEN_H, RUSH_BOOST } from './constants.js';
+import { TICK_MS, CAMERA, PHYSICS, SCREEN_W, SCREEN_H, RUSH_BOOST, BOOST_MODE } from './constants.js';
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { createPlayer, stepPlayer, animatePlayer, hurt } from './player.js';
 import { createRushFx, startRushFx, stepRushFx } from './rushfx.js';
+import { createBoostFx, recordSonic, stepAfterimages, startBurst, stepBursts, particleAnims } from './boostmode.js';
 import { createCamera, updateCamera, viewOf } from './camera.js';
 import { animateStageTiles } from './stage.js';
 import { createRenderer } from './renderer.js';
@@ -27,6 +28,7 @@ import { createBossCapsule } from './capsule.js';
 import { SPECIAL_SPRING } from './specialspring.js';
 import { SONG } from '../sound/songs.js';
 import { RUSH_BOOST_SE } from '../rom/rush.js';
+import { BOOST_MODE_SE } from '../rom/sa2boost.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
@@ -52,7 +54,7 @@ const NO_INPUT = { left: false, right: false, up: false, down: false, jump: fals
 
 const SILENT = {
   play() {}, playOrChange() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
-  playerState() {}, stopAll() {}, musicOff() {}, musicState() {},
+  playerState() {}, stopAll() {}, musicOff() {}, musicState() {}, playSa2() {},
 };
 
 /**
@@ -90,7 +92,11 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
     rushFx: createRushFx(), // its trail, burst and aura (rushfx.js)
     shake: -1,            // the frame of the boost's screen shake showing, or -1; only drawing reads it
+    boostMode: false,     // Sonic Advance 2's Boost Mode's setting (off unless chosen)
+    boostArt: null,       // its art and sound, from the player's Sonic Advance 2 ROM
+    boostFx: createBoostFx(player), // its afterimages and particles (boostmode.js)
   };
+  let boostAnims = null;   // the particles' animations, numbered as the renderer's boost atlas has them
   let viewW = SCREEN_W, viewH = SCREEN_H;   // the original screen, or the widescreen view's size
   // the camera as InitCamera sets it up, with the act's stage init's right edge
   const newCamera = () => {
@@ -251,6 +257,15 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       state.cam.scroll = RUSH_BOOST.scrollDelay;
     },
     shake() { state.shake = 0; },
+    // Boost Mode: whether it is on, the ring count its meter reads, and its start (its particles, Sonic Advance
+    // 2's sound effect, and the camera's sideways speed limit dropping)
+    get boostMode() { return state.boostMode; },
+    get ringCount() { return state.ringCount; },
+    boostModeStarted() {
+      state.cam.boostSpeedX = BOOST_MODE.cameraStart;
+      startBurst(state.boostFx, player, ctx.cam.x, boostAnims);
+      sound.playSa2(BOOST_MODE_SE);
+    },
     // brake dust stays where it appeared, flipped by the game's random numbers
     spawnBrakeDust() {
       if (state.effects.filter(e => e.kind === 'brake').length >= MAX_BRAKE_DUST) return;
@@ -404,6 +419,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
     state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
+    state.boostFx = createBoostFx(player);
     startCard();
     sound.playStageMusic(STAGE_INITS[state.level].music);
     loading = true; starMusic = false;
@@ -423,6 +439,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       tick: 0, terrain, tasks, rings, cam: newCamera(), effects: [], sprites: [], ringCount: 0, courseTime: 0,
       clockStopped: false, hud: createHud(), animal: 0, palettes: palettes.map(a => a.shown), checkpointIndex: 0,
       checkpoint: null, goalReached: false, ringsStopped: false, card: null, results: null, rushFx: createRushFx(), shake: -1,
+      boostFx: createBoostFx(player),
     });
     ctx.view = state.view = viewOf(state.cam, viewW, viewH);
     render = newRenderer();
@@ -472,6 +489,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? player.heldInput ?? NO_INPUT : input;
       stepPlayer(player, held, world);
       animatePlayer(player, held, anims, world);
+      if (!player.dead) recordSonic(state.boostFx, player);
       // the boost's effects run after him, as Rush's objects run after its player
       if (state.rushArt && (state.rush || state.rushFx.list.length > 0)) stepRushFx(state.rushFx, player, state.rushArt, player.boost);
       drawSonic();
@@ -484,6 +502,19 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       sound.playerState(player.invincible > 0, player.speedUp > 0, !player.dead);
       if (starMusic) { starMusic = false; sound.invincibility(); }
       if (extraLife) { extraLife = false; sound.oneUp(); }
+    }],
+    // Boost Mode's afterimages (0x4000), in Sonic's OAM order just behind him, while he is alive and in it or
+    // boosting with the Rush boost; and its particles (0x5050), in front of him
+    [0x4000, () => {
+      if (!state.boostMode) return;
+      const shown = stepAfterimages(state.boostFx, anims, !player.dead && (player.boostMode || player.boost));
+      if (shown && shown.frame >= 0) state.sprites.push({ ...shown, flipY: false, order: 16, boost: true });
+    }],
+    [0x5050, () => {
+      if (!state.boostMode || state.boostFx.bursts.length === 0) return;
+      stepBursts(state.boostFx, player, ctx.cam.x, boostAnims, (frame, x, y) => {
+        state.sprites.push({ frame, x, y, flipX: false, flipY: false, affine: null, order: 8, prio: 2, boost: true });
+      });
     }],
     [0xFF00, () => { if (!state.clockStopped) state.courseTime++; state.tick++; }],
   ];
@@ -554,6 +585,12 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     },
     /** Turns the Sonic Rush boost on (with `art`, what rush.js read from the Sonic Rush ROM) or off. */
     setRushBoost(on, art = state.rushArt) { state.rushArt = art; state.rush = on && !!art; input.setRush?.(state.rush); },
+    /** Turns Boost Mode on (with `art`, what sa2boost.js read from the Sonic Advance 2 ROM) or off. */
+    setBoostMode(on, art = state.boostArt) {
+      if (art !== state.boostArt) boostAnims = art && particleAnims(art, assets.sprites.frames.length);
+      state.boostArt = art; state.boostMode = on && !!art;
+      if (!state.boostMode) state.boostFx.bursts = [];
+    },
     // the act's music starts with the act, as the stage's init does (StageInit_Zone1Act1)
     start() {
       input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);

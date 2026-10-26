@@ -1,6 +1,7 @@
 // Game page: choose a ROM, extract its assets in the browser, then the game's start (the logos and the intro)
 // and the act. With ?debug the act starts straight away.
 
+import './engine/cpucanvas.js';
 import { createRomPicker } from './ui/rom-picker.js';
 import { loadRememberedRom, rememberRom, RUSH_ROM } from './ui/rom-store.js';
 import { extractAssets } from './rom/extract.js';

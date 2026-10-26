@@ -89,9 +89,12 @@ export function createEggHammerTankIntro(e, slot, anims, ctx) {
   const s = makeSprite('eggMobile', { order: 19 }), s2 = makeSprite('eggman', { order: 18 });
   cam.minX = Math.max(0, e.x - SCREEN_W);
   cam.maxX = e.x + 64 - SCREEN_W;
-  const bottom = s16(e.y + SCREEN_H - 48);
-  ctx.add(preBossCameraPan(cam, s16(e.y - 48), bottom));
+  const top = s16(e.y - 48), bottom = s16(e.y + SCREEN_H - 48);
+  ctx.add(preBossCameraPan(cam, top, bottom));
   if (bottom > Math.floor(cam.y) + SCREEN_H) cam.maxY = bottom - SCREEN_H;
+  // the walls the widescreen view doesn't show past (camera.js viewOf): the screen's last place, up to the
+  // right edge, and the top and bottom the camera pans to
+  cam.arena = { minX: e.x + 64 - SCREEN_W, maxX: e.x + 64, minY: top, maxY: bottom };
   let qx = 0, phase = approach;
 
   function show(c, x) {
@@ -134,6 +137,8 @@ export function createEggHammerTankIntro(e, slot, anims, ctx) {
       c.player.ignoreInput = false;
       c.input.jumpPressed = false; c.input.attackPressed = false; c.input.boostPressed = false;
       cam.maxX = c.world.terrain.width - SCREEN_W;
+      // only the right wall goes: the left edge and the top and bottom stay till the tank's arena
+      cam.arena = { ...cam.arena, minX: cam.minX, maxX: c.world.terrain.width };
       return false;
     }
     show(c, x);
@@ -150,6 +155,9 @@ export function createEggHammerTank(e, slot, anims, ctx) {
   cam.shiftY = -56;
   cam.maxX = e.x - 64 - SCREEN_W;
   cam.minX = e.x - 64 - 360;
+  // the arena's walls, which the widescreen view doesn't show past: 360 px up to the right edge, under the top
+  // and bottom the intro left
+  cam.arena = { minY: cam.minY, maxY: cam.maxY + SCREEN_H, ...cam.arena, minX: e.x - 64 - 360, maxX: e.x - 64 };
   ctx.world.musicState(BOSS_MUSIC);
   // the swing's angle (unk94) and speed (unk96), the hits taken (unk9A) and the frames left of a hit's flash
   // (unk9B), a frame count (unk98), whether the hammer is on the ground in the last phase (unk9C), the tank's
@@ -264,6 +272,7 @@ export function createEggHammerTank(e, slot, anims, ctx) {
       c.add(bossPart(x, y, name, anims, { vx: (s.flipX ? -way : way) * 1024, vy: -512, spin: 0, grow: 0, scaleX: s.flipX ? -256 : 256, frames: 60 }));
     });
     cam.minX = c.cam.x; cam.maxX = c.cam.x;
+    cam.arena = { ...cam.arena, minX: c.cam.x, maxX: c.cam.x + SCREEN_W };
     phase = falling;
   }
   // the debris and an explosion every 8 frames (Task_8026C44 and Task_8026ED0)

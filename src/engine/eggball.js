@@ -194,7 +194,7 @@ export function eggBall(e, slot, anims, ctx0) {
   };
 
   // sub_802FB2C: Eggman winces, it explodes and starts falling, the ball flies off, the thin platforms go, the
-  // camera stops across and its top bound drops 40 px, and 1000 points
+  // camera stops across and its top bound drops 40 px (the widescreen view's arena with them), and 1000 points
   function beaten(ctx) {
     startAnim(s2, 'eggBallEggmanHit');
     boss.qvFall = -0x200;
@@ -206,6 +206,7 @@ export function eggBall(e, slot, anims, ctx0) {
     cam.minX = cam.maxX = Math.floor(cam.x);
     ctx.add(preBossCameraPan(cam, minY + 40, maxY + SCREEN_H));
     cam.minY = minY; cam.maxY = maxY;
+    cam.arena = { minX: cam.minX, maxX: cam.maxX + SCREEN_W, minY: minY + 40, maxY: maxY + SCREEN_H };
     ctx.world.addScore(1000);
     state = 'fall';
     states.fall(ctx);

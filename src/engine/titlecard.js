@@ -14,6 +14,8 @@ const div = (a, b) => Math.trunc(a / b);   // the BIOS's Div rounds toward zero
 
 export const CARD_SKIP_FROM = 35, CARD_SKIP_TO = 215, CARD_FRAMES = 225;
 const FADE_FULL = 0x2000, FADE_SPEED = 96;
+// Task_8055730 draws the act number only up to LEVEL_INDEX(ZONE_6, ACT_2)
+const LAST_ACT_LEVEL = 11;
 
 // The fade (sub_805423C, and sub_80543A4 on the frames that only hold it): window 0 over the whole screen with
 // the brightness decrease on every layer, by (32 - level / 256) / 2 sixteenths, then the level rises by `speed`.
@@ -189,6 +191,8 @@ export function runTitleCard(card, pressed) {
   if (++card.frame > CARD_FRAMES) return false;
   const semi = k <= 105 || !done || card.blank;
   for (const [name, p] of Object.entries(card.pieces)) {
+    // the act number's task draws nothing past Cosmic Angel (level 11): X Zone's card has no act
+    if (name === 'act' && card.gfx.level > LAST_ACT_LEVEL) continue;
     p.text ??= card.gfx.text[name];
     for (const draw of TASKS[name](p, k)) put(card, p, draw, semi);
   }

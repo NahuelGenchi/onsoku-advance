@@ -62,6 +62,10 @@ const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: tr
 // and while an object holds his controls (the forced slide): nothing, as it clears his input
 const NO_INPUT = { left: false, right: false, up: false, down: false, jump: false, attack: false, boost: false, trick: false, jumpPressed: false, attackPressed: false, boostPressed: false, trickPressed: false };
 
+// the window and blend registers as an act starts: the first window off, and no brightening
+// (win0h and win0v as WIN0H and WIN0V, winIn and winOut as WININ and WINOUT, bldCnt and bldY as BLDCNT and BLDY)
+const noEffects = () => ({ win0: false, win0h: 0, win0v: 0, winIn: 0, winOut: 0, bldCnt: 0, bldY: 0 });
+
 const SILENT = {
   play() {}, playOrChange() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
   drowning() {}, playerState() {}, stopAll() {}, musicOff() {}, musicState() {}, playSa2() {},
@@ -116,6 +120,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
     rushFx: createRushFx(), // its trail, burst and aura (rushfx.js)
     shake: -1,            // the frame of the boost's screen shake showing, or -1; only drawing reads it
+    display: noEffects(), // the first window and the brightness effect a boss sets (renderer.js)
     boostMode: false,     // Sonic Advance 2's Boost Mode's setting (off unless chosen)
     boostArt: null,       // its art and sound, from the player's Sonic Advance 2 ROM
     boostFx: createBoostFx(player), // its afterimages and particles (boostmode.js)
@@ -186,6 +191,23 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     get cameraY() { return Math.floor(state.cam.y); },
     // the camera and its bounds, which a boss's arena changes (bosses.js) and Sonic's edges follow
     get camera() { return state.cam; },
+    get cam() { return state.cam; },
+    // the camera's bounds as the original keeps them (X Zone's bosses read them so)
+    get bounds() { return world.edges; },
+    get lives() { return state.lives; },
+    get courseTime() { return state.courseTime; },
+    // the first window and the brightness effect a boss sets (renderer.js)
+    get display() { return state.display; },
+    // InitScatteringRings: `n` of Sonic's rings drop round him, with their sound
+    loseRings(n) {
+      scatter.launch(Math.floor(player.x), Math.floor(player.y), n, player.layer, player.inverted);
+      sound.play(SONG.RINGS_LOST);
+      state.ringCount -= n;
+    },
+    // gStageFlags |= 3: the clock stops, and so do the rings manager and the entities manager
+    freezeStage() { state.clockStopped = true; state.ringsStopped = true; },
+    // TasksDestroyInPriorityRange, from `lo` to `hi` included
+    destroyTasks(lo, hi) { tasks.destroyRange(lo, hi); },
     get terrain() { return terrain; },
     // the camera's right edge (its maxX), where Sonic stops
     get rightEdge() { return state.cam.maxX + SCREEN_W; },
@@ -385,7 +407,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   // matrix it shares with other sprites, which all show the last transform written to it.
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x: x + drawShift + shiftX, y: y + shiftY, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, sheet: s.sheet, white: s.white });
+    state.sprites.push({ frame: s.frame, x: x + drawShift + shiftX, y: y + shiftY, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, sheet: s.sheet, white: s.white, allWhite: s.allWhite });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
@@ -465,11 +487,11 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   function drawSonic() {
     player.prio = anims[player.anim.name]?.prio?.[player.anim.i] ?? player.prio;
     const prio = player.death || player.front ? 1 : player.prio, fx = state.rushFx.list.length > 0 ? { rush: 'obj', order: 16, prio, sonic: null } : null;
-    const affine = player.state === 'walk' || player.state === 'bounce' || player.state === 'marbleTrack';
+    const affine = player.state === 'walk' || player.state === 'bounce' || player.state === 'marbleTrack' || player.state === 'grabbed';
     if (!affine) player.drawRotation = 0;
     else if (player.state !== 'marbleTrack') player.drawRotation = player.rotation << 2;
     if (fx) state.sprites.push(fx);
-    if (!player.hidden) {
+    if (!player.hidden && !player.vanished) {
       const inv = player.inverted, s = { frame: frameOf(player.anim, playerAnims), flipX: player.facing > 0, flipY: inv, order: player.order, prio, sheet: playerAnims[player.anim.name]?.sheet };
       if (affine) {
         const right = (player.facing > 0) !== inv, scale = player.scale, rotation = player.drawRotation;
@@ -492,7 +514,10 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     state.card = createTitleCard(act.titleCard, { fromResults: (state.level & 1) === 1 && state.cardsShown !== state.level, blank: extra.cardBlank });
     state.clockStopped = true; state.hud.sprites = [];
   }
-  const hudTask = { run() { if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER); return true; } };
+  const hudTask = {
+    run() { if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER); return true; },
+    destroy() { state.hud.sprites = []; },
+  };
   // the results' task and their pieces' (0x2100 and 0x2120): the score counts up, and once they are over the
   // original destroys every task and goes on to the next act (GoToNextLevel), stopping all sound
   const resultsTask = {
@@ -536,7 +561,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     tasks.reset(); entities.reset(); rings.reset(); scatter.reset(); sparkles.clear();
     for (const a of palettes) a.reset();
     state.palettes = palettes.map(a => a.shown);
-    state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
+    state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.display = noEffects(); state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
     state.boostFx = createBoostFx(player);
     state.trail = createTrail();
     if (state.water) Object.assign(state.water, createWater(stage.water));
@@ -559,7 +584,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     Object.assign(state, {
       tick: 0, terrain, tasks, rings, cam: newCamera(), effects: [], sprites: [], ringCount: 0, courseTime: 0,
       clockStopped: false, hud: createHud(), animal: 0, palettes: palettes.map(a => a.shown), checkpointIndex: 0,
-      checkpoint: null, goalReached: false, ringsStopped: false, card: null, results: null, rushFx: createRushFx(), shake: -1,
+      checkpoint: null, goalReached: false, ringsStopped: false, card: null, results: null, rushFx: createRushFx(), shake: -1, display: noEffects(),
       boostFx: createBoostFx(player), trail: createTrail(), water: createWater(stage.water), cardOver: false,
     });
     ctx.view = state.view = viewOf(state.cam, viewW, viewH);

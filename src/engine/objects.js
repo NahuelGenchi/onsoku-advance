@@ -100,11 +100,17 @@ export function createTasks() {
       for (let t = list.find(t => t.priority > after); t; t = next) {
         next = list[list.indexOf(t) + 1] ?? null;
         if (!t.run(ctx) && list.includes(t)) list.splice(list.indexOf(t), 1);
+        if (next?.destroyed) next = list.find(u => u.priority > t.priority) ?? null;
       }
     },
     stop() { next = null; },
     /** TasksDestroyInPriorityRange: the tasks from priority `from` up to `to`, not included, go at once. */
     removeRange(from, to) { list = list.filter(t => t.priority < from || t.priority >= to); },
+    /** Every task from priority `lo` to `hi`, permanent or not, goes at once, calling a task's destroy() if it has one. */
+    destroyRange(lo, hi) {
+      for (const t of list) if (t.priority >= lo && t.priority <= hi) { t.destroyed = true; t.destroy?.(); }
+      list = list.filter(t => !t.destroyed);
+    },
     reset() { list = list.filter(t => t.permanent); next = null; },
   };
 }

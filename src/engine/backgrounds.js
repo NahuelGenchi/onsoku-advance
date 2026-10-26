@@ -66,6 +66,11 @@ export const BACKGROUND_SCROLL = {
     if (row >= BELT_B[0] && row < BELT_B[1]) return [((tick >> 1) + x) & 0x1FF, y];
     return [x, y];
   },
+  // StageBgUpdate_Zone7Act1: the 296 × 184 map scrolls as a whole, the screen crossing it once over the act: by
+  // the camera's x × 56 / (the act's width - 240) and its y × 24 / (its height - 160)
+  xZone: (line, tick, cx, cy, terrain) => [
+    Math.trunc((cx * 64 - cx * 8) / (terrain.width - SCREEN_W)), Math.trunc(((cy << 4) + cy * 8) / (terrain.height - SCREEN_H)),
+  ],
 };
 
 export const BACKGROUND_UPDATE = {

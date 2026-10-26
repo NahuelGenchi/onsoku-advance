@@ -739,7 +739,55 @@ export function createRenderer(canvas, assets) {
     base = aboveSheet;
   }
 
-  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, bg, backLines, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, blendOff }) {
+  // a sprite drawn in an all-white palette (Egg X's hit flash fills OBJ palette 12 with white)
+  const whiteCanvas = document.createElement('canvas');
+  whiteCanvas.width = W; whiteCanvas.height = H;
+  function drawAllWhite(s, vx, vy, sheet) {
+    const main = ctx;
+    ctx = whiteCanvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY, sheet);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx = main;
+    ctx.drawImage(whiteCanvas, 0, 0);
+  }
+
+  // The brightness increase a boss sets up (Egg X's laser, and the fade to white after it): with the first
+  // window on and BLDCNT's brighten mode, every pixel inside the window (with WININ's effects bit) or outside
+  // it (with WINOUT's) is brightened by bldY sixteenths, as mGBA (the reference) brightens its 8-bit colours:
+  // c + (255 - c) × bldY / 16, rounded down. The window's edges are WIN0H and WIN0V's, kept to the screen as
+  // mGBA keeps them, and one that wraps covers both ends. In the widescreen view the original screen sits in
+  // the middle, and a window that reaches its edge goes on to the view's.
+  function brightenRange(reg, size, extra) {
+    let start = reg >> 8, end = reg & 0xFF;
+    if (start > size && start > end) start = 0;
+    if (end > size) { end = size; if (start > size) start = size; }
+    const at = v => (v === 0 ? 0 : v === size ? size + 2 * extra : v + extra);
+    return [at(start), at(end)];
+  }
+  const inRange = (v, [start, end]) => (start <= end ? v >= start && v < end : v >= start || v < end);
+  function brighten({ win0, win0h, win0v, winIn, winOut, bldCnt, bldY }) {
+    // the sprites are brightened with the layers even when they aren't a target (bldCnt bit 4 clear): the one
+    // place that clears it, X Zone's fade to its results, has no sprites left on the screen by then
+    if (!win0 || (bldCnt & 0xC0) !== 0x80 || !(bldCnt & 0x3F) || bldY === 0) return;
+    const inside = (winIn & 0x20) !== 0, outside = (winOut & 0x20) !== 0;
+    if (!inside && !outside) return;
+    const y16 = Math.min(bldY, 16), h = brightenRange(win0h, SCREEN_W, (W - SCREEN_W) >> 1), v = brightenRange(win0v, SCREEN_H, (H - SCREEN_H) >> 1);
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
+    for (let y = 0; y < H; y++) {
+      const rowIn = inRange(y, v);
+      for (let x = 0; x < W; x++) {
+        if ((rowIn && inRange(x, h) ? inside : outside) === false) continue;
+        const k = (y * W + x) * 4;
+        for (let c = 0; c < 3; c++) d[k + c] += ((255 - d[k + c]) * y16) >> 4;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, bg, backLines, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, display, blendOff }) {
     ctx.imageSmoothingEnabled = false;
     if (art && art !== boostArt) {
       if (!boostSheets.has(art)) boostSheets.set(art, new WeakMap());
@@ -817,6 +865,7 @@ export function createRenderer(canvas, assets) {
         else {
           const own = !s.sheet && s.sonicRow && spriteRow?.shown ? tint(spriteRow.shown) : sheet;
           if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine, own, matrices[s.affine.matrix]);
+          else if (s.allWhite) drawAllWhite(s, vx, vy, own);
           else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY, own);
         }
       }
@@ -843,6 +892,7 @@ export function createRenderer(canvas, assets) {
     if (view.clip) blackOutside(view.clip);
     byPart(below => drawHud(hudState.sprites, below ? hud.under : hud.sheet, view.clip ?? undefined));
     drawAll(1, s => (s.prio ?? 0) < 1 && s.order < HUD_ORDER);
+    if (display) brighten(display);
     if (actResults) {
       // the band is semi-transparent from when the fade starts, and blending it at full weight over what's
       // behind keeps it out of the fade
@@ -868,6 +918,7 @@ export function createRenderer(canvas, assets) {
   /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */
   render.resize = (w, h) => {
     W = w; H = h;
+    whiteCanvas.width = w; whiteCanvas.height = h;
     canvas.width = objCanvas.width = overlay.width = maskCanvas.width = flashCanvas.width = ixCanvas.width = w;
     canvas.height = objCanvas.height = overlay.height = maskCanvas.height = flashCanvas.height = ixCanvas.height = h;
     objLayer = new ImageData(w, h);

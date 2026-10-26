@@ -31,6 +31,9 @@ import { createMechaKnuckles, MECHA_KNUCKLES } from './mechaknuckles.js';
 import { oct, OCT } from './oct.js';
 import { mirror, MIRROR } from './mirror.js';
 import { eggSnake, EGG_SNAKE } from './eggsnake.js';
+import { eggWrecker } from './eggwrecker.js';
+import { eggDrillster } from './eggdrillster.js';
+import { eggX } from './eggx.js';
 
 export const KIKI = 0, BUZZER = 1, GAMIGAMI = 2, RHINOTANK = 3, KEROKERO = 4, LEON = 11, WAMU = 13;
 
@@ -456,6 +459,9 @@ function wamu(e, slot, anims) {
 }
 
 /** Makers by enemy kind (gSpriteInits_Enemies): (entity, slot, anims, ctx) → task. */
+// X Zone's bosses (eggwrecker.js, eggdrillster.js, eggx.js)
+export const EGG_WRECKER = 28, EGG_DRILLSTER = 29, EGG_X = 30;
+
 export const ENEMIES = {
   [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero,
   [EGG_HAMMER_TANK_INTRO]: createEggHammerTankIntro, [EGG_HAMMER_TANK]: createEggHammerTank,
@@ -464,4 +470,5 @@ export const ENEMIES = {
   [YUKIMARU]: yukimaru, [YUKIMARU_WALL]: yukimaruWall, [PEN]: pen, [EGG_SPIDER]: eggSpider,
   [LEON]: leon, [WAMU]: wamu,
   [MECHA_KNUCKLES]: createMechaKnuckles, [OCT]: oct, [MIRROR]: mirror, [EGG_SNAKE]: eggSnake,
+  [EGG_WRECKER]: eggWrecker, [EGG_DRILLSTER]: eggDrillster, [EGG_X]: eggX,
 };

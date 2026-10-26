@@ -11,7 +11,7 @@ import { endAttack, standUp } from './player.js';
 import { SINE } from './trig.js';
 import { SONG } from '../sound/songs.js';
 
-export const THIN = 21, FALLING = 22, TRAMPOLINE = 23, CRUMBLING = 24, BOUNCE_BLOCK = 25;
+export const THIN = 21, FALLING = 22, TRAMPOLINE = 23, CRUMBLING = 24, BOUNCE_BLOCK = 25, FALLING_BRICK = 104;
 
 const s8 = v => (v << 24) >> 24, s16 = v => (v << 16) >> 16;
 const LEFT = 1, RIGHT = 2;   // Sonic's held d-pad bits (player.js)
@@ -60,8 +60,8 @@ function thin(e, slot, anims) {
  * frame faster every frame, and takes him down with it for 32 frames; then it drops him, falling as fast as
  * it does, and falls through him. It comes back when its spawn point is uncovered again.
  */
-function falling(e, slot, anims) {
-  const o = { ...makeSprite('thinPlatform'), sag: 0, x: e.x };
+function falling(e, slot, anims, art = 'thinPlatform') {
+  const o = { ...makeSprite(art), sag: 0, x: e.x };
   animate(o, anims);
   let phase = 'still', n = 0, vy = 0, q = 0;
   return {
@@ -220,7 +220,11 @@ function bounceBlock(e, slot, anims) {
   };
 }
 
-const KINDS = { [THIN]: thin, [FALLING]: falling, [TRAMPOLINE]: trampoline, [CRUMBLING]: crumbling, [BOUNCE_BLOCK]: bounceBlock };
+const KINDS = {
+  [THIN]: thin, [FALLING]: falling, [TRAMPOLINE]: trampoline, [CRUMBLING]: crumbling, [BOUNCE_BLOCK]: bounceBlock,
+  // X Zone's falling bricks (Task_SmallFallBlockMain) do what a falling platform does, with their own sprite
+  [FALLING_BRICK]: (e, slot, anims) => falling(e, slot, anims, 'fallingBrick'),
+};
 
 /** The task for a platform entity, or null when `e` is not one. */
 export function createPlatform(e, slot, anims) {

@@ -16,7 +16,7 @@ Other Sonic Advance versions are recognized by their cartridge header. When the 
 
 To check your ROM, open [`viewer.html`](../viewer.html): it shows the version, checksum, table offsets and everything decoded from them.
 
-Each zone up to Angel Island has its own section below. [Egg Rocket Zone](egg-rocket.md) and [Cosmic Angel Zone](cosmic-angel.md) have pages of their own.
+Each zone up to Angel Island, and X Zone, has its own section below. [Egg Rocket Zone](egg-rocket.md) and [Cosmic Angel Zone](cosmic-angel.md) have pages of their own.
 
 ## What the extractor reads
 
@@ -1544,6 +1544,37 @@ Angel Island act 2's boss is enemy 26, spawned at (9256, 1168), near the act's r
 **The widescreen view in the arena.** The original never shows past the arena: the screen-wide strip right of the spawn point and above it. A wider view would, so from the spawn on the view is black past its walls wherever the original screen itself isn't (`cam.arena`); the left wall is where the screen is while the camera is still short of it. Once the arena opens, the right wall goes and the left one follows the camera's left edge. The black and the view slide there at most 4 px a frame, past what the camera itself moves (`viewOf`, `src/engine/camera.js`), and the HUD keeps to the corners of what is shown. The 240 × 160 screen is unchanged.
 
 **How it was checked.** mGBA 0.10.5 with the USA ROM, the boss's memory, Sonic and the camera read after every frame: a scripted fight of 3300 frames (8 hits, both phases, rockets, the defeat, the pieces and the Eggmobile leaving) and a second of 1200 frames that rolls into it while it waits (the cover-up and its second landing) match on every field and every frame. The screen matches pixel for pixel through the first hit and blink, the punch, the rockets, the second phase, the cover-up and the defeat, apart from the capsule, which isn't built yet. Read in the code only: the other difficulties, a rocket turning with nothing to divide by, the rocket's hitbox before its first frame sets it (taken as none), and song 200 going on when the act starts over with a rocket out.
+
+## X Zone
+
+X Zone is level 12 (`?level=12`): 3840 × 960 px, spawn (104, 756), 22 rings and no item boxes. Its stage init (`StageInit_Zone7Act1`) only plays its song, MUS_X_ZONE (24), and has no palette animations. The background, BG3, scrolls as a whole: by the camera's x × 56 / (width − 240) and its y × 24 / (height − 160). Its title card has no act number.
+
+**Starting it.** Like every act but act 1, it is picked from the course select. The course select's task (priority `0x2000`) makes the act, so on that frame only the tasks after the scattered rings' (`0x2001`) run: the title card, Sonic and the clock. The next frame is spent loading. The HUD's zero-ring flash counter (`StageUI.unk48`), which its task never sets, starts at the 90 the menus leave in its memory.
+
+**Falling bricks** (kind 104, animation `574`, 28 of them) behave like the falling platforms: 30 frames after Sonic lands on one, it falls, 42/256 px a frame faster each frame, takes him down for 32 frames, then drops him. The two thin platforms (kind 21) use X Zone's own art (`605`).
+
+**The boss rush** is three bosses of the act's own, not reruns of the zone bosses: the Egg Wrecker (enemy kind 28 at (864, 624)), the Egg Drillster (29 at (1632, 688)) and Egg X (30 at (2504, 280)). Each narrows the camera's bounds round its arena and pans them to it, starts the boss song through the music manager (`gMusicManagerState.unk1 = 0x16`) and gives the act's song back (`0x36`) once it is beaten. The bosses' shared pieces are the explosion (`611`), the pieces a wrecked machine throws (`697`, `695`, `696`) and Eggman's escape in the Egg Mobile (`693`, `694`).
+
+| Boss | Animations | Hits | What it does |
+| :--- | :--- | ---: | :--- |
+| Egg Wrecker | ship `684`, Eggman `686`, flame, hook and chain `683`, ball `685` | 4 | Comes down into the arena and swings a wrecking ball on a chain under the ship as it flies back and forth. |
+| Egg Drillster | car `682`, Eggman `680`, drill `679`, wheels `681` | 4 | Drives back and forth, turning at each end. After the third hit it fires its drill at Sonic once he is in front of it. Wrecked, its wheels bounce off and Eggman flees. |
+| Egg X | machine `687`, rotary arm `688`, claw `689`, balls `690`, Eggman `691` | 8 | See below. |
+
+**Egg X** (`boss_x3_egg_x.c`; `Task_803775C`, `Task_8039A64` and `sub_803A170` don't match in the decompilation, and were read from their assembly). Its attack chances are four tables of four percentages at `0x4A5E1C`. Which table it uses depends on whether Sonic is within 120 px and whether he is in the air. Its four attacks:
+
+1. A ball shot forward that bounces, which throws the machine back.
+2. A laser along the floor. It turns the first window on over a band 12 px above and below the machine's middle. The window runs from 32 px in front of the machine to the screen's edge and is brightened by 12/16 (`BLDCNT 0xBF`, `BLDY 12`). Touching the band hurts.
+3. A claw on a chain. If it catches Sonic, he is carried (`moveState |= 0xE00100`, character state 40, animation `98` drawn rotated) and swung round four times, shaking his rings out. Then he is thrown back at 2 px a frame and 0x5E0/256 up, blinking for 120 frames.
+4. A charge across the arena with the arm down, back the other way.
+
+The cockpit can only be hit while the arm isn't all the way up. A hit flashes the machine white for 16 of the next 32 frames: palette 12 is filled with white, and the machine uses it through `palId` 253 and 254. The eighth hit stops it. The camera is held where it is, Sonic's controls are taken, and the clock, the rings and the entities stop (`gStageFlags |= 3`); 1000 points. The wreck falls to the floor throwing debris every 8 frames and bounces until it lands.
+
+**The end of the act.** Landing starts `Task_Strc10_803891C`, which throws debris at random over the screen every 4 frames, and behind Sonic more and more often. Two seconds on, once he is on the ground, he runs to the right by himself and the camera's right bound opens. From x 3072 the screen fades to white over 128 frames (`BLDY` = frames / 8) as the camera falls behind him by half the frames in pixels. Then he is hidden, every task from priority `0x2000` to `0x2FFF` goes, and the stage results start with his rings and time (`CreateStageResults`). After them comes the normal ending (`CreateCongratulationsAnimation`), which isn't built yet ([#96](https://github.com/NahuelGenchi/onsoku-advance/issues/96)); until the results (#69) are in, the screen stays white.
+
+**The widescreen view at the bosses.** The original never shows past the camera's bounds, and a wider view would. From the first time a boss narrows them on, the view is black past them wherever the original screen itself isn't (`cam.arena`): past where each bound is going, a pan's top and bottom from the pan's start. That is each boss's arena, the screen the camera holds still on once it is wrecked, and the left edge that stays when the others go back to the act's edges; the black is gone once all four are the act's edges again. The black and the view slide there at most 4 px a frame, past what the camera itself moves (`viewOf`, `src/engine/camera.js`), and the HUD keeps to the corners of what is shown. The 240 × 160 screen is unchanged.
+
+**How it was checked.** mGBA 0.10.5 recorded a run from X Zone's start, from the course select, through all three bosses to the results. It dumped IWRAM every frame and took a screenshot every 5 frames. Sonic's position and speeds, the camera and its bounds match the port on every frame from 3980 to 10553 (frame 10554 is the results'). Every screenshot matches pixel for pixel up to the results' first frame and again once the screen is white. That covers the Egg Wrecker and the Egg Drillster through their defeats and escapes, and Egg X's arrival, lasers, charges, claw shots that miss, hits, defeat and fall, and the run to the white screen. A second recording from the same start (frames 8000–10000) adds the bouncing balls and the claw catching Sonic, swinging him round and throwing him; it matches on every frame and every screenshot as well. Not recorded: the hard difficulty (Egg X starts with 2 hits there), which the port doesn't have.
 
 ## Sonic Advance 2, for Boost Mode
 

@@ -113,6 +113,14 @@ export const LEVELS = {
     backgroundScroll: 'cosmicAngel', hudFlash: 90,
     sprites: { squarePlatform: [599, 0], squarePlatformLong: [600, 0], movingSpring: [582, 1], movingSpringLaunch: [582, 0] },
   },
+  // StageInit_Zone7Act1: only its song. StageBgUpdate_Zone7Act1 scrolls the background as a whole (backgrounds.js).
+  // Picked from the course select, the HUD's zero-ring flash starts from the 90 the menus left in its task's
+  // memory. Its thin platforms are its own (605, sPlatformThinAnims), and so are its bricks that fall once Sonic
+  // lands on them (574). Its bosses, the Egg Wrecker, the Egg Drillster and Egg X, come one after the other.
+  12: {
+    name: 'X Zone', zone: 6, act: 0, paletteAnimations: [], music: 24, backgroundScroll: 'xZone', hudFlash: 90,
+    sprites: { thinPlatform: [605, 0], fallingBrick: [574, 0] },
+  },
 };
 
 /** The entry of `level`, or an error for one this game can't load yet. */

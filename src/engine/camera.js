@@ -20,6 +20,8 @@ export function createCamera(p, terrain) {
     x: Math.floor(p.x) - SCREEN_W / 2, y: centreY(p) - (SCREEN_H / 2 + 4),
     targetX: 0, targetY: 0, freeze: 0, locked: false, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
     minX: 0, minY: 0, maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false, shakeX: 0, shakeY: 0,
+    // the act's size, which X Zone's bosses open the bounds back up to
+    width: terrain.width, height: terrain.height,
     // the speed caps (unk8 and unkC, which the results set to 0), the target's shift up or down (shiftY, which
     // the goal takes to -56) and how far the act's end has moved the camera back (unk20, which the background
     // scrolls without)

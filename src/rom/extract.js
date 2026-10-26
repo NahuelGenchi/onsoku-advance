@@ -43,6 +43,8 @@ export const SONIC_ANIMATIONS = {
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
   halfPipeLow: [36, 0], halfPipeMid: [36, 1], halfPipeHigh: [36, 2],
+  // held in Egg X's claw (charState 40)
+  grabbed: [98, 0],
   // running on past the goal (charState 28)
   actClearRun: [22, 0],
   // standing in his act-clear pose once the boss capsule opens (charState 29)
@@ -213,13 +215,42 @@ export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
 export const BOSS_ANIMATIONS = {
   628: { eggSpider: 0, eggSpiderDrop: 1, eggSpiderStill: 2 }, 629: { eggSpiderEggman: 0, eggSpiderEggmanLaugh: 1, eggSpiderEggmanHit: 2 },
   626: { eggSpiderBody: 0 }, 627: { eggSpiderPart: 0, eggSpiderLeg: 1 }, 630: { icicle: 0 },
-  693: { eggMobile: 0, eggMobileTurn: 1 }, 694: { eggman: 0, eggmanLaugh: 2, eggmanFlee: 4, eggmanTurn: 9 },
+  693: { eggMobile: 0, eggMobileTurn: 1 },
+  // X Zone's bosses (xbosses.js) name the same frames by number
+  694: { eggman: 0, eggmanLaugh: 2, eggmanFlee: 4, eggmanFly: 6, eggmanTaunt: 7, eggmanTurn: 9, eggman0: 0, eggman4: 4, eggman6: 6, eggman8: 8, eggman9: 9 },
   // the Egg Ball's (boss_3_egg_ball.c): its pipes in the floor and the ceiling and in the walls, Eggman still,
   // laughing and wincing, the star disc it loses, the mobile and the spike ball
   593: { eggBallPipe: 0, eggBallPipeSide: 1 }, 622: { eggBallEggman: 0, eggBallEggmanLaugh: 1, eggBallEggmanHit: 2 },
   623: { eggBallStarDisc: 0 }, 624: { eggBallMobile: 0 }, 625: { eggBallSpikeBall: 0 },
-  695: { boltMedium: 0, boltMedium2: 1 }, 696: { boltLarge: 0, boltLarge2: 1 }, 697: { boltSmall: 0, boltSmall2: 1 },
+  695: { boltMedium: 0, boltMedium2: 1, debrisMid0: 0, debrisMid1: 1 }, 696: { boltLarge: 0, boltLarge2: 1, debrisLarge0: 0, debrisLarge1: 1 },
+  697: { boltSmall: 0, boltSmall2: 1, debrisSmall0: 0, debrisSmall1: 1 },
   611: { bossExplosion: 0 },
+};
+// X Zone's Egg Wrecker: its ship (684), Eggman in it at rest, laughing and hurt (686), the ship's flame, the
+// hook and a chain link (683), and the ball (685)
+export const EGG_WRECKER_ANIMATIONS = {
+  684: { eggWreckerMobile: 0 },
+  686: { eggWreckerEggman0: 0, eggWreckerEggman1: 1, eggWreckerEggman2: 2 },
+  683: { eggWreckerFlame: 0, eggWreckerHook: 1, eggWreckerLink: 2 },
+  685: { eggWreckerBall: 0 },
+};
+// X Zone's Egg Drillster: its car (682), Eggman in it at rest, laughing and hurt (680), its drill (679) and
+// its four wheels (681)
+export const EGG_DRILLSTER_ANIMATIONS = {
+  682: { eggDrillster: 0 },
+  680: { drillsterEggman0: 0, drillsterEggman1: 1, drillsterEggman2: 2 },
+  679: { drillsterDrill: 0 },
+  681: { drillsterWheel0: 0, drillsterWheel1: 1, drillsterWheel2: 2, drillsterWheel3: 3 },
+};
+// X Zone's Egg X: the machine (687), its rotary arm (688: a variant for each turn and pose, two sprites a
+// pose), its claw open, shooting out and closing (689), a chain ball and a bouncing ball (690), and Eggman in
+// it at rest, laughing, hurt and laughing at Sonic (691)
+export const EGG_X_ANIMATIONS = {
+  687: { eggX: 0 },
+  688: Object.fromEntries(Array.from({ length: 20 }, (_, v) => [`eggXArm${v}`, v])),
+  689: { eggXHand0: 0, eggXHand1: 1, eggXHand2: 2 },
+  690: { eggXBall0: 0, eggXBall1: 1 },
+  691: { eggXEggman0: 0, eggXEggman1: 1, eggXEggman2: 2, eggXEggman3: 3 },
 };
 // Neo Green Hill's boss, the Egg Hammer Tank (boss_1_egg_hammer_tank.c): its body on its two alternating scripts and
 // without its belt, an arm segment, the hammer, Eggman (still, laughing, hurt) and the belt's four pieces
@@ -349,7 +380,8 @@ const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmal
   'stoneDebrisSmall', 'stoneDebrisLarge', 'iceStoneDebrisSmall', 'iceStoneDebrisLarge',
   'bubblesSmall', 'bubblesGroup', ...[0, 1, 2, 3, 4, 5].map(n => `drownCountdown${n}`),
   'eggSpiderPart', 'eggSpiderLeg',
-  'mkRocket', 'mkPart0', 'mkPart1', 'mkPart2', 'mkPart3', 'mkPart4', 'eggSnakeSpike']);
+  'mkRocket', 'mkPart0', 'mkPart1', 'mkPart2', 'mkPart3', 'mkPart4', 'eggSnakeSpike',
+  'grabbed', 'eggXHand0', 'eggXHand1', 'eggXHand2', 'eggXBall0']);
 // the sprite palette that fills the whole OBJ palette when an act with water starts, and that the colours
 // under water are made from (LoadPalette423Anim, InitWaterPalettes)
 const UNDERWATER_OBJ_PALETTE = 423;
@@ -398,7 +430,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
     acts[l] = {
       level: l,
       stage: extractStage(rom, offsets, tables, act),
-      titleCard: sheet(titleCardGraphics(rom, offsets.uiGraphics, offsets.titleCard, l), act.water),
+      titleCard: { ...sheet(titleCardGraphics(rom, offsets.uiGraphics, offsets.titleCard, l), act.water), level: l },
       results: sheet(resultsGraphics(rom, offsets.uiGraphics, offsets.titleCard, l)),
       anims: Object.fromEntries(own(i, l).map(([name, key]) => [name, sprites.anims[key]])),
     };
@@ -438,7 +470,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true, under: underYellow },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries(mergeAnimations(ENEMY_ANIMATIONS, ITEM_ANIMATIONS, PLATFORM_ANIMATIONS, ROCK_ANIMATIONS, ICE_MOUNTAIN_ANIMATIONS, NUTS_AND_BOLTS_ANIMATIONS, EGG_SNAKE_ANIMATIONS, CONVEYOR_OBJECT_ANIMATIONS, SPIKED_BARREL_ANIMATIONS, PROPELLER_ANIMATIONS, CARRIER_ANIMATIONS, IRON_BALL_ANIMATIONS, TORCH_ANIMATIONS, UPDRAFT_ANIMATIONS, WALL_ANIMATIONS, WATER_ANIMATIONS, SLIDE_ANIMATIONS, SHRUB_ANIMATIONS, BOOSTER_ANIMATIONS, CHECKPOINT_ANIMATIONS, POLE_ANIMATIONS, GOAL_ANIMATIONS, BOSS_ANIMATIONS, EGG_HAMMER_TANK_ANIMATIONS, CAPSULE_ANIMATIONS, SPECIAL_SPRING_ANIMATIONS, STEAM_EXHAUST_ANIMATIONS, EGG_PRESS_ANIMATIONS, HOOK_RAIL_ANIMATIONS, SECURITY_GATE_ANIMATIONS, HOOK_ANIMATIONS, MARBLE_TRACK_ANIMATIONS, PIPE_ANIMATIONS, MOVING_SPRING_ANIMATIONS, STONE_ANIMATIONS, (water ? UNDERWATER_ANIMATIONS : {}), BACKGROUND_ANIMATIONS, BALLOON_ANIMATIONS, BARREL_ANIMATIONS, BOWL_ANIMATIONS, BUMPER_ANIMATIONS, CAROUSEL_ANIMATIONS, FERRIS_WHEEL_ANIMATIONS, FLIPPER_ANIMATIONS, LETTER_ANIMATIONS, PANEL_GATE_ANIMATIONS, RED_FLAG_ANIMATIONS, SHIP_SWING_ANIMATIONS, SPIKED_PLATFORM_ANIMATIONS, SQUARE_PLATFORM_ANIMATIONS)).map(([anim, variants]) => ({
+    ...Object.entries(mergeAnimations(ENEMY_ANIMATIONS, ITEM_ANIMATIONS, PLATFORM_ANIMATIONS, ROCK_ANIMATIONS, ICE_MOUNTAIN_ANIMATIONS, NUTS_AND_BOLTS_ANIMATIONS, EGG_SNAKE_ANIMATIONS, EGG_WRECKER_ANIMATIONS, EGG_DRILLSTER_ANIMATIONS, EGG_X_ANIMATIONS, CONVEYOR_OBJECT_ANIMATIONS, SPIKED_BARREL_ANIMATIONS, PROPELLER_ANIMATIONS, CARRIER_ANIMATIONS, IRON_BALL_ANIMATIONS, TORCH_ANIMATIONS, UPDRAFT_ANIMATIONS, WALL_ANIMATIONS, WATER_ANIMATIONS, SLIDE_ANIMATIONS, SHRUB_ANIMATIONS, BOOSTER_ANIMATIONS, CHECKPOINT_ANIMATIONS, POLE_ANIMATIONS, GOAL_ANIMATIONS, BOSS_ANIMATIONS, EGG_HAMMER_TANK_ANIMATIONS, CAPSULE_ANIMATIONS, SPECIAL_SPRING_ANIMATIONS, STEAM_EXHAUST_ANIMATIONS, EGG_PRESS_ANIMATIONS, HOOK_RAIL_ANIMATIONS, SECURITY_GATE_ANIMATIONS, HOOK_ANIMATIONS, MARBLE_TRACK_ANIMATIONS, PIPE_ANIMATIONS, MOVING_SPRING_ANIMATIONS, STONE_ANIMATIONS, (water ? UNDERWATER_ANIMATIONS : {}), BACKGROUND_ANIMATIONS, BALLOON_ANIMATIONS, BARREL_ANIMATIONS, BOWL_ANIMATIONS, BUMPER_ANIMATIONS, CAROUSEL_ANIMATIONS, FERRIS_WHEEL_ANIMATIONS, FLIPPER_ANIMATIONS, LETTER_ANIMATIONS, PANEL_GATE_ANIMATIONS, RED_FLAG_ANIMATIONS, SHIP_SWING_ANIMATIONS, SPIKED_PLATFORM_ANIMATIONS, SQUARE_PLATFORM_ANIMATIONS)).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),

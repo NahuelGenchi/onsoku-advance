@@ -1,7 +1,7 @@
-// The game's start before the act, as Sonic Advance has it: the SEGA and Sonic Team logos, then the intro, run
-// on the GBA engine (gba/engine.js) at the GBA's own frame rate and drawn into the game's canvas. The title
-// screen and the menus aren't built yet, so the act starts where the title screen would: when the intro ends,
-// or when it or the logos' fade are skipped.
+// The game's start before the act, as Sonic Advance has it: the SEGA and Sonic Team logos, the intro, the title
+// screen and the main menu, run on the GBA engine (gba/engine.js) at the GBA's own frame rate and drawn into the
+// game's canvas. The character select and the screens after it aren't built yet, so the act starts where the
+// character select would: after Game Start on the main menu.
 //
 // The original starts the logos only with a saved game; a new one starts with the language screen first,
 // which isn't built either, so this always starts as with a save.
@@ -11,6 +11,7 @@ import { createEngine, KEY } from '../gba/engine.js';
 import { spriteTables } from '../rom/sprites.js';
 import { createSegaLogo } from './logos.js';
 import { createIntro } from './intro.js';
+import { createTitleScreen } from './title.js';
 
 // a GBA frame: 280896 cycles of its 16.78 MHz clock, the rate the music plays at
 export const GBA_FRAME_MS = 280896 / 16777216 * 1000;
@@ -35,7 +36,8 @@ export function createFrontEnd(canvas, rom, offsets, input, sound, play) {
     engine, tilemaps: offsets.tilemaps, sprites: spriteTables(rom, offsets.spriteTables),
     introGraphics: offsets.introGraphics, introTables: offsets.introTables,
     intro: () => createIntro(ctx),
-    title: () => { done = true; },
+    title: playMusic => createTitleScreen(ctx, playMusic),
+    play: () => { done = true; },
   };
   createSegaLogo(ctx);
 

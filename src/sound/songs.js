@@ -6,6 +6,7 @@ export const SONG = {
   TITLE_FANFARE: 2,        // MUS_TITLE_FANFARE
   NEO_GREEN_HILL_1: 12,
   INVINCIBILITY: 28,       // MUS_INVINCIBILITY
+  BOSS_FIGHT: 29,          // MUS_BOSS_FIGHT: also started and stopped at once to stop the menu's music
   SPECIAL_STAGE_INTRO: 41, // MUS_SPECIAL_STAGE_INTRO: the fall into the special stage
   SPECIAL_STAGE: 42,       // MUS_SPECIAL_STAGE
   SPECIAL_STAGE_TRICK: 43, // MUS_SP_STAGE_TRICK: a trick in the bumpers' window
@@ -14,6 +15,8 @@ export const SONG = {
   SPECIAL_STAGE_LOSE: 46,  // MUS_SPECIAL_STAGE_RESULT_LOSE: the results without the emerald
   SPECIAL_STAGE_WIN: 47,   // MUS_047: the results with it
   SEGA_RING: 102,          // SE_RING: Sonic Team's logo
+  SELECT: 106,             // SE_SELECT: Start on the title screen, a choice in the menu
+  MENU_CURSOR: 108,        // SE_MENU_CURSOR_MOVE
   SPIN: 109,               // SE_SPIN_ATTACK: spin dash start and revs, rolling, the combo's first hit
   SPIN_DASH_RELEASE: 110,
   SLIDE: 111,              // SE_SONIC_SKID_ATTACK

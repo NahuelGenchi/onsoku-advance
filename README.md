@@ -147,7 +147,7 @@ The goal is a game that behaves *exactly* like the original, not one that looks 
 - **The game's own sound.** The music and sound effects are played by a rebuilt copy of the cartridge's sound engine, whose output matches the original's byte for byte.
 - **Sharp pixels.** The game draws at the Game Boy Advance's own 240 × 160 and scales up in whole steps, so every pixel stays crisp on any screen.
 
-The game opens as the original does, with the SEGA and Sonic Team logos and the intro, timed to its music. The title screen and the menus are next, so for now the act starts where the title screen would, when the intro ends or is skipped.
+The game opens as the original does, with the SEGA and Sonic Team logos, the intro timed to its music, the title screen and the main menu. Game Start goes straight to the act, where the character select would start; the menu's other modes are next.
 
 The act opens, and starts over after a lost life, with the original title card sliding in as the screen fades up from black. The original on-screen counters show your rings, score, time and lives.
 
@@ -218,7 +218,8 @@ drawn, and Sonic Advance's own sprites behind Sonic count as background when the
 | **Spin dash** | <kbd>↓</kbd> + <kbd>Z</kbd> | Down + <kbd>A</kbd> |
 | **Look up** | <kbd>↑</kbd> | Up |
 | **Boost**, with the [Rush boost](#sonic-rush-boost) on | <kbd>L</kbd> or <kbd>Shift</kbd> | <kbd>X</kbd> |
-| **Start**: skips the intro, as jump and attack do | <kbd>Enter</kbd> | <kbd>Menu</kbd> |
+| **Start**: skips the intro, as jump and attack do, and opens the menu from the title screen | <kbd>Enter</kbd> | <kbd>Menu</kbd> |
+| **In the menu:** choose, then pick | <kbd>↑</kbd> <kbd>↓</kbd>, then <kbd>Z</kbd> or <kbd>Space</kbd> | D-pad or left stick, then <kbd>A</kbd> |
 | **Select** | <kbd>Backspace</kbd> | <kbd>View</kbd> |
 | Help panel on or off | <kbd>H</kbd> | |
 | Sound on or off | <kbd>M</kbd> | |
@@ -233,7 +234,7 @@ Other controllers that your browser maps to the Xbox layout work the same way. P
 ## Where it's at
 
 > [!NOTE]
-> **Early days: the first act is playable.** The game opens with the original [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67), and you can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets. Its special spring leads to [Special Stage 1](https://github.com/NahuelGenchi/onsoku-advance/issues/75), with the Chaos Emerald and the results, then back to the act. The act has no ending yet (no goal signpost or score tally), and there is no game over yet.
+> **Early days: the first act is playable.** The game opens with the original [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67) and its [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70), and you can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets. Its special spring leads to [Special Stage 1](https://github.com/NahuelGenchi/onsoku-advance/issues/75), with the Chaos Emerald and the results, then back to the act. The act has no ending yet (no goal signpost or score tally), and there is no game over yet.
 
 Here's the road through the rest of the game. Each step has its own issue, so you can follow along.
 
@@ -254,7 +255,7 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 </tbody>
 </table>
 
-Also on the way: the [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70), the [other six special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84), plus two more optional extras from Sonic Advance 2: its [Boost Mode](https://github.com/NahuelGenchi/onsoku-advance/issues/63) and its [mid-air tricks](https://github.com/NahuelGenchi/onsoku-advance/issues/65).
+Also on the way: the title screen's demos, the character select and the menu's other modes, the [other six special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84), plus two more optional extras from Sonic Advance 2: its [Boost Mode](https://github.com/NahuelGenchi/onsoku-advance/issues/63) and its [mid-air tricks](https://github.com/NahuelGenchi/onsoku-advance/issues/65).
 
 <details>
 <summary><b>Milestones</b></summary>
@@ -317,7 +318,7 @@ It's made for a current desktop browser, with a keyboard or a controller. On tou
 <summary><b>Is there sound?</b></summary>
 <br>
 
-Yes: the intro's music, SEGA's ring at the Sonic Team logo, the act's music, the extra-life and invincibility tunes, and the sound effects of Sonic, the rings, the enemies, the item boxes and the act's springs, platforms, boosters, rails and more, all read from your ROM. <kbd>M</kbd> turns the sound on or off.
+Yes: the intro's music, SEGA's ring at the Sonic Team logo, the title screen's music, the menu's sounds, the act's music, the extra-life and invincibility tunes, and the sound effects of Sonic, the rings, the enemies, the item boxes and the act's springs, platforms, boosters, rails and more, all read from your ROM. <kbd>M</kbd> turns the sound on or off.
 
 </details>
 
@@ -352,7 +353,7 @@ flowchart LR
 
 1. **Extract.** You pick your ROM. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory, entirely in the browser.
 2. **Simulate.** The engine steps 60 times per second with the original game's rules: acceleration, braking, gravity, jump height, roll friction, spin dash speeds and the camera's dead zones.
-3. **Draw.** The logos and the intro run on a port of the original's own engine (its tasks, sprites, backgrounds, line-by-line effects and V-blank) at the GBA's 59.73 frames a second, and a model of the GBA's video hardware draws them as mGBA does. In the act, sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view draws up to 368 × 208 around the same screen; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds its trail and aura around Sonic.
+3. **Draw.** The logos, the intro, the title screen and the menu run on a port of the original's own engine (its tasks, sprites, backgrounds, line-by-line effects and V-blank) at the GBA's 59.73 frames a second, and a model of the GBA's video hardware draws them as mGBA does. In the act, sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view draws up to 368 × 208 around the same screen; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds its trail and aura around Sonic.
 4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The Rush boost's sound plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, added to the same output.
 
 ## Run it on your own computer

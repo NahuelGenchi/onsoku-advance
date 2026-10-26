@@ -3,7 +3,7 @@
 // hand over to the next state when they end. (x, y) is Sonic's centre; on the ground he moves along the
 // surface's angle (`rotation`, 256 steps per turn) at ground speed `gsp`.
 
-import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R, BOOST_MODE as B } from './constants.js';
+import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R, BOOST_MODE as B, SCREEN_H } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
 import { groundSensors, wallPush, airCollision, clearance, setOffsetY } from './sensors.js';
 import { LAYER_BACK, scan, PROBE_FLOOR } from './terrain.js';
@@ -20,7 +20,8 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
 //         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
-//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hurt | dead
+//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hurt | dead |
+//         actClearRun (past the goal, charState 28)
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -51,8 +52,13 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     carried: false,    // MOVESTATE_IA_OVERRIDE: an object moves him, and his own movement doesn't run
     grinding: false,   // MOVESTATE_1000000: on a grind rail, on the layer it put him on
     front: false,      // drawn in front of the front layer (his sprite's priority 1), as on a grind rail
-    halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js)
+    halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js), or the water
+                       // bridge has splashed (waterbridges.js)
     ignoreInput: false, // MOVESTATE_IGNORE_INPUT: an object holds his controls, as the forced slide does
+    heldInput: null,   // what he reads while it does (heldInput): nothing, or the right the goal holds
+    forcedRoll: false, // MOVESTATE_200: a mini loop keeps him rolling (miniloops.js)
+    actClear: false,   // MOVESTATE_800000: past the goal, running in his act-clear pose until the results count up
+    plainSprings: false, // unk99[1]: back from a special stage, the special springs are plain springs until the act starts over
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,
@@ -80,6 +86,8 @@ function uncurl(p) { p.curled = false; setOffsetY(p, SPRITE_OFFSET_Y); }
 
 /** Stands Sonic up out of a ball, keeping his feet in place (PLAYERFN_CHANGE_SHIFT_OFFSETS). */
 export function standUp(p) { uncurl(p); }
+/** Curls Sonic into a ball, keeping his feet in place (MOVESTATE_SPIN_ATTACK and PLAYERFN_CHANGE_SHIFT_OFFSETS). */
+export function curlUp(p) { curl(p); }
 
 // standing on an object, the object holds him up and the ground sensors rest (sub_8022D6C)
 function followGround(p, t) {
@@ -110,13 +118,16 @@ function alongSurface(p) {
   p.ysp = ((g * sin8(p.rotation)) >> 8) / 256;
 }
 
-// the act's edges (sub_80232D0): Sonic stops at the sides, and falling out of the bottom kills him, thrown
-// up as high as a jump
+// the camera's bounds, the act's edges unless a boss has set its arena (sub_80232D0): past the point near its
+// end where an act loops back (act 1's run after the goal), Sonic and the camera go back by the act's distance,
+// while the camera moves; Sonic stops at the sides (the right one short of the act's own on act 2) and the top,
+// and falling out of the bottom kills him, thrown up as high as a jump
 function bounds(p, world) {
-  const t = world.terrain, maxX = t.width - 1 / 256, maxY = t.height - 1 / 256;
+  p.x += world.loopBack(p.x);
+  const c = world.camera, maxX = world.rightEdge - 1 / 256, maxY = c.maxY + SCREEN_H - 1 / 256;
   if (p.y >= maxY && !p.dead) { p.dead = true; p.ysp = -K.jumpSpeed; p.y = maxY; }
-  if (p.x < 0 || p.x > maxX) { p.x = Math.min(Math.max(p.x, 0), maxX); p.xsp = 0; p.gsp = 0; }
-  if (p.y < 0) { p.y = 0; p.ysp = 0; p.gsp = 0; }
+  if (p.x < c.minX || p.x > maxX) { p.x = Math.min(Math.max(p.x, c.minX), maxX); p.xsp = 0; p.gsp = 0; }
+  if (p.y < c.minY) { p.y = c.minY; p.ysp = 0; p.gsp = 0; }
 }
 
 // walls, ceilings and steep slopes drop Sonic when he is too slow for them, and lock his controls for
@@ -207,8 +218,8 @@ function walk(p, dir, world) {
       if (g * dir < max) g = max * dir;
     }
     p.gsp = g;
-    // on a half-pipe he keeps the state it gives him
-    if (p.state !== 'turn' && !p.halfPipe) p.state = 'walk';
+    // on a half-pipe he keeps the state it gives him, and past the goal his act-clear run
+    if (p.state !== 'turn' && !p.halfPipe && !p.actClear) p.state = 'walk';
   } else {
     let g = p.gsp + K.deceleration * pace(p) * dir;
     if (g * dir > 0) g = K.reverseKick * dir;
@@ -238,13 +249,16 @@ function walkInput(p, c, world) {
   else if (!c.sideways) {
     if (p.gsp !== 0) {
       if (p.state === 'brake' || p.state === 'idle') p.state = 'walk';
-    } else if (p.state === 'crouch') p.state = 'crouchEnd';
-    else if (p.state === 'lookUp') p.state = 'lookUpEnd';
-    else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+    } else if (!p.actClear) {
+      if (p.state === 'crouch') p.state = 'crouchEnd';
+      else if (p.state === 'lookUp') p.state = 'lookUpEnd';
+      else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+    }
   }
-  // standing still on level ground stops the push, and at an edge he balances
+  // standing still on level ground stops the push, and at an edge he balances; not in his act-clear pose
   if (!((p.rotation + 0x20) & 0xC0) && p.gsp === 0) {
     p.pushing = false;
+    if (p.actClear) return;
     if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
     if (p.onObject) balanceOnObject(p);
     else balanceOnTerrain(p, world.terrain);
@@ -299,7 +313,9 @@ function rollStep(p, c, world) {
     }
   }
   p.gsp = toward0(p.gsp, K.rollFriction * pace(p));
-  if (p.gsp === 0) { uncurl(p); p.state = c.down ? 'crouch' : 'walk'; }
+  // in a mini loop he doesn't stop: he rolls on at 3 px a frame the way he faces
+  if (p.gsp === 0 && p.forcedRoll) { p.gsp = K.forcedRollSpeed * sign(p); world.playSound(SONG.SPIN); }
+  else if (p.gsp === 0) { uncurl(p); p.state = c.down ? 'crouch' : 'walk'; }
   capBoostMode(p);
   alongSurface(p);
   // a wall to the side stops the roll and stands him up
@@ -558,7 +574,7 @@ function airStep(p, c, world) {
       world.playSound(SONG.INSTA_SHIELD);
       world.spawnInstaShield();
     }
-  } else if (p.ysp < -K.riseCap) p.ysp = -K.riseCap;
+  } else if (!p.forcedRoll && p.ysp < -K.riseCap) p.ysp = -K.riseCap;
 
   // air control and drag (Player_AirInputControls); boosting, Rush's air movement instead, and in Boost Mode
   // twice its acceleration up to its top speed
@@ -592,12 +608,21 @@ function airStep(p, c, world) {
 /** Touching down on the ground or an object (sub_8021BE0); the caller sets the ground speed. */
 export function land(p) {
   p.air = false; p.pushing = false;
-  p.state = 'walk';
-  if (p.curled) uncurl(p);
-  p.offsetY = SPRITE_OFFSET_Y;   // set outright, even when something uncurled him without moving him
+  // in a mini loop he lands rolling, as he was
+  if (!p.forcedRoll) {
+    if (!p.actClear) p.state = 'walk';
+    if (p.curled) uncurl(p);
+    p.offsetY = SPRITE_OFFSET_Y;   // set outright, even when something uncurled him without moving him
+  }
   p.airLock = false;
   p.chain = 0;
   endAttack(p);
+}
+
+/** On the ground past the goal and fast enough, Sonic lands into his act-clear run (Task_ShowResults). */
+export function startActClear(p) {
+  land(p);
+  p.state = 'actClearRun'; p.actClear = true;
 }
 
 /**
@@ -625,13 +650,27 @@ export function hurt(p, terrain) {
   return true;
 }
 
+/**
+ * Knocks Sonic off at the given speeds in his hurt state, blinking as after a hit but keeping his rings, as
+ * the boss capsule does when it lands on him (Task_801623C).
+ */
+export function knockAside(p, xsp, ysp) {
+  p.invulnerable = K.invulnerable;
+  p.xsp = xsp; p.ysp = ysp;
+  p.onObject = null; p.air = true; p.pushing = false;
+  endAttack(p);
+  p.airLock = false;
+  p.state = 'hurt';
+  uncurl(p);
+}
+
 // dead (Task_PlayerMain's death block, then Task_PlayerDied and Task_PlayerHandleDeath): on the first frame he
-// stops moving sideways and the camera and clock stop; then he falls through everything until he is 80 px
+// stops moving sideways (his ground speed is left as it was) and the camera and clock stop; then he falls through everything until he is 80 px
 // below the screen, and the act restarts 61 frames later
 function deadStep(p, world) {
   if (!p.death) {
     p.death = 'falling'; p.state = 'dead';
-    p.xsp = 0; p.gsp = 0; p.invulnerable = 2; p.onObject = null; p.pushing = false;
+    p.xsp = 0; p.invulnerable = 2; p.onObject = null; p.pushing = false;
     endAttack(p);
     world.died();
     return;

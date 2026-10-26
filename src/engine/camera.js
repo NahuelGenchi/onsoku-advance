@@ -1,5 +1,9 @@
 // The original camera: a target derived from Sonic's position, approached with dead zones and speed caps,
-// a look up / look down pan, a short freeze after a spin dash release, and a still target once Sonic dies. It never shows past the act's edges.
+// a look up / look down pan, a short freeze after a spin dash release, and a still target once Sonic dies. It never shows past its
+// bounds: the act's edges, or the arena a boss sets (bosses.js). `minX` and `minY` are the least its top left corner may be, `maxX`
+// and `maxY` the most (the original's maxX - 240 and maxY - 160). A screen shake (screenshake.js) moves it by shakeX and shakeY
+// after it is kept inside them, as UpdateCamera does. A boss can also move its target sideways by shiftX.
+// Past the act's goal it rises and, once the results have counted up, stops (stage_goal.c, stage_results.c).
 // While the optional Sonic Rush boost runs, it leads him the way Rush's camera does, and as the optional Boost
 // Mode starts its sideways speed limit drops, then recovers, as Sonic Advance 2's does.
 
@@ -13,20 +17,29 @@ export function createCamera(p, terrain) {
   const cam = {
     x: Math.floor(p.x) - SCREEN_W / 2, y: centreY(p) - (SCREEN_H / 2 + 4),
     targetX: 0, targetY: 0, freeze: 0, locked: false, deadY: 0, look: 0, lookDelay: C.lookDelay, offsetY: p.offsetY - 4,
-    maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false,
+    minX: 0, minY: 0, maxX: terrain.width - SCREEN_W, maxY: terrain.height - SCREEN_H, started: false, shakeX: 0, shakeY: 0,
+    // the speed caps (unk8 and unkC, which the results set to 0), the target's shift up or down (shiftY, which
+    // the goal takes to -56) and how far the act's end has moved the camera back (unk20, which the background
+    // scrolls without)
+    speedX: C.maxSpeedX, speedY: C.maxSpeedY, shiftX: 0, shiftY: 0, wrapped: 0,
     // the Rush boost's lead: Sonic shown this far off the target's centre (8.8 px), what it eases toward, the
     // frames left of the delay after a boost starts, and where Sonic was at the last update
     leadX: 0, leadY: 0, leadTargetX: 0, leadTargetY: 0, scroll: 0, prevX: p.x, prevY: p.y,
-    // the sideways speed limit in 1/256 px (Sonic Advance 2's unk8), lowered by Boost Mode's start
-    speedX: C.maxSpeedX << 8,
+    // the sideways speed limit in 1/256 px that Boost Mode's start lowers (Sonic Advance 2's unk8)
+    boostSpeedX: C.maxSpeedX << 8,
+    // the act's animated tiles, which the camera's map layer counts (animDelayCounter and animFrameCounter), and
+    // the step the screen shows (stage.js animateStageTiles)
+    tiles: { delay: 0, frame: 0, shown: 0 },
   };
   cam.targetX = cam.x; cam.targetY = cam.y;
   return cam;
 }
 
+// CLAMP: below the least it is the least, even when that is more than the most
+const within = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 function clamp(cam) {
-  cam.x = Math.min(Math.max(cam.x, 0), cam.maxX);
-  cam.y = Math.min(Math.max(cam.y, 0), cam.maxY);
+  cam.x = within(cam.x, cam.minX, cam.maxX);
+  cam.y = within(cam.y, cam.minY, cam.maxY);
 }
 
 // hold up or down while standing still for 120 frames, then pan 2px per frame; ease back otherwise
@@ -35,8 +48,8 @@ function updateLook(cam, p) {
   const looking = p.state === 'lookUp' ? -C.lookUp : p.state === 'crouch' && p.gsp === 0 ? C.lookDown : 0;
   if (!looking) { cam.lookDelay = C.lookDelay; easeBack(); return; }
   if (cam.lookDelay === 0 || --cam.lookDelay === 0) {
-    if (looking < 0 && cam.look > looking) cam.look -= C.lookStep;
-    if (looking > 0 && cam.look < looking) cam.look += C.lookStep;
+    if (looking < 0 && cam.look + cam.shiftY > looking) cam.look -= C.lookStep;
+    if (looking > 0 && cam.look + cam.shiftY < looking) cam.look += C.lookStep;
   } else easeBack();
 }
 
@@ -74,43 +87,45 @@ export function updateCamera(cam, p) {
   if (!cam.started) { cam.started = true; return; }
   // it moves from where it was, kept a pixel further in from the far edges than it may end up: at the
   // bottom of the act, a dead zone can leave it a pixel up
-  cam.x = Math.min(Math.max(cam.x, 0), cam.maxX - 1);
-  cam.y = Math.min(Math.max(cam.y, 0), cam.maxY - 1);
+  cam.x = within(cam.x, cam.minX, cam.maxX - 1);
+  cam.y = within(cam.y, cam.minY, cam.maxY - 1);
   updateLook(cam, p);
   updateLead(cam, p);
   // a dead Sonic leaves the target where it was (unk50 bits 0–1); the view still eases onto it
   if (cam.freeze > 0) cam.freeze--;
   else if (!cam.locked) {
-    cam.targetX = Math.floor(p.x) - SCREEN_W / 2 - (cam.leadX >> 8);
+    cam.targetX = Math.floor(p.x) + cam.shiftX - SCREEN_W / 2 - (cam.leadX >> 8);
     // eases toward spriteOffsetY - 4 so curling up (offset 14 -> 9) doesn't jolt the view
     const want = p.offsetY - 4;
     if (cam.offsetY < want) cam.offsetY = Math.min(want, cam.offsetY + 5);
     else if (cam.offsetY > want) cam.offsetY = Math.max(want, cam.offsetY - 5);
-    cam.targetY = centreY(p) - SCREEN_H / 2 + cam.look + cam.offsetY - (cam.leadY >> 8);
+    cam.targetY = centreY(p) + cam.shiftY - SCREEN_H / 2 + cam.look + cam.offsetY - (cam.leadY >> 8);
   }
   const dx = cam.targetX - cam.x;
   // with a lead, it keeps to the target sideways as Rush's does, without a dead zone or a speed limit
-  const maxX = cam.speedX >> 8;
+  const maxX = Math.min(cam.speedX, cam.boostSpeedX >> 8);
   if (p.boost || cam.leadX || cam.scroll) cam.x = cam.targetX;
   else if (dx > C.deadZoneX) cam.x += Math.min(maxX, dx - C.deadZoneX);
   else if (dx < -C.deadZoneX) cam.x += Math.max(-maxX, dx + C.deadZoneX);
-  if (cam.speedX < C.maxSpeedX << 8) cam.speedX += B.cameraStep;
+  if (cam.boostSpeedX < C.maxSpeedX << 8) cam.boostSpeedX += B.cameraStep;
 
   cam.deadY = p.air ? Math.min(C.airDeadZoneY, cam.deadY + 4) : Math.max(0, cam.deadY - 4);
   const dy = cam.targetY - cam.y;
-  if (dy > cam.deadY) cam.y += Math.min(C.maxSpeedY, dy - cam.deadY);
-  else if (dy < -cam.deadY) cam.y += Math.max(-C.maxSpeedY, dy + cam.deadY);
+  if (dy > cam.deadY) cam.y += Math.min(cam.speedY, dy - cam.deadY);
+  else if (dy < -cam.deadY) cam.y += Math.max(-cam.speedY, dy + cam.deadY);
   clamp(cam);
+  cam.x += cam.shakeX; cam.y += cam.shakeY;
 }
 
 /**
  * What a view of w × h px shows around the camera (the widescreen view; 240 × 160 is the original screen): the
  * original screen's area kept inside the act, as the renderer draws it, with as much around it as fits inside
- * the act too. `x` and `y` are its top left corner in the act.
+ * the act too, then moved by a screen shake. `x` and `y` are its top left corner in the act, and `wrapped` how
+ * far the camera has looped back by then, which the background scrolls on from.
  */
 export function viewOf(cam, w = SCREEN_W, h = SCREEN_H) {
-  const cx = Math.min(Math.max(Math.floor(cam.x), 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y), 0), cam.maxY);
+  const cx = Math.min(Math.max(Math.floor(cam.x) - cam.shakeX, 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y) - cam.shakeY, 0), cam.maxY);
   const x = Math.max(0, Math.min(cx - ((w - SCREEN_W) >> 1), cam.maxX + SCREEN_W - w));
   const y = Math.max(0, Math.min(cy - ((h - SCREEN_H) >> 1), cam.maxY + SCREEN_H - h));
-  return { x, y, w, h };
+  return { x: x + cam.shakeX, y: y + cam.shakeY, w, h, wrapped: cam.wrapped };
 }

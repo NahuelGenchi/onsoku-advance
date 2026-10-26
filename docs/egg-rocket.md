@@ -25,6 +25,7 @@ The act's three checkpoints (kind 7) have no post and no sprite. `d0` numbers th
 - **The nuts and bolts** (`nuts_and_bolts_task.c`, pieces from the tables at `0x0B8424`) are animations 695, 696 and 697, two variants each. Each falls from where it was thrown and goes 32 px past the screen's sides or bottom, or when its animation has ended and 256 frames have passed.
 - **The screen shake** (`CreateScreenShake`) is a task just before the camera's. Each frame it sets an offset of its amplitude times the sine of a stepping angle, or times a random factor, and the camera adds that after keeping itself inside its bounds, so the view shakes past the act's edges.
 - **The countdown:** the HUD's time turns red under 1:00 on alternate 16-frame stretches and beeps every second through the last 20 seconds. At 0:00 Sonic dies with a screen shake and song 166. After a death the act starts again from the last checkpoint with the rocket as it was: launched, its stages gone, and a fresh 5:00.
+- **The widescreen view** never shows past those bounds either: from the launch on they are its walls (`cam.arena`), so the view stops at the left edge, 1058, instead of showing the tower, and keeps above the bottom while the stages fall away (`viewOf`, `src/engine/camera.js`). The 240 × 160 screen is unchanged.
 
 ## The end of the act
 

@@ -11,7 +11,7 @@
 import { offCam } from './objects.js';
 import { screenShake, SCREEN_SHAKE, SHAKE } from './screenshake.js';
 import { throwNutsAndBolts } from './nutsandbolts.js';
-import { SCREEN_H } from './constants.js';
+import { SCREEN_W, SCREEN_H } from './constants.js';
 import { SONG } from '../sound/songs.js';
 
 export const EGG_ROCKET = 10;
@@ -25,6 +25,10 @@ const COUNTDOWN = 5 * 3600;              // TIME(5, 0)
 // the camera's unk50 flags the background reads: stopped (the time over's banner sets it, once that is
 // built), space next, the sky scrolling
 const BG_STOPPED = 0x2000, BG_SPACE = 0x4000, BG_SCROLLING = 0x8000;
+
+// the walls the widescreen view doesn't show past (cam.arena, camera.js viewOf): once the rocket is off, the
+// camera's bounds, the left one right of the tower and the bottom one above the stages that fell away
+const walls = cam => { cam.arena = { minX: cam.minX, maxX: cam.maxX + SCREEN_W, minY: cam.minY, maxY: cam.maxY + SCREEN_H }; };
 
 /**
  * What the act adds to the stage: init() is StageInit_Zone6Act1's part after its palette animations and song,
@@ -46,6 +50,7 @@ export function createEggRocket({ state, world }) {
       if (i > 0) { cam.minX = LAUNCH_MIN_X; bg.flags |= BG_SCROLLING; bg.tall = false; world.countDown(COUNTDOWN); }
       if (i > 1) { setMaxY(BOOSTER_DEPART_MAX_Y); world.countDown(COUNTDOWN); }
       if (i > 2) { bg.flags = (bg.flags | BG_SPACE) & ~BG_SCROLLING; setMaxY(MIDDLE_DEPART_MAX_Y); world.countDown(COUNTDOWN); }
+      if (i > 0) walls(cam);
     },
     background(cam) {
       if (bg.flags & BG_STOPPED) return;
@@ -124,6 +129,7 @@ function launch(ctx) {
   const { world, player } = ctx;
   ctx.add(screenShake(0x800, 8, 16, 10, SHAKE.VERTICAL), SCREEN_SHAKE);
   world.camera.minX = LAUNCH_MIN_X;
+  walls(world.camera);
   player.ignoreInput = true;
   let n = 60, rumbling = false;
   return {
@@ -154,6 +160,7 @@ function separation(worldY, ctx) {
   let q6 = 0, q8 = 0, n = 0, phase = 0;
   player.ignoreInput = true; player.xsp = 0; player.gsp = 0;
   cam.maxY = worldY;   // the original's worldY + DISPLAY_HEIGHT
+  walls(cam);
   // the back layer's lines on screen while the stage slips: above the split as they are, then a gap (BG2's
   // offsets point at a buffer row nothing draws) down to the falling stage, its rows moved down by q8; only
   // while q6's line is below the screen's top and the falling stage's top above its bottom
@@ -212,6 +219,7 @@ function separation(worldY, ctx) {
       const i = world.checkpointIndex;
       if (i > 1) { cam.maxY = BOOSTER_DEPART_MAX_Y - SCREEN_H; world.stopClock(false); world.countDown(COUNTDOWN); }
       if (i > 2) { cam.maxY = MIDDLE_DEPART_MAX_Y - SCREEN_H; world.stopClock(false); world.countDown(COUNTDOWN); }
+      walls(cam);
       player.ignoreInput = false;
       act.split(null);
       act.flag(0, BG_SCROLLING);

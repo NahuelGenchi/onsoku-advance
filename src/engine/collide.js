@@ -1,6 +1,6 @@
 // Sonic against an object's hitbox, as SA1 does it (SAT-R decompilation, src/game/shared/stage/collision_1.c
-// Coll_Player_Platform, collision_2.c sub_800C934 and sub_800CBBC, collision_3.c Coll_Player_Spring_Sideways
-// and Coll_Player_Itembox). Hitboxes are [left, top, right, bottom] around the object's origin, edges included.
+// Coll_Player_Platform, collision_2.c sub_800C934 and sub_800CBBC, collision_3.c Coll_Player_Spring_Sideways,
+// Coll_Player_Gate and Coll_Player_Itembox). Hitboxes are [left, top, right, bottom] around the object's origin, edges included.
 // Sonic is tested with plain rectangles around his centre; only an item box also looks at his attack box.
 
 import { scan, PROBE_WALL } from './terrain.js';
@@ -117,6 +117,21 @@ export function platformTop(o, x, y, hb, p) {
 }
 
 /**
+ * A skating stone at rest (Coll_Player_SkatingStone): Coll_Player_Platform without its sides. An airborne
+ * Sonic, or one standing on it, is tested from above and below and, failing that, once more; one on the ground
+ * once. A dead one falls through.
+ */
+export function skatingStone(o, hb, p) {
+  const res = { flags: 0 };
+  if (!hb || p.dead) return 0;
+  const stoodHere = p.onObject === o;
+  if (stoodHere) p.onObject = null;
+  const done = ((p.air || stoodHere) && vertical(o, hb, p, body(p), stoodHere, res)) || vertical(o, hb, p, body(p), stoodHere, res);
+  if (!done && stoodHere && !p.onObject) { p.air = true; p.pushing = false; }
+  return res.flags;
+}
+
+/**
  * Whether Sonic breaks a breakable object (sub_800C394): curled up and moving down with his side probe (a
  * pixel taller at each end) touching it, or his attack box on it while he isn't curled. A falling Sonic
  * bounces back up at the same speed. Rolling into it on level ground doesn't break it. The optional Rush
@@ -132,6 +147,25 @@ export function breaks(o, hb, p) {
     return true;
   }
   return false;
+}
+
+/**
+ * A breakable wall (Coll_Player_Gate, its attack test on): while Sonic's attack box is out, it or his flank
+ * touching the wall's box breaks it (LANDED), bouncing him back up if he was falling. Otherwise the wall only
+ * pushes him out of its sides. The optional Rush boost's box breaks it too, without a bounce. With `attack`
+ * false (a security gate's), it only pushes him out.
+ */
+export function gate(o, hb, p, terrain, attack = true) {
+  const res = { flags: 0 };
+  if (!hb || p.dead) return 0;
+  const [px, py] = at(p);
+  if (attack && p.boostBox && overlap(o.x, o.y, hb, px, py, p.boostBox)) return LANDED;
+  if (attack && p.boxes[1] && (overlap(o.x, o.y, hb, px, py, p.boxes[1]) || overlap(o.x, o.y, hb, px, py, flank(p)))) {
+    if (p.air && p.ysp > 0) p.ysp = -p.ysp;
+    return LANDED;
+  }
+  sideways(o, hb, p, terrain, res);
+  return res.flags;
 }
 
 /**

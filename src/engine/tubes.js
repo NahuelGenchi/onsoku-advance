@@ -2,7 +2,7 @@
 // kind 34 curls Sonic up at a tube's mouth and kind 35, at its other end, lets him go. Each is a box, d0 and d1
 // tiles (signed) from its point and d2 by d3 tiles big, that does nothing but look at Sonic's centre. On every
 // frame his centre is in kind 34's box, it takes his controls and curls him into a ball that stays curled
-// (player.js stayCurled: landing doesn't stand him up and a roll that stops starts again), and starts the
+// (player.js forcedRoll: landing doesn't stand him up and a roll that stops starts again), and starts the
 // rolling sound unless it is already playing. Kind 35's box ends that and gives his controls back, with the
 // jump and attack buttons he holds then not counting as presses. Both leave once their point is more than
 // 128 px from the screen, and leaving clears his half-pipe flag (MOVESTATE_8000). The item effect bit they
@@ -20,7 +20,7 @@ const s8 = v => (v << 24) >> 24;
 // and m4aSongNumStartOrChange(SE_SPIN_ATTACK); it also lets go of an object's hold (MOVESTATE_IA_OVERRIDE)
 function curl(p, ctx) {
   endAttack(p); p.pushing = false;
-  p.stayCurled = true;
+  p.forcedRoll = true;
   p.ignoreInput = true; p.jumpPressed = false;
   ctx.input.jumpPressed = false; ctx.input.attackPressed = false; ctx.input.boostPressed = false;
   p.state = 'spin';
@@ -32,7 +32,7 @@ function curl(p, ctx) {
 // Task_MiniLoop_Base (0x0804D8B5): clears MOVESTATE_200, and gives back held controls with jump and attack
 // held (heldInput |= jump | attack)
 function release(p, ctx) {
-  p.stayCurled = false;
+  p.forcedRoll = false;
   if (!p.ignoreInput) return;
   p.ignoreInput = false;
   ctx.input.jumpPressed = false; ctx.input.attackPressed = false; ctx.input.boostPressed = false;

@@ -27,7 +27,7 @@ export function createSlide(e, anims, zone) {
   // what the player reads once his controls are back: no fresh press of jump or attack
   const release = ctx => {
     ctx.player.ignoreInput = false;
-    ctx.input.jumpPressed = false; ctx.input.attackPressed = false; ctx.input.boostPressed = false;
+    ctx.input.jumpPressed = false; ctx.input.attackPressed = false; ctx.input.boostPressed = false; ctx.input.trickPressed = false;
   };
 
   return {
@@ -43,7 +43,7 @@ export function createSlide(e, anims, zone) {
             // Player_TransitionCancelFlyingAndBoost
             endAttack(p); p.pushing = false; p.airLock = false;
             p.ignoreInput = true; p.jumpPressed = false;
-            ctx.input.jumpPressed = false; ctx.input.attackPressed = false; ctx.input.boostPressed = false;
+            ctx.input.jumpPressed = false; ctx.input.attackPressed = false; ctx.input.boostPressed = false; ctx.input.trickPressed = false;
             p.facing = dir;
             p.gsp = p.xsp = SPEED * dir;
             p.ysp = 0;

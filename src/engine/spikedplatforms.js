@@ -1,9 +1,10 @@
-// Angel Island's spiked platforms (SAT-R decompilation, src/game/sa1/stage/interactables/platform_spiked.c),
+// Spiked platforms (SAT-R decompilation, src/game/sa1/stage/interactables/platform_spiked.c),
 // kind 61: a solid block with spikes on its top (d0 0) or its bottom (any other d0) that swings to and fro
 // with the stage clock as a thin platform does: across when d2 is above d3 and up and down otherwise, by d2
 // (d3) × 8 px either side, once every 256 frames; a negative d0 (d1) starts it half a swing on. Landing on
 // its spikes, or hitting them from below, hurts Sonic; the other face carries him. Squeezed into a wall or a
-// ceiling by it, he dies on the spot. Casino Paradise's, always spikes up, isn't built.
+// ceiling by it, he dies on the spot. Casino Paradise's (zone 3) look their own and have their spikes up
+// whatever d0 is.
 
 import { makeSprite, animate, offCam, offDisplay } from './objects.js';
 import { platform, overlap, LANDED, FROM_BELOW, LEFT_FACE, RIGHT_FACE } from './collide.js';
@@ -42,14 +43,14 @@ function pushOut(o, hb, p, terrain) {
 function crush(p) { p.pushing = false; p.dead = true; }
 
 /**
- * The task for a spiked platform entity, or null when `e` is not one. Animation 538 (spikes up) or 539
- * (spikes down), in OAM order 18 and BG priority 2; its box is set once, as it is made. It runs in
+ * The task for a spiked platform entity in `zone` (0 for Neo Green Hill), or null when `e` is not one.
+ * Animation 521 in Casino Paradise, else 538 (spikes up) or 539 (spikes down), in OAM order 18 and BG priority 2; its box is set once, as it is made. It runs in
  * Task_Platform_Spiked (`0x0807F835` in the USA ROM) at the objects' priority.
  */
-export function createSpikedPlatform(e, slot, anims) {
+export function createSpikedPlatform(e, slot, anims, zone) {
   if (e.kind !== SPIKED_PLATFORM) return null;
-  const up = e.d[0] === 0;
-  const o = makeSprite(up ? 'spikedPlatformUp' : 'spikedPlatformDown');
+  const casino = zone === 2, up = casino || e.d[0] === 0;
+  const o = makeSprite(casino ? 'spikedPlatform' : up ? 'spikedPlatformUp' : 'spikedPlatformDown');
   animate(o, anims);
   const across = e.d[2] > e.d[3];
   const phase = s8(across ? e.d[0] : e.d[1]) < 0 ? 0x80 : 0, reach = (across ? e.d[2] : e.d[3]) << 11;

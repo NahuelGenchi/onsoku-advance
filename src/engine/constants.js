@@ -23,7 +23,7 @@ export const PHYSICS = {
   riseCap: 11.8125,            // rising without having jumped never goes faster than this
   rollFriction: 4 / 256,       // half the acceleration
   rollDeceleration: 24 / 256,
-  stayCurledSpeed: 3,          // a roll an object keeps curled (MOVESTATE_200) starts again at this when it stops
+  forcedRollSpeed: 3,          // a mini loop's roll picks up again at this when it would stop
   boredDelay: 360,             // 6 seconds without input
   // spin dash charge, in 1/256 units: each rev adds 2.0 and raises it to at least 8.0, and it decays by
   // 1/32 per frame. The release speed is read from the ROM's tables by the charge's integer part.
@@ -43,6 +43,11 @@ export const PHYSICS = {
   hurtSpeedX: 1.5, hurtSpeedY: 3,
   deadBelowScreen: 240,        // gone once his centre is this far below the top of the screen
   deadRestart: 60,             // then the act restarts on the 61st frame
+  // under water (Player_HandleWater): half the top speed, acceleration and deceleration, a lighter gravity,
+  // a lower jump and jump cap, and half the speeds of a hit
+  water: { maxRunSpeed: 2.25, acceleration: 4 / 256, deceleration: 48 / 256, gravity: 12 / 256, jumpSpeed: 2.625, jumpReleaseCap: 1.5 },
+  drownSeconds: 30,            // seconds under water before Sonic drowns, counted down every 60 frames
+  surfaceEffectDelay: 10,      // frames between two splashes at the water line
 };
 
 export const ANIMATION = {
@@ -87,4 +92,47 @@ export const RUSH_BOOST = {
   scrollDelay: 8, leadX: 0x5800, leadUp: -0x4800, leadDown: 0x1600, leadMinX: 0x1000, leadMinY: 0x2800,
   // the screen shake at the start and on each hit: 8 frames of offsets, starting over on each
   shake: [[-2, 2], [2, -4], [2, -4], [-4, 4], [4, -2], [4, -2], [-2, 0], [4, 2]],
+};
+
+// Sonic Advance 2's Boost Mode, an optional extra (off unless chosen): Sonic Advance 2 keeps speeds in the same
+// 8.8 pixels a frame at 60 frames a second, so its numbers carry over as they are. From the SAT-R decompilation
+// of Sonic Advance 2 (src/game/shared/stage/player.c, boost_effect.c and camera.c), with the tables read from
+// the USA ROM and the timings checked in an emulator. Speeds and accelerations in 1/256 px.
+export const BOOST_MODE = {
+  // the ring count picks a tier (Player_HandleBoostThreshold): 150 or more, 100, 50, more than 10, fewer
+  tierRings: [150, 100, 50, 11],
+  // by tier from the fewest rings: the acceleration while boosting, and the meter's rise each frame at top
+  // speed; and how full the meter must be to start (from 256 frames of running to 60)
+  acceleration: [8, 12, 14, 16, 18],
+  threshold: [0x800, 0x7F8, 0x690, 0x5A0, 0x438],
+  topSpeed: 12,                // walking accelerates up to this while boosting
+  maxSpeed: 15,                // and the ground speed is capped at this
+  minSpeed: 4.5,               // slower than this on the ground ends it
+  sideSpring: 9,               // a side spring throwing Sonic faster than this on the ground starts it
+  // the camera's horizontal speed limit (8.8 px a frame): it drops to 4 px as Boost Mode starts and
+  // recovers by 1/8 px each frame up to the usual 16
+  cameraStart: 0x400, cameraStep: 0x20,
+  // the afterimages: three copies of Sonic as he was this many frames ago, one shown each frame in turn
+  afterimages: [2, 4, 6],
+  history: 16,
+  // the start's particles: 10 frames of eight spreading out ahead of him, then 15 frames of sixteen, eight a
+  // frame in turn, sweeping back past him
+  particles: 16, burstFrames: 10, endFrame: 25,
+};
+
+// Sonic Advance 2's mid-air tricks, an optional extra (off unless chosen): Sonic Advance 2 keeps speeds in the
+// same 8.8 pixels a frame at 60 frames a second, so its numbers carry over as they are. From the SAT-R
+// decompilation of Sonic Advance 2 (src/game/shared/stage/player.c and src/game/sa2/stage/player_callbacks.c),
+// with the tables read from the USA ROM and the timings checked in an emulator. Speeds in 1/256 px.
+export const SA2_TRICKS = {
+  // each character's tricks; one without them leaves them out. Sonic's launch speeds, [x, y] with x toward the
+  // way he faces (sTrickAccel), and the Bound for R + down (his Stop 'n' Slam)
+  sonic: { up: [0, -0x600], forward: [0x600, 0], back: [-0x500, -0x380], bound: true },
+  spinFrames: 45,              // the Humming Top spins this long before he falls (unk72)
+  boundStart: 0x200,           // the Bound's dive starts at 2 px a frame
+  boundDrop: 0x38,             // and gains 7/32 px a frame, before and after it bounces (TRICK__STOP_N_SLAM__DROP_SPEED)
+  boundBounce: 0x600,          // it bounces off the ground at 6 px a frame, away from the surface, half of it sideways
+  maxFall: 15,                 // Sonic Advance 2 never moves him down faster than this (PLAYER_AIR_SPEED_MAX)
+  springDelay: [4, 3, 2, 2],   // frames after a spring's launch before a trick can start, by its speed (disableTrickTimer)
+  score: 100,                  // points for each trick (sTrickPoints)
 };

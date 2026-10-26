@@ -4,10 +4,10 @@
 // Angel Island's hidden springs (spring_hiding.c) throw him up as an up spring does, from wherever he touches
 // them, and only show themselves while they launch.
 
-import { PHYSICS as K } from './constants.js';
+import { PHYSICS as K, BOOST_MODE as B, SA2_TRICKS } from './constants.js';
 import { makeSprite, startAnim, animate, offCam } from './objects.js';
 import { platform, springSide, overlap, LANDED, FROM_BELOW, LEFT_FACE, RIGHT_FACE, PUSHING } from './collide.js';
-import { land, standUp, endAttack } from './player.js';
+import { land, standUp, endAttack, enterBoostMode } from './player.js';
 import { SONG } from '../sound/songs.js';
 
 // interactable kinds
@@ -35,11 +35,16 @@ function launchSpeed([d0, d1]) {
   return s8(d0) > 3 ? (d1 << 4) / 256 : K.springSpeeds[d0 & 3];
 }
 
+// with Sonic Advance 2's tricks on, a spring's launch holds them off for a few frames, fewer for its faster
+// speeds, as Sonic Advance 2's springs do (disableTrickTimer)
+function holdTricks(p, o) { p.trickDelay = SA2_TRICKS.springDelay[o.d[0] & 3]; }
+
 // thrown into the air by a spring that points up: no jump moves until he lands, and the spring's d0 bit 0
 // picks the rise-and-fall animations over the somersault
 function throwUp(p, o) {
   p.onObject = null; p.air = true;
   endAttack(p);
+  holdTricks(p, o);
   p.state = o.d[0] & 1 ? 'springRise' : 'spring';
   p.animRestart = true;
   standUp(p);
@@ -60,6 +65,7 @@ function down(o, p, { terrain: t }) {
   if (r & FROM_BELOW) {
     p.air = true; p.jumped = false; p.midAir = 0;
     p.ysp = o.speed;
+    holdTricks(p, o);
     return true;
   }
   if (r & (LANDED | PUSHING)) land(p);
@@ -67,15 +73,19 @@ function down(o, p, { terrain: t }) {
 }
 
 // left and right (sub_80228D0): its face sends him running (or rolling) away, even from a standstill; its
-// back is a wall, and touching it counts as touching the ground, even in mid-air
-function side(o, p) {
+// back is a wall, and touching it counts as touching the ground, even in mid-air. With the optional Boost
+// Mode, a throw faster than 9 px a frame from the ground puts him in it, as Sonic Advance 2's springs do
+// (Player_TouchNormalSpring).
+function side(o, p, world) {
   const r = springSide(o, o.boxes[0], p);
   const face = r & LEFT_FACE ? -1 : r & RIGHT_FACE ? 1 : 0;
   if (!face) return false;
   const dir = o.kind === SPRING_LEFT ? -1 : 1;
   if (face === dir) {
+    if (world.boostMode && !world.actOver && !p.air && o.speed > B.sideSpring) enterBoostMode(p);
     p.xsp = p.gsp = o.speed * dir;
     endAttack(p);
+    holdTricks(p, o);
     p.state = p.curled ? 'spin' : 'walk';
     p.rotation = 0; p.facing = dir;
     return true;

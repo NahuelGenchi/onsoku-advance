@@ -5,7 +5,7 @@
 
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { SINE } from './trig.js';
-import { tileFloor, tileScan, PROBE_FLOOR } from './terrain.js';
+import { tileFloor, probeTile, PROBE_FLOOR } from './terrain.js';
 
 const SLOTS = 48;
 const LIFE = 256, PICKUP_AFTER = 224, BLINK_BELOW = 32;   // frames
@@ -45,11 +45,12 @@ export function createScatter(anims) {
   let rings = [];
 
   return {
-    // unk2B6 bit 0, which Mecha Knuckles sets: rising rings bounce off ceilings too
+    // set by a boss (unk2B6 bit 0): the rings also bounce off ceilings while rising, until the stage starts over
     ceilings: false,
 
     /** Clears every slot, as a new stage task does. */
     reset() {
+      this.ceilings = false;
       rings = Array.from({ length: SLOTS }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, layer: 0, shown: false }));
       setAnim(anim, 'ring', true);
       this.ceilings = false;
@@ -90,9 +91,8 @@ export function createScatter(anims) {
           const d = tileFloor(terrain, rx, ry, r.layer);
           if (d <= 0) { r.y += d * 256; r.vy = (r.vy >> 2) - r.vy; }
         }
-        // the ceiling's probe is 16 px above the ring's point, after the floor's bounce has turned it upward
         if (this.ceilings && r.vy < 0) {
-          const d = tileScan(terrain, ry - 2 * TILE, rx, r.layer, -TILE, PROBE_FLOOR);
+          const d = probeTile(terrain, ry - 16, rx, r.layer, -8, PROBE_FLOOR).d;
           if (d <= 0) { r.y -= d * 256; r.vy = (r.vy >> 2) - r.vy; }
         }
         r.vy += GRAVITY;

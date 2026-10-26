@@ -4,8 +4,9 @@
 // name on it, the white bar along the bottom, the zone's name scrolling across the bar, its Japanese name above
 // and the act number below. Each piece is a row of sprites, all at background priority 0 in front of
 // everything; while the screen is still fading they are semi-transparent, which keeps them out of the fade.
-// The main task counts the frames from the first it runs. On its 226th it ends, with the pieces, and the HUD
-// takes their place a frame later. A press of A, B or the pad from its 36th frame to its 214th skips to its
+// On a zone's second act, the first time round, the white bar starts as the band the first act's results left at
+// the top of the screen, and drops to its place. The main task counts the frames from the first it runs. On its
+// 226th it ends, with the pieces, and the HUD takes their place a frame later. A press of A, B or the pad from its 36th frame to its 214th skips to its
 // 215th, which starts the pieces sliding out and finishes the fade in ten more steps.
 
 const s16 = v => (v << 16) >> 16;
@@ -33,20 +34,23 @@ function piece(slot, x, y, count, order, extra = {}) {
 }
 
 /**
- * The card as sub_80550F8 makes it for the first act of a zone. `gfx` is the extractor's titleCard: each slot's
- * sprite shape, size, width and height, and the pieces' glyph strings.
+ * The card as sub_80550F8 makes it. `gfx` is the extractor's titleCard: each slot's sprite shape, size, width
+ * and height, and the pieces' glyph strings. `fromResults` is set on a zone's second act until its card has once
+ * ended (gFinalBossActive is not the level yet). A `blank` card (its unk27, which Secret Base act 1's
+ * spotlights set) leaves the screen's brightness alone after it is made, and its pieces stay semi-transparent.
  */
-export function createTitleCard(gfx) {
+export function createTitleCard(gfx, { fromResults = false, blank = false } = {}) {
   const card = {
     frame: 0,     // unk24
     done: true,   // unk26: the fade's last result, true until its first step
+    blank,
     fading: true, // the fade stepped this frame (it also does as the card is made)
     fade: { level: 0, speed: FADE_SPEED, bldY: 0 },
     pieces: {
       zigzag: piece('zigzag', -80, 0, 3, 3, { rows: 5, grid: true }),
       name: piece('name', 20, 0, 1, 2),
       act: piece('act', 180, 160, 6, 0),
-      bar: piece('bar', 240, 126, 8, 1),
+      bar: fromResults ? piece('bar', -16, 42, 8, 1, { drops: true }) : piece('bar', 240, 126, 8, 1),
       zoneJp: piece('zoneJp', 360, 114, 4, 0),
       zone: piece('zone', 256, 128, 9, 0),
     },
@@ -111,12 +115,14 @@ const TASKS = {
     else if (k > 30) { if (p.y > 144) p.y = s16(p.y - 3); }
     return [[p.text]];
   },
-  // Task_8055998: in from the right 26 px a frame to x -16, and out to the left, a sprite fewer every 32 px
+  // Task_8055998: in from the right 26 px a frame to x -16 (or down from the top 9 px a frame to y 126), and
+  // out to the left, a sprite fewer every 32 px
   bar(p, k) {
     if (k > 215) {
       if (p.x < -32) { p.x = s16(p.x + 32); if (p.count !== 0) p.count = s16(p.count - 1); }
       p.x = s16(p.x - 26);
     } else if (k > 25) p.x = -16;
+    else if (k > 15 && p.drops) { p.x = -16; p.y = Math.min(126, s16(p.y + 9)); }
     else if (k > 15) { p.y = 126; p.x = s16(p.x - 26); if (p.x < -16) p.x = -16; }
     return [[p.text]];
   },
@@ -170,18 +176,18 @@ export function runTitleCard(card, pressed) {
   if (pressed && card.frame > CARD_SKIP_FROM && card.frame < CARD_SKIP_TO) {
     card.frame = CARD_SKIP_TO;
     fade.speed = div(FADE_FULL - fade.level, 10);
-    card.done = fadeStep(fade, true);
-    card.fading = true;
+    if (!card.blank) { card.done = fadeStep(fade, true); card.fading = true; }
   }
   const k = card.frame, done = card.done;   // what the pieces see this frame
-  if (k <= 105 || !card.done) {
+  if (!card.blank && (k <= 105 || !card.done)) {
     if (k > 20) card.done = fadeStep(fade, true);
     else fadeStep(fade, false);
     card.fading = true;
-  }
+  } else fade.bldY = 0;   // the fade no longer sets the blend, so the act's own shows
+
   card.sprites = [];
   if (++card.frame > CARD_FRAMES) return false;
-  const semi = k <= 105 || !done;
+  const semi = k <= 105 || !done || card.blank;
   for (const [name, p] of Object.entries(card.pieces)) {
     p.text ??= card.gfx.text[name];
     for (const draw of TASKS[name](p, k)) put(card, p, draw, semi);

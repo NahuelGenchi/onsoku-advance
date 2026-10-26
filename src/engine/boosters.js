@@ -2,11 +2,11 @@
 // one (kind 31) and the ones on a slight slope (32, 33), and the ones on a steep slope (100, its animation
 // turned counter-clockwise, as in Angel Island act 2, and 101, clockwise). Running or rolling over one on the ground
 // sends Sonic its way at 12 px a frame, unless he is already going faster than 9 that way; it points right,
-// or left when d1 is set.
+// or left when d1 is set. With the optional Boost Mode, it also puts him in it, as Sonic Advance 2's do.
 
 import { makeSprite, animate, offCam } from './objects.js';
 import { overlap } from './collide.js';
-import { endAttack } from './player.js';
+import { endAttack, enterBoostMode } from './player.js';
 import { SONG } from '../sound/songs.js';
 
 export const BOOSTER = 31, BOOSTER_SLIGHT_LEFT = 32, BOOSTER_SLIGHT_RIGHT = 33, BOOSTER_STEEP = 100, BOOSTER_STEEP_2 = 101;
@@ -38,6 +38,7 @@ export function createBooster(e, slot, anims) {
         if (!KEPT.has(p.state)) p.state = 'walk';
         p.facing = dir;
         if (p.gsp * dir < BOOSTED) p.gsp = p.xsp = BOOST * dir;
+        if (ctx.world.boostMode && !ctx.world.actOver) enterBoostMode(p);
       }
       if (offCam(e.x, e.y, ctx.cam)) { slot.live = null; return false; }
       animate(o, anims);

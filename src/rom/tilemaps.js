@@ -25,7 +25,7 @@ function drawTile(img, rom, tileAt, palette, bank, x0, y0, hflip, vflip, opaqueZ
       if (!c && !opaqueZero) continue;
       const px = x0 + (hflip ? 7 - x : x), py = y0 + (vflip ? 7 - y : y);
       if (px < 0 || py < 0 || px >= img.width || py >= img.height) continue;
-      const rgb = palette[bank * 16 + c] ?? [255, 0, 255], k = (py * img.width + px) * 4;
+      const rgb = palette[c ? bank * 16 + c : 0] ?? [255, 0, 255], k = (py * img.width + px) * 4;   // colour 0: the backdrop
       img.data[k] = rgb[0]; img.data[k + 1] = rgb[1]; img.data[k + 2] = rgb[2]; img.data[k + 3] = 255;
     }
   }
@@ -106,7 +106,7 @@ export function renderMetatileAtlas(rom, header, palettes, count, varying = []) 
   return { canvas, size, slots };
 }
 
-/** Renders a plain (non-metatile) background map, with colour 0 opaque like the GBA backdrop. */
+/** Renders a plain (non-metatile) background map, its colour 0 showing the backdrop, colour 0 of the palette. */
 export function renderPlainMap(rom, header, palette) {
   const img = new ImageData(header.xTiles * 8, header.yTiles * 8);
   for (let ty = 0; ty < header.yTiles; ty++) {
@@ -115,4 +115,21 @@ export function renderPlainMap(rom, header, palette) {
     }
   }
   return img;
+}
+
+/** The pixels of a plain background map where its colour 0 lets the backdrop show through, as [x, y]. */
+export function mapHoles(rom, header) {
+  const holes = [];
+  for (let ty = 0; ty < header.yTiles; ty++) {
+    for (let tx = 0; tx < header.xTiles; tx++) {
+      const entry = rom.u16(header.map + (ty * header.xTiles + tx) * 2), at = tileAddress(header, entry & 0x3FF, 0);
+      for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
+          const b = rom.u8(at + y * 4 + (x >> 1));
+          if (!(x & 1 ? b >> 4 : b & 15)) holes.push([tx * 8 + ((entry >> 10) & 1 ? 7 - x : x), ty * 8 + ((entry >> 11) & 1 ? 7 - y : y)]);
+        }
+      }
+    }
+  }
+  return holes;
 }

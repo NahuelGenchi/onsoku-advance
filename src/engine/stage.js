@@ -14,6 +14,12 @@ export function animateStageTiles(stage, tiles) {
   if (++tiles.frame >= stage.atlas.slots.length) tiles.frame = 0;
 }
 
+/** Animation frame of the stage's animated tiles after `n` steps of their counter (one every animDelay). */
+export function stageAnimFrame(stage, n) {
+  const frames = stage.atlas.slots.length;
+  return frames > 1 ? Math.floor(n / stage.animDelay) % frames : 0;
+}
+
 /**
  * Which of the palettes rendered for the palette animations in `follows` their states pick: `shown` holds
  * the frame each animation has loaded, -1 for the stage's own colours.

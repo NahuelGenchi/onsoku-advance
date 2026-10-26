@@ -21,8 +21,9 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
 //         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
-//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hurt | dead |
-//         actClearRun (past the goal, charState 28)
+//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hook (hanging
+//         from a hook rail, a swinging hook or a crane claw) | swingRope (swinging round a rope) |
+//         marbleTrack (carried through a marble track) | hurt | dead | actClearRun (past the goal, charState 28)
 //         and, with Sonic Advance 2's tricks on, that game's: trickUp | trickUpRise | trickUpFall (Hop Jump) |
 //         trickForward | trickForwardSpin | trickFall (Humming Top) | trickBack | trickBackFlip (Back Star) |
 //         bound | boundDive | boundRise (Bound)
@@ -52,10 +53,12 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     invincible: 0,     // frames of invincibility left (timerInvincibility)
     speedUp: 0,        // frames of speed shoes left (timerSpeedup)
     hidden: false,     // left out of this frame's drawing: blinking, or gone below the screen after dying
+    invisible: false,  // MOVESTATE_100000: made invisible, inside a pipe (visibility.js); never while dead
     dead: false,       // MOVESTATE_DEAD
     carried: false,    // MOVESTATE_IA_OVERRIDE: an object moves him, and his own movement doesn't run
     grinding: false,   // MOVESTATE_1000000: on a grind rail, on the layer it put him on
     front: false,      // drawn in front of the front layer (his sprite's priority 1), as on a grind rail
+    prio: 2,           // his sprite's priority otherwise, as his animation's SetSpritePriority commands leave it
     halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js), or the water
                        // bridge has splashed (waterbridges.js)
     ignoreInput: false, // MOVESTATE_IGNORE_INPUT: an object holds his controls, as the forced slide does
@@ -63,6 +66,9 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     forcedRoll: false, // MOVESTATE_200: a mini loop keeps him rolling (miniloops.js)
     actClear: false,   // MOVESTATE_800000: past the goal, running in his act-clear pose until the results count up
     plainSprings: false, // unk99[1]: back from a special stage, the special springs are plain springs until the act starts over
+    track: 0x7F,       // unk99[0]: the step of the track carrying him, 0x7F none (marbletrack.js)
+    scale: 0x100,      // unk80 and unk82: his size through the rotation hardware (8.8), smaller in a marble track
+    drawRotation: 0,   // the rotation his sprite was last drawn with, which a marble track keeps
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,
@@ -95,7 +101,7 @@ function uncurl(p) { p.curled = false; setOffsetY(p, SPRITE_OFFSET_Y); }
 
 /** Stands Sonic up out of a ball, keeping his feet in place (PLAYERFN_CHANGE_SHIFT_OFFSETS). */
 export function standUp(p) { uncurl(p); }
-/** Curls Sonic into a ball, keeping his feet in place (MOVESTATE_SPIN_ATTACK and PLAYERFN_CHANGE_SHIFT_OFFSETS). */
+/** Curls Sonic into a ball, keeping his feet in place (PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 9)). */
 export function curlUp(p) { curl(p); }
 
 // standing on an object, the object holds him up and the ground sensors rest (sub_8022D6C)
@@ -938,9 +944,14 @@ function afterAnimation(p, world) {
 // a hitbox under his facing, as the sprite system applies it when the box is set
 const flipBox = (box, flip) => (box && flip ? [-box[2], box[1], -box[0], box[3]] : box);
 
-// a new animation clears both his hitboxes until its script sets them (sub_802486C)
+// a new animation clears both his hitboxes until its script sets them (sub_802486C). Bouncing off a bounce
+// block shows the walk animation (4, variant 0): only a new animation or variant restarts the sprite, so
+// between the two states the cycle carries on where it was.
+const SAME_ANIMATION = { bounce: 'walk' };
 function choose(p, name, restart = false) {
-  if (p.anim.name !== name) p.boxes = [null, null];
+  const was = p.anim.name;
+  if (!restart && was !== name && (SAME_ANIMATION[was] ?? was) === (SAME_ANIMATION[name] ?? name)) { p.anim.name = name; return; }
+  if (was !== name) p.boxes = [null, null];
   setAnim(p.anim, name, restart);
 }
 
@@ -972,7 +983,7 @@ export function animatePlayer(p, input, anims, world) {
   }
   p.prevState = p.state;
   if (p.trickDelay > 0) p.trickDelay--;
-  p.hidden = !p.dead && p.invulnerable > 0 && (world.tick & 2) !== 0;
+  p.hidden = !p.dead && (p.invisible || (p.invulnerable > 0 && (world.tick & 2) !== 0));
   // dead, the timers count down only on the frame he dies: the tasks that take over from then on leave them
   if (p.dead && p.invulnerable === 1) return;
   if (p.state !== 'hurt' && p.invulnerable > 0) p.invulnerable--;

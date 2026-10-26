@@ -37,6 +37,7 @@ export function parseScript(rom, tables, anim, variant = 0) {
       const box = [0, 1, 2, 3].map(k => (rom.u8(at + 8 + k) << 24) >> 24);
       steps.push({ op: 'hitbox', slot: rom.s32(at + 4) % 16, box: box.some(v => v) ? box : null, at: cur });
     }
+    else if (id === -11) steps.push({ op: 'priority', priority: rom.s32(at + 4) & 3, at: cur });
     else if (id === -3) { steps.push({ op: 'jump', to: cur - rom.s32(at + 4), at: cur }); break; }
     else if (id === -4) { steps.push({ op: 'end', at: cur }); break; }
     else if (id === -9) { steps.push({ op: 'goto', anim: rom.u16(at + 4), variant: rom.u16(at + 6), at: cur }); break; }
@@ -123,13 +124,16 @@ export function framePieces(rom, tables, anim, frame, tilesAt, palette, eightBpp
 
 /**
  * Runs an animation script and returns the frames it shows, each with the tiles and palette
- * active at that moment and the hitboxes its commands set (`boxes`, by slot), plus where the script
- * loops. `skipPalette` ignores the script's palette commands, like the sprite flag some objects set.
+ * active at that moment, the hitboxes its commands set (`boxes`, by slot), the palette loads it runs just before
+ * (`loads`: { palId, insert, count, at }) and the sprite priority its last SetSpritePriority command set (`priority`,
+ * null before any), plus where the script loops and the loads going round runs (`loopLoads`: those after the last
+ * frame, then those at or after the jump's target). `skipPalette` ignores the script's palette commands, like the
+ * sprite flag some objects set.
  */
 export function animationFrames(rom, tables, anim, variant, basePalette, { skipPalette = false } = {}) {
   const steps = parseScript(rom, tables, anim, variant);
   const palette = basePalette.slice();
-  let tilesAt = null, eightBpp = false, boxes = null;
+  let tilesAt = null, eightBpp = false, boxes = null, loads = [], priority = null;
   const frames = [];
   for (const s of steps) {
     if (s.op === 'tiles') {
@@ -137,22 +141,27 @@ export function animationFrames(rom, tables, anim, variant, basePalette, { skipP
       tilesAt = eightBpp ? tables.tiles8 + (s.tileIndex & 0x7FFFFFFF) * 64 : tables.tiles4 + s.tileIndex * 32;
     } else if (s.op === 'palette' && !skipPalette) {
       readColors(rom, tables.palettes + s.palId * 32, s.count).forEach((c, i) => { palette[s.insert + i] = c; });
+      loads.push({ palId: s.palId, insert: s.insert, count: s.count, at: s.at });
     } else if (s.op === 'hitbox') {
       (boxes ??= {})[s.slot] = s.box;
+    } else if (s.op === 'priority') {
+      priority = s.priority;
     } else if (s.op === 'show') {
       frames.push(s.frame < 0 || tilesAt === null
-        ? { delay: s.delay, frame: -1, at: s.at, boxes }
-        : { delay: s.delay, frame: s.frame, tilesAt, eightBpp, palette: palette.slice(), at: s.at, boxes });
-      boxes = null;
+        ? { delay: s.delay, frame: -1, at: s.at, boxes, loads, priority }
+        : { delay: s.delay, frame: s.frame, tilesAt, eightBpp, palette: palette.slice(), at: s.at, boxes, loads, priority });
+      boxes = null; loads = [];
     }
   }
   const last = steps[steps.length - 1];
-  let loop = null;
+  let loop = null, loopLoads = [];
   if (last?.op === 'jump') {
     loop = frames.findIndex(f => f.at >= last.to);
     if (loop < 0) loop = 0;
+    // going round again runs the commands after the last frame, then those from the jump's target
+    loopLoads = [...loads, ...(frames[loop]?.loads.filter(l => l.at >= last.to) ?? [])];
   }
-  return { frames, loop, end: last?.op ?? null };
+  return { frames, loop, loopLoads, end: last?.op ?? null };
 }
 
 /**

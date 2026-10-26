@@ -7,7 +7,7 @@ import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation } from './sprites.js';
-import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks } from './tilemaps.js';
+import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks, mapHoles } from './tilemaps.js';
 import { readCollision, readSpawn, readLoop } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
@@ -15,6 +15,7 @@ import { soundLayout } from './sound.js';
 import { hudGraphics } from './hud.js';
 import { titleCardGraphics } from './titlecard.js';
 import { resultsGraphics } from './results.js';
+import { levelInfo, LEVELS } from './levels.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -42,6 +43,10 @@ export const SONIC_ANIMATIONS = {
   actClearRun: [22, 0],
   // standing in his act-clear pose once the boss capsule opens (charState 29)
   actClearPose: [23, 0],
+  // hanging from a hook rail, a swinging hook or a crane claw (charState 38) and swinging round a rope (34)
+  hook: [43, 0], swingRope: [40, 1],
+  // carried through a marble track, curled up and scaled (charState 32, drawn through the rotation hardware)
+  marbleTrack: [39, 0],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -57,9 +62,13 @@ export const OBJECT_ANIMATIONS = {
 // the spikes (animation 454, palette 35): pointing up, and sideways (pointing right, flipped to point left);
 // the hiding ones come up through the first two variants
 export const SPIKES_ANIM = 454;
-export const SPIKE_ANIMATIONS = { spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3], spikesLow: [SPIKES_ANIM, 0], spikesMid: [SPIKES_ANIM, 1] };
-// act 1's enemies and their shots, the dust and points a defeat leaves and the freed animals, by animation;
-// each loads its own palette
+export const SPIKE_ANIMATIONS = {
+  spikesUp: [SPIKES_ANIM, 2], spikesSide: [SPIKES_ANIM, 3], spikesLow: [SPIKES_ANIM, 0], spikesMid: [SPIKES_ANIM, 1],
+  // the hiding spikes rising and sinking
+  spikesHiding0: [SPIKES_ANIM, 0], spikesHiding1: [SPIKES_ANIM, 1],
+};
+// act 1's enemies and their shots, the dust and points a defeat leaves and every zone's freed animals, by
+// animation; each loads its own palette
 export const ENEMY_ANIMATIONS = {
   401: { kikiBob: 1, kikiThrow: 2 }, 408: { coconut: 0 }, 402: { coconutPiece: 0 },
   403: { buzzerFly: 0, buzzerShoot: 1, buzzerTurn: 2 }, 409: { buzzerShot: 0 },
@@ -68,7 +77,22 @@ export const ENEMY_ANIMATIONS = {
   406: { keroJump: 0, keroCroak: 1 },
   407: { dustCloud: 0 },
   709: { score0: 0, score1: 1, score2: 2, score3: 3, score4: 4 },
-  445: { animalOtter: 0 }, 450: { animalKoala: 0 }, 449: { animalKangaroo: 0 },
+  437: { animalSeal: 0 }, 438: { animalGorilla: 0 }, 439: { animalPeacock: 0 }, 440: { animalLion: 0 },
+  441: { animalMole: 0 }, 442: { animalParrot: 0 }, 443: { animalPenguin: 0 }, 444: { animalRabbit: 0 },
+  445: { animalOtter: 0 }, 446: { animalDeer: 0 }, 447: { animalSkunk: 0 }, 448: { animalRobin: 0 },
+  449: { animalKangaroo: 0 }, 450: { animalKoala: 0 }, 451: { animalElephant: 0 },
+  // Ice Mountain's: Drisame, its block of ice and the block's large and small pieces, and Kuraa walking and
+  // snapping its claws
+  424: { drisame: 0 }, 573: { drisameIce: 0 }, 579: { drisameDebrisLarge: 0 }, 580: { drisameDebrisSmall: 0 },
+  425: { kuraaWalk: 0, kuraaSnap: 1 },
+  // the Mole of Secret Base, Egg Rocket and Cosmic Angel, down in its mound and popping up
+  434: { moleDown: 0, moleUp: 1 },
+  // Secret Base's Tentou hovering, flying and firing (its shots are GamiGami's)
+  412: { tentouHover: 0, tentouFly: 1, tentouFire: 2 },
+  // and its Senbon walking and with its spikes out
+  411: { senbonWalk: 0, senbonSpikes: 1 },
+  // and its fireball rising and falling, and the fireball's sparks
+  413: { fireballRise: 0, fireballFall: 1 }, 414: { fireballSpark: 0 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their
@@ -85,6 +109,10 @@ export const PLATFORM_ANIMATIONS = {
 };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
+// Ice Mountain's objects: the block of ice (555) and the large and small pieces a broken one leaves (556, 557)
+export const ICE_MOUNTAIN_ANIMATIONS = { 555: { iceBlock: 0 }, 556: { iceShardsLarge: 0 }, 557: { iceShardsSmall: 0 } };
+// the breakable wall (559); some levels have their own (levels.js `sprites`)
+export const WALL_ANIMATIONS = { 559: { breakableWall: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // the splash under Sonic on a forced slide, which a water bridge also shows under him, and the splash that
@@ -125,6 +153,26 @@ export const CAPSULE_ANIMATIONS = {
 };
 // the special spring (specialspring.js): waiting, and its launch
 export const SPECIAL_SPRING_ANIMATIONS = { 572: { specialSpring: 1, specialSpringLaunch: 0 } };
+// the hook rail's hook (504; Ice Mountain's is 569), and Secret Base's swinging hook
+export const HOOK_RAIL_ANIMATIONS = { 504: { hookRail: 0, swingingHook: 1 } };
+// the marble tracks' entrance and exit (488)
+export const MARBLE_TRACK_ANIMATIONS = { 488: { marbleTrackExit: 0 } };
+// the security gate's shutter (534)
+export const SECURITY_GATE_ANIMATIONS = { 534: { securityGate: 0 } };
+// the swinging hook's chain (503: the trolley a crane claw runs on, a link and the anchor), and the crane claw
+// (498: open, closing, opening, and a piece of its cable)
+export const HOOK_ANIMATIONS = {
+  503: { craneTrolley: 0, hookLink: 1, hookAnchor: 2 },
+  498: { craneClaw: 0, craneClawClose: 1, craneClawOpen: 2, craneCable: 3 },
+};
+// the tubes' pipe ends (pipe.c): entrances and exits standing up and lying across, the other levels' and zone 6's
+// two acts' own (Cosmic Angel, Egg Rocket); and Cosmic Angel's air corners (maze_air_corner.c)
+export const PIPE_ANIMATIONS = {
+  589: { pipeV: 0, pipeExitV: 1 }, 588: { pipeH: 0, pipeExitH: 1 },
+  591: { pipeVCosmic: 0, pipeExitVCosmic: 1 }, 590: { pipeHCosmic: 0, pipeExitHCosmic: 1 },
+  584: { pipeVRocket: 0 }, 585: { pipeExitVRocket: 0 }, 586: { pipeHRocket: 0 }, 587: { pipeExitHRocket: 0 },
+  592: { airCorner: 0 },
+};
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -132,30 +180,25 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block), the boulders' debris, the Egg Hammer Tank's arm, hammer and belt, and the capsule rising, its shell and
-// the birds circling it; their frames also keep their
-// OAM pieces as the hardware reads them
-const ROTATED = new Set(['walk', 'run', 'bounce', 'rockDebrisSmall', 'rockDebrisLarge',
+// block, and carried through a marble track), the boulders' and the ice blocks' debris, Secret Base's swinging
+// hook, the Egg Hammer Tank's arm, hammer and belt, and the capsule rising, its shell and the birds circling it;
+// their frames also keep their OAM pieces as the hardware reads them
+const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge', 'swingingHook',
   'hammerTankArm', 'hammerTankHammer', 'hammerTankBelt0', 'hammerTankBelt1', 'hammerTankBelt2', 'hammerTankBelt3',
   'capsuleSmall', 'capsuleShell', 'animalRobin', 'animalParrot']);
 
-// Each level (0 is Neo Green Hill Zone act 1, 1 its act 2) has three tilemap entries: the front layer (drawn
-// over Sonic), the back layer (behind him) and the background.
-const LAYERS = { front: 0, back: 1, background: 2 };
-// the acts so far, by level, and the palette animations ([animation, variant]) their stage tasks run
-// (StageInit_Zone1Act1 and StageInit_Zone1Act2): 814 steps the background's colours in palette row 15 every
-// 16 frames, 815 the waterfalls' in row 10 every frame, and act 2's 820 rows 13 and 12 every 2 frames
-const ACTS = [
-  { name: 'Neo Green Hill Zone act 1', paletteAnimations: [[814, 0], [815, 0]] },
-  { name: 'Neo Green Hill Zone act 2', paletteAnimations: [[814, 0], [815, 0], [820, 1], [820, 0]] },
-];
+// each level's three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
+// background
+const MAP = { front: 0, back: 1, background: 2 };
 
 /**
- * Identifies and decodes `buffer`. `onProgress(message)` reports each stage, and is awaited, so it can let the
- * page draw the message before the next stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles, sonic }, hud: { sheet, glyphs, ring, face }, acts: [{ level, stage, titleCard, results }], stage, titleCard, physics, sound }, where each act's stage is { width, height, layers, atlas, collision, spawn, loop, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, its titleCard { sheet, slots, text } and its results { sheet, slots, text }; stage and titleCard are act 1's
+ * Identifies and decodes `buffer`, with the zone of level `level` (levels.js) from that level on: its acts, each
+ * with its title card and its results. `onProgress(message)` reports each stage, and is awaited, so it can let
+ * the page draw the message before the next stage.
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles, sonic, alts }, hud: { sheet, glyphs, ring, face }, acts, first, stage, titleCard, physics, sound }, where `acts[level]` is { level, stage, titleCard, results } for each act decoded, `first` the level asked for, and stage and titleCard are its; each act's stage is { level, zone, act, music, backgroundScroll, hudFlash, width, height, layers, atlas, collision, spawn, loop, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgroundHoles, backdrop, backgrounds }, its titleCard { sheet, slots, text } and its results { sheet, slots, text }
  */
-export async function extractAssets(buffer, onProgress = () => {}) {
+export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
+  const info = levelInfo(level);
   const rom = new Rom(buffer);
   await onProgress('Checking the ROM…');
   const id = await identify(rom);
@@ -164,16 +207,19 @@ export async function extractAssets(buffer, onProgress = () => {}) {
 
   await onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
-  const sprites = extractSprites(rom, tables);
+  // the zone's acts from `level` on, which share the zone's looks for the objects that differ by level
+  const levels = Object.keys(LEVELS).map(Number).filter(l => l >= level && LEVELS[l].zone === info.zone).sort((a, b) => a - b);
+  const sprites = extractSprites(rom, tables, Object.assign({}, ...levels.map(l => LEVELS[l].sprites ?? {})));
   const acts = [];
-  for (const [level, act] of ACTS.entries()) {
+  for (const l of levels) {
+    const act = levelInfo(l);
     await onProgress(`Decoding ${act.name}…`);
-    acts.push({
-      level,
-      stage: extractStage(rom, offsets, tables, level),
-      titleCard: sheet(titleCardGraphics(rom, offsets.uiGraphics, offsets.titleCard, level)),
-      results: sheet(resultsGraphics(rom, offsets.uiGraphics, offsets.titleCard, level)),
-    });
+    acts[l] = {
+      level: l,
+      stage: extractStage(rom, offsets, tables, act),
+      titleCard: sheet(titleCardGraphics(rom, offsets.uiGraphics, offsets.titleCard, l)),
+      results: sheet(resultsGraphics(rom, offsets.uiGraphics, offsets.titleCard, l)),
+    };
   }
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
   // indexes into those in the original, so both are read
@@ -181,14 +227,16 @@ export async function extractAssets(buffer, onProgress = () => {}) {
 
   return {
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },
-    sprites, acts, stage: acts[0].stage, titleCard: acts[0].titleCard, physics: { spinDashSpeeds },
+    sprites, acts, first: level, stage: acts[level].stage, titleCard: acts[level].titleCard, physics: { spinDashSpeeds },
     hud: extractHud(rom, offsets.uiGraphics),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
   };
 }
 
-function extractSprites(rom, tables) {
+// `levelSprites` { name: [anim, variant] } are the level's own looks for objects whose animation the ROM picks
+// by level; they replace the default of the same name
+function extractSprites(rom, tables, levelSprites = {}) {
   const sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
   const springPalette = animationPalette(rom, tables, SPRING_ANIM);
   const yellowPalette = springPalette.slice();
@@ -200,43 +248,86 @@ function extractSprites(rom, tables) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...SHRUB_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GOAL_ANIMATIONS, ...SPECIAL_SPRING_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_HAMMER_TANK_ANIMATIONS, ...CAPSULE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...SHRUB_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GOAL_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_HAMMER_TANK_ANIMATIONS, ...CAPSULE_ANIMATIONS, ...SPECIAL_SPRING_ANIMATIONS, ...HOOK_RAIL_ANIMATIONS, ...SECURITY_GATE_ANIMATIONS, ...HOOK_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...PIPE_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
   ];
+  for (const group of groups) group.list = Object.fromEntries(Object.entries(group.list).filter(([name]) => !(name in levelSprites)));
+  for (const [name, [anim, variant]] of Object.entries(levelSprites)) {
+    groups.push({ list: { [name]: [anim, variant] }, palette: animationPalette(rom, tables, anim) });
+  }
 
-  const images = [], byKey = new Map(), anims = {}, sonicFrames = new Set();
+  // `made[i]` is how atlas entry i was drawn, and `rows` the sprite palette rows its animation loads
+  const images = [], byKey = new Map(), anims = {}, made = [], rowKeys = new Map();
+  const frameImage = (name, anim, f, palette, rows) => {
+    // identical frames (same layout, tiles and palette) share one atlas entry
+    const key = `${anim}:${f.frame}:${f.tilesAt}:${palette.join()}`;
+    if (!byKey.has(key)) {
+      const { img, layout } = renderFrame(rom, tables, anim, f.frame, f.tilesAt, palette, f.eightBpp);
+      byKey.set(key, images.length);
+      images.push({ img, anchorX: layout.anchorX, anchorY: layout.anchorY });
+      made.push({ name, anim, f, palette, rows });
+    }
+    const image = images[byKey.get(key)];
+    if (ROTATED.has(name) && !image.pieces) image.pieces = framePieces(rom, tables, anim, f.frame, f.tilesAt, palette, f.eightBpp);
+    return byKey.get(key);
+  };
   for (const { list, palette, skipPalette } of groups) {
     for (const [name, [anim, variant]] of Object.entries(list)) {
       const script = animationFrames(rom, tables, anim, variant, palette, { skipPalette });
+      const rows = new Set(script.frames.flatMap(f => f.loads.flatMap(paletteRows)).map(([row, key]) => {
+        if (!rowKeys.has(row)) rowKeys.set(row, new Set());
+        rowKeys.get(row).add(key);
+        return row;
+      }));
       const frames = script.frames.map(f => {
         if (f.frame < 0) return [-1, f.delay];
-        // identical frames (same layout, tiles and palette) share one atlas entry
-        const key = `${anim}:${f.frame}:${f.tilesAt}:${f.palette.join()}`;
-        if (!byKey.has(key)) {
-          const { img, layout } = renderFrame(rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp);
-          byKey.set(key, images.length);
-          images.push({ img, anchorX: layout.anchorX, anchorY: layout.anchorY });
-        }
-        const image = images[byKey.get(key)];
-        if (name in SONIC_ANIMATIONS) sonicFrames.add(byKey.get(key));
-        if (ROTATED.has(name) && !image.pieces) image.pieces = framePieces(rom, tables, anim, f.frame, f.tilesAt, f.palette, f.eightBpp);
+        const i = frameImage(name, anim, f, f.palette, rows);
         // the hitboxes set just before a frame come with it
-        return f.boxes ? [byKey.get(key), f.delay, f.boxes] : [byKey.get(key), f.delay];
+        return f.boxes ? [i, f.delay, f.boxes] : [i, f.delay];
       });
-      anims[name] = { frames, loop: script.loop };
+      // the frames whose commands load colours, and whether going round does (animator.js)
+      anims[name] = { frames, loop: script.loop, loads: script.frames.map(f => f.loads.length > 0), loopLoads: script.loopLoads.length > 0 };
+      // the sprite palette rows each frame's loads set, and those going round sets again ([row, key])
+      const rowLoads = Object.fromEntries(script.frames.map((f, i) => [i, f.loads.flatMap(paletteRows)]).filter(([, l]) => l.length));
+      if (Object.keys(rowLoads).length) anims[name].rows = rowLoads;
+      if (script.loopLoads.length) anims[name].loopRows = script.loopLoads.flatMap(paletteRows);
+      // the sprite priority each frame's script has set (only Sonic's swing round a rope sets one)
+      if (script.frames.some(f => f.priority !== null)) anims[name].prio = script.frames.map(f => f.priority);
     }
   }
-  // the crumbling platform draws its 64 × 32 frame as 32 tiles of 8 × 8, left to right and top to bottom,
-  // each from its top left corner
-  const whole = images[anims.crumblingPlatform.frames[0][0]].img;
-  const tiles = { crumblingPlatform: Array.from({ length: 32 }, (_, i) => {
-    const img = new ImageData(8, 8), tx = (i & 7) * 8, ty = (i >> 3) * 8;
-    for (let y = 0; y < 8; y++) img.data.set(whole.data.subarray(((ty + y) * whole.width + tx) * 4, ((ty + y) * whole.width + tx + 8) * 4), y * 32);
-    images.push({ img, anchorX: 0, anchorY: 0 });
-    return images.length - 1;
-  }) };
+  // Where animations load different colours into the same row, the screen shows the row as the last load left
+  // it (animCmd_GetPalette writes gObjPalette, which VBlank uploads), so each frame of theirs is also drawn in
+  // the others' colours: alts[i] lists [row, key, atlas entry] for the ones that look different.
+  const alts = {}, drawn = made.length;
+  for (const [row, keys] of rowKeys) {
+    if (keys.size < 2) continue;
+    for (const key of keys) {
+      const colors = readColors(rom, tables.palettes + (key >> 8) * 32 + (key & 0xFF) * 2, 16);
+      for (let i = 0; i < drawn; i++) {
+        const m = made[i];
+        if (!m.rows.has(row)) continue;
+        const palette = m.palette.slice();
+        colors.forEach((c, k) => { palette[row * 16 + k] = c; });
+        const j = frameImage(m.name, m.anim, m.f, palette, m.rows);
+        if (j === i) continue;
+        if (images[j].img.data.every((v, k) => v === images[i].img.data[k])) continue;
+        (alts[i] ??= []).push([row, key, j]);
+      }
+    }
+  }
+  // the crumbling platform draws its 64 × 32 frame as 32 tiles of 8 × 8, and the breakable wall its 32 × 64
+  // one, left to right and top to bottom, each from its top left corner
+  const tiles = Object.fromEntries(['crumblingPlatform', 'breakableWall'].map(name => {
+    const whole = images[anims[name].frames[0][0]].img, across = whole.width >> 3;
+    return [name, Array.from({ length: across * (whole.height >> 3) }, (_, i) => {
+      const img = new ImageData(8, 8), tx = (i % across) * 8, ty = Math.floor(i / across) * 8;
+      for (let y = 0; y < 8; y++) img.data.set(whole.data.subarray(((ty + y) * whole.width + tx) * 4, ((ty + y) * whole.width + tx + 8) * 4), y * 32);
+      images.push({ img, anchorX: 0, anchorY: 0 });
+      return images.length - 1;
+    })];
+  }));
   // a rotated frame's pieces go into the atlas after the frames, and its rect gets them as [x, y, w, h, atlasX, atlasY]
   const pieces = images.flatMap((image, i) => (image.pieces ?? []).map(p => ({ img: p.img, frame: i, x: p.x, y: p.y })));
   const { canvas, rects } = packAtlas([...images, ...pieces]);
@@ -245,10 +336,20 @@ function extractSprites(rom, tables) {
     (rects[p.frame][6] ??= []).push([p.x, p.y, w, h, ax, ay]);
   });
   rects.length = images.length;
-  // Sonic's own frames, all in his palette's first 16 colours, which Boost Mode's afterimages swap for Sonic
-  // Advance 2's boost palette (engine/boostmode.js)
-  const sonic = { colors: sonicPalette.slice(0, 16), frames: [...sonicFrames] };
-  return { atlas: canvas, frames: rects, anims, tiles, sonic };
+  // Sonic's frames and his row of colours, for drawing them with colours written over (renderer.js)
+  const sonic = {
+    frames: [...new Set(Object.keys(SONIC_ANIMATIONS).flatMap(name => anims[name].frames.map(f => f[0]).filter(i => i >= 0)))],
+    colors: sonicPalette.slice(0, 16),
+  };
+  return { atlas: canvas, frames: rects, anims, tiles, sonic, alts };
+}
+
+// the sprite palette rows a palette load fills, each as [row, key]: the key (palId * 256 + the colour of that
+// palette the row starts at) names the colours it gets
+function paletteRows({ palId, insert, count }) {
+  const rows = [];
+  for (let r = Math.ceil(insert / 16); (r + 1) * 16 <= insert + count && r < 16; r++) rows.push([r, palId * 256 + r * 16 - insert]);
+  return rows;
 }
 
 // shelf packing with a 1px gap; rects are [x, y, w, h, anchorX, anchorY]
@@ -267,21 +368,21 @@ export function packAtlas(images, width = 512) {
   return { canvas, rects };
 }
 
-function extractStage(rom, offsets, tables, level) {
-  const { name, paletteAnimations } = ACTS[level];
-  const front = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYERS.front);
-  const back = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYERS.back);
-  const background = tilemapHeader(rom, offsets.tilemaps, level * 3 + LAYERS.background);
+function extractStage(rom, offsets, tables, info) {
+  const { level } = info;
+  const front = tilemapHeader(rom, offsets.tilemaps, level * 3 + MAP.front);
+  const back = tilemapHeader(rom, offsets.tilemaps, level * 3 + MAP.back);
+  const background = tilemapHeader(rom, offsets.tilemaps, level * 3 + MAP.background);
   if (front.xTiles !== 12 || front.metatileMap === null || front.palette === null) {
-    throw new Error(`${name} data is not where this version keeps it.`);
+    throw new Error(`${info.name}'s data is not where this version keeps it.`);
   }
   const collision = readCollision(rom, offsets.collision, level);
   if (collision.layers[0].length !== front.mapWidth * front.mapHeight || collision.levelX !== back.mapWidth) {
-    throw new Error(`${name} collision does not match its map.`);
+    throw new Error(`${info.name}'s collision does not match its map.`);
   }
   const palette = readColors(rom, front.palette, 256);
   const interactables = readInteractables(rom, offsets.interactables, level);
-  const animations = paletteAnimations.map(([anim, variant]) => paletteAnimation(rom, tables, anim, variant));
+  const animations = info.paletteAnimations.map(a => paletteAnimation(rom, tables, ...[a].flat()));
   // the two layers share one tileset and its animated tiles, so one atlas serves both
   const count = collision.metatiles.length / 144;
   const tiles = paletteVariants(palette, animations, mapBanks(rom, front, count * front.xTiles * front.yTiles));
@@ -292,6 +393,8 @@ function extractStage(rom, offsets, tables, level) {
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
     layers: { front: collision.layers[0], back: collision.layers[1] },
     atlas, animDelay: front.animDelay, collision,
+    level, zone: info.zone, act: info.act, music: info.music, backgroundScroll: info.backgroundScroll ?? null,
+    hudFlash: info.hudFlash ?? 1,
     spawn: readSpawn(rom, offsets.spawns, level),
     loop: readLoop(rom, offsets.loopPoints, offsets.loopShifts, level),
     interactables, layerToggles: layerToggles(interactables),
@@ -301,6 +404,7 @@ function extractStage(rom, offsets, tables, level) {
     entityRegions: entityRegions(rom, offsets.interactables, level),
     paletteAnimations: animations.map(({ frames, loop }) => ({ delays: frames.map(f => f.delay), loop })),
     background: toCanvas(renderPlainMap(rom, background, palette)),
+    backgroundHoles: mapHoles(rom, background), backdrop: palette[0],
     backgrounds: { canvases: sky.palettes.map(p => toCanvas(renderPlainMap(rom, background, p))), follows: sky.follows },
   };
 }

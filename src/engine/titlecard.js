@@ -36,12 +36,14 @@ function piece(slot, x, y, count, order, extra = {}) {
 /**
  * The card as sub_80550F8 makes it. `gfx` is the extractor's titleCard: each slot's sprite shape, size, width
  * and height, and the pieces' glyph strings. `fromResults` is set on a zone's second act until its card has once
- * ended (gFinalBossActive is not the level yet).
+ * ended (gFinalBossActive is not the level yet). A `blank` card (its unk27, which Secret Base act 1's
+ * spotlights set) leaves the screen's brightness alone after it is made, and its pieces stay semi-transparent.
  */
-export function createTitleCard(gfx, { fromResults = false } = {}) {
+export function createTitleCard(gfx, { fromResults = false, blank = false } = {}) {
   const card = {
     frame: 0,     // unk24
     done: true,   // unk26: the fade's last result, true until its first step
+    blank,
     fade: { level: 0, speed: FADE_SPEED, bldY: 0 },
     pieces: {
       zigzag: piece('zigzag', -80, 0, 3, 3, { rows: 5, grid: true }),
@@ -170,16 +172,16 @@ export function runTitleCard(card, pressed) {
   if (pressed && card.frame > CARD_SKIP_FROM && card.frame < CARD_SKIP_TO) {
     card.frame = CARD_SKIP_TO;
     fade.speed = div(FADE_FULL - fade.level, 10);
-    card.done = fadeStep(fade, true);
+    if (!card.blank) card.done = fadeStep(fade, true);
   }
   const k = card.frame, done = card.done;   // what the pieces see this frame
-  if (k <= 105 || !card.done) {
+  if (!card.blank && (k <= 105 || !card.done)) {
     if (k > 20) card.done = fadeStep(fade, true);
     else fadeStep(fade, false);
   }
   card.sprites = [];
   if (++card.frame > CARD_FRAMES) return false;
-  const semi = k <= 105 || !done;
+  const semi = k <= 105 || !done || card.blank;
   for (const [name, p] of Object.entries(card.pieces)) {
     p.text ??= card.gfx.text[name];
     for (const draw of TASKS[name](p, k)) put(card, p, draw, semi);

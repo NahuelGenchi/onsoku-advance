@@ -6,7 +6,7 @@
 // (options.onSpecialStage), and the act starts again from what that hands back (options.resume).
 
 import { TICK_MS, CAMERA, PHYSICS, SCREEN_W, SCREEN_H, RUSH_BOOST, BOOST_MODE } from './constants.js';
-import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
+import { makeAnimator, setAnim, tickAnim, frameOf, spritePalette } from './animator.js';
 import { createPlayer, stepPlayer, animatePlayer, hurt } from './player.js';
 import { createRushFx, startRushFx, stepRushFx } from './rushfx.js';
 import { createBoostFx, recordSonic, stepAfterimages, startBurst, stepBursts, particleAnims } from './boostmode.js';
@@ -23,6 +23,7 @@ import { createHud, updateHud } from './hud.js';
 import { createTitleCard, runTitleCard } from './titlecard.js';
 import { createResults, runResults } from './results.js';
 import { createPaletteAnimation } from './palettes.js';
+import { createActTasks } from './acts.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { createBossCapsule } from './capsule.js';
@@ -38,12 +39,10 @@ const ITEM_TIME = 1200;   // invincibility and speed shoes last 20 seconds
 const RANDOM_RING_PRIZES = [1, 5, 10, 20, 30, 40];   // ItemBox_RingAmountTable
 const SPEED_UP_TEMPO = 0x200, NORMAL_TEMPO = 0x100;
 const MAX_COURSE_TIME = 10 * 3600;
-// what each act's stage init sets up (StageInit_Zone1Act1 and StageInit_Zone1Act2): its music, and in single
-// player how far short of the act's right edge the camera and Sonic stop (act 2 keeps its boss's arena out)
-const STAGE_INITS = [
-  { music: SONG.NEO_GREEN_HILL_1, cameraStop: 0 },
-  { music: SONG.NEO_GREEN_HILL_2, cameraStop: 768 },
-];
+// what an act's stage init (StageInit_ZoneNActM) sets up besides its music (levels.js): in single player how
+// far short of the act's right edge the camera and Sonic stop, by level (Neo Green Hill act 2 keeps its boss's
+// arena out)
+const CAMERA_STOPS = { 1: 768 };
 // GoToNextLevel: the frames from the one the results end in to the next act's first, while the original
 // writes the save (as long as it takes mGBA, the reference) and loads the act; GameStageStart sets the act up,
 // and its stage init starts its music, two frames before its first
@@ -62,25 +61,30 @@ const SILENT = {
  * The act on `canvas`. `options`: onSpecialStage(game), called the frame a special spring sends Sonic out of the
  * act, after which it stops; resume, such a `game` as the special stage hands it back, to start the act again
  * from; emeralds, the Chaos Emeralds won so far (a bit per special stage), and continues, the continues the
- * player has, which it hands on.
+ * player has, which it hands on; onNextZone({ level, score, lives, seed }), called as the results of the last
+ * act decoded end, to go on to the next zone's first act with what the game carries over; carry, those
+ * { score, lives, seed } to start with; levelPick, set when the act is started from the level pick (?level=N).
  */
 export function createGame(canvas, assets, input, sound = SILENT, options = {}) {
-  const { anims } = assets.sprites, { spinDashSpeeds } = assets.physics;
-  // the act being played (assets.acts), and what is its own: its map, its objects and their tasks, its rings
-  // and its palette animations, and a renderer for its art
-  let act = assets.acts[0], stage = act.stage, terrain = createTerrain(stage.collision);
+  const { spinDashSpeeds } = assets.physics;
+  // the animations, and which colours their palette loads last left in each row of the sprite palette (animator.js)
+  const anims = { ...assets.sprites.anims, objPalette: new Array(16).fill(-1) };
+  // the act being played (assets.acts, by level), and what is its own: its map, its objects and their tasks,
+  // its rings and its palette animations, and a renderer for its art
+  let act = assets.acts[assets.first ?? 0], stage = act.stage, terrain = createTerrain(stage.collision);
   let tasks = createTasks(), entities = createEntities(stage, anims, tasks), rings = createRings(stage.rings, anims);
   let palettes = stage.paletteAnimations.map(createPaletteAnimation);
   const player = createPlayer({ ...stage.spawn, spinDashSpeeds });
   const scatter = createScatter(anims);
   rings.reset(); scatter.reset();
   const state = {
-    level: 0,     // gCurrentLevel: 0 is Neo Green Hill act 1, 1 its act 2
+    level: act.level,   // gCurrentLevel: 0 is Neo Green Hill act 1, 1 its act 2, 2 Secret Base act 1
     tick: 0, player, terrain, tasks, rings, scatter, cam: null, effects: [], sprites: [],
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
     animal: 0,   // gTrappedAnimalVariant: the next defeat's animal
     seed: 0,     // gPseudoRandom: the game's random numbers, one sequence for the whole game, from 0
     palettes: palettes.map(a => a.shown),   // the frame each palette animation has loaded (palettes.js)
+    objPalette: anims.objPalette,           // the sprite palette's rows as the frame ends, which the screen shows
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
     checkpoint: null,     // where Sonic starts after a death, his checkPointX and Y, and the course time then
     goalReached: false,   // gMultiplayerRanks[0] is no longer -1: a goal has been passed
@@ -99,6 +103,15 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     tricks: false,        // Sonic Advance 2's tricks' setting (off unless chosen)
     trickArt: null,       // their sprites, from the player's Sonic Advance 2 ROM
     trail: createTrail(), // where Sonic was on his last frames, for the Bound's afterimages
+    spotlights: null,     // Secret Base act 1's spotlights (spotlights.js) while they last; only drawing reads them
+    // how many times the camera's task has run since the act started, which sets the layers' animated tiles
+    // (UpdateBgAnimationTiles); only drawing reads it
+    bgAnim: 0,
+    // Sonic's row of the sprite palette, which the spotlights' tables run over (spotlights.js): the bytes written
+    // over his colours since his script last loaded them (`written`, a bit for each colour), and the colours
+    // the screen shows, copied at the end of each frame on which a sprite's script loaded colours (`shown`,
+    // null while they are his own); only drawing reads `shown`
+    spriteRow: { bytes: new Uint8Array(32), written: 0, shown: null, uploaded: false },
   };
   let boostAnims = null;   // the particles' animations, numbered as the renderer's boost atlas has them
   let playerAnims = anims;   // Sonic's animations, with the tricks' once their art is read
@@ -106,13 +119,20 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   // the camera as InitCamera sets it up, with the act's stage init's right edge
   const newCamera = () => {
     const cam = createCamera(player, terrain);
-    cam.maxX -= STAGE_INITS[state.level].cameraStop;
+    cam.maxX -= CAMERA_STOPS[state.level] ?? 0;
     return cam;
   };
   state.cam = newCamera();
   state.view = viewOf(state.cam, viewW, viewH);
   const sparkles = new Set();   // the ring sparkles still running their animation
   let cardPad = [];   // the pad directions held on the title card's last frame
+  let firstCard = true;
+  // Act 1 starts from the character select, and the acts after it from the act before. Any other act the level
+  // pick starts as the course select does: its task (0x2000) makes the act, so on that frame only the title
+  // card's task and those after it run (Sonic, the clock), not the scattered rings' (0x2001), and the next frame
+  // is spent loading; and the HUD's data holds what that leaves there (levels.js, hudFlash)
+  let madeBy = options.levelPick && stage.level !== 0 ? 0x2001 : -1;
+  const hudFlash = options.levelPick ? stage.hudFlash : 1;
   let extraLife = false, restart = false, loading = false, starMusic = false;
   let nextAct = 0;    // the frames left until the next act starts, once the results are over
   let ended = false;  // past the last act built so far, the screen keeps its last frame
@@ -138,6 +158,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   const centreY = () => player.y;
 
   const world = {
+    // the level's number in the ROM's tables, and its zone (0 Neo Green Hill)
+    get level() { return stage.level; }, get zone() { return stage.zone; },
     get tick() { return state.tick; },
     get cameraY() { return Math.floor(state.cam.y); },
     get terrain() { return terrain; },
@@ -208,7 +230,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // Sonic passed checkpoint `index`: the act starts over with his centre at (x, y) and the clock at this time
     passCheckpoint(index, x, y) { state.checkpointIndex = index; state.checkpoint = { x, y, time: state.courseTime }; },
     // Sonic's attack box destroyed an enemy at (x, y)
-    defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }); },
+    defeat(x, y) { defeatEffects(x, y, ctx, state, () => { extraLife = true; }, stage.level >> 1); },
     playSound: song => sound.play(song),
     playSoundOrChange: song => sound.playOrChange(song),
     // a boss's music state (gMusicManagerState.unk1), which the music manager reads (synth.js)
@@ -296,18 +318,18 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   };
 
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
-  // background priority: 2 behind the front layer, 0 and 1 in front of it), and `sheet` when its frame is from
-  // another game's sprites than Sonic Advance's; `affine` sends it through the rotation hardware: { rotation
-  // (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }. With `white`, it is a window that turns
-  // everything in its shape white (a boss's hit flash). An affine's `matrix` names the OAM matrix it shares with
-  // other sprites, which all show the last transform written to it.
+  // background priority: 3 behind both layers, 2 behind the front layer, 0 and 1 in front of it), and `sheet`
+  // when its frame is from another game's sprites than Sonic Advance's; `affine` sends it through the rotation
+  // hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }. With `white`, it is
+  // a window that turns everything in its shape white (a boss's hit flash). An affine's `matrix` names the OAM
+  // matrix it shares with other sprites, which all show the last transform written to it.
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
     state.sprites.push({ frame: s.frame, x: x + drawShift + shiftX, y: y + shiftY, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, sheet: s.sheet, white: s.white });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
-    player, world, anims, tiles: assets.sprites.tiles, cam: { x: 0, y: 0 }, view: state.view, draw, input,
+    player, world, anims, tiles: assets.sprites.tiles, cam: { x: 0, y: 0 }, view: state.view, draw, input, get level() { return stage.level; },
     attack: (s, x, y) => attackTest(s, x, y, ctx),
     projectile: (s, x, y) => projectileTest(s, x, y, ctx),
     add: (task, priority) => tasks.add(task, priority),
@@ -373,18 +395,24 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   }
   // Sonic's sprite (OAM order 16): the walk and run frames go through the rotation hardware (matrix 0, normal
   // size) and follow the slope, mirrored with a negative scale when he faces right, which also moves him 1px
-  // left; facing left, the original shifts the other frames 1px right. Dying or grinding puts him in front of
-  // the front layer.
+  // left; facing left, the original shifts the other frames 1px right. In a marble track he goes through it
+  // too, at his scale, keeping the rotation he was last drawn with. Dying or grinding puts him in front of
+  // the front layer, and half of his swing round a rope behind both.
   // the Rush boost's sprite effects go just in front of him and its trail just behind (renderer.js)
   function drawSonic() {
-    const prio = player.death || player.front ? 1 : 2, fx = state.rushFx.list.length > 0 ? { rush: 'obj', order: 16, prio, sonic: null } : null;
+    player.prio = anims[player.anim.name]?.prio?.[player.anim.i] ?? player.prio;
+    const prio = player.death || player.front ? 1 : player.prio, fx = state.rushFx.list.length > 0 ? { rush: 'obj', order: 16, prio, sonic: null } : null;
+    const affine = player.state === 'walk' || player.state === 'bounce' || player.state === 'marbleTrack';
+    if (!affine) player.drawRotation = 0;
+    else if (player.state !== 'marbleTrack') player.drawRotation = player.rotation << 2;
     if (fx) state.sprites.push(fx);
     if (!player.hidden) {
       const s = { frame: frameOf(player.anim, playerAnims), flipX: player.facing > 0, flipY: false, order: 16, prio, sheet: playerAnims[player.anim.name]?.sheet };
-      if (player.state === 'walk' || player.state === 'bounce') {
-        const right = player.facing > 0;
-        draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.rotation << 2, scaleX: right ? -256 : 256, scaleY: 256, double: false });
+      if (affine) {
+        const right = player.facing > 0, scale = player.scale;
+        draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.drawRotation, scaleX: right ? -scale : scale, scaleY: scale, double: false });
       } else draw(s, player.x + (player.facing < 0 ? 1 : 0), player.y);
+      if (s.frame >= 0) state.sprites[state.sprites.length - 1].sonicRow = true;   // palette row 0, his
       if (fx && s.frame >= 0) fx.sonic = state.sprites[state.sprites.length - 1];
     }
     if (fx) state.sprites.push({ rush: 'trail', order: 16, prio });
@@ -392,9 +420,13 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
 
   // the title card (sub_80550F8) plays from the act's first frame and after each restart, holding Sonic and
   // the clock while it runs; the HUD's task is made only as it ends. A zone's second act, the first time
-  // round, takes up the band the first act's results left on the screen.
+  // round, takes up the band the first act's results left on the screen. The tasks some acts add come after the
+  // stage's own (acts.js), from his checkpoint's x or the act's start.
   function startCard() {
-    state.card = createTitleCard(act.titleCard, { fromResults: (state.level & 1) === 1 && state.cardsShown !== state.level });
+    const extra = createActTasks(stage.level, (state.checkpoint ?? stage.spawn).x, state.spriteRow);
+    for (const task of extra.tasks) tasks.add(task, 0x2000);
+    state.spotlights = extra.spotlights;
+    state.card = createTitleCard(act.titleCard, { fromResults: (state.level & 1) === 1 && state.cardsShown !== state.level, blank: extra.cardBlank });
     state.clockStopped = true; state.hud.sprites = [];
   }
   const hudTask = { run() { if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER); return true; } };
@@ -416,7 +448,11 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       tasks.stop();
       sound.stopAll();
       if (assets.acts[state.level + 1]) nextAct = NEXT_ACT_FRAMES;
-      else ended = true;
+      else {
+        // the next zone's acts are decoded from the ROM in their turn, the screen keeping this frame meanwhile
+        ended = true;
+        options.onNextZone?.({ level: state.level + 1, score: state.score, lives: state.lives, seed: state.seed });
+      }
       return false;
     },
   };
@@ -424,7 +460,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   // HandleLifeLost: a life less, and the act starts over with everything in it, keeping the score, the stage
   // clock and the last checkpoint passed. Sonic starts at that checkpoint, or at the act's start without one,
   // and the course time goes back to what it was there (to 0 if it had run out); the camera starts from him.
-  // The act's music starts again at once (StageInit_Zone1Act1), and loading the act takes the original the
+  // The act's music starts again at once (its stage init), and loading the act takes the original the
   // whole next frame, in which nothing runs. (The game over at no lives left is not built yet.)
   function restartAct() {
     if (state.lives > 0) state.lives--;
@@ -440,7 +476,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     state.boostFx = createBoostFx(player);
     state.trail = createTrail();
     startCard();
-    sound.playStageMusic(STAGE_INITS[state.level].music);
+    sound.playStageMusic(stage.music);
     loading = true; starMusic = false;
   }
 
@@ -464,7 +500,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     render = newRenderer();
     addStageTasks();
     startCard();
-    sound.playStageMusic(STAGE_INITS[state.level].music);
+    sound.playStageMusic(stage.music);
   }
 
   // the stage's own tasks, made in the original's order: the rings manager and the entities manager first
@@ -501,7 +537,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
       if (runTitleCard(state.card, pressed)) return;
       state.card = null; state.clockStopped = false; state.cardsShown = state.level;
-      state.hud = createHud();
+      state.hud = createHud(firstCard ? hudFlash : 1);
+      firstCard = false;
       tasks.add(hudTask, 0x2180);
     }],
     [0x3000, () => {
@@ -510,6 +547,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       animatePlayer(player, held, playerAnims, world);
       if (!player.dead) recordSonic(state.boostFx, player);
       recordTrail(state.trail, player);
+      if (player.anim.loaded) state.spriteRow.written = 0;
       // the boost's effects run after him, as Rush's objects run after its player
       if (state.rushArt && (state.rush || state.rushFx.list.length > 0)) stepRushFx(state.rushFx, player, state.rushArt, player.boost);
       drawSonic();
@@ -543,6 +581,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   function addStageTasks() {
     for (const [priority, run] of stageTasks()) tasks.add({ run: ctx => { run(ctx); return true; } }, priority, true);
   }
+  if (options.carry) Object.assign(state, options.carry);
   addStageTasks();
   startCard();
   if (options.resume) comeBack(options.resume);
@@ -567,6 +606,15 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     loading = true;
   }
 
+  // the VBlank copy of the sprite palette, on the frames a script loaded colours into it
+  function endFrame() {
+    const row = state.spriteRow;
+    row.uploaded = spritePalette.update;
+    if (!spritePalette.update) return;
+    spritePalette.update = false;
+    row.shown = row.written ? Array.from({ length: 16 }, (_, c) => (row.written >> c & 1 ? row.bytes[c * 2] | row.bytes[c * 2 + 1] << 8 : null)) : null;
+  }
+
   function step() {
     if (special) return;
     input.poll?.();
@@ -579,7 +627,9 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     }
     frozen = null;
     state.sprites = []; drawShift = 0; shiftX = 0; shiftY = 0;
-    tasks.run(ctx);
+    tasks.run(ctx, madeBy);
+    endFrame();
+    if (madeBy >= 0) { madeBy = -1; loading = true; }
     if (restart) { restart = false; restartAct(); }
     if (special) options.onSpecialStage?.(handOver(state, special, { ...options, level: state.level }));
   }
@@ -619,10 +669,10 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       if (art && art !== state.trickArt) playerAnims = { ...anims, ...art.anims };
       state.trickArt = art; state.tricks = on && !!art; input.setTricks?.(state.tricks);
     },
-    // the act's music starts with the act, as the stage's init does (StageInit_Zone1Act1)
+    // the act's music starts with the act, as the stage's init does (StageInit_ZoneNActM)
     start() {
       input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);
-      sound.playStageMusic(STAGE_INITS[state.level].music);
+      sound.playStageMusic(stage.music);
     },
     stop() { input.enabled = false; input.release(); cancelAnimationFrame(frame); sound.stopAll(); },
   };

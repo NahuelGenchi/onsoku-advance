@@ -121,11 +121,13 @@ export function updateCamera(cam, p) {
  * What a view of w × h px shows around the camera (the widescreen view; 240 × 160 is the original screen): the
  * original screen's area kept inside the act, as the renderer draws it, with as much around it as fits inside
  * the act too, then moved by a screen shake. `x` and `y` are its top left corner in the act, and `wrapped` how
- * far the camera has looped back by then, which the background scrolls on from.
+ * far the camera has looped back by then, which the background scrolls on from, and `sx` and `sy`
+ * where the original screen is in it: in its middle, or nearer an edge of the view where the view stops at an edge
+ * of the act.
  */
 export function viewOf(cam, w = SCREEN_W, h = SCREEN_H) {
   const cx = Math.min(Math.max(Math.floor(cam.x) - cam.shakeX, 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y) - cam.shakeY, 0), cam.maxY);
   const x = Math.max(0, Math.min(cx - ((w - SCREEN_W) >> 1), cam.maxX + SCREEN_W - w));
   const y = Math.max(0, Math.min(cy - ((h - SCREEN_H) >> 1), cam.maxY + SCREEN_H - h));
-  return { x: x + cam.shakeX, y: y + cam.shakeY, w, h, wrapped: cam.wrapped };
+  return { x: x + cam.shakeX, y: y + cam.shakeY, w, h, wrapped: cam.wrapped, sx: cx - x, sy: cy - y };
 }

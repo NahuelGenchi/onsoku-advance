@@ -32,6 +32,8 @@ const romFile = document.getElementById('rom-file');
 const romStatus = document.getElementById('rom-status');
 const params = new URLSearchParams(location.search);
 const debug = params.has('debug'), specialTest = params.has('special');
+// `?level=N` starts the level the ROM's tables number N (2 is Secret Base Zone act 1) instead of the first
+const firstLevel = Number(params.get('level') ?? 0) | 0;
 
 const input = createInput();
 input.bindTouch(document.getElementById('touch'));
@@ -159,7 +161,7 @@ const setup = createRomSetup(picker, {
       accept: '.gba,.agb,.bin', kind: '.gba', claims: isSonicAdvance,
       async read(buffer, progress) {
         if (buffer.byteLength > MAX_GBA_BYTES) throw new RomError('This file is too large to be a Game Boy Advance ROM.');
-        const assets = await extractAssets(buffer, progress);
+        const assets = await extractAssets(buffer, progress, { level: firstLevel });
         sa1 = { buffer, assets };
         return `${assets.info.region} · ${assets.info.version ? 'tested version' : 'untested version'}`;
       },
@@ -222,10 +224,13 @@ function start(buffer, assets) {
   screen.focus();
 }
 
-// the act, after the game's start, or again from what the special stage hands back (`resume`)
-function play(assets, resume = null) {
+// the act, after the game's start, again from what the special stage hands back (`resume`), or the next zone's
+// first act with what the game carries over (`carry`)
+function play(assets, resume = null, carry = null) {
   game = createGame(screen, assets, input, sound, {
-    resume, emeralds, continues, onSpecialStage: handover => enterSpecialStage(assets, handover),
+    resume, carry, emeralds, continues, levelPick: assets.first !== 0 && assets.first === firstLevel && !carry,
+    onSpecialStage: handover => enterSpecialStage(assets, handover),
+    onNextZone: next => nextZone(next),
   });
   fitScreen();
   showRush();
@@ -235,7 +240,23 @@ function play(assets, resume = null) {
   screen.focus();
   clearInterval(statsTimer);
   statsTimer = setInterval(showStats, 100);
-  if (debug) globalThis.onsoku = { game, assets, input, sound };
+  if (debug) globalThis.onsoku = { game, assets, input, sound, nextZone };
+}
+
+// the last act decoded is over: the next zone's acts, decoded from the ROM now, played on with the score, the
+// lives and the random numbers carried over (GameStageStart). Past the zones this game has, the screen stays.
+async function nextZone({ level, ...carry }) {
+  const from = game;
+  let assets;
+  try {
+    assets = await extractAssets(sa1.buffer, () => {}, { level });
+  } catch (err) {
+    console.warn(err);
+    return;
+  }
+  if (game !== from) return;   // the player left the game meanwhile
+  game.stop();
+  play(assets, null, carry);
 }
 
 // a special spring sent Sonic out of the act: the special stage on the same screen, then the act again from

@@ -12,8 +12,21 @@ import { makeSprite, startAnim, animate } from './objects.js';
 import { overlap } from './collide.js';
 import { tileFloor } from './terrain.js';
 import { SINE } from './trig.js';
+import { createEggHammerTankIntro, createEggHammerTank, EGG_HAMMER_TANK_INTRO, EGG_HAMMER_TANK } from './boss1.js';
 import { drisame, DRISAME } from './drisame.js';
 import { kuraa, KURAA } from './kuraa.js';
+import { mole, MOLE } from './mole.js';
+import { tentou, TENTOU } from './tentou.js';
+import { senbon, SENBON } from './senbon.js';
+import { fireball, FIREBALL } from './fireball.js';
+import { createEggPress, EGG_PRESS } from './eggpress.js';
+import { hanabii, HANABII } from './hanabii.js';
+import { slotMachine, SLOT } from './slot.js';
+import { pierrot, PIERROT } from './pierrot.js';
+import { eggBall, EGG_BALL } from './eggball.js';
+import { eggSpider, EGG_SPIDER } from './eggspider.js';
+import { yukimaru, yukimaruWall, YUKIMARU, YUKIMARU_WALL } from './yukimaru.js';
+import { pen, PEN } from './pen.js';
 
 export const KIKI = 0, BUZZER = 1, GAMIGAMI = 2, RHINOTANK = 3, KEROKERO = 4, LEON = 11, WAMU = 13;
 
@@ -440,6 +453,10 @@ function wamu(e, slot, anims) {
 
 /** Makers by enemy kind (gSpriteInits_Enemies): (entity, slot, anims, ctx) → task. */
 export const ENEMIES = {
-  [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero, [LEON]: leon,
-  [WAMU]: wamu, [DRISAME]: drisame, [KURAA]: kuraa,
+  [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero,
+  [EGG_HAMMER_TANK_INTRO]: createEggHammerTankIntro, [EGG_HAMMER_TANK]: createEggHammerTank,
+  [DRISAME]: drisame, [KURAA]: kuraa, [MOLE]: mole, [TENTOU]: tentou, [SENBON]: senbon, [FIREBALL]: fireball,
+  [EGG_PRESS]: createEggPress, [HANABII]: hanabii, [SLOT]: slotMachine, [PIERROT]: pierrot, [EGG_BALL]: eggBall,
+  [YUKIMARU]: yukimaru, [YUKIMARU_WALL]: yukimaruWall, [PEN]: pen, [EGG_SPIDER]: eggSpider,
+  [LEON]: leon, [WAMU]: wamu,
 };

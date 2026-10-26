@@ -1,4 +1,5 @@
-// Neo Green Hill's wall poles (SAT-R decompilation, src/game/sa1/stage/interactables/red_flag_and_pole.c),
+// Wall poles (SAT-R decompilation, src/game/sa1/stage/interactables/red_flag_and_pole.c): bars in Neo Green
+// Hill, red flags lying on their side in the other zones (levels.js swaps the look),
 // kind 44, sticking out of a wall to its right, and kind 45, flipped, to its left. Whenever Sonic's body
 // touches one's box, at any speed, on the ground or in the air, it catches him: he hangs from it for 14
 // frames, bobbing down and swinging up, and is thrown straight up at 7.5 px a frame, keeping the X speed he

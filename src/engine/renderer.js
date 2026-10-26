@@ -3,9 +3,9 @@
 // top, the background and the layers in the colours the act's palette animations have loaded. The
 // sprites are the act's rings and the step's list, stacked as the GBA stacks OAM entries: a lower OAM order
 // in front, and within an order the one put in first. While the title card fades the screen in, everything but
-// its semi-transparent sprites is darkened. The widescreen view shows more of the act around the original
-// screen, which sits in its middle unless an edge of the act is near; the HUD keeps to the view's corners and
-// the title card to its middle. The optional Sonic Rush boost adds its screen shake and its effects around
+// its semi-transparent sprites is darkened, and so is the game over's screen behind its words and countdown.
+// The widescreen view shows more of the act around the original screen, which sits in its middle unless an edge
+// of the act is near; the HUD keeps to the view's corners and the title card and the game over to its middle. The optional Sonic Rush boost adds its screen shake and its effects around
 // Sonic, drawn as the Nintendo DS draws them.
 
 import { SCREEN_W, SCREEN_H, RUSH_BOOST } from './constants.js';
@@ -29,12 +29,16 @@ function backgroundOffset(line, tick, cameraX) {
 // The lines that never scroll. The original screen only ever shows their first 240 columns, and they don't
 // repeat cleanly past their 256th: a big cloud is cut there.
 const STILL = line => line >= 40 && line < 88;
+// The frame before the game over hands over, its last task stops the copy that scrolls each line while the frame
+// is being drawn, about this far down (in the recordings, where little else runs then): the lines below keep the
+// scroll of the line above.
+const SCROLL_STOPS_AT = 24;
 
 export function createRenderer(canvas, assets) {
   let W = SCREEN_W, H = SCREEN_H;
   canvas.width = W; canvas.height = H;
   let ctx = canvas.getContext('2d', { alpha: false });   // the Rush boost borrows it for a moment (drawRushObjs)
-  const { atlas, frames } = assets.sprites, hud = assets.hud, card = assets.titleCard;
+  const { atlas, frames, anims } = assets.sprites, hud = assets.hud, card = assets.titleCard, over = assets.gameOver;
   const stage = assets.stage, { backgrounds } = stage;
   const bgW = stage.background.width;
 
@@ -51,7 +55,7 @@ export function createRenderer(canvas, assets) {
   }
 
   // the rotation hardware's sprites are put together here pixel by pixel, then drawn over the frame
-  const atlasPixels = atlas.getContext('2d').getImageData(0, 0, atlas.width, atlas.height).data;
+  const atlasPixels = { data: atlas.getContext('2d').getImageData(0, 0, atlas.width, atlas.height).data, width: atlas.width };
   let objLayer = new ImageData(W, H);
   const objCanvas = document.createElement('canvas');
   objCanvas.width = W; objCanvas.height = H;
@@ -80,6 +84,10 @@ export function createRenderer(canvas, assets) {
     for (const [px, py, pw, ph, tx, ty] of pieces) {
       drawPiece(wrap ? (sx + px) & 0x1FF : sx + px, wrap ? (sy + py) & 0xFF : sy + py, pw, ph, tx, ty, mat, double, box, wrap);
     }
+    flushObj(box);
+  }
+  // draws what the pieces put together in `box` over the frame, and clears it
+  function flushObj(box) {
     if (box[2] < 0) return;
     const [x0, y0] = box, bw = box[2] - x0 + 1, bh = box[3] - y0 + 1;
     objCtx.putImageData(objLayer, 0, 0, x0, y0, bw, bh);
@@ -92,8 +100,9 @@ export function createRenderer(canvas, assets) {
   // run stopping at the first one outside the piece once its start is skipped ahead. A piece earlier in the
   // frame has the lower OAM index and stays in front of a later one. With `wrap`, (ox, oy) are OAM's 9-bit x and
   // 8-bit y, and a piece past the right or the bottom edge comes round on the left or the top, as on the GBA. The
-  // widescreen view reaches past x 256 and draws each piece where it is.
-  function drawPiece(ox, oy, pw, ph, tx, ty, [pa, pb, pc, pd], double, box, wrap) {
+  // widescreen view reaches past x 256 and draws each piece where it is. The piece's pixels are at (tx, ty) in
+  // `src`, the atlas unless another sheet's pixels are given.
+  function drawPiece(ox, oy, pw, ph, tx, ty, [pa, pb, pc, pd], double, box, wrap, src = atlasPixels) {
     const tw = double ? pw * 2 : pw, th = double ? ph * 2 : ph;
     if (wrap ? (oy >= H && oy + th < 228) || (ox >= W && ox + tw < 512) : oy >= H || ox >= W) return;
     const x = wrap ? (ox << 23) >> 23 : ox, endY = oy + th, px = objLayer.data;
@@ -118,9 +127,9 @@ export function createRenderer(canvas, assets) {
         xAcc += pa; yAcc += pc;
         const lx = xAcc >> 8, ly = yAcc >> 8;
         if (lx < 0 || lx >= pw || ly < 0 || ly >= ph) break;
-        const k = ((ty + ly) * atlas.width + tx + lx) * 4, o = (line * W + outX) * 4;
-        if (!atlasPixels[k + 3] || px[o + 3]) continue;
-        px[o] = atlasPixels[k]; px[o + 1] = atlasPixels[k + 1]; px[o + 2] = atlasPixels[k + 2]; px[o + 3] = 255;
+        const k = ((ty + ly) * src.width + tx + lx) * 4, o = (line * W + outX) * 4, d = src.data;
+        if (!d[k + 3] || px[o + 3]) continue;
+        px[o] = d[k]; px[o + 1] = d[k + 1]; px[o + 2] = d[k + 2]; px[o + 3] = 255;
         if (outX < box[0]) box[0] = outX;
         if (line < box[1]) box[1] = line;
         if (outX > box[2]) box[2] = outX;
@@ -198,11 +207,48 @@ export function createRenderer(canvas, assets) {
   }
 
   // the HUD's sprites have priority 0: in front of the layers and every other sprite. The lives keep to the
-  // bottom of a taller view.
-  function drawHud(sprites) {
+  // bottom of a taller view. `sheet` is the HUD's in other colours.
+  function drawHud(sprites, sheet = hud.sheet) {
     for (const [what, x, y] of sprites) {
       const [sx, sy, w, h] = typeof what === 'string' ? hud[what] : hud.glyphs[what];
-      ctx.drawImage(hud.sheet, sx, sy, w, h, x, y < SCREEN_H / 2 ? y : y + H - SCREEN_H, w, h);
+      ctx.drawImage(sheet, sx, sy, w, h, x, y < SCREEN_H / 2 ? y : y + H - SCREEN_H, w, h);
+    }
+  }
+
+  // The game over's screen (gameover.js). Its sprites come first in OAM, in front of the HUD: the words, the
+  // countdown's glyph, then the band. The fade darkens everything but the words and the glyph, which are
+  // semi-transparent and blended at full weight over what is behind them. The widescreen view keeps them to its
+  // middle, stretches their ways in and out to its edges, and the band runs across all of it.
+  const overPixels = { data: over.sheet.getContext('2d').getImageData(0, 0, over.sheet.width, over.sheet.height).data, width: over.sheet.width };
+  const WORDS = ['gameOverLeft', 'gameOverRight', 'continueLeft', 'continueRight'];
+  function drawGameOver(go) {
+    const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, wide = ox > 0 || oy > 0;
+    const s9 = x => (x << 23) >> 23;
+    if (go.bandX !== null) {
+      const [bx, by] = over.box, left = s9(go.bandX);
+      const put = x => ctx.drawImage(over.sheet, bx, by, 32, 32, x, 90 + oy, 32, 32);
+      if (!wide) for (let i = 0; i < 8; i++) put(s9((go.bandX + 32 * i) & 0x1FF));
+      else for (let x = Math.round((left + 256) * W / 256) - 32; x > -32; x -= 32) put(x);
+    }
+    if (go.bldY) darken(go.bldY);
+    if (go.glyph) {
+      const g = go.glyph, size = g.what === 'ok' ? 32 : 16, [sx, sy] = g.what === 'ok' ? over.ok : over.digits[g.what];
+      if (g.scale === null) {
+        // in from the left edge to x 116, out past the right one
+        const x = g.x <= 116 ? 116 - Math.round((116 - g.x) * (116 + ox) / 116) : 116 + Math.round((g.x - 116) * (W - ox - 116) / 124);
+        ctx.drawImage(over.sheet, sx, sy, size, size, ox + x, g.y + oy, size, size);
+      } else {
+        // zoomed (sub_80047A0 without a turn), in a box twice its size
+        const k = s16(Math.trunc(0x10000 / g.scale)), box = [W, H, -1, -1];
+        drawPiece(g.x + ox, g.y + oy, size, size, sx, sy, [k, 0, 0, k], true, box, !wide, overPixels);
+        flushObj(box);
+      }
+    }
+    // the right half first, as the left one is in front of it
+    for (const w of [...go.words].reverse()) {
+      const index = anims[WORDS[w.half]].frames[0][0];
+      if (w.affine) drawAffine(index, w.affine.x + ox, w.affine.y + oy, { rotation: 0, scaleX: w.affine.scaleX, scaleY: 256, double: false });
+      else drawSprite(index, ox + 128 + Math.round((w.x - 128) * (W - ox - 64) / 176), w.y + oy, false);
     }
   }
 
@@ -278,7 +324,8 @@ export function createRenderer(canvas, assets) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
   }
 
-  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, showCollision, rushFx, rushArt, shake }) {
+  function render({ tick, rings, sprites, terrain, palettes, view, hud: hudState, card: titleCard, gameOver, showCollision, rushFx, rushArt, shake }) {
+    const stops = gameOver?.endsNext ? SCROLL_STOPS_AT : Infinity;
     ctx.imageSmoothingEnabled = false;
     // on the act's first frame the camera isn't kept inside the act yet; the title card's fade has the
     // screen black then, and the view is kept inside. The boost's shake moves it, still inside the act.
@@ -296,8 +343,9 @@ export function createRenderer(canvas, assets) {
     const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
     for (let line = 0; line < H; line++) {
       const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
-      if (STILL(bgLine)) { drawStill(background, bgLine, line, ox); continue; }
-      let off = mod(backgroundOffset(bgLine, tick - 1, cx) - ox, bgW);
+      const scroll = Math.min(bgLine, stops - 1);
+      if (STILL(scroll)) { drawStill(background, bgLine, line, ox); continue; }
+      let off = mod(backgroundOffset(scroll, tick - 1, cx) - ox, bgW);
       for (let x = 0; x < W; off = 0) {
         const n = Math.min(bgW - off, W - x);
         ctx.drawImage(background, off, bgLine, n, 1, x, line, n, 1);
@@ -322,7 +370,8 @@ export function createRenderer(canvas, assets) {
     drawLayer(ctx, stage, 'front', vx, vy, W, H, frame, palettes);
     drawAll(false);
     if (showCollision) drawCollision(terrain, vx, vy);
-    drawHud(hudState.sprites);
+    drawHud(hudState.sprites, gameOver?.hudPalette ? over.hudSheet : hud.sheet);
+    if (gameOver) drawGameOver(gameOver);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
     // behind keeps them out of the fade

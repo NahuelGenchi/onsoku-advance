@@ -108,7 +108,8 @@ async function playLevel(level) {
 
 function start(assets) {
   game?.stop();
-  game = createGame(screen, assets, input, sound);
+  // a game over without a continue goes back to the start of the game, which is the act for now
+  game = createGame(screen, assets, input, sound, { onTitle: () => start(assets) });
   picker.hidden = true;
   stage.hidden = false;
   fitScreen();

@@ -72,21 +72,37 @@ export function createSynth(rom, layout, rate) {
   };
 }
 
+/**
+ * How many frames song `song` plays on music player `player` before it ends, counted as a task watching the
+ * player's status from the frame after it starts sees it (the special stage's trick jingle, Task_SpStageTrick).
+ */
+export function songFrames(rom, layout, player, song, limit = 60 * 60) {
+  const engine = createM4A(rom, layout, createApu()), P = engine.players[player];
+  engine.playerStart(player, song);
+  for (let n = 1; n < limit; n++) {
+    engine.frame();
+    if ((P.status & PAUSE) || (P.status & 0xFFFF) === 0) return n;
+  }
+  return limit;
+}
+
 // The stage's music manager (SAT-R decompilation, src/game/shared/stage/music_manager.c), reduced to what
 // the game uses so far. It runs after the game's other calls each frame, and does nothing while Sonic is
 // dead. While the drowning music plays it holds the music player and drops what invincibility and an extra life
 // asked for; the drowning countdown starts it. Invincibility's song takes the music player while he is
-// invincible and stops when he is not; an extra life replaces the music with the 1-up jingle. On any frame
-// where the music player has stopped, the stage music starts over from its beginning, fading in from 1/64 and
-// at double tempo while Sonic has speed shoes (MusManager_UpdateBgmParams). It leaves the player alone the frame the stage music starts.
+// invincible and stops when he is not; an extra life replaces the music with the 1-up jingle. On any frame where the music player has stopped, the
+// stage music starts over from its beginning, fading in from 1/64 and at double tempo while Sonic has speed
+// shoes (MusManager_UpdateBgmParams). It leaves the player alone the frame the stage music starts, and from
+// when the act's results switch it off (gMusicManagerState.unk0 = 0xFF) until the next act's music starts.
 // A boss sets its state (gMusicManagerState.unk1): 0x10 and a boss song's index starts that song, which then
 // takes the stage music's place (0x20); 0x30 stops it and brings the stage music back, and after every boss
-// but Egg Wrecker and Egg Drillster the manager stops managing for the rest of the act (unk0 = 0xFF).
+// but Egg Wrecker and Egg Drillster the manager switches itself off for the rest of the act.
 export function createMusicManager(engine) {
-  let stageSong = null, oneUp = false, star = false, drown = false, starting = false, boss = 0, done = false;
+  let stageSong = null, oneUp = false, star = false, drown = false, starting = false, boss = 0, off = false;
   let invincible = false, speedUp = false, alive = true;
   const own = {
-    stageMusic(song) { stageSong = song; starting = true; drown = false; boss = 0; done = false; engine.songStart(song); },
+    stageMusic(song) { stageSong = song; starting = true; boss = 0; off = false; drown = false; engine.songStart(song); },
+    off() { off = true; },
     /** a boss's music state (gMusicManagerState.unk1) */
     musicState(value) { boss = value; },
     oneUp() { oneUp = true; },
@@ -106,8 +122,8 @@ export function createMusicManager(engine) {
     /** Runs one frame's queued calls ([name, args] pairs), then the manager itself. */
     frame(calls) {
       for (const [name, args] of calls) (own[name] ?? engine[name])(...args);
-      if (stageSong === null || starting) { starting = false; return; }
-      if (!alive || done) return;
+      if (stageSong === null || starting || off) { starting = false; return; }
+      if (!alive) return;
       const { status, songHeader } = engine.players[BGM];
       const playing = (status & 0xFFFF) !== 0 && (status & PAUSE) === 0;
       const is = n => songHeader === engine.songHeader(n);
@@ -121,7 +137,7 @@ export function createMusicManager(engine) {
       else if ((boss & 0xF0) === 0x30) {
         boss &= 0xF; engine.songStop(BOSS_SONGS[boss]);
         engine.songStart(stageSong); bgmParams();
-        if (((boss - 4) & 0xFF) > 1) done = true;
+        if (((boss - 4) & 0xFF) > 1) off = true;
         boss = 0;
       } else if (!playing) {
         if ((boss & 0xF0) === 0x20) engine.songStart(BOSS_SONGS[boss & 0xF]);

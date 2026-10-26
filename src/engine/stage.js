@@ -2,10 +2,25 @@
 
 import { solidPixel } from './terrain.js';
 
-/** Animation frame of the stage's animated tiles at `tick` (one step every animDelay frames). */
-export function stageAnimFrame(stage, tick) {
-  const frames = stage.atlas.indexed ? stage.atlas.frames.length : stage.atlas.slots.length;
-  return frames > 1 ? Math.floor(tick / stage.animDelay) % frames : 0;
+// how many steps the stage's animated tiles have
+const animFrames = stage => (stage.atlas.indexed ? stage.atlas.frames.length : stage.atlas.slots.length);
+
+/**
+ * The stage's animated tiles for one frame (UpdateBgAnimationTiles, which the camera runs every frame): a step
+ * every animDelay frames, counted from when the camera is made. A step's tiles are queued for VRAM and copied as
+ * the next frame starts, so the screen shows each step a frame late. `tiles` is the camera's count.
+ */
+export function animateStageTiles(stage, tiles) {
+  tiles.shown = tiles.frame;
+  if (++tiles.delay < stage.animDelay) return;
+  tiles.delay = 0;
+  if (++tiles.frame >= animFrames(stage)) tiles.frame = 0;
+}
+
+/** Animation frame of the stage's animated tiles after `n` steps of their counter (one every animDelay). */
+export function stageAnimFrame(stage, n) {
+  const frames = animFrames(stage);
+  return frames > 1 && n > 0 ? Math.floor(n / stage.animDelay) % frames : 0;
 }
 
 /**

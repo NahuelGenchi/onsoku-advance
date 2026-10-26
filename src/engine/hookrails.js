@@ -5,9 +5,9 @@
 // end with the hook's speed as his ground speed, 10 px above where he hung; 2 the same to the left; 0 first
 // climbs to the left, slowing down, until it is 244 px from where it took him, then drops 116 px onto a lower
 // rail and comes back to the right, letting him go once past where it turned. The hook stays at the rail's end
-// once it has let him go (or, as the original draws it, 480 px across and 240 down from where it hung) until
-// that leaves the screen's range, and then it can hang where it started again. Without him (he died on it) it
-// carries on alone.
+// once it has let him go (or, as the original draws it, 480 px across, 480 back for 2 and straight for 0, and
+// 240 down from where it hung) until that leaves the screen's range, and then it can hang where it started
+// again. Without him (he died on it) it carries on alone.
 
 import { makeSprite, animate, offCam } from './objects.js';
 import { overlap } from './collide.js';
@@ -96,7 +96,8 @@ export function createHookRail(e, slot, anims) {
         acc += 20; vel += acc;
         p.x = ((wx << 8) - (6 << 8) + vel) / 256;
         p.y = (((wy + 276) << 8) + (vel >> 1)) / 256;
-        if (I(vel) > 2) { letGo(p, world, acc, 10); done(wx + LENGTH, wy + 240); }
+        // Task_HookRail_Shared1 from here, in the asm (the decompilation's C has Shared0)
+        if (I(vel) > 2) { letGo(p, world, acc, 10); done(wx, wy + 240); }
       } else {
         acc = Math.max(acc - 9, MAX_CLIMB);
         vel += acc;

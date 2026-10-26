@@ -16,6 +16,7 @@ import { rushObjEntries, rushTrailStrips, TRAIL_COLOR } from './rushfx.js';
 import { rasterizeStrips, objLayer as dsObjLayer, to6, out8 } from './dsdraw.js';
 import { ICE_MOUNTAIN, iceMountainScroll } from './icemountain.js';
 import { underColors, waveOffsets } from './water.js';
+import { waterTint } from '../rom/colors.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
 const HUD_ORDER = 3;   // the HUD's OAM order (Task_StageUIMain: 24 >> 3)
@@ -141,14 +142,17 @@ export function createRenderer(canvas, assets) {
   // translucent polygon of the DS's 3D layer, blended with what is below it by its alpha. The burst and the
   // aura are semi-transparent sprites in front of it, blended at 12/16 over 14/16 of what is below them: the
   // trail's own colour where it shows, as the 3D layer is what is under them there, otherwise the frame.
-  // Sonic stands between the two, as his sprite does between them in Rush.
+  // Sonic stands between the two, as his sprite does between them in Rush. Below the water line their colours
+  // are mixed with the water's, as everything else there is.
   let trailBuf = new Uint8Array(W * H), trailBox = null;
-  const trailRgb = [TRAIL_COLOR & 31, (TRAIL_COLOR >> 5) & 31, (TRAIL_COLOR >> 10) & 31].map(c => (c ? (c << 1) + 1 : 0));
+  const blend = stage.water?.blend;
+  const dsRgb = color => [color & 31, (color >> 5) & 31, (color >> 10) & 31].map(c => (c ? (c << 1) + 1 : 0));
+  const trailDry = dsRgb(TRAIL_COLOR), trailWet = blend === undefined ? null : dsRgb(waterTint(TRAIL_COLOR, blend));
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = W; maskCanvas.height = H;
   const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
-  // `rows` are the screen's lines they go on, [first, end)
-  function drawRushTrail(fx, vx, vy, rows) {
+  // `rows` are the screen's lines they go on, [first, end), under water with `wet`
+  function drawRushTrail(fx, vx, vy, rows, wet) {
     trailBox = null;
     const strips = rushTrailStrips(fx, vx, vy);
     if (strips.length === 0) return;
@@ -157,7 +161,7 @@ export function createRenderer(canvas, assets) {
     if (!trailBox) return;
     const [x0, , x1] = trailBox, y0 = Math.max(trailBox[1], rows[0]), y1 = Math.min(trailBox[3], rows[1] - 1);
     if (y1 < y0) return;
-    const w = x1 - x0 + 1, h = y1 - y0 + 1;
+    const w = x1 - x0 + 1, h = y1 - y0 + 1, trailRgb = wet ? trailWet : trailDry;
     const img = ctx.getImageData(x0, y0, w, h), d = img.data;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -169,7 +173,7 @@ export function createRenderer(canvas, assets) {
     }
     ctx.putImageData(img, x0, y0);
   }
-  function drawRushObjs(fx, art, vx, vy, sonic, rows) {
+  function drawRushObjs(fx, art, vx, vy, sonic, rows, wet) {
     const layer = dsObjLayer(rushObjEntries(fx, art, vx, vy), W, H);
     if (!layer) return;
     const { x0, y0, w, colors } = layer, h = Math.min(layer.h, rows[1] - y0);
@@ -186,10 +190,10 @@ export function createRenderer(canvas, assets) {
       ctx = main;
       mask = maskCtx.getImageData(x0, y0, w, h).data;
     }
-    const img = ctx.getImageData(x0, y0, w, h), d = img.data;
+    const img = ctx.getImageData(x0, y0, w, h), d = img.data, trailRgb = wet ? trailWet : trailDry;
     for (let y = Math.max(0, rows[0] - y0); y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const o = y * w + x, color = colors[o];
+        const o = y * w + x, color = colors[o] < 0 || !wet ? colors[o] : waterTint(colors[o], blend);
         if (color < 0) continue;
         const k = o * 4, trail = trailBox && trailBuf[(y + y0) * W + x + x0] && !(mask && mask[k + 3]);
         for (let c = 0; c < 3; c++) {
@@ -394,8 +398,8 @@ export function createRenderer(canvas, assets) {
     const drawAll = (prio, shows = () => true) => byPart((below, first, end) => {
       for (const s of list) {
         if (Math.min(s.prio, 2) !== prio || !shows(s)) continue;
-        if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy, [first, end]);
-        else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic, [first, end]);
+        if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy, [first, end], below);
+        else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic, [first, end], below);
         else if (s.affine) drawAffine(s.frame, s.x - vx, s.y - vy, s.affine);
         else drawSprite(s.frame, s.x - vx, s.y - vy, s.flipX, s.flipY);
       }

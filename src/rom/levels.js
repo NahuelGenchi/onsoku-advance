@@ -71,6 +71,18 @@ export const LEVELS = {
       crumblingPlatform: [527, 0], bounceBlock: [543, 0], slideSplash: [562, 0],
     },
   },
+  // StageInit_Zone5Act1 (0x0803DE55): palette animation 823, the waterfalls' colours in row 10 every frame; the
+  // background stands still under Egg Rocket's clouds, tilemap 72 (TM_EGG_ROCKET_CLOUDS) on BG0, blended over it
+  // (CreateStageBg_Zone5). The thin platforms (sPlatformThinAnims), bounce blocks (sBounceBlockAnims), waterfall
+  // splash (gUnknown_086CED28), sinking platforms (gUnknown_086CEDC0), square platforms (CreateEntity_Platform_Square:
+  // 536, or 537 when long) and breakable wall (595) are zone 5's own; its moving springs keep the default 540.
+  8: {
+    name: 'Angel Island Zone act 1', zone: 4, act: 0, paletteAnimations: [823], music: 20, clouds: 72,
+    sprites: {
+      thinPlatform: [535, 0], bounceBlock: [543, 0], waterSplash: [552, 0], sinkingPlatform: [544, 0], squarePlatform: [536, 0],
+      squarePlatformLong: [537, 0], breakableWall: [595, 0], ironBall: [541, 0], bowl: [546, 0],
+    },
+  },
 };
 
 /** The entry of `level`, or an error for one this game can't load yet. */

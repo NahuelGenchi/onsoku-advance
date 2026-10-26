@@ -138,7 +138,7 @@ Act 1 has five kinds of platform. Sonic lands on the thin, falling and crumbling
 - **Sagging:** while Sonic stands on a thin or falling platform it sags by up to 4 px, easing down by 1/64 of a half turn a frame and back up when he leaves. Only the sprite sags, not the box.
 - **Crumbling:** 32 frames after Sonic lands on it, song 173 plays and its 32 tiles of 8 × 8 px fall, one a frame, from the bottom right to the top left (from the bottom left when `d0` flips it). Each one falls 42/256 px a frame faster every frame. Sonic stands on it until the last tile lets go. The tiles stop being drawn, in order, at the first one past the bottom of the screen, and the platform goes when that is the first tile. One that goes before it has quite fallen apart never comes back; otherwise it comes back like the other objects.
 - **Trampoline:** landing on it throws Sonic up 1.22 times as fast as he came down, between 3.75 and 10.99 px a frame, uncurled and rising as off a spring (character state 21, then 18 and 19), and plays song 176. Walking onto it from the side lifts him 8 px first. It bounces through variant 1 for 14 frames, starting over at each new landing.
-- **Bounce block:** landing on it throws Sonic up at 5 px a frame, facing the way he holds the d-pad, in the walk animation (character state 23), and plays the spring's song 170. In that state he keeps facing that way in the air, and he tumbles: his angle turns 4/256 of a turn a frame the way he faces, drawn through the rotation hardware. That angle also turns off the push out of an object's sides while it points him at a wall, so he can fall past a bounce block's side into the one below. The block wobbles for 30 frames, up to 16 px up and down.
+- **Bounce block:** landing on it throws Sonic up at 5 px a frame, facing the way he holds the d-pad, in the walk animation (character state 23), and plays the spring's song 170. In that state he keeps facing that way in the air, and he tumbles: his angle turns 4/256 of a turn a frame the way he faces, drawn through the rotation hardware. Walking shows the same animation, and only a new animation or variant restarts a sprite, so a Sonic who walks onto the block, or lands from it walking, carries on with the same walk cycle. That angle also turns off the push out of an object's sides while it points him at a wall, so he can fall past a bounce block's side into the one below. The block wobbles for 30 frames, up to 16 px up and down.
 
 A thin platform goes when its spawn point is off the screen and its current position is out of the range around the camera. A falling one goes the same way until it falls, then when its current position is out of range. A crumbling one goes when its spawn point is out of range, and once it crumbles, only when it is out of range sideways.
 
@@ -348,7 +348,7 @@ Each enemy's sprite carries its hitbox in its script. Sonic's sprite has two box
 **Defeating an enemy** leaves, in this order:
 
 1. A dust cloud (`407`) that plays once where the enemy was.
-2. A freed animal. Neo Green Hill's are the otter (`445`), the koala (`450`) and the kangaroo (`449`), in turn; Ice Mountain's the otter, the seal (`437`) and the penguin (`443`), which hops away like the kangaroo. It hops up at 4 px a frame and lands on the ground; the otter and the koala then sit, and the kangaroo hops away to the left at 2 px a frame.
+2. A freed animal. Neo Green Hill's are the otter (`445`), the koala (`450`) and the kangaroo (`449`), in turn (every zone's are under [Freed animals](#freed-animals)); Ice Mountain's the otter, the seal (`437`) and the penguin (`443`), which hops away like the kangaroo. It hops up at 4 px a frame and lands on the ground; the otter and the koala then sit, and the kangaroo hops away to the left at 2 px a frame.
 3. The points (`709`): 100, 200, 400, 800, then 1000 for each enemy after that, counted since Sonic last touched the ground. They rise 1 px a frame for 60 frames, stay for 30 more and go. Every 50,000 points give a life.
 
 The defeat plays song 138.
@@ -413,7 +413,7 @@ A hit with rings throws Sonic up at 3.0 and away at 1.5 px a frame, against the 
 
 ### Dying and the restart
 
-Sonic dies when a hit finds him without rings (thrown up at 3.0) or when he falls out of the bottom of the act (thrown up at a jump's speed). On that frame the camera's target and the stage clock stop, a push ends (so he doesn't show the push animation as he falls), song 119 plays and the music plays on. His blink timer is set to 2, counts down once and stays at 1. He then falls through everything, in front of the front layer, until his centre is 240 px below the top of the screen. He disappears there, and 61 frames later he loses a life.
+Sonic dies when a hit finds him without rings (thrown up at 3.0) or when he falls out of the bottom of the act (thrown up at a jump's speed). On that frame the camera's target and the stage clock stop, his speed across goes to 0 while his ground speed is kept, a push ends (so he doesn't show the push animation as he falls), song 119 plays and the music plays on. His blink timer is set to 2, counts down once and stays at 1. He then falls through everything, in front of the front layer, until his centre is 240 px below the top of the screen. He disappears there, and 61 frames later he loses a life.
 
 Losing a life destroys every task, so nothing after Sonic runs on that frame, and loads the act again (`CreateGameStage`): the act's music starts from its beginning on that same frame (`StageInit_Zone1Act1`). The original then spends the whole next frame loading, and nothing runs. On the frame after, the act starts over with its rings, enemies and objects back: the ring count goes to 0, and the score, the stage clock and the last checkpoint passed carry on. Sonic starts where the last checkpoint passed put him, or at the act's start without one. The course time goes back to what it was when he passed that checkpoint, or to 0 without one (and to 0 if it had reached 10:00). The new camera starts with Sonic centred, not yet kept inside the act (x = −16 at act 1's start). Its task's first frame only sets it going, so it starts moving on the second frame.
 
@@ -740,6 +740,8 @@ The engine follows SA1's own player code. In the tested ROM these routines are a
 
 A charge above 8.0 reads past the nine speeds into the alternate table that follows them (8.25 to 11.25), so fast revving can launch Sonic faster than a single rev, or slower (index 9 is 8.25). The engine reads both tables and stops at index 17, which takes about 17 revs a second; the original keeps reading unrelated bytes beyond it.
 
+Walking, turning, braking and going idle after them, or after crouching or looking up, put Sonic's box back at its standing height (`PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 14)` in `Player_8044F7C`, `Player_8043970` and `Player_8043A2C`), which matters when something uncurled him without it, as Angel Island's waterfalls do.
+
 Other details the engine reproduces: rolling starts from any ground speed, a jump out of a roll has no air control until the insta-shield, the spin dash release frame doesn't move, the crouch and look-up animations play a short release before idling, and the brake dust appears with a random flip, at most 20 at a time. Facing left, the original draws Sonic 1px further right, except in the walk and run frames, which go through the rotation hardware.
 
 ### Terrain
@@ -818,6 +820,14 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Wall pole | 175 | 2 | A wall pole catches Sonic |
 | Grinding | 114 | 2 | A grind rail's start takes Sonic; it loops until he jumps or is thrown off, or another sound takes player 2 |
 | Trampoline | 176 | 2 | Every bounce |
+| Explosion | 144 | 3 | A rolling boulder breaks on the screen |
+| Skating stone | 198 | 2 | A skating stone lands after a drop; stopped when it breaks |
+| Skating stone breaks | 143 | 1 | |
+| Whirlwind | 200 | 2 | A whirlwind first lifts Sonic; it fades out when he isn't spinning |
+| Waterfall | 201 | 2 | An Angel Island waterfall first holds Sonic; it fades out when he leaves |
+| Lift | 181 | 2 | A lift catches Sonic, until it reaches the top |
+| Bowl | 206, 207, 208 | 2 | A bowl catches Sonic, then 56 and 112 frames later |
+| Run wheel | 212, 213, 214 | 2 | Every 25, 16 or 8 frames on a run wheel, by its speed |
 | Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |
 | Rings from a box | 117 | 3 | The ring prizes, once for the lot |
 | Casino Paradise Zone act 1 | 16 | 0 | Act 1 starts, and starts over after a life is lost |
@@ -839,6 +849,7 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Boss beaten | 144 | 3 | The Egg Spider's eighth hit, and every explosion it throws after it |
 | Icicle | 145 | 3 | Every icicle the Egg Spider drops |
 | Lava spurt | 182 | 2 | An underwater lava platform's lava spurts |
+| Angel Island Zone act 1 | 20 | 0 | The same, in Angel Island act 1 |
 
 Sounds on the same player cut each other off, as in the original. There is no landing sound in SA1. Ice Mountain act 2's sounds and the boss music start where the decompiled code starts them; they weren't checked against mGBA's music players.
 
@@ -1265,6 +1276,210 @@ Ice Mountain's boss is enemy 25, spawned at (8816, 1616) in act 2, on the ceilin
 - 1550 frames with the hit count set to 7 before Sonic's hit: the eighth hit, the parts, the fall, the debris and the wreck, up to where the capsule takes over.
 
 The spider's, Eggman's, the icicles' and the parts' positions, animations and frames, and Sonic's position, match on every frame, and so do the game's random numbers. Not checked: the boss's colours under the water, the white flash's picture, the left leg's mirroring through the rotation hardware, the jump and attack buttons held when Sonic's controls come back, the screen's windows and blending during the wreck, scattered rings hitting the arena's ceiling, the other difficulties, and the camera's bounds after Sonic dies in the arena.
+
+## Angel Island Zone act 1
+
+Level 8 in the ROM's per-level tables (`?level=8`): tilemap entries 24, 25 and 26, collision entry 8, start (104, 851). It is 8928 × 2688 px, 93 × 28 metatiles. Its stage init, `StageInit_Zone5Act1` (`0x0803DE55` in the USA ROM, entry 8 of the table at `0x084A6A18`), makes one palette loader task (`0x2000`) for animation `823` and starts song 20. 823 loads the waterfalls' colours into row 10 (colours 160–175), a new palette every frame, four in turn. The front layer's header has `animTileSize` 96 but no frames (`animFrameCount` 0), so its tiles don't animate. The level's music numbers are also in `gLevelSongs` (`0x4A69E4`: 12 to 24 and 26 for the 14 single-player levels, then 12, 14, 16 and 23).
+
+### Background and clouds
+
+`CreateStageBg_Zone5` and `StageBgUpdate_Zone5Acts12` serve both acts. BG3 is the level's background entry, a 240 × 160 map that stands still (scroll 0, 0). BG0 is Egg Rocket's clouds, tilemap 72 (`TM_EGG_ROCKET_CLOUDS`, 32 × 20 tiles), at priority 3 like BG3 and in front of it. The clouds load no palette of their own and draw with the stage's, colour 0 transparent. They scroll left a pixel every 4 frames of the stage clock: BG0HOFS = `(0x100 − gStageTime / 4) & 0xFF`, with the clock from before that frame's tick, as Neo Green Hill's cloud bands. They are blended over the background: `BLDCNT 0x3F41` (BG0 the first target, every layer the second), `BLDALPHA 0x100C`, 12/16 of the cloud and 16/16 of what is behind it. mGBA mixes its 8-bit colours, each channel `(cloud × 12 + back × 16) / 16`, at most 255, and the renderer does the same. While the title card's fade runs, each of its steps sets the brightness decrease (`BLDCNT 0x3FFF`) in place of the blending, so the clouds are darkened with the rest and not blended. On the frame the card ends it switches the blending off (`BLDCNT 0`); from the next frame the background sets it again.
+
+### Zone 5's own look
+
+Some objects every zone has pick their animation by level, and their hitboxes come from that animation's frames, so another zone's animation moves Sonic by a pixel. Zone 5's thin and falling platforms are animation `535` (`sPlatformThinAnims`), its bounce blocks `543` (`sBounceBlockAnims`), its waterfall splash `552` (`gUnknown_086CED28`), its iron balls `541`, its sinking platforms `544` (`gUnknown_086CEDC0`), its square platforms `536`, or `537` for a long one, and its breakable wall `595` (the per-level table at `0x080B854C`: `559` for levels 0–5, `594` for Ice Mountain, `595` for Angel Island, `596` from Egg Rocket on). [`src/rom/levels.js`](../src/rom/levels.js) lists them as the level's `sprites`.
+
+### Angel Island's enemies
+
+Act 1 has 8 Buzzers and 4 Rhinotanks, which work as in Neo Green Hill, and two kinds of its own:
+
+| Kind | Enemy | Count | Animations | What it does |
+| ---: | :--- | ---: | :--- | :--- |
+| 11 | Leon | 5 | `430` | A chameleon that walks its range at 0.625 px a frame and shoots its tongue at Sonic when he is in front of it |
+| 13 | Wamu | 1 | `431` | A flying snake whose head swings on an arc, trailing two body and two tail segments |
+
+**Leon** (`Task_LeonInit`, `0x0806E7C0`) starts walking left and follows the ground, found 3 px below its position. Its range runs from `d0` to `d0 + d2` tiles from its spawn point. At an end, facing out of the range, it turns round and stands still for 14 frames. When Sonic is within 80 px in front of it, and between 32 px above it and 8 px below it, it stands still and shoots its tongue for 31 frames. The tongue's box (slot 1 of its sprite) hurts Sonic; its body's box (slot 0) is the one he attacks or is hurt by. After a shot it has to walk 60 frames before it can shoot again, counted only on frames it walks inside its range. In the original, Angel Island has no Leons on Easy; this game has no difficulty setting.
+
+The original never sets that count when it makes a Leon (`unk4E`, `+0x4E` in its task): it starts with whatever the memory held. In the recordings it held 360 or 328 (another task's leftover x position), which held back the first shot by more than 300 walking frames, so a Leon Sonic walks straight past doesn't shoot. That can't be reproduced, and this game starts the count at 0. The tongue's box also stays set after a shot, and the next shot checks it on its first frame, before the script moves it, so the tongue hurts from where it last was. The decompilation's C counts down the wrong field (`unk4C`); the ROM counts down `unk4E`.
+
+**Wamu** (`Task_Wamu`, `0x0806EFF8`) moves its head every frame by the cosine and sine of an angle (1024 a turn, ±16384 in the sine table): the cosine divided by 80 − 4 × `d3` across and the sine divided by 80 down, in 1/256 px (act 1's Wamu has `d3` = 2). The angle starts at 100. Facing left, it steps by 5 up to 612, then by −8 down to 412, and back. Facing right, it steps by 5 either way between 100 and 924, the short way round over 0. At the end of a swing, if the head is at most `d0` tiles from its spawn point facing left, or at least `d0 + d2` tiles from it facing right, the Wamu turns round: every sprite flips and the angle's bit `0x100` toggles. The Wamu keeps its head's last 64 positions. Its segments, drawn after the head, are a tail, a tail, a body and a body: each takes its x from where the head was 24, 19, 14 and 7 frames before, moved out by half its distance from the head, and its y from 40, 30, 20 and 10 frames before. Each sprite's animation steps once a frame, as its first segment is drawn. Only the head can be destroyed. Each segment's box hurts Sonic where the segment is drawn; the decompilation's C tests it at the head's position.
+
+### Freed animals
+
+A defeat frees the next of the zone's three animals (`sAnimsTrappedAnimals`, `0x681154`; `CreateTrappedAnimal`, `0x08054920`), in turn: one counter (`0x0300501C`) for every zone. The zone is the level's index halved.
+
+| Levels | Zone | Animals |
+| :--- | :--- | :--- |
+| 0–1 | Neo Green Hill | otter `445`, koala `450`, kangaroo `449` (hops) |
+| 2–3 | Secret Base | mole `441`, skunk `447` (hops), robin `448` (flies) |
+| 4–5 | Casino Paradise | lion `440`, peacock `439` (hops), parrot `442` (flies) |
+| 6–7 | Ice Mountain | otter `445`, seal `437`, penguin `443` (hops) |
+| 8–9 | Angel Island | elephant `451`, lion `440`, gorilla `438` (hops) |
+| 10–11 | Egg Rocket, Cosmic Angel | mole `441`, deer `446` (hops), rabbit `444` (hops) |
+
+One that sits or hops first hops up at 4 px a frame and lands on the ground; it then sits there, or hops away to the left at 2 px a frame. A flying one (`CreateFlyingAnimal`, `0x08054460`) flies left at 3.2 px a frame, its heading swinging between straight left and 45° up by 6 (1024 a turn) a frame, starting halfway. Each goes once it is more than 32 px off the screen. The table stops after Egg Rocket's zone: from level 12 on, the original reads the next table's bytes as animals. X Zone and the Moon have only bosses, so it doesn't show there; this game frees no animal past the table.
+
+### Spikes pointing right
+
+Kind 4 is the left-pointing spikes unflipped: animation `454`, variant 3. Act 1 has one, at (4800, 1760). Its top and bottom are only solid. It hurts Sonic through its right face and plays song 171. Touching its left (back) face puts him out past its right face (`Task_Spikes_Horizontal`).
+
+### Torches
+
+Act 1 has fifteen torches, kind 87, in the ruins between x 3176 and 4496. A torch is a flame, animation `558`: four frames, 8 frames each. It has no box. It is drawn behind the other sprites (OAM order 28). Its animation steps before it is drawn, from the frame the torch is made. It goes when its spawn point leaves the range. In Cosmic Angel the same kind is the antigravity unit, with its own animations; that variant isn't built.
+
+### Lava
+
+Kind 105 draws nothing. It is an area from its spawn point, `d2` × 8 px across and `d3` × 8 px down, edges included. On every frame Sonic's centre is in it, while he is alive and no object carries him: with `d0` 0 it hurts him as spikes do (`Coll_DamagePlayer`), unless he is invincible; with any other `d0` it kills him on the spot, and he keeps his speeds as he dies. Act 1's one pool is at (4416, 1296), 192 × 32 px with `d0` 1, at the foot of the waterfalls. The lava goes when its spawn point leaves the range.
+
+### Waterfalls in Angel Island
+
+Zone 5 runs its own waterfall task (`Task_WaterfallZone5`), chosen by the zone when the waterfall is made. The area is the same as Neo Green Hill's: `d2` × 8 px wide and `d3` × 8 px tall, starting `d1` × 8 px below the spawn point. Act 1 has eight waterfalls, two columns of four at x 4416 and 4512, from y 904 to 1288, each 96 × 128 px.
+
+On every frame Sonic is in the area, alive and not moving up, the waterfall holds him:
+
+1. On the first frame it holds him, it plays song 201 on the second sound-effect player.
+2. It cancels flying and the boost (as `Player_TransitionCancelFlyingAndBoost` does).
+3. With no jump press, it puts him on his feet and out of the air, with no ground under him, clears the spin attack, sinks him 176/256 px and stops any fall.
+4. Left held adds 4/256 px a frame to his ground speed and right held takes 4/256 away, the other way round from the d-pad. With neither held, a twentieth of his ground speed goes, rounded toward zero (on the 8.8 value).
+5. A jump press instead throws him up at 624/256 px a frame, in the jump's animation. It doesn't curl him or put him in the air.
+
+The splash is zone 5's, animation `552`, drawn at his centre 10 px lower, in OAM order 5, priority 2. Unlike Neo Green Hill's, it animates on every frame, whether or not it is drawn. When Sonic is out of the area while the sound still plays, or when the waterfall goes, the waterfall fades the second sound-effect player out (`m4aMPlayFadeOut(&gMPlayInfo_SE2, 4)`).
+
+Both zones' waterfalls, and the lava, would halve his falling speed when they go with him inside. The flag they test (`unk3A`) is never set.
+
+### Rolling boulders
+
+Kind 92 is a boulder spawner (`boulder_spawner.c`). It draws nothing. On every frame where the stage clock (`gStageTime`, `0x03005120`) is a multiple of 120, it lets a boulder go at its spawn point. It goes once that point is more than 128 px off the screen; the boulders it made keep going. Act 1 has four, at (2944, 808), (3232, 1000), (3520, 1288) and (4000, 1576), all with `d0` 1.
+
+A boulder (`Task_BoulderMain`, `0x0808FD30`) is animation `457`, four frames of 4, with the box (−14, −30, 13, −2). It keeps its position as 8.8 fixed point from its spawn point and starts rolling right at 64/256 px a frame. Each frame:
+
+1. It works out its position from the start of the frame. It is drawn there at the end.
+2. It leaves if it is off the screen (128 px margin). The test meant to keep it while its spawn point is near reads that point's world position as a place on the screen, so it never holds.
+3. If Sonic is alive and its box meets his, it hurts him (`Coll_DamagePlayer`).
+4. It reads the floor on layer 1 at its bottom (`sub_801F07C`):
+   - *Falling:* at or above the floor, it gains 32/256 px a frame. Below it, it lands and its vertical speed goes to 0. It lands `d0` times and breaks on the next landing.
+   - *Rolling, floor more than 5 px down:* it starts to fall, with 2/5 of its speed across (truncated, made positive) as its first downward speed.
+   - *Rolling otherwise:* it moves by the distance plus 2, which settles it 2 px into the floor, and speeds up by the cosine of the floor's angle over 1250 (literal `0x4E2` at `0x08090038`), 13/256 px a frame on the flat. Where the tile at its bottom is empty, `sub_801F07C` leaves the angle alone and the boulder uses whatever its stack slot held: in every recording that adds 3/256 px a frame (an angle of 52 to 54), and so does this game.
+5. It moves by its speeds.
+
+A breaking boulder leaves the same four pieces as a broken standing boulder (`Task_BoulderDebris`) and plays song 144 when it is in the camera's range. The pieces' transform starts at the camera's position on that frame, 16 px lower than a standing boulder's. The original also gives the small pieces the large ones' VRAM size and the other way round, with no visible effect.
+
+Angel Island's kind 16 decorations are Neo Green Hill's boulders, with the same animation `458` and no zone branch. Act 1 has two, at (4384, 584) and (1296, 1640).
+
+### Whirlwinds
+
+Kind 90 (`Task_PlayerFloatMain`, `0x0808EF90`) is an area with nothing drawn, from its spawn point `d2` tiles across and `d3` tiles down, edges included. Act 1 stacks three up its shaft at x 3072, each 12 × 16 tiles, with the updraft's debris (kind 97) drawn inside. It runs before Sonic's own frame, at priority `0x2000`. On every frame his centre is inside it and he is alive, it takes 104/256 px off his vertical speed and caps his rise at 2.25 px a frame, sets him in the air, cancels flying and the boost (`Player_TransitionCancelFlyingAndBoost`, `0x08046CB8`: his push, spin dash and jump flags and his mid-air counters) and gives him a state: 37, the whirlwind spin (animation 42), when `d0` is 0, and otherwise 17, the spring's somersault. With gravity added in his own frame he rises a steady 534/256 px a frame. When he is more than 4 px above the floor under his centre (the one-tile probe `sub_801F100`, `0x080401E8`), it also clears his spin attack, without changing his hitbox height, so a Sonic who jumps in curled loses his attack but keeps the ball's height until he lands.
+
+A whirlwind with `d0` 0 plays song 200 on the frame it first lifts Sonic while he isn't spinning already, fades the second sound-effect player out on any frame he isn't spinning, and stops song 200 when its spawn point leaves the camera's range. Leaving would also halve his falling speed, behind the same never-set flag as the waterfalls'.
+
+### Hiding spikes
+
+Kinds 5 and 6 (`Task_Spikes_HidingUp`, `0x08020A1C`, its per-player routine at `0x08020EFC`; the down ones are the same, upside down) follow the stage clock, `gStageTime % 128`. Their data bytes aren't read.
+
+| Clock | Shown | Solid |
+| ---: | :--- | :--- |
+| 0–59 | nothing | no |
+| 60–61 | animation `454`, variant 0 | no |
+| 62–63 | variant 1 | no |
+| 64–123 | variant 2, the plain spikes | yes |
+| 124–125 | variant 1 | no |
+| 126–127 | variant 0 | no |
+
+On their first frame up, if Sonic's body box overlaps theirs, he is put on whole pixels on top of them (below them for the down ones) and hurt. Otherwise the up ones are a platform on that frame and the down ones aren't solid. For the rest of the up phase they are a platform: the up ones hurt him when he lands on them, the down ones when he bumps them from below. On every frame they aren't up, they drop him into the air if he stands on them and stop his push if the last test found one. With the gravity flipped (Cosmic Angel) the two kinds swap their tests; this game has no flipped gravity yet. Act 1 has two sets of up spikes, at (912, 1056) and (7856, 1584).
+
+### Skating stones
+
+Kind 84 (`CreateEntity_SkatingStone`, `0x0808C4BC`; `Task_SkatingStoneInit`, `0x0808C628`, while it waits and `Task_SkatingStone2`, `0x0808C970`, while it slides) waits at its spawn point until Sonic lands on it (`Coll_Player_SkatingStone`, a top-only test). He is then put in the air 44 px above the spawn point, standing, and lands on it as it starts to slide: left when `d1` is set, right otherwise. Each frame on the ground its speed changes by the cosine of four times the floor's angle over 1440 one way and Sonic is nudged by it over 6070 the other way; it settles 3 px into the floor and moves by twice its speed. Where the floor is more than 5 px below it, it leaves the ground: in Angel Island it leaps, up by 3/5 of its speed across, and in Ice Mountain it drops, down by 2/5; it then falls, gaining 32/256 px a frame, until the one-tile probe finds the floor. Each landing plays song 198 and uses up one of `d0` hops; the landing after the last one breaks it, and so does a wall tile 18 px to its right and 30 px up. Breaking throws Sonic up at 3 px a frame with the stone's speed, in the spin animation, stops song 198, plays song 143 and leaves four pieces (`CreateSkatingStoneDebris`, `0x0808D6EC`), two large and two small, that grow from 3/4 size, turn and fall for 61 frames as the boulder's do. While it carries him, walls either side of his centre push him off, it keeps him while his body overlaps its box raised 12 px, and a wall ahead knocks him off curled with no speed across. It is drawn 46 px below him (42 curled). It goes when its spawn point leaves the range, and a sliding one only when its current place has left the screen too.
+
+Angel Island's stone is animation `547` (48 × 32, box (−24, −30, 24, 0)) with pieces `548` and `549`; Ice Mountain's is `529` with pieces `553` and `554`. Act 1 has two, at (2184, 704), which hops once and slides left, and at (6120, 2144), which slides right.
+
+### Lifts, bowls, run wheels and updraft debris
+
+Angel Island Zone carries Sonic with three kinds of object, and its whirlwinds have a fourth for show. The interactables' create table is at `0x080B806C` in the USA ROM (one pointer per kind). Every task here runs at priority `0x2000`, before Sonic's own frame, so it sees the input of the frame before. None of them reads its `d` bytes except the run wheel. Act 1 has 3 lifts, 2 bowls, 10 run wheels and 7 updraft debris; act 2 has 2 lifts, 7 run wheels and 8 debris; Casino Paradise has bowls too (2 in act 1, 4 in act 2).
+
+**Lift** (kind 88, the lift half of `crane_claw_and_lift.c`). `CreateEntity_Lift` is at `0x0808A608`, and its tasks are `Task_LiftMain` `0x0808A768` (waiting), `Task_Lift2` `0x0808A950` (rising), `Task_Lift3` `0x0808AB68` (holding him at the top) and `Task_Lift4` `0x0808AD6C` (going back down). It is a handle (animation 545 variant 1, OAM order 15) under a chain of four links (variant 0, order 17). The links are drawn 16, 48, 80 and 112 px above the handle, but only 16, 32, 48 and 64 px above it while it holds Sonic at the top.
+- *Waiting:* the lift catches him whenever his body box touches the handle's box, at any speed, on the ground or in the air.
+  - It sets `MOVESTATE_IA_OVERRIDE` and zeroes all three speeds.
+  - It calls `Player_TransitionCancelFlyingAndBoost` (`0x08046CB8`) and gives him charState 38, which hangs him from the handle (animation 43).
+  - It starts SE_LIFT (181).
+- *Rising:* for 64 frames the handle climbs to 128 − (64 − t) × 128 / 64 px, rounded toward zero, above its spawn point.
+  - He hangs 3 px left of it if he faces right, or 8 px right of it if he faces left, 26 px below its top.
+  - On the 65th frame SE_LIFT stops.
+- *Holding:* a jump press lets him go.
+  - It clears `MOVESTATE_IA_OVERRIDE` and `FLIP_WITH_MOVE_DIR` and zeroes his speeds across.
+  - It sets his Y speed to −4 px a frame (`0xFC00`), calls the cancel again and gives him charState 5, the spin (`0x55` for Amy).
+  - He keeps whether he was in the air. So if he was caught standing, his ground code takes over on that same frame and wipes the throw, and he just drops.
+- *Going back down:* 60 frames after it lets him go, the handle slides back down over 30 frames, at (30 − t) × 128 / 30 px. It can then catch him again.
+- *Dying:* if he dies while held, the lift lets go of him and goes back down.
+- *Leaving:* the lift goes once its spawn point is out of the display's range and the handle is out of the camera's range. At the top it checks this before the jump press. It would go even while it holds him.
+
+**Bowl** (kind 62, `bowl.c`). `CreateEntity_Bowl` is at `0x08080438`; the tasks are `Task_Bowl` `0x0808056C` (waiting), `Task_BowlRotating` `0x08080880` (sinking with Sonic) and `Task_Bowl3` `0x08080F90` (down).
+- *Look:* the animation comes from `sBowlAnimations[gCurrentLevel]`: 546 in zone 5 and 486 everywhere else. Its tiles are always allocated for 486. It is drawn in OAM order 5 with BG priority 2, and stepped once when it is made.
+- *Catch:* the bowl's box sits 5 px below it and 10 px toward the side away from Sonic. When his body box touches it, the bowl takes him:
+  - its speed becomes |X speed| × 4, in 1/8192 px a frame, so a quarter of his speed across;
+  - the angle he starts his swing at, `0x300` + |(x − bowl x + 48) × 512 / 96|, comes from his place across the bowl;
+  - it clears his jump press, cancels his moves as the lift does, gives him charState 5 and sets `MOVESTATE_IA_OVERRIDE`;
+  - it plays SE_BOWL (206). SE_BOWL_2 (207) and SE_BOWL_3 (208) follow 56 and 112 frames after the catch.
+- *Sinking:* every frame:
+  - he is put at x = bowl x + sin(θ) × 25 / (4n + 50), with θ = depth / 256 + start + (n mod 16) × 64, where n counts the frames since the bottom. That is a ±32 px swing that closes in at the bottom.
+  - His y is put at bowl y − 17 + the depth.
+  - The speed grows by 64 a frame, up to `0x8000` (4 px a frame). The animation runs at min(16, speed × 35 / `0xA000`) sixteenths of its speed.
+  - It sinks 108 px in all (885 000 / 8192).
+- *At the bottom:* every frame it sets his Y speed to (speed / 4 − 2000) × 2 / 256 px and puts him a further n × 180/256 px down, which stops at 11.25 px after 16 frames.
+- *Release:* after 65 frames it lets him go in the middle of the bowl.
+  - It sets `IN_AIR`, `SPIN_ATTACK` and `FLIP_WITH_MOVE_DIR` and clears `IA_OVERRIDE`.
+  - His hitbox keeps its height, and he can't steer until the insta-shield.
+  - The bowl then stays down and keeps counting its sounds, but catches nothing again.
+- *Leaving:* the bowl goes when its spawn point is out of the display's range and the drawn bowl is out of the camera's range, even while it holds him.
+
+**Run wheel** (kind 86, `run_wheel.c`). `CreateEntity_RunWheel` is at `0x0808E484`, and `Task_RunWheel` at `0x0808E5A8` runs `sub_808EA80` when Sonic isn't on it and `sub_808EC84` when he is.
+- *Track:* `d0` × 45° clockwise from the right gives its direction, and `d2` × 16.875 px (4320/256) its length. The direction is rounded down to whole pixels first (`Div(COS, 6000)`), so the wheel moves 2 px every 12.5 px of travel, and 1 px each way on a diagonal.
+- *Look:* animation 542, variant 1 turning forward and variant 0 back, stepped at |speed| / 28 sixteenths and only while it moves.
+- *Not on it:* it is a solid platform (`Coll_Player_Platform`).
+  - Landing on it gives him its speed as his ground speed.
+  - It rolls back 12/256 px a frame faster every frame until it is back at its start.
+- *On it, running:*
+  - he is held on its top and runs on the spot, x = wheel x − X speed;
+  - its speed becomes his ground speed − 16, doubled when forward, up to 2848 (11.125 px a frame);
+  - while it rolls back and he isn't running forward, he is pulled back a quarter pixel a frame faster every frame, unless he is sliding;
+  - his ground speed is kept between −9 and 4.5 px a frame;
+  - back at its start it stops, and stops him too unless he is attacking.
+- *On it, jumping or attacking:* in the air he leaves it with at most 1.125 px a frame across. Attacking on it keeps at most 2.25 px a frame.
+- *Hurt or dead:* he is let go.
+- *Sounds:* SE_RUN_WHEEL_A (212) every 25 frames while it is slower than 5 px a frame, B (213) every 16 below 8.1, C (214) every 8 above. The count restarts when he lands on it or leaves it.
+
+**Updraft debris** (kind 97, `updraft.c`). `CreateEntity_Interactable097` is at `0x0809215C` and `Task_Interactable097` at `0x0809226C`. It is only a sprite at its spawn point (OAM order 18, BG priority 2), not stepped when it is made.
+- *Look:* `d0` = 0 shows animation 564 (an 8 × 8 piece, 4 frames a step), `d0` = 1 shows 566 (8 × 8, 5 frames) and anything else 565 (8 × 16, 6 frames). Each rises 64 px, 8 px a step, and starts over.
+- *Leaving:* it goes when its spawn point leaves the camera's range.
+- Act 1 puts the debris inside the three whirlwinds (kind 90) of its shaft at x 3072.
+
+### Iron balls
+
+Kind 82 is a spiked iron ball (`iron_ball.c`; `CreateEntity_IronBall` at `0x0808B999`, entry 82 of the interactables' table at `0x080B806C`, and `Task_IronBallMain` at `0x0808BB11` in the USA ROM). Angel Island act 1 has two over the pit at x 1352–1512: (1352, 1232) and (1512, 1232), both with `d2` 7 and `d3` 2, the second with `d0` 251. Egg Rocket has three, at (3136, 1408), (2656, 1448) and (2664, 1728).
+
+It swings with the stage clock (`gStageTime`, `0x03005120`): across when `d2` > `d3`, else up and down, by `d2` × 8 (or `d3` × 8) px times the sine of 4 × ((stage clock + phase) & 255), in 1024ths of a turn (the sine table at `0x0809B3F0`, ±16384). So it makes one swing every 256 frames, either way of its spawn point. The phase is 128, half a swing later, when `d0` (across) or `d1` (up and down) is negative as a signed byte. Act 1's second ball swings opposite to the first.
+
+It is animation `541` in Angel Island and `510` everywhere else (`LEVEL_TO_ZONE(gCurrentLevel) == ZONE_5`, at `0x0808BA98`), in OAM order 18 at priority 2. Its sprite runs its script only once, when the ball is made, so its frame and its box, (−20, −20, 20, 20), never change. It isn't solid. On every frame Sonic is alive and his body touches that box where the ball is (`Coll_Player_Entity_Intersection`, `0x0800CE34`), it hurts him as spikes do (`Coll_DamagePlayer`). It goes when both its spawn point and where it is are outside the range around the camera.
+
+### Objects shared with Ice Mountain
+
+The moving springs (kind 81), square platforms (55), sinking platforms (85) and the breakable wall (114) are Ice Mountain's code with zone 5's looks (see *Zone 5's own look*); the moving springs keep the default animation `540`, variants 0 and 1. Placed on one of each in act 1, Sonic and the camera match mGBA on every frame, and so does the picture apart from objects that weren't built when it was checked.
+
+### How it was checked
+
+mGBA 0.10.5 started level 8 from the character select, with `gCurrentLevel` held at 8 (instruction by instruction) until the game had written it, and recorded IWRAM, OAM, palettes, the I/O registers and a screenshot of each frame. Engine step *k* matches the recording's frame 3858 + *k* in IWRAM (Sonic, the camera, the ring count at `0x03004FEC`, the course time at `0x03005034` and the stage clock at `0x03005120`), and its picture is the screenshot of frame 3859 + *k*. Recordings that start elsewhere in the act move Sonic there on one frame, in both.
+
+- *From the start to the goal:* a run from the act's first frame, found by searching the engine for inputs and then played in mGBA. It goes past the waterfalls, through a whirlwind and over the bounce blocks, up the run wheels and a lift from the third checkpoint, round the top of the act and down the shaft beyond it, down the long slope onto the skating stone, and from the fourth checkpoint on a lift and the platforms to the goal, defeating five enemies and passing three of the four checkpoints with 87 rings. Sonic, the camera, the rings and both clocks match on all 9,290 frames up to the goal post, where the original stops the clock for the act's end. One Leon, at (4672, 560), has its first-shot count set to 0 in the original as well: left as it was, it held 2,064 and never shot, so Sonic missed it, where the engine's Leon had stopped to shoot and he bounced off it. Of every tenth picture, 925 of 929 are identical. On one, a defeated enemy's score rises across the ring counter: the GBA puts a lower OAM order in front of the counter whatever their priorities, and the renderer always draws the HUD on top. On the last three, the original's goal sign comes on screen.
+- *Title card, background and clouds:* the first 541 frames, waiting through the card, are pixel-identical, the fade, the blending and the cloud scroll included; so are the first 435 frames of a run walking right, up to where the first Leon comes on screen. The whole 640-frame walk matches in state when the engine's first Leon starts with the 360 the original's memory held.
+- *Music:* the stage init starts song 20 on frame 3856, and the sound engine first sequences it on the next. A fresh port of the engine that only starts the song there stays identical to mGBA's for the 1,344 frames recorded (3857 to 5200): every active track of the BGM player (flags, wait, key, volume, command pointer) and every byte the DirectSound mixer writes. The Game Boy channels' readable registers match on every frame too once the port's envelope counter (`c15`, which counts 14 to 0 every frame since the sound engine started) is given mGBA's phase; started from 0, as the browser starts it, a PSG note can end a frame early or late, as that phase depends on how long the menus took.
+- *Objects every zone has:* recordings that move Sonic onto act 1's bounce blocks, its moving thin platform and falling platforms, its up, big, left, small up-left and down springs, two boosters, the grind rail, the second incline ramp and the first checkpoint match the engine on every frame.
+- *Enemies:* nine recordings dumped the whole of IWRAM after every frame. Sonic walks past the first Leon, with its first-shot count poked to 0, waits in its tongue's reach until it hits him, and destroys a Leon. Beside the Wamu he waits through its swings and turns, destroys its head with a jump, and is hurt by one of its segments and, in another run, by its head, through the restart. Two more runs poke the level number for the frame of the Wamu's defeat to free Secret Base's robin and Casino Paradise's parrot. The whole game matches all of them on every frame (7,990 in all): Sonic, the camera, the rings, the stage clock and the score. The picture is pixel-identical on 1,936 of the 1,953 frames compared; on the other 17 a moving spring (kind 81), which wasn't built when they were checked, shows in the original.
+- *Whirlwinds, hiding spikes and skating stones:* Sonic dropped at the bottom of the lowest whirlwind rides all three to the top, with left and right held at times and a jump pressed inside, hovers at the top edge and steps onto the ledge (420 frames), and jumps curled into the top one (200 frames). He stands beside the first hiding spikes through two cycles (240 of 240 frames pixel-identical), stands where they come up, is dropped onto them while they are up, and, invulnerable, stands on them as they sink and rise again; a fifth run lands in the second set (453 frames compared in all, every one pixel-identical). He rides both skating stones to their break (600 and 1000 frames; 40 of 40 and 45 of 50 pictures, the others showing objects that weren't built then). Sonic, the camera, the rings and both clocks match on every frame.
+- *Lifts, bowls, run wheels and updraft debris:* five lift runs (caught standing, so the throw is wiped; caught in the air and thrown; a full cycle, caught again facing left; the lift at (5128, 1344); let go over a pit, through the death and restart), three bowl runs (caught slowly and carried to the landing, caught fast, and the second bowl run into from below), five run wheel runs (landing, driving, rolling back, running back, jumping off and landing again; a wheel moving down and one moving up; the end of the track, the speed cap and the B attack on it; a diagonal one) and three runs past and through the updrafts. Sonic, the camera, the rings and both clocks match on every frame of all of them, and every picture compared matches apart from a moving block that wasn't built then (the diagonal wheel's pictures weren't compared).
+- *Iron balls:* Sonic with 5 rings just right of the first ball's reach is hit when it swings into him, on the same frame in both, and knocked back (120 frames, 60/60 pictures); moved into each ball he is hit on the frame he arrives (120 frames each); with no rings the first ball kills him, through the restart and the title card (200 frames, 67/67 pictures); and standing either side of the pit he watches both swing past (300 frames each, 119 of 120 pictures). Sonic, the camera, the rings and both clocks match on every frame; the few pictures that differ do so at the screen's edges, away from the balls.
+- *Spikes, torches, waterfalls, lava and boulders:* the right-pointing spikes stood on (120 frames) and touched from behind (80); three runs past the torches (70, 67 and 67 frames, pixel-identical); riding the waterfalls down into the lava (120 frames, 39 of 40 pictures; on the death frame mGBA shows the GBA's sprite-priority quirk, which the renderer doesn't copy); holding left, then right, then jumping in a waterfall (220 frames, 55/55 pictures) and under a ceiling (150 frames, 50/50); watching the boulders roll, where every boulder's position matches on every frame; hit by one with 5 rings (330 frames, 110/110 pictures); and invincible, so one lands twice and breaks (330 frames, 165/165 pictures, every piece included). Landing on a kind 16 boulder and breaking it matched for 130 frames; one colour of its pieces differs, as the dust cloud loads its palette into the pieces' row in the original. All of them match in state on every frame.
+
+Read in the code only: Sonic dying while a lift or bowl holds him, one of them leaving while it holds him, the run wheel's hurt path, the bowls outside zone 5 (animation `486`), the lift's, bowl's and run wheel's sounds, Leon's absence on Easy, the stale tongue box on a later shot, the animal table past level 12, the sitting and hopping animals of zones other than Neo Green Hill and Angel Island (same code, unrecorded sprites), the lava's hurting variant, songs 201 and 144 (checked as the engine's calls, not against the ROM's audio), a boulder breaking off the camera, a spawner leaving while its boulders still roll, and the swapped VRAM of the pieces, a whirlwind with `d0` set and its sounds, the down hiding spikes (none in act 1), the iron ball's other look (`510`) and its up-and-down swing, Ice Mountain's skating stones and their drop, and songs 198 and 143.
 
 ## Sonic Advance 2, for Boost Mode
 

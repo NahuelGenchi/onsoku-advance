@@ -37,6 +37,8 @@ export const SONIC_ANIMATIONS = {
   pole: [38, 0], flagSwing: [37, 0],
   // holding on to a carousel (charState 33)
   carouselRide: [40, 0],
+  // hanging from a lift (charState 38)
+  lift: [43, 0],
   // grinding (charState 16; variant 1 on a rail's steep parts) and jumping off a rail before its end (20)
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
@@ -51,6 +53,8 @@ export const SONIC_ANIMATIONS = {
   marbleTrack: [39, 0],
   // a breath from an air bubble under water (charState 27)
   breathe: [17, 0],
+  // spinning in a whirlwind (charState 37)
+  float: [42, 0],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -81,6 +85,8 @@ export const ENEMY_ANIMATIONS = {
   406: { keroJump: 0, keroCroak: 1 },
   407: { dustCloud: 0 },
   709: { score0: 0, score1: 1, score2: 2, score3: 3, score4: 4 },
+  430: { leonWalk: 0, leonShoot: 1, leonTurn: 2 },
+  431: { wamuHead: 0, wamuBody: 1, wamuTail: 2 },
   437: { animalSeal: 0 }, 438: { animalGorilla: 0 }, 439: { animalPeacock: 0 }, 440: { animalLion: 0 },
   441: { animalMole: 0 }, 442: { animalParrot: 0 }, 443: { animalPenguin: 0 }, 444: { animalRabbit: 0 },
   445: { animalOtter: 0 }, 446: { animalDeer: 0 }, 447: { animalSkunk: 0 }, 448: { animalRobin: 0 },
@@ -124,8 +130,8 @@ export const PLATFORM_ANIMATIONS = {
 };
 // a ferris wheel's seat (463; other levels have their own, levels.js `sprites`), hub (530) and spokes (531)
 export const FERRIS_WHEEL_ANIMATIONS = { 530: { ferrisHub: 0 }, 531: { ferrisSpoke: 0 } };
-// the boulders (458), and the small and large pieces a broken one leaves (459, 460)
-export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
+// the boulders (458), Angel Island's rolling ones (457), and the small and large pieces a broken one leaves (459, 460)
+export const ROCK_ANIMATIONS = { 457: { fallingBoulder: 0 }, 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // Ice Mountain's objects: the block of ice (555) and the large and small pieces a broken one leaves (556, 557),
 // and the underwater lava platform's pool (561), spurt (560) and platform (525)
 export const ICE_MOUNTAIN_ANIMATIONS = {
@@ -138,6 +144,8 @@ export const WALL_ANIMATIONS = { 559: { breakableWall: 0 } };
 export const MOVING_SPRING_ANIMATIONS = { 540: { movingSpring: 0, movingSpringLaunch: 1 } };
 // the square platform (494); other zones have their own, and some a longer one too (levels.js `sprites`)
 export const SQUARE_PLATFORM_ANIMATIONS = { 494: { squarePlatform: 0 } };
+// the iron ball (510); Angel Island has its own (levels.js `sprites`)
+export const IRON_BALL_ANIMATIONS = { 510: { ironBall: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // an act's water: its surface (563) and the splash where Sonic goes in or out (581), the drowning countdown's
@@ -160,6 +168,8 @@ export const STONE_ANIMATIONS = {
 };
 // the speed boosters (471): flat, on a slight slope up to the right, and up to the left
 export const BOOSTER_ANIMATIONS = { 471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 } };
+// Angel Island's torches (558)
+export const TORCH_ANIMATIONS = { 558: { torch: 0 } };
 // the checkpoints (452): waiting, spinning as Sonic passes (its script starts song 169, which the game plays,
 // src/engine/checkpoints.js), and passed
 export const CHECKPOINT_ANIMATIONS = { 452: { checkpoint: 0, checkpointSpin: 1, checkpointPassed: 2 } };
@@ -261,6 +271,11 @@ export const FLIPPER_ANIMATIONS = {
 export const LETTER_ANIMATIONS = { 492: Object.fromEntries(Array.from({ length: 32 }, (_, v) => [`segaLetter${v}`, v])) };
 // the small Barrel of Doom (493)
 export const BARREL_ANIMATIONS = { 493: { barrelMini: 0 } };
+// Angel Island Zone's carriers: the run wheel turning back and forward (542), the lift's handle and a link of
+// its chain (545) (the bowl's look, 546, is Angel Island's `sprites` in levels.js)
+export const CARRIER_ANIMATIONS = { 542: { runWheelBack: 0, runWheel: 1 }, 545: { liftHandle: 1, liftChain: 0 } };
+// the three kinds of debris rising in Angel Island Zone's whirlwinds (564 to 566)
+export const UPDRAFT_ANIMATIONS = { 564: { debrisA: 0 }, 565: { debrisB: 0 }, 566: { debrisC: 0 } };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -358,7 +373,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true, under: underYellow },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...SHRUB_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GOAL_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_HAMMER_TANK_ANIMATIONS, ...CAPSULE_ANIMATIONS, ...SPECIAL_SPRING_ANIMATIONS, ...STEAM_EXHAUST_ANIMATIONS, ...EGG_PRESS_ANIMATIONS, ...HOOK_RAIL_ANIMATIONS, ...SECURITY_GATE_ANIMATIONS, ...HOOK_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...PIPE_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...STONE_ANIMATIONS, ...(water ? UNDERWATER_ANIMATIONS : {}), ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...BARREL_ANIMATIONS, ...BOWL_ANIMATIONS, ...BUMPER_ANIMATIONS, ...CAROUSEL_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...PANEL_GATE_ANIMATIONS, ...RED_FLAG_ANIMATIONS, ...SHIP_SWING_ANIMATIONS, ...SPIKED_PLATFORM_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...CARRIER_ANIMATIONS, ...IRON_BALL_ANIMATIONS, ...TORCH_ANIMATIONS, ...UPDRAFT_ANIMATIONS, ...WALL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...SHRUB_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GOAL_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_HAMMER_TANK_ANIMATIONS, ...CAPSULE_ANIMATIONS, ...SPECIAL_SPRING_ANIMATIONS, ...STEAM_EXHAUST_ANIMATIONS, ...EGG_PRESS_ANIMATIONS, ...HOOK_RAIL_ANIMATIONS, ...SECURITY_GATE_ANIMATIONS, ...HOOK_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...PIPE_ANIMATIONS, ...MOVING_SPRING_ANIMATIONS, ...STONE_ANIMATIONS, ...(water ? UNDERWATER_ANIMATIONS : {}), ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...BARREL_ANIMATIONS, ...BOWL_ANIMATIONS, ...BUMPER_ANIMATIONS, ...CAROUSEL_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...PANEL_GATE_ANIMATIONS, ...RED_FLAG_ANIMATIONS, ...SHIP_SWING_ANIMATIONS, ...SPIKED_PLATFORM_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
@@ -523,6 +538,13 @@ function extractStage(rom, offsets, tables, info) {
   const count = collision.metatiles.length / 144;
   const layerBanks = mapBanks(rom, front, count * front.xTiles * front.yTiles);
   const skyBanks = mapBanks(rom, background, background.xTiles * background.yTiles);
+  let clouds = null;
+  if (info.clouds !== undefined) {
+    // drawn with the stage's palette (its own isn't loaded), colour 0 transparent
+    const map = tilemapHeader(rom, offsets.tilemaps, info.clouds);
+    const v = paletteVariants(palette, animations, mapBanks(rom, map, map.xTiles * map.yTiles));
+    clouds = { canvases: v.palettes.map(p => toCanvas(renderPlainMap(rom, map, p, true))), follows: v.follows };
+  }
   const stage = {
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
     layers: { front: collision.layers[0], back: collision.layers[1] },
@@ -541,6 +563,7 @@ function extractStage(rom, offsets, tables, info) {
     atlas: null, background: null, backgrounds: null, indexed: null,
     snow: info.snow === undefined ? null : snowLayer(rom, tilemapHeader(rom, offsets.tilemaps, info.snow), palette, animations),
     water: info.water ? waterColors(rom, info.water, background, palette, animations) : null,
+    clouds,
   };
   if (variantCount(animations, layerBanks) > MAX_PALETTE_VARIANTS || variantCount(animations, skyBanks) > MAX_PALETTE_VARIANTS) {
     // the colours each animation frame loads, which the renderer applies over the stage's own

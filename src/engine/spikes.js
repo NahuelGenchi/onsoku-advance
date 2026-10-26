@@ -45,13 +45,6 @@ function side(o, p, world) {
   }
   return false;
 }
-function right(o, p, world) {
-  const hb = o.boxes[0], r = platform(o, hb, p, world.terrain);
-  if (r & (LANDED | FROM_BELOW)) return false;
-  if (r & LEFT_FACE) p.x = o.x + hb[2] + (SOX + 5) + 1;
-  else if (r & RIGHT_FACE) { if (world.damage()) world.playSound(SONG.SPIKES); }
-  return false;
-}
 
 /** The object for a spike entity, or null when `kind` is not one of the spikes built. */
 export function createSpikes(e) {

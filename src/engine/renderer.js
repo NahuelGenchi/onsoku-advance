@@ -41,6 +41,12 @@ function backgroundOffset(line, tick, cameraX) {
 // The lines that never scroll. The original screen only ever shows their first 240 columns, and they don't
 // repeat cleanly past their 256th: a big cloud is cut there.
 const STILL = line => line >= 40 && line < 88;
+// Angel Island's background (StageBgUpdate_Zone5Acts12) stands still, and Egg Rocket's clouds (BG0, in front of
+// it at the same priority) scroll left a pixel every 4 frames of the stage clock. They are blended over what is
+// behind them (BLDCNT 0x3F41, BLDALPHA 0x100C: 12/16 of the cloud and 16/16 of the background, each channel at
+// most 255, as mGBA mixes its 8-bit colours), except while the title card's fade sets the brightness decrease
+// in its place and on the frame the card ends, which switches the blending off.
+const cloudScroll = tick => (0x100 - (tick >>> 2)) & 0xFF;
 
 // what the renderers work out from the art once, kept for the next act's: each atlas's pixels, each sheet's copy
 // in the colours under water (by its pixels, the water's blend and the colours it swaps) and Boost Mode's sheet
@@ -661,6 +667,37 @@ export function createRenderer(canvas, assets) {
     ctx.globalCompositeOperation = 'source-over';
   }
 
+  // A still background with the clouds over it, put together pixel by pixel. The widescreen view shows the
+  // background mirrored past its edges and its top and bottom lines repeated, and the clouds' 256 columns
+  // repeated across, on the original screen's lines only.
+  const pixelsOf = new WeakMap();
+  const pixels = canvas => {
+    if (!pixelsOf.has(canvas)) pixelsOf.set(canvas, canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data);
+    return pixelsOf.get(canvas);
+  };
+  let backgroundImage = null;
+  function drawCloudBackground(tick, palettes, ox, oy, blend) {
+    const sky = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
+    const clouds = stage.clouds.canvases[paletteVariant(stage, stage.clouds.follows, palettes)];
+    const sp = pixels(sky), cp = pixels(clouds), sw = sky.width, sh = sky.height, cw = clouds.width, ch = clouds.height;
+    if (backgroundImage?.width !== W || backgroundImage?.height !== H) backgroundImage = new ImageData(W, H);
+    const d = backgroundImage.data, scroll = cloudScroll(tick - 1);
+    for (let line = 0; line < H; line++) {
+      const y = line - oy, sy = Math.min(Math.max(y, 0), sh - 1);
+      for (let x = 0; x < W; x++) {
+        const k = (line * W + x) * 4, rx = x - ox;
+        const sx = rx < 0 ? Math.min(-1 - rx, sw - 1) : rx >= sw ? Math.max(2 * sw - 1 - rx, 0) : rx;
+        const s = (sy * sw + sx) * 4;
+        d[k] = sp[s]; d[k + 1] = sp[s + 1]; d[k + 2] = sp[s + 2]; d[k + 3] = 255;
+        if (y < 0 || y >= ch) continue;
+        const c = (y * cw + mod(rx + scroll, cw)) * 4;
+        if (!cp[c + 3]) continue;
+        for (let i = 0; i < 3; i++) d[k + i] = blend ? Math.min(255, (cp[c + i] * 12 + d[k + i] * 16) >> 4) : cp[c + i];
+      }
+    }
+    ctx.putImageData(backgroundImage, 0, 0);
+  }
+
   // back to front: higher orders first, and the later entries of an order before the earlier ones
   function stack(list) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
@@ -735,6 +772,7 @@ export function createRenderer(canvas, assets) {
     } else {
       const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
       if (scroll) drawScrolled(background, tick - 1, ox, oy, cx, vy + oy, terrain);
+      else if (stage.clouds) drawCloudBackground(tick, palettes, ox, oy, !(titleCard?.fading || cardOver));
       else if (ice) for (let y = 0; y < split; y++) drawWrapped(background, ice.bgX, ice.bgY + y - oy, y, ox);
       else for (let line = 0; line < H; line++) {
         const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);

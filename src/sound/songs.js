@@ -82,4 +82,9 @@ export const SONG = {
   CAROUSEL_A: 209,         // SE_CAROUSEL_A, _B and _C: a carousel takes Sonic, and turns slowly, faster or fast
   CAROUSEL_B: 210,
   CAROUSEL_C: 211,
+  WHIRLWIND: 200,          // SE_200: a whirlwind (player float toggle) first lifting Sonic
+  WATERFALL: 201,          // SE_201: Angel Island's waterfalls, from when one first holds Sonic
+  RUN_WHEEL_SLOW: 212,     // SE_RUN_WHEEL_A, B and C: a run wheel turning, by its speed
+  RUN_WHEEL_MEDIUM: 213,
+  RUN_WHEEL_FAST: 214,
 };

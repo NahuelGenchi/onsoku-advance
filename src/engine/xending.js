@@ -2,7 +2,7 @@
 // src/game/sa1/stage/enemies/boss_x3_egg_x.c, sub_803A594 and Task_Strc10_803891C).
 
 import { SCREEN_W, SCREEN_H } from './constants.js';
-import { setCamBounds, debris, s16 } from './bosses.js';
+import { setCamBounds, debris, s16 } from './xbosses.js';
 
 const RIGHT = { left: false, right: true, up: false, down: false, jump: false, attack: false, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
 const FADE_FROM = 3072;   // Sonic's x where the screen starts to fade to white (qWorldX > 0xBFFFF)
@@ -40,7 +40,7 @@ export function normalEnding() {
         case 0:
           if (timer !== 0) timer--;
           else if (!p.air) {
-            p.forcedInput = RIGHT;
+            p.heldInput = RIGHT;
             setCamBounds(world.cam, { maxX: world.cam.width });
             phase++;
           }
@@ -54,7 +54,7 @@ export function normalEnding() {
           break;
         case 2:
           if (++timer > 128) {
-            p.forcedInput = null;
+            p.heldInput = null;
             p.xsp = 0; p.ysp = 0; p.gsp = 0;
             p.vanished = true;
             world.destroyTasks(0x2000, 0x2FFF);

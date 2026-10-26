@@ -11,7 +11,7 @@
 import { makeSprite, startAnim, animate } from './objects.js';
 import { tileFloor } from './terrain.js';
 import { SCREEN_W, SCREEN_H } from './constants.js';
-import { preBossCameraPan, setCamBounds, bossHit, bossShotHit, explosion, debris, eggMobileEscape, flashing, HIT_ENEMY, HIT_PLAYER, s16, I } from './bosses.js';
+import { preBossCameraPan, setCamBounds, bossHit, bossShotHit, explosion, debris, eggMobileEscape, flashing, HIT_ENEMY, HIT_PLAYER, s16, I } from './xbosses.js';
 
 const SE_BOSS_HIT = 143, SE_EXPLOSION = 144;
 const MUSIC_START = 0x15, MUSIC_END = 0x35;   // gMusicManagerState.unk1: boss song 5, then its end
@@ -80,7 +80,7 @@ export function eggDrillster(e, slot, anims, ctx) {
   // sub_8035AAC: the hit flash, then both sprites
   function show(ctx) {
     if (flashing(b, ctx.player)) b.window = true;
-    ctx.draw({ ...car, window: b.window }, b.x, b.y);
+    ctx.draw({ ...car, white: b.window }, b.x, b.y);
     ctx.draw(eggman, b.x, b.y);
   }
 
@@ -232,7 +232,7 @@ function drill(b) {
         ctx.draw(s, x, y);
         return ((qx + (192 << 8)) >>> 0) <= (SCREEN_W + 2 * WIDTH) << 8;
       }
-      s.flipX = b.car.flipX; s.window = b.window;
+      s.flipX = b.car.flipX; s.white = b.window;
       const x = b.x, y = b.y;
       if (b.moving !== 0 && b.hits <= 3 && bossShotHit(s, x, y, ctx) === HIT_PLAYER) b.laugh();
       animate(s, ctx.anims);
@@ -266,7 +266,7 @@ function wheel(b, i) {
   return {
     run(ctx) {
       if (!off) {
-        s.flipX = b.car.flipX; s.window = b.window;
+        s.flipX = b.car.flipX; s.white = b.window;
         if (b.vx !== 0) animate(s, ctx.anims);
         ctx.draw(s, b.x, b.y);
         if (b.hits > 3) { wx = b.x; wy = b.y; off = true; }

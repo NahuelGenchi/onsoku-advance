@@ -10,7 +10,7 @@
 
 import { makeSprite, startAnim, animate } from './objects.js';
 import { SCREEN_W, SCREEN_H } from './constants.js';
-import { preBossCameraPan, camBounds, setCamBounds, bossHit, bossShotHit, explosion, debris, flashing, HIT_ENEMY, HIT_PLAYER, sin, cos, s16, I } from './bosses.js';
+import { preBossCameraPan, camBounds, setCamBounds, bossHit, bossShotHit, explosion, debris, flashing, HIT_ENEMY, HIT_PLAYER, sin, cos, s16, I } from './xbosses.js';
 
 const SE_BOSS_HIT = 143, SE_EXPLOSION = 144;
 const MUSIC_START = 0x14, MUSIC_END = 0x34;   // gMusicManagerState.unk1: boss song 4 (MUS_BOSS_EGG_WRECKER), then its end
@@ -44,7 +44,7 @@ export function eggWrecker(e, slot) {
 
   // where the sprites are drawn, and Eggman in the ship (sub_8035904): 3 px higher once he's animation 694
   function draw(ctx, window = false) {
-    ctx.draw({ ...ship, window }, b.x, b.y);
+    ctx.draw({ ...ship, white: window }, b.x, b.y);
     ctx.draw(eggman, b.x, b.y - (eggman.anim694 ? 3 : 0));
   }
 

@@ -189,7 +189,8 @@ export function eggSpider(e, slot, anims, ctx0) {
   };
 
   // sub_80311D4: the eighth hit. Eggman winces, three parts fly off, what is left starts falling, the camera stops
-  // across and drops back to the arena's floor, the water goes down 160 px and 1000 points are scored
+  // across and drops back to the arena's floor (the widescreen view's arena with it), the water goes down 160 px
+  // and 1000 points are scored
   function beaten(ctx, x, y) {
     startAnim(s2, 'eggSpiderEggmanHit');
     boss.qvFall = 0; boss.t = 0;
@@ -204,6 +205,7 @@ export function eggSpider(e, slot, anims, ctx0) {
     const { minY, maxY } = cam;
     ctx.add(preBossCameraPan(cam, maxY, maxY + SCREEN_H));
     cam.minY = minY; cam.maxY = maxY;
+    cam.arena = { minX: cx, maxX: cx + SCREEN_W, minY: maxY, maxY: maxY + SCREEN_H };
     if (ctx.world.water) ctx.world.water.target += SCREEN_H;
     ctx.world.addScore(1000);
     state = 'fall';

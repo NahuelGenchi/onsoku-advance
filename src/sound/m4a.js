@@ -741,6 +741,14 @@ export function createM4A(rom, layout, io) {
     /** MPlayStart with song n's header on player p instead of the song's own */
     playerStart(p, n) { mplayStart(players[p], song(n).header); },
     songStop(n) { const s = song(n); if (s.player.songHeader === s.header) mplayStop(s.player); },
+    /** MPlayStop on player p, whatever it plays */
+    playerStop(p) { mplayStop(players[p]); },
+    /** m4aSongNumStartOrContinue: restarts a different song or an ended one, and lets a stopped one go on */
+    songStartOrContinue(n) {
+      const s = song(n), P = s.player;
+      if (P.songHeader !== s.header || (P.status & 0xFFFF) === 0) mplayStart(P, s.header);
+      else if (P.status & PAUSE) P.status = (P.status & ~PAUSE) >>> 0;
+    },
     /** m4aSongNumStartOrChange: restarts only a different song, or the same one once it has ended */
     songStartOrChange(n) {
       const s = song(n), P = s.player;

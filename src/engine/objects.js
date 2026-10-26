@@ -1,8 +1,10 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
-// platforms, square platforms, boulders, waterfalls, boosters, checkpoints, wall poles, grind rails, the
-// incline ramp, the half-pipe, the forced slide, the conveyor belts, item boxes, enemies, and a stand-in for
-// each kind of act 1's that this game doesn't build yet, so that every task keeps its place in the list.
+// platforms, boulders, blocks of ice, breakable walls, waterfalls, boosters, checkpoints, wall poles, grind
+// rails, the incline ramp, the half-pipe, the forced slide, the mini loops, the water bridge, the shrubbery, the
+// goal, the special spring, the hook rails, the security gates, the conveyor belts, the steam exhausts, the swinging hooks, swing
+// ropes and crane claws, the visibility toggles, Secret Base's pipe curler, item boxes, enemies, and a stand-in
+// for each kind that this game doesn't build yet, so that every task keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
 // order, and the tasks of a priority in the order they were made. The original fetches the next task before
@@ -16,8 +18,9 @@ import { ENEMIES } from './enemies.js';
 import { createItemBox } from './itembox.js';
 import { createPlatform } from './platforms.js';
 import { createBoulder } from './boulders.js';
-import { createSquarePlatform } from './squareplatforms.js';
+import { createIceBlock } from './iceblocks.js';
 import { createBreakableWall } from './breakablewalls.js';
+import { createSquarePlatform } from './squareplatforms.js';
 import { createFerrisWheel } from './ferriswheels.js';
 import { createWaterfall } from './waterfalls.js';
 import { createBooster } from './boosters.js';
@@ -27,22 +30,35 @@ import { createGrindRail } from './grindrails.js';
 import { createRamp } from './ramps.js';
 import { createHalfPipe } from './halfpipes.js';
 import { createSlide } from './slides.js';
-import { createPartyBalloon } from './balloons.js';
+import { createMiniLoop } from './miniloops.js';
+import { createWaterBridge, createBridgeSplash } from './waterbridges.js';
+import { createShrub } from './shrubs.js';
+import { createGoal, STAGE_GOAL } from './goal.js';
+import { createSpecialSpring } from './specialspring.js';
+import { createHookRail } from './hookrails.js';
+import { createSecurityGate } from './securitygates.js';
+import { createConveyor } from './conveyors.js';
+import { createSwingingHook } from './swinginghooks.js';
+import { createSwingRope } from './swingropes.js';
+import { createVisibilityToggle } from './visibility.js';
+import { createCurler } from './curlers.js';
 import { createMarbleTrack } from './marbletrack.js';
+import { createCraneClaw } from './craneclaws.js';
+import { createLava } from './lava.js';
+import { createHidingSpikes } from './hidingspikes.js';
+import { createTube } from './pipes.js';
+import { createSteamExhaust } from './steamexhausts.js';
+import { createPartyBalloon } from './balloons.js';
 import { createBumper } from './bumpers.js';
 import { createFlipper } from './flippers.js';
 import { createSegaSonicLetter } from './segaletters.js';
 import { createTeleportOrb } from './teleportorbs.js';
 import { createTubeJunction } from './junctions.js';
 import { createBarrelOfDoomMini } from './barrels.js';
-import { createTube } from './pipes.js';
-import { createConveyor } from './conveyors.js';
-import { createHidingSpikes } from './hidingspikes.js';
 import { createRedFlag } from './redflags.js';
 import { createShipSwing } from './shipswing.js';
 import { createSpikedPlatform } from './spikedplatforms.js';
 import { createBowl } from './bowls.js';
-import { createVisibilityToggle } from './visibility.js';
 import { createPanelGate } from './panelgates.js';
 import { createCarousel } from './carousel.js';
 
@@ -60,8 +76,9 @@ export function createTasks() {
       const at = list.findIndex(t => t.priority > priority);
       list.splice(at < 0 ? list.length : at, 0, task);
     },
-    run(ctx) {
-      for (let t = list[0]; t; t = next) {
+    // with `after`, only the tasks of a higher priority run, as on the frame a task of that priority makes the act
+    run(ctx, after = -1) {
+      for (let t = list.find(t => t.priority > after); t; t = next) {
         next = list[list.indexOf(t) + 1] ?? null;
         if (!t.run(ctx) && list.includes(t)) list.splice(list.indexOf(t), 1);
       }
@@ -155,11 +172,9 @@ function toggle(e, slot) {
   };
 }
 
-// The act 1 kinds not built yet, as tasks at the objects' priority that do nothing but leave when their
-// spawn point does. The stage goal makes no task while its d1 is 0.
-const STAGE_GOAL = 0;
-function standIn(e, slot, kind = e.kind) {
-  if (kind === STAGE_GOAL && e.d[1] === 0) return null;
+// The kinds not built yet, as tasks at the objects' priority that do nothing but leave when their spawn point
+// does.
+function standIn(e, slot) {
   return {
     run(ctx) {
       if (offCam(e.x, e.y, ctx.cam)) { slot.live = null; return false; }
@@ -172,21 +187,20 @@ function standIn(e, slot, kind = e.kind) {
 function interactable(e, slot, anims, ctx, level, zone) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
-  return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createSquarePlatform(e, slot, anims)
-    ?? createBreakableWall(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createWaterfall(e, slot, anims)
+  return def ? objectTask(def, slot, anims) : createHidingSpikes(e, slot, anims) ?? createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createSquarePlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
-    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createPartyBalloon(e, slot, anims) ?? createMarbleTrack(e, slot, anims, level)
-    ?? createBumper(e, slot, anims) ?? createFlipper(e, slot, anims) ?? createSegaSonicLetter(e, slot, anims)
-    ?? createTeleportOrb(e, slot) ?? createTubeJunction(e, slot) ?? createBarrelOfDoomMini(e, slot, anims)
-    ?? createTube(e, slot, anims, ctx.level) ?? createConveyor(e, slot, ctx)
-    ?? createHidingSpikes(e, slot, anims) ?? createRedFlag(e, slot, anims)
-    ?? createShipSwing(e, slot, anims)
-    ?? createSpikedPlatform(e, slot, anims, zone)
-    ?? createBowl(e, slot, anims)
-    ?? createVisibilityToggle(e, slot)
-    ?? createPanelGate(e, slot, anims)
+    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createMiniLoop(e, slot)
+    ?? createWaterBridge(e, slot, anims) ?? createBridgeSplash(e, slot, anims) ?? createShrub(e, slot, anims)
+    ?? createSpecialSpring(e, slot, anims) ?? createHookRail(e, slot, anims) ?? createSecurityGate(e, slot, anims)
+    ?? createConveyor(e, slot, ctx) ?? createSteamExhaust(e, slot, anims) ?? createSwingingHook(e, slot, anims)
+    ?? createSwingRope(e, slot) ?? createCraneClaw(e, slot, anims) ?? createVisibilityToggle(e, slot) ?? createCurler(e, slot)
+    ?? createMarbleTrack(e, slot, anims, level) ?? createLava(e, slot) ?? createTube(e, slot, anims, level)
+    ?? createPartyBalloon(e, slot, anims) ?? createBumper(e, slot, anims) ?? createFlipper(e, slot, anims)
+    ?? createSegaSonicLetter(e, slot, anims) ?? createTeleportOrb(e, slot) ?? createTubeJunction(e, slot)
+    ?? createBarrelOfDoomMini(e, slot, anims) ?? createRedFlag(e, slot, anims) ?? createShipSwing(e, slot, anims)
+    ?? createSpikedPlatform(e, slot, anims, zone) ?? createBowl(e, slot, anims) ?? createPanelGate(e, slot, anims)
     ?? createCarousel(e, slot, anims)
-    ?? standIn(e, slot);
+    ?? (e.kind === STAGE_GOAL ? createGoal(e, slot, anims) : standIn(e, slot));
 }
 
 /**
@@ -196,18 +210,19 @@ function interactable(e, slot, anims, ctx, level, zone) {
  * boxes, then its enemies. On its first frame, and after a jump of more than 248 px across or 208 down, it
  * spawns everything in range (SpawnMapEntities). A task that leaves sets its slot's `live` back to null, so
  * it can spawn again when its point is uncovered again; a defeated enemy's slot is `gone` until the act
- * starts over.
+ * starts over, and a task that changes its entity's data bytes (the act's copy, in the original) keeps them
+ * in its slot's `d` until then.
  *
  * `stage` has interactables, itemBoxes, enemies and entityRegions; `tasks` is the list it adds to.
  */
 export function createEntities(stage, anims, tasks) {
   const { x: regionsX, y: regionsY } = stage.entityRegions;
   const regions = Array.from({ length: regionsX * regionsY }, () => []);
-  const slot = (e, spawn) => ({ e, live: null, gone: false, spawn });
+  const slot = (e, spawn) => ({ e, live: null, gone: false, d: null, spawn });
   for (const [list, spawn] of [
     [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx, stage.level, stage.zone)],
     [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
-    [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s, -1)],
+    [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s)],
   ]) {
     // each region keeps its interactables, then its item boxes, then its enemies
     for (const e of list) regions[e.rx + e.ry * regionsX].push(slot(e, spawn));
@@ -257,7 +272,7 @@ export function createEntities(stage, anims, tasks) {
     /** Everything leaves and the next scan spawns what is in range, as when the act starts over. */
     reset() {
       prev = null;
-      for (const r of regions) for (const s of r) { s.live = null; s.gone = false; }
+      for (const r of regions) for (const s of r) { s.live = null; s.gone = false; s.d = null; }
     },
   };
 }

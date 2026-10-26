@@ -11,11 +11,12 @@ const GLYPH_W = 8;
 const digits = n => String(n).split('').map(Number);
 
 /**
- * `flash` is the zero-ring flash counter (unk48). The HUD's task never sets it: its data takes the place of the
- * title card's pieces', and the counter starts with what the card leaves there, its fade's done flag, 1.
+ * `flash` is the zero-ring flash counter (unk48). The HUD's task never sets it, so it starts with whatever the
+ * memory its data takes held: on a restart, and when act 1 starts, the title card's, its fade's done flag, 1;
+ * when a level whose memory is laid out otherwise starts, what an earlier task left (levels.js, hudFlash).
  */
-export function createHud() {
-  return { flash: 1, sprites: [] };
+export function createHud(flash = 1) {
+  return { flash, sprites: [] };
 }
 
 /**
@@ -29,7 +30,9 @@ export function updateHud(hud, { ringCount, score, lives, courseTime, stageTime 
 
   // the ring count: no leading zeros, centred on the icon, 999 at most; at zero it flashes red
   if (ringCount === 0) {
-    row([FLASH[hud.flash >> 3]], 9, 5);
+    // from 32 up the original reads past its four glyphs and shows a tile from before the font; that frame the
+    // count is left out
+    if (hud.flash < 32) row([FLASH[hud.flash >> 3]], 9, 5);
     hud.flash = (hud.flash + 1) & 31;
   } else {
     const d = digits(Math.min(ringCount, 999));

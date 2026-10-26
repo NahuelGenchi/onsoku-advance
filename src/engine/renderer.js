@@ -446,9 +446,10 @@ export function createRenderer(canvas, assets) {
     drawAll(1);
     if (showCollision) drawCollision(terrain, vx, vy);
     drawHud(hudState.sprites);
-    // the spotlights' blend takes the place of the title card's fade
+    // the spotlights' blend takes the place of the title card's fade. Its windows are on the original screen,
+    // wherever that is in the view.
     const blend = spotlights?.blend;
-    if (blend) darkenOutside(blend, ox, oy);
+    if (blend) darkenOutside(blend, view.sx, view.sy);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
     // behind keeps them out of the fade

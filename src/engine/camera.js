@@ -101,11 +101,12 @@ export function updateCamera(cam, p) {
 /**
  * What a view of w × h px shows around the camera (the widescreen view; 240 × 160 is the original screen): the
  * original screen's area kept inside the act, as the renderer draws it, with as much around it as fits inside
- * the act too. `x` and `y` are its top left corner in the act.
+ * the act too. `x` and `y` are its top left corner in the act, and `sx` and `sy` where the original screen is in
+ * it: in its middle, or nearer an edge of the view where the view stops at an edge of the act.
  */
 export function viewOf(cam, w = SCREEN_W, h = SCREEN_H) {
   const cx = Math.min(Math.max(Math.floor(cam.x), 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y), 0), cam.maxY);
   const x = Math.max(0, Math.min(cx - ((w - SCREEN_W) >> 1), cam.maxX + SCREEN_W - w));
   const y = Math.max(0, Math.min(cy - ((h - SCREEN_H) >> 1), cam.maxY + SCREEN_H - h));
-  return { x, y, w, h };
+  return { x, y, w, h, sx: cx - x, sy: cy - y };
 }

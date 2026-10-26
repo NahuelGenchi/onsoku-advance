@@ -17,8 +17,18 @@ export const I = q => q >> 8;
 // the camera's bounds as the original keeps them, gCamera.minY … maxX, the bottom and right ones its far
 // edges; the engine's camera keeps the top-left corner's limits (camera.js)
 export const camBounds = cam => ({ minX: cam.minX, maxX: cam.maxX + SCREEN_W, minY: cam.minY, maxY: cam.maxY + SCREEN_H });
-export function setCamBounds(cam, { minX = cam.minX, maxX = cam.maxX + SCREEN_W, minY = cam.minY, maxY = cam.maxY + SCREEN_H }) {
+function bounds(cam, { minX = cam.minX, maxX = cam.maxX + SCREEN_W, minY = cam.minY, maxY = cam.maxY + SCREEN_H }) {
   cam.minX = minX; cam.maxX = maxX - SCREEN_W; cam.minY = minY; cam.maxY = maxY - SCREEN_H;
+}
+// the walls the widescreen view doesn't show past (cam.arena, camera.js viewOf): the bounds where they are going,
+// those given here over the ones a pan is still moving; none once they are all the act's edges again
+function walls(cam, given) {
+  const a = { ...camBounds(cam), ...cam.arena, ...given };
+  cam.arena = a.minX <= 0 && a.minY <= 0 && a.maxX >= cam.width && a.maxY >= cam.height ? null : a;
+}
+export function setCamBounds(cam, given) {
+  bounds(cam, given);
+  walls(cam, given);
 }
 
 // eases a bound one pixel a frame toward its target
@@ -31,12 +41,13 @@ const toward = (v, target) => (target > v ? v + 1 : target < v ? v - 1 : v);
  */
 export function preBossCameraPan(cam, minY, maxY) {
   const y = Math.floor(cam.y);
-  setCamBounds(cam, { minY: y, maxY: maxY > y + SCREEN_H ? y + 320 : y + SCREEN_H });
+  bounds(cam, { minY: y, maxY: maxY > y + SCREEN_H ? y + 320 : y + SCREEN_H });
+  walls(cam, { minY, maxY });
   return {
     priority: OBJECTS,
     run() {
       const b = camBounds(cam);
-      setCamBounds(cam, { minY: toward(b.minY, minY), maxY: toward(b.maxY, maxY) });
+      bounds(cam, { minY: toward(b.minY, minY), maxY: toward(b.maxY, maxY) });
       return !(minY === cam.minY && maxY === cam.maxY + SCREEN_H);
     },
   };
@@ -48,12 +59,13 @@ export function preBossCameraPan(cam, minY, maxY) {
  */
 export function setBossCamBounds(cam, minY, maxY, minX, maxX) {
   const x = Math.floor(cam.x), y = Math.floor(cam.y);
-  setCamBounds(cam, { minY: y, maxY: maxY > y + SCREEN_H ? y + 320 : y + SCREEN_H, minX: x, maxX });
+  bounds(cam, { minY: y, maxY: maxY > y + SCREEN_H ? y + 320 : y + SCREEN_H, minX: x, maxX });
+  walls(cam, { minY, maxY, minX, maxX });
   return {
     priority: OBJECTS,
     run() {
       const b = camBounds(cam);
-      setCamBounds(cam, { minY: toward(b.minY, minY), maxY: toward(b.maxY, maxY), minX: toward(b.minX, minX) });
+      bounds(cam, { minY: toward(b.minY, minY), maxY: toward(b.maxY, maxY), minX: toward(b.minX, minX) });
       const now = camBounds(cam);
       return !(now.minY === minY && now.maxY === maxY && now.minX === minX && now.maxX === maxX);
     },

@@ -17,9 +17,13 @@ export function setAnim(a, name, restart = false) {
   a.name = name; a.i = -1; a.q = 0; a.done = false;
 }
 
-/** Advances one tick. Returns true on the tick a one-shot animation reaches its end command. */
+/**
+ * Advances one tick. Returns true on the tick a one-shot animation reaches its end command. `stepped` tells
+ * whether the tick ran the script on to a frame (and the commands before it).
+ */
 export function tickAnim(a, anims) {
   a.loaded = false;
+  a.stepped = false;
   if (a.done) return false;
   if (a.q > 0) { a.q -= a.speed * 16; return false; }
   const def = anims[a.name];
@@ -34,6 +38,7 @@ export function tickAnim(a, anims) {
   }
   if (a.loaded) spritePalette.update = true;
   a.q += def.frames[a.i][1] * 256 - a.speed * 16;
+  a.stepped = true;
   return false;
 }
 

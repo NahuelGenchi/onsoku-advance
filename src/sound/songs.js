@@ -6,6 +6,7 @@ export const SONG = {
   TITLE_FANFARE: 2,        // MUS_TITLE_FANFARE
   NEO_GREEN_HILL_1: 12,
   NEO_GREEN_HILL_2: 13,
+  DROWNING: 27,            // MUS_DROWNING: the countdown music under water
   INVINCIBILITY: 28,       // MUS_INVINCIBILITY
   BOSS_FIGHT: 29,          // MUS_BOSS_FIGHT: also started and stopped at once to stop the menu's music
   ACT_CLEAR: 33,           // MUS_ACT_CLEAR: the results of an act without a boss
@@ -47,7 +48,7 @@ export const SONG = {
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
   RESULTS_COUNT: 140,      // SE_STAGE_RESULT_COUNTER: every fourth frame of the results' count
   RESULTS_DONE: 141,       // SE_STAGE_RESULT_COUNTER_DONE: the count is over
-  BOSS_HIT: 143,           // SE_BOSS_HIT
+  BOSS_HIT: 143,           // SE_BOSS_HIT: also a skating stone breaking
   EXPLOSION: 144,          // SE_EXPLOSION: a boss is beaten
   IMPACT: 145,             // SE_IMPACT: the Egg Hammer Tank's hammer lands, as the Egg Press does
   ITEM_BOX_BREAK: 167,     // SE_ITEM_BOX_2
@@ -68,7 +69,11 @@ export const SONG = {
   BUMPER_B: 184,           // SE_BUMPER_B: a triangular bumper
   PANEL_GATE: 185,         // SE_PANEL_GATE: a panel gate spins open
   BALLOON_POP: 189,        // a party balloon pops
+  SURFACE_HIT: 190,        // SE_WATERFALL_SURFACE_HIT: Sonic goes into the water or out of it
+  AIR_BUBBLE: 191,         // SE_AIR_BUBBLE: a breath from an air bubble
+  DROWNED: 192,            // SE_DROWNED: Sonic drowns, in place of SE_LIFE_LOST
   ICE_BLOCK_BREAK: 193,    // SE_193: a block of ice breaks, after SE_ITEM_BOX
+  SKATING_STONE: 198,      // SE_198: a skating stone sliding again after a drop
   TUBE: 202,               // SE_202: a tube's track takes Sonic
   BOWL: 206,               // SE_BOWL: a bowl catches Sonic
   BOWL_2: 207,             // SE_BOWL_2 and SE_BOWL_3: 56 and 112 frames later

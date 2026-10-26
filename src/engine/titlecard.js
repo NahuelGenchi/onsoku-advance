@@ -178,7 +178,8 @@ export function runTitleCard(card, pressed) {
   if (!card.blank && (k <= 105 || !card.done)) {
     if (k > 20) card.done = fadeStep(fade, true);
     else fadeStep(fade, false);
-  }
+  } else fade.bldY = 0;   // the fade no longer sets the blend, so the act's own shows
+
   card.sprites = [];
   if (++card.frame > CARD_FRAMES) return false;
   const semi = k <= 105 || !done || card.blank;

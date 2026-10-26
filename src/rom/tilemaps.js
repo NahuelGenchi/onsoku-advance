@@ -158,6 +158,31 @@ export function indexPlainMap(rom, header) {
   return { width, height, pixels };
 }
 
+/**
+ * Metatiles 0 … count-1 of a stage layer as colour indices (palette bank × 16 + colour, 0 where colour 0 leaves
+ * them clear), size × size each one after the other, once for each animation frame of its tiles.
+ */
+export function metatileIndices(rom, header, count) {
+  const size = header.xTiles * 8, perMetatile = header.xTiles * header.yTiles;
+  return Array.from({ length: Math.max(1, header.animFrameCount) }, (_, f) => {
+    const out = new Uint8Array(count * size * size);
+    for (let id = 0; id < count; id++) {
+      for (let i = 0; i < perMetatile; i++) {
+        const entry = rom.u16(header.map + (id * perMetatile + i) * 2), at = tileAddress(header, entry & 0x3FF, f);
+        const hflip = (entry >> 10) & 1, vflip = (entry >> 11) & 1, bank = entry >> 12;
+        const x0 = (i % header.xTiles) * 8, y0 = id * size + Math.floor(i / header.xTiles) * 8;
+        for (let y = 0; y < 8; y++) {
+          for (let x = 0; x < 8; x++) {
+            const b = rom.u8(at + y * 4 + (x >> 1)), c = x & 1 ? b >> 4 : b & 15;
+            if (c) out[(y0 + (vflip ? 7 - y : y)) * size + x0 + (hflip ? 7 - x : x)] = bank * 16 + c;
+          }
+        }
+      }
+    }
+    return out;
+  });
+}
+
 /** Renders a plain (non-metatile) background map, its colour 0 showing the backdrop, colour 0 of the palette. */
 export function renderPlainMap(rom, header, palette) {
   const img = new ImageData(header.xTiles * 8, header.yTiles * 8);
@@ -184,4 +209,25 @@ export function mapHoles(rom, header) {
     }
   }
   return holes;
+}
+
+/**
+ * A plain map's colour indices (palette bank × 16 + colour) with animation frame `animFrame`'s tiles, 0 where
+ * colour 0 leaves it clear, for a layer the renderer colours and blends itself.
+ */
+export function plainMapIndices(rom, header, animFrame = 0) {
+  const w = header.xTiles * 8, out = new Uint8Array(w * header.yTiles * 8);
+  for (let ty = 0; ty < header.yTiles; ty++) {
+    for (let tx = 0; tx < header.xTiles; tx++) {
+      const entry = rom.u16(header.map + (ty * header.xTiles + tx) * 2), at = tileAddress(header, entry & 0x3FF, animFrame);
+      const hflip = (entry >> 10) & 1, vflip = (entry >> 11) & 1, bank = entry >> 12;
+      for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
+          const b = rom.u8(at + y * 4 + (x >> 1)), c = x & 1 ? b >> 4 : b & 15;
+          if (c) out[(ty * 8 + (vflip ? 7 - y : y)) * w + tx * 8 + (hflip ? 7 - x : x)] = bank * 16 + c;
+        }
+      }
+    }
+  }
+  return out;
 }

@@ -27,7 +27,8 @@ export const SA2_SE = { jump: 116, trick: 230, boundImpact: 223 };
 const unexpected = what => new RomError(`Unexpected data in the Sonic Advance 2 ROM: ${what}.`);
 
 /** Reads the tricks' art: { atlas, frames, anims } like the Sonic Advance sprites (extract.js), each
- *  animation marked with this sheet so the game draws its frames from it. */
+ *  animation marked with this sheet so the game draws its frames from it, and `palette`, Sonic's row of
+ *  colours they are drawn in (16 RGB colours, index 0 transparent). */
 export function trickArt(sa2) {
   const { rom, tables, sound } = sa2;
   if (Object.values(SA2_SE).some(song => song >= sound.layout.songs)) throw unexpected('the tricks\' sounds are missing');
@@ -49,7 +50,7 @@ export function trickArt(sa2) {
     anims[name] = { frames, loop: script.loop };
   }
   const { canvas, rects } = packAtlas(images);
-  const art = { atlas: canvas, frames: rects, anims };
+  const art = { atlas: canvas, frames: rects, anims, palette: palette.slice(0, 16) };
   for (const def of Object.values(anims)) def.sheet = art;
   return art;
 }

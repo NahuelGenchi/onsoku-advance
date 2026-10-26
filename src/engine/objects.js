@@ -1,8 +1,8 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
-// platforms, boulders, blocks of ice, breakable walls, waterfalls, boosters, checkpoints, wall poles, grind
+// platforms (thin, falling, sinking, rising and square), boulders, blocks of ice, breakable walls, moving springs, ferris wheels, waterfalls, boosters, checkpoints, wall poles, grind
 // rails, the incline ramp, the half-pipe, the forced slide, the mini loops, the water bridge, the shrubbery, the
-// goal, the special spring, the hook rails, the security gates, the conveyor belts, the steam exhausts, the swinging hooks, swing
+// goal, the special spring, the hook rails, the deep snow, the air bubbles, the skating stones, the security gates, the conveyor belts, the steam exhausts, the swinging hooks, swing
 // ropes and crane claws, the visibility toggles, Secret Base's pipe curler, item boxes, enemies, and a stand-in
 // for each kind that this game doesn't build yet, so that every task keeps its place in the list.
 //
@@ -22,6 +22,8 @@ import { createIceBlock } from './iceblocks.js';
 import { createBreakableWall } from './breakablewalls.js';
 import { createSquarePlatform } from './squareplatforms.js';
 import { createFerrisWheel } from './ferriswheels.js';
+import { createMovingSpring } from './movingsprings.js';
+import { createSlowPlatform } from './slowplatforms.js';
 import { createWaterfall } from './waterfalls.js';
 import { createBooster } from './boosters.js';
 import { createCheckpoint } from './checkpoints.js';
@@ -61,6 +63,9 @@ import { createSpikedPlatform } from './spikedplatforms.js';
 import { createBowl } from './bowls.js';
 import { createPanelGate } from './panelgates.js';
 import { createCarousel } from './carousel.js';
+import { createSnow } from './snow.js';
+import { createAirBubbles } from './airbubbles.js';
+import { createSkatingStone } from './skatingstones.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -187,7 +192,7 @@ function standIn(e, slot) {
 function interactable(e, slot, anims, ctx, level, zone) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
-  return def ? objectTask(def, slot, anims) : createHidingSpikes(e, slot, anims) ?? createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createSquarePlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createWaterfall(e, slot, anims)
+  return def ? objectTask(def, slot, anims) : createHidingSpikes(e, slot, anims) ?? createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createMovingSpring(e, slot, anims) ?? createSquarePlatform(e, slot, anims) ?? createSlowPlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createMiniLoop(e, slot)
     ?? createWaterBridge(e, slot, anims) ?? createBridgeSplash(e, slot, anims) ?? createShrub(e, slot, anims)
@@ -199,7 +204,7 @@ function interactable(e, slot, anims, ctx, level, zone) {
     ?? createSegaSonicLetter(e, slot, anims) ?? createTeleportOrb(e, slot) ?? createTubeJunction(e, slot)
     ?? createBarrelOfDoomMini(e, slot, anims) ?? createRedFlag(e, slot, anims) ?? createShipSwing(e, slot, anims)
     ?? createSpikedPlatform(e, slot, anims, zone) ?? createBowl(e, slot, anims) ?? createPanelGate(e, slot, anims)
-    ?? createCarousel(e, slot, anims)
+    ?? createCarousel(e, slot, anims) ?? createSnow(e, slot, ctx) ?? createAirBubbles(e, slot, anims) ?? createSkatingStone(e, slot, anims, ctx)
     ?? (e.kind === STAGE_GOAL ? createGoal(e, slot, anims) : standIn(e, slot));
 }
 

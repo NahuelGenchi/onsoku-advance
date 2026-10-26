@@ -46,9 +46,10 @@ const PIECES = [
  * The pieces of a broken boulder (Task_DecorationDebrisMain), for 61 frames. They rise at 2 px a frame,
  * slowing by 40/256 px a frame per frame, spread sideways and grow to twice their size, 8/256 a frame. The
  * original places them through its sprite transform, around the boulder's screen position on the frame it
- * broke (sx, sy): each piece's offset from there is multiplied by its scale over 512, so it starts at half
- * and the pieces drift out while they grow. (cx, cy) is where the camera was then. Ice Mountain's ice block
- * copies this task with its own pieces, living 81 frames (`frames` 80) and growing 1/256 a frame.
+ * broke (sx, sy): each piece's offset from there is multiplied by half its scale, rounded down, over 256, so
+ * it starts at half and the pieces drift out while they grow. (cx, cy) is where the camera was then. Ice
+ * Mountain's ice block copies this task with its own pieces, living 81 frames (`frames` 80) and growing 1/256
+ * a frame, so its scale is odd every other frame and the rounding shows.
  */
 export function debris(sx, sy, cx, cy, anims, list, { frames = 60, grow = 8 } = {}) {
   const pieces = list.map(([name, size, across, y, turn]) => {
@@ -67,7 +68,7 @@ export function debris(sx, sy, cx, cy, anims, list, { frames = 60, grow = 8 } = 
         q.y += vy >> 8;
         q.angle = (q.angle + q.turn) & 0x3FF;
         const dx = cx - cam.x + q.across * n, dy = q.y - cam.y;
-        const x = sx + ((dx * scale * 128) >> 16), y = sy + ((dy * scale * 128) >> 16);
+        const half = (scale * 128) >> 8, x = sx + ((dx * half) >> 8), y = sy + ((dy * half) >> 8);
         // drawn at double size, it is left out once that square is off the screen (the widescreen view draws
         // the ones in its wider area too); a piece whose frame isn't centred on its anchor has no size here and
         // is left to the renderer, which places its box as the hardware does

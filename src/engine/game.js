@@ -25,6 +25,7 @@ import { createResults, runResults } from './results.js';
 import { createPaletteAnimation } from './palettes.js';
 import { createActTasks } from './acts.js';
 import { BACKGROUND_UPDATE } from './backgrounds.js';
+import { WATER_TASK, createWater, waterTask, endFrame as endWaterFrame, surfaceSplash, drownCountdown, bubble, bubblesAfterDrowning } from './water.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { createBossCapsule } from './capsule.js';
@@ -59,7 +60,7 @@ const NO_INPUT = { left: false, right: false, up: false, down: false, jump: fals
 
 const SILENT = {
   play() {}, playOrChange() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
-  playerState() {}, stopAll() {}, musicOff() {}, musicState() {}, playSa2() {},
+  drowning() {}, playerState() {}, stopAll() {}, musicOff() {}, musicState() {}, playSa2() {},
 };
 
 /**
@@ -98,6 +99,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     card: null,           // the title card (titlecard.js) while it holds Sonic and the clock
     results: null,        // the act's results (results.js) once Sonic is past the goal
     cardsShown: -1,       // gFinalBossActive: the last level whose title card has ended
+    cardOver: false,      // the frame the title card ended
     view: null,           // what the screen shows around the camera (camera.js viewOf); only drawing reads it
     rush: false,          // the Sonic Rush boost's setting (off unless chosen)
     rushArt: null,        // its effects' art, from the player's Sonic Rush ROM
@@ -118,6 +120,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // the screen shows, copied at the end of each frame on which a sprite's script loaded colours (`shown`,
     // null while they are his own); only drawing reads `shown`
     spriteRow: { bytes: new Uint8Array(32), written: 0, shown: null, uploaded: false },
+    water: createWater(stage.water),   // the act's water (water.js), or null
   };
   let boostAnims = null;   // the particles' animations, numbered as the renderer's boost atlas has them
   let playerAnims = anims;   // Sonic's animations, with the tricks' once their art is read
@@ -147,6 +150,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   let special = null;   // the special spring Sonic left the act on, after which the act stops
   let shiftX = 0, shiftY = 0;   // how far from the camera the layers are drawn with this frame's sprites are placed
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
+  const addTask = entry => { if (entry) tasks.add(...entry); };
   const newRenderer = () => {
     const r = createRenderer(canvas, { ...assets, stage, titleCard: act.titleCard, results: act.results });
     r.resize(viewW, viewH);
@@ -188,10 +192,24 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       } else player.dead = true;
       return true;
     },
-    // the frame Sonic dies the camera's target and the clock stop; the music plays on
-    died() {
+    // the frame Sonic dies the camera's target and the clock stop; the music plays on, but not invincibility's
+    // song or the drowning music, and drowning has its own sound
+    died(drowned) {
       state.cam.locked = true; state.clockStopped = true;
-      sound.play(SONG.LIFE_LOST);
+      sound.stop(SONG.INVINCIBILITY); sound.stop(SONG.DROWNING);
+      sound.play(drowned ? SONG.DROWNED : SONG.LIFE_LOST);
+    },
+    // the act's water (water.js): its line, -1 without any; Sonic going in or out, the drowning countdown,
+    // the bubbles he lets out, and drowning
+    get water() { return state.water; },
+    get waterLevel() { return state.water ? state.water.level : -1; },
+    surfaceSplash(x) { addTask(surfaceSplash(state.water, x)); sound.play(SONG.SURFACE_HIT); },
+    drownCountdown(n) { addTask(drownCountdown(player, ctx.cam, n)); },
+    drowningMusic() { sound.drowning(); },
+    breathOut(x, y) { addTask(bubble(state.water, world, Math.round(x * 256), Math.round(y * 256), 0, false)); },
+    drowned() {
+      addTask(bubble(state.water, world, Math.round(player.x * 256), Math.round((player.y - 12) * 256), 0, true));
+      addTask(bubblesAfterDrowning(state.water, world, player, addTask));
     },
     // the act starts over: the original destroys every task, so nothing after Sonic's runs this frame
     lifeLost() { restart = true; tasks.stop(); },
@@ -487,6 +505,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
     state.boostFx = createBoostFx(player);
     state.trail = createTrail();
+    if (state.water) Object.assign(state.water, createWater(stage.water));
     startCard();
     sound.playStageMusic(stage.music);
     loading = true; starMusic = false;
@@ -506,7 +525,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       tick: 0, terrain, tasks, rings, cam: newCamera(), effects: [], sprites: [], ringCount: 0, courseTime: 0,
       clockStopped: false, hud: createHud(), animal: 0, palettes: palettes.map(a => a.shown), checkpointIndex: 0,
       checkpoint: null, goalReached: false, ringsStopped: false, card: null, results: null, rushFx: createRushFx(), shake: -1,
-      boostFx: createBoostFx(player), trail: createTrail(),
+      boostFx: createBoostFx(player), trail: createTrail(), water: createWater(stage.water), cardOver: false,
     });
     ctx.view = state.view = viewOf(state.cam, viewW, viewH);
     render = newRenderer();
@@ -545,13 +564,17 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // pad is pressed from its 36th to its 214th, Sonic takes the controls and the clock starts; the buttons he
     // held when it ends aren't presses. The HUD's task (0x2180) it makes then first runs on the next frame.
     [0x2100, () => {
+      state.cardOver = false;
       if (state.card === null) return;
+      // the colours under water are taken from the stage's as they are on each of its frames (InitWaterPalettes)
+      if (state.water) state.water.shown = state.palettes.slice();
       const pad = ['left', 'right', 'up', 'down'].filter(k => input[k]);
       const pressed = input.jumpPressed || input.attackPressed || pad.some(k => !cardPad.includes(k));
       cardPad = pad;
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
       if (runTitleCard(state.card, pressed)) return;
       state.card = null; state.clockStopped = false; state.cardsShown = state.level;
+      state.cardOver = true;   // its last frame, which clears the blend it set
       state.hud = createHud(firstCard ? hudFlash : 1);
       firstCard = false;
       tasks.add(hudTask, 0x2180);
@@ -592,6 +615,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       });
     }],
     [0xFF00, () => { if (!state.clockStopped) state.courseTime++; state.tick++; }],
+    // the water's (water.js), after the clock has ticked
+    ...(state.water ? [[WATER_TASK, (run => ctx => run(ctx))(waterTask(state.water, () => state.tick).run)]] : []),
   ];
   function addStageTasks() {
     for (const [priority, run] of stageTasks()) tasks.add({ run: ctx => { run(ctx); return true; } }, priority, true);
@@ -654,6 +679,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     state.sprites = []; drawShift = 0; shiftX = 0; shiftY = 0;
     tasks.run(ctx, madeBy);
     endFrame();
+    if (state.water) endWaterFrame(state.water);
     if (madeBy >= 0) { madeBy = -1; loading = true; }
     if (restart) { restart = false; restartAct(); }
     if (special) options.onSpecialStage?.(handOver(state, special, { ...options, level: state.level }));

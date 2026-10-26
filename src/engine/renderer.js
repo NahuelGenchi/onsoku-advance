@@ -4,9 +4,11 @@
 // the act's results on top, the background and the layers in the colours the act's palette animations have
 // loaded. The sprites are the act's rings and the step's list, stacked as the GBA stacks OAM entries: a lower
 // OAM order in front, and within an order the one put in first. While the title card fades the screen in, or
-// the results fade it out, everything but their semi-transparent sprites is darkened. The widescreen view shows
-// more of the act around the original screen, which sits in its middle unless an edge of the act is near, and is
-// black past a boss arena's walls; the HUD keeps to the corners of what it shows, and the title card and the results to its middle and along its width. The
+// the results fade it out, everything but their semi-transparent sprites is darkened, and so is the game over's
+// screen behind its words and countdown. The widescreen view shows more of the act around the original screen,
+// which sits in its middle unless an edge of the act is near, and is black past a boss arena's walls; the HUD
+// keeps to the corners of what it shows, and the title card, the results and the game over to its middle and
+// along its width. The
 // optional Sonic Rush boost adds its screen shake and its effects around Sonic, drawn as the Nintendo DS draws
 // them. The optional Boost Mode's afterimages and particles are sprites like the others, drawn from a second
 // atlas: Sonic in Sonic Advance 2's boost palette, and its particles. In an act with water the screen below its
@@ -41,6 +43,10 @@ function backgroundOffset(line, tick, cameraX) {
 // The lines that never scroll. The original screen only ever shows their first 240 columns, and they don't
 // repeat cleanly past their 256th: a big cloud is cut there.
 const STILL = line => line >= 40 && line < 88;
+// The frame before the game over hands over, its last task stops the copy that scrolls each line while the frame
+// is being drawn, about this far down (in the recordings, where little else runs then): the lines below keep the
+// scroll of the line above.
+const SCROLL_STOPS_AT = 24;
 // Angel Island's background (StageBgUpdate_Zone5Acts12) stands still, and Egg Rocket's clouds (BG0, in front of
 // it at the same priority) scroll left a pixel every 4 frames of the stage clock. They are blended over what is
 // behind them (BLDCNT 0x3F41, BLDALPHA 0x100C: 12/16 of the cloud and 16/16 of the background, each channel at
@@ -56,7 +62,7 @@ export function createRenderer(canvas, assets) {
   let W = SCREEN_W, H = SCREEN_H;
   canvas.width = W; canvas.height = H;
   let ctx = canvas.getContext('2d', { alpha: false });   // the Rush boost borrows it for a moment (drawRushObjs)
-  const { atlas, frames } = assets.sprites, hud = assets.hud, card = assets.titleCard, results = assets.results;
+  const { atlas, frames, anims } = assets.sprites, hud = assets.hud, card = assets.titleCard, results = assets.results, over = assets.gameOver;
   const stage = assets.stage, { backgrounds, snow } = stage;
   const bgW = stage.background?.width, bgH = stage.background?.height, scroll = BACKGROUND_SCROLL[stage.backgroundScroll];
   // the background's pixels that show the backdrop, by map row, and what each screen line showed of the map
@@ -379,6 +385,43 @@ export function createRenderer(canvas, assets) {
     ctx.fillRect(0, bottom, W, H - bottom);
     ctx.fillRect(0, top, left, bottom - top);
     ctx.fillRect(right, top, W - right, bottom - top);
+  }
+
+  // The game over's screen (gameover.js). Its sprites come first in OAM, in front of the HUD: the words, the
+  // countdown's glyph, then the band. The fade darkens everything but the words and the glyph, which are
+  // semi-transparent and blended at full weight over what is behind them. The widescreen view keeps them to its
+  // middle, stretches their ways in and out to its edges, and the band runs across all of it.
+  const overSheet = over && sheetOf({ atlas: over.sheet });
+  const WORDS = ['gameOverLeft', 'gameOverRight', 'continueLeft', 'continueRight'];
+  function drawGameOver(go) {
+    const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, wide = ox > 0 || oy > 0;
+    const s9 = x => (x << 23) >> 23;
+    if (go.bandX !== null) {
+      const [bx, by] = over.box, left = s9(go.bandX);
+      const put = x => ctx.drawImage(over.sheet, bx, by, 32, 32, x, 90 + oy, 32, 32);
+      if (!wide) for (let i = 0; i < 8; i++) put(s9((go.bandX + 32 * i) & 0x1FF));
+      else for (let x = Math.round((left + 256) * W / 256) - 32; x > -32; x -= 32) put(x);
+    }
+    if (go.bldY) darken(go.bldY);
+    if (go.glyph) {
+      const g = go.glyph, size = g.what === 'ok' ? 32 : 16, [sx, sy] = g.what === 'ok' ? over.ok : over.digits[g.what];
+      if (g.scale === null) {
+        // in from the left edge to x 116, out past the right one
+        const x = g.x <= 116 ? 116 - Math.round((116 - g.x) * (116 + ox) / 116) : 116 + Math.round((g.x - 116) * (W - ox - 116) / 124);
+        ctx.drawImage(over.sheet, sx, sy, size, size, ox + x, g.y + oy, size, size);
+      } else {
+        // zoomed (sub_80047A0 without a turn), in a box twice its size
+        const k = s16(Math.trunc(0x10000 / g.scale)), box = [W, H, -1, -1];
+        drawPiece(g.x + ox, g.y + oy, size, size, sx, sy, [k, 0, 0, k], true, box, !wide, overSheet);
+        flushObj(box);
+      }
+    }
+    // the right half first, as the left one is in front of it
+    for (const w of [...go.words].reverse()) {
+      const index = anims[WORDS[w.half]].frames[0][0];
+      if (w.affine) drawAffine(index, w.affine.x + ox, w.affine.y + oy, { rotation: 0, scaleX: w.affine.scaleX, scaleY: 256, double: false });
+      else drawSprite(index, ox + 128 + Math.round((w.x - 128) * (W - ox - 64) / 176), w.y + oy, false);
+    }
   }
 
   // the title card's sprites from their OAM attributes; they have priority 0 and the lowest OAM orders, so
@@ -787,7 +830,8 @@ export function createRenderer(canvas, assets) {
     ctx.putImageData(img, 0, 0);
   }
 
-  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, bg, backLines, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, display, blendOff }) {
+  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, gameOver, bg, backLines, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, display, blendOff }) {
+    const stops = gameOver?.endsNext ? SCROLL_STOPS_AT : Infinity;
     ctx.imageSmoothingEnabled = false;
     if (art && art !== boostArt) {
       if (!boostSheets.has(art)) boostSheets.set(art, new WeakMap());
@@ -830,8 +874,9 @@ export function createRenderer(canvas, assets) {
       else if (ice) for (let y = 0; y < split; y++) drawWrapped(background, ice.bgX, ice.bgY + y - oy, y, ox);
       else for (let line = 0; line < H; line++) {
         const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
-        if (STILL(bgLine)) { drawStill(background, bgLine, line, ox); continue; }
-        let off = mod(backgroundOffset(bgLine, tick - 1, cx) - ox, bgW);
+        const scrollLine = Math.min(bgLine, stops - 1);
+        if (STILL(scrollLine)) { drawStill(background, bgLine, line, ox); continue; }
+        let off = mod(backgroundOffset(scrollLine, tick - 1, cx) - ox, bgW);
         for (let x = 0; x < W; off = 0) {
           const n = Math.min(bgW - off, W - x);
           ctx.drawImage(background, off, bgLine, n, 1, x, line, n, 1);
@@ -890,8 +935,9 @@ export function createRenderer(canvas, assets) {
     if (showCollision) drawCollision(terrain, vx, vy);
     // in a boss's arena, nothing past its walls; the HUD keeps to the corners of what is shown
     if (view.clip) blackOutside(view.clip);
-    byPart(below => drawHud(hudState.sprites, below ? hud.under : hud.sheet, view.clip ?? undefined));
+    byPart(below => drawHud(hudState.sprites, gameOver?.hudPalette ? over.hudSheet : below ? hud.under : hud.sheet, view.clip ?? undefined));
     drawAll(1, s => (s.prio ?? 0) < 1 && s.order < HUD_ORDER);
+    if (gameOver) drawGameOver(gameOver);
     if (display) brighten(display);
     if (actResults) {
       // the band is semi-transparent from when the fade starts, and blending it at full weight over what's

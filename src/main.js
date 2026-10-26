@@ -231,6 +231,8 @@ function play(assets, resume = null, carry = null) {
     resume, carry, emeralds, continues, levelPick: assets.first !== 0 && assets.first === firstLevel && !carry,
     onSpecialStage: handover => enterSpecialStage(assets, handover),
     onNextZone: next => nextZone(next),
+    // a game over without a continue goes back to the start of the game, the SEGA logo
+    onTitle: () => queueMicrotask(restartGame),
   });
   fitScreen();
   showRush();
@@ -243,9 +245,18 @@ function play(assets, resume = null, carry = null) {
   if (debug) globalThis.onsoku = { game, assets, input, sound, nextZone };
 }
 
+// back to the start of the game, the SEGA logo, with no continues and act 1's art (read again if another
+// act's is loaded)
+async function restartGame() {
+  continues = 0;
+  const assets = sa1.assets.first === 0 ? sa1.assets : await extractAssets(sa1.buffer, () => {}, { level: 0 });
+  start(sa1.buffer, assets);
+}
+
 // the last act decoded is over: the next zone's acts, decoded from the ROM now, played on with the score, the
 // lives and the random numbers carried over (GameStageStart). Past the zones this game has, the screen stays.
 async function nextZone({ level, ...carry }) {
+  continues = carry.continues ?? continues;
   const from = game;
   let assets;
   try {

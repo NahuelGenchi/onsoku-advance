@@ -1,6 +1,6 @@
 // Turns a Sonic Advance ROM into everything the engine draws: Sonic's animations, the dust effects, the
 // springs, the spikes, the enemies, the item boxes, the platforms, the rings, the HUD, the title card, the act's
-// results, Neo Green Hill Zone's two acts with their collision, objects, enemies and rings, and the zone's
+// results, the game over, Neo Green Hill Zone's two acts with their collision, objects, enemies and rings, and the zone's
 // background. Runs entirely in the browser.
 
 import { Rom } from './rom.js';
@@ -16,6 +16,9 @@ import { hudGraphics } from './hud.js';
 import { titleCardGraphics } from './titlecard.js';
 import { resultsGraphics } from './results.js';
 import { levelInfo, LEVELS } from './levels.js';
+import { gameOverGraphics } from './gameover.js';
+import { createM4A } from '../sound/m4a.js';
+import { createApu } from '../sound/apu.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -347,6 +350,8 @@ export const EGG_SNAKE_ANIMATIONS = {
   661: { eggSnakeSpike: 0 }, 662: { eggSnakeClose: 0, eggSnakeOpen: 1, eggSnakeOpened: 2, eggSnakeHead: 3 },
   663: { eggSnakeLaser: 0 }, 664: { eggSnakeShot: 0 },
 };
+// GAME OVER and CONTINUE? (715): each word in two halves, drawn through the rotation hardware as they turn
+export const GAME_OVER_ANIMATIONS = { 715: { gameOverLeft: 0, gameOverRight: 1, continueLeft: 2, continueRight: 3 } };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -373,7 +378,7 @@ const YELLOW_SPRING_PALETTE = 36;
 // block, and carried through a marble track), the boulders' and the ice blocks' debris, the Egg Ball's star disc, Secret Base's swinging
 // hook, the Egg Hammer Tank's arm, hammer and belt, and the capsule rising, its shell and the birds circling it, and the Egg Press's spring and base;
 // the skating stones' debris, and the bubbles Sonic lets out under water and the drowning countdown's numbers,
-// which grow to full size; their frames also keep their OAM pieces as the hardware reads them
+// which grow to full size, and the game over's words; their frames also keep their OAM pieces as the hardware reads them
 const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge', 'swingingHook',
   'hammerTankArm', 'hammerTankHammer', 'hammerTankBelt0', 'hammerTankBelt1', 'hammerTankBelt2', 'hammerTankBelt3',
   'capsuleSmall', 'capsuleShell', 'animalRobin', 'animalParrot', 'eggPressSpring', 'eggPressBase', 'eggBallStarDisc',
@@ -381,7 +386,8 @@ const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmal
   'bubblesSmall', 'bubblesGroup', ...[0, 1, 2, 3, 4, 5].map(n => `drownCountdown${n}`),
   'eggSpiderPart', 'eggSpiderLeg',
   'mkRocket', 'mkPart0', 'mkPart1', 'mkPart2', 'mkPart3', 'mkPart4', 'eggSnakeSpike',
-  'grabbed', 'eggXHand0', 'eggXHand1', 'eggXHand2', 'eggXBall0']);
+  'grabbed', 'eggXHand0', 'eggXHand1', 'eggXHand2', 'eggXBall0',
+  ...Object.keys(GAME_OVER_ANIMATIONS[715])]);
 // the sprite palette that fills the whole OBJ palette when an act with water starts, and that the colours
 // under water are made from (LoadPalette423Anim, InitWaterPalettes)
 const UNDERWATER_OBJ_PALETTE = 423;
@@ -399,7 +405,7 @@ const MAX_ATLAS_PALETTES = 16;
  * Identifies and decodes `buffer`, with the zone of level `level` (levels.js) from that level on: its acts, each
  * with its title card and its results. `onProgress(message)` reports each stage, and is awaited, so it can let
  * the page draw the message before the next stage.
- * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles, sonic, alts }, hud: { sheet, glyphs, ring, face }, acts, first, stage, titleCard, physics, sound }, where `acts[level]` is { level, stage, titleCard, results, anims } for each act decoded (`anims` the animations that act draws its own way), `first` the level asked for, and stage and titleCard are its; each act's stage is { level, zone, act, music, backgroundScroll, hudFlash, width, height, layers, atlas, collision, spawn, loop, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgroundHoles, backdrop, backgrounds }, its titleCard { sheet, slots, text } and its results { sheet, slots, text }
+ * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles, sonic, alts }, hud: { sheet, glyphs, ring, face }, gameOver: { sheet, digits, ok, box, voices, hudSheet, song, songFrames }, acts, first, stage, titleCard, physics, sound }, where `acts[level]` is { level, stage, titleCard, results, anims } for each act decoded (`anims` the animations that act draws its own way), `first` the level asked for, and stage and titleCard are its; each act's stage is { level, zone, act, music, backgroundScroll, hudFlash, width, height, layers, atlas, collision, spawn, loop, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgroundHoles, backdrop, backgrounds }, its titleCard { sheet, slots, text } and its results { sheet, slots, text }
  */
 export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
   const info = levelInfo(level);
@@ -443,6 +449,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },
     sprites, acts, first: level, stage: acts[level].stage, titleCard: acts[level].titleCard, physics: { spinDashSpeeds },
     hud: extractHud(rom, offsets.uiGraphics, water),
+    gameOver: extractGameOver(rom, offsets),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
   };
@@ -470,7 +477,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true, under: underYellow },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries(mergeAnimations(ENEMY_ANIMATIONS, ITEM_ANIMATIONS, PLATFORM_ANIMATIONS, ROCK_ANIMATIONS, ICE_MOUNTAIN_ANIMATIONS, NUTS_AND_BOLTS_ANIMATIONS, EGG_SNAKE_ANIMATIONS, EGG_WRECKER_ANIMATIONS, EGG_DRILLSTER_ANIMATIONS, EGG_X_ANIMATIONS, CONVEYOR_OBJECT_ANIMATIONS, SPIKED_BARREL_ANIMATIONS, PROPELLER_ANIMATIONS, CARRIER_ANIMATIONS, IRON_BALL_ANIMATIONS, TORCH_ANIMATIONS, UPDRAFT_ANIMATIONS, WALL_ANIMATIONS, WATER_ANIMATIONS, SLIDE_ANIMATIONS, SHRUB_ANIMATIONS, BOOSTER_ANIMATIONS, CHECKPOINT_ANIMATIONS, POLE_ANIMATIONS, GOAL_ANIMATIONS, BOSS_ANIMATIONS, EGG_HAMMER_TANK_ANIMATIONS, CAPSULE_ANIMATIONS, SPECIAL_SPRING_ANIMATIONS, STEAM_EXHAUST_ANIMATIONS, EGG_PRESS_ANIMATIONS, HOOK_RAIL_ANIMATIONS, SECURITY_GATE_ANIMATIONS, HOOK_ANIMATIONS, MARBLE_TRACK_ANIMATIONS, PIPE_ANIMATIONS, MOVING_SPRING_ANIMATIONS, STONE_ANIMATIONS, (water ? UNDERWATER_ANIMATIONS : {}), BACKGROUND_ANIMATIONS, BALLOON_ANIMATIONS, BARREL_ANIMATIONS, BOWL_ANIMATIONS, BUMPER_ANIMATIONS, CAROUSEL_ANIMATIONS, FERRIS_WHEEL_ANIMATIONS, FLIPPER_ANIMATIONS, LETTER_ANIMATIONS, PANEL_GATE_ANIMATIONS, RED_FLAG_ANIMATIONS, SHIP_SWING_ANIMATIONS, SPIKED_PLATFORM_ANIMATIONS, SQUARE_PLATFORM_ANIMATIONS)).map(([anim, variants]) => ({
+    ...Object.entries(mergeAnimations(ENEMY_ANIMATIONS, ITEM_ANIMATIONS, PLATFORM_ANIMATIONS, ROCK_ANIMATIONS, ICE_MOUNTAIN_ANIMATIONS, NUTS_AND_BOLTS_ANIMATIONS, EGG_SNAKE_ANIMATIONS, EGG_WRECKER_ANIMATIONS, EGG_DRILLSTER_ANIMATIONS, EGG_X_ANIMATIONS, CONVEYOR_OBJECT_ANIMATIONS, SPIKED_BARREL_ANIMATIONS, PROPELLER_ANIMATIONS, CARRIER_ANIMATIONS, IRON_BALL_ANIMATIONS, TORCH_ANIMATIONS, UPDRAFT_ANIMATIONS, WALL_ANIMATIONS, WATER_ANIMATIONS, SLIDE_ANIMATIONS, SHRUB_ANIMATIONS, BOOSTER_ANIMATIONS, CHECKPOINT_ANIMATIONS, POLE_ANIMATIONS, GOAL_ANIMATIONS, BOSS_ANIMATIONS, EGG_HAMMER_TANK_ANIMATIONS, CAPSULE_ANIMATIONS, SPECIAL_SPRING_ANIMATIONS, STEAM_EXHAUST_ANIMATIONS, EGG_PRESS_ANIMATIONS, HOOK_RAIL_ANIMATIONS, SECURITY_GATE_ANIMATIONS, HOOK_ANIMATIONS, MARBLE_TRACK_ANIMATIONS, PIPE_ANIMATIONS, MOVING_SPRING_ANIMATIONS, STONE_ANIMATIONS, (water ? UNDERWATER_ANIMATIONS : {}), BACKGROUND_ANIMATIONS, BALLOON_ANIMATIONS, BARREL_ANIMATIONS, BOWL_ANIMATIONS, BUMPER_ANIMATIONS, CAROUSEL_ANIMATIONS, FERRIS_WHEEL_ANIMATIONS, FLIPPER_ANIMATIONS, LETTER_ANIMATIONS, PANEL_GATE_ANIMATIONS, RED_FLAG_ANIMATIONS, SHIP_SWING_ANIMATIONS, SPIKED_PLATFORM_ANIMATIONS, SQUARE_PLATFORM_ANIMATIONS, GAME_OVER_ANIMATIONS)).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
@@ -746,6 +753,19 @@ function extractHud(rom, tableAt, water) {
 // the title card's or the results' graphics with their image as a canvas
 function sheet({ image, ...rest }, water = null) {
   return { sheet: toCanvas(image), under: water ? toCanvas(tintImage(image, water.blend)) : null, ...rest };
+}
+
+// the game over's song (MUS_GAME_OVER): the screen waits for it to end before it leaves, so the sound engine
+// plays it through here, without sound, to count its frames
+const GAME_OVER_SONG = 37;
+function extractGameOver(rom, offsets) {
+  const { image, palette, ...rest } = gameOverGraphics(rom, offsets.uiGraphics, offsets.titleCard);
+  const engine = createM4A(rom.bytes, soundLayout(rom, offsets.musicPlayers), createApu());
+  engine.songStart(GAME_OVER_SONG);
+  const player = engine.players.find(p => p.songHeader === engine.songHeader(GAME_OVER_SONG));
+  let songFrames = 0;
+  do { engine.frame(); songFrames++; } while ((player.status & 0xFFFF) !== 0 && songFrames < 60 * 60);
+  return { sheet: toCanvas(image), ...rest, hudSheet: toCanvas(hudGraphics(rom, offsets.uiGraphics, palette).image), song: GAME_OVER_SONG, songFrames };
 }
 
 function toCanvas(img) {

@@ -23,6 +23,7 @@ import { createHud, updateHud } from './hud.js';
 import { createTitleCard, runTitleCard } from './titlecard.js';
 import { createResults, runResults } from './results.js';
 import { createPaletteAnimation } from './palettes.js';
+import { createGameOver, runGameOver } from './gameover.js';
 import { createActTasks } from './acts.js';
 import { BACKGROUND_UPDATE } from './backgrounds.js';
 import { WATER_TASK, createWater, waterTask, endFrame as endWaterFrame, surfaceSplash, drownCountdown, bubble, bubblesAfterDrowning } from './water.js';
@@ -77,7 +78,9 @@ const SILENT = {
  * from; emeralds, the Chaos Emeralds won so far (a bit per special stage), and continues, the continues the
  * player has, which it hands on; onNextZone({ level, score, lives, seed }), called as the results of the last
  * act decoded end, to go on to the next zone's first act with what the game carries over; carry, those
- * { score, lives, seed } to start with; levelPick, set when the act is started from the level pick (?level=N).
+ * { score, lives, seed, continues } to start with; levelPick, set when the act is started from the level pick (?level=N);
+ * onTitle(), called when a game over sends the game back to its start (the SEGA logo), after which the act does
+ * nothing more.
  */
 export function createGame(canvas, assets, input, sound = SILENT, options = {}) {
   const { spinDashSpeeds } = assets.physics;
@@ -96,6 +99,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     level: act.level,   // gCurrentLevel: 0 is Neo Green Hill act 1, 1 its act 2, 2 Secret Base act 1
     tick: 0, player, terrain, tasks, rings, scatter, cam: null, effects: [], sprites: [],
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
+    continues: options.continues ?? 0,   // gUnknown_0300543C: a game over uses one to go on
+    gameOver: null,       // the game over (gameover.js) once Sonic has lost his last life
     checkpointTime: 0,    // gCheckpointTime: counts up with the clock even while the course time counts down
     timerReversed: false, // STAGE_FLAG__TIMER_REVERSED: the course time counts down, to a time over at 0
     bg: null,             // the act's own background state, for its drawing (Egg Rocket's: eggrocket.js)
@@ -158,7 +163,9 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   // is spent loading; and the HUD's data holds what that leaves there (levels.js, hudFlash)
   let madeBy = options.levelPick && stage.level !== 0 ? 0x2001 : -1;
   const hudFlash = options.levelPick ? stage.hudFlash : 1;
-  let extraLife = false, restart = false, loading = false, starMusic = false;
+  let extraLife = false, loading = false, starMusic = false;
+  let restart = null;   // how the act starts over at the end of this frame: restartAct or continueAct
+  let toTitle = false;  // a game over is sending the game back to its start
   let nextAct = 0;    // the frames left until the next act starts, once the results are over
   let ended = false;  // past the last act built so far, the screen keeps its last frame
   let frozen = null;  // until then, the last act's last frame, which the screen keeps: { render, state }
@@ -254,8 +261,18 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       addTask(bubble(state.water, world, Math.round(player.x * 256), Math.round((player.y - 12) * 256), 0, true));
       addTask(bubblesAfterDrowning(state.water, world, player, addTask));
     },
-    // the act starts over: the original destroys every task, so nothing after Sonic's runs this frame
-    lifeLost() { restart = true; tasks.stop(); },
+    // HandleLifeLost: Sonic's task ends with his rings gone and a life less. With lives left the act starts
+    // over, and the original destroys every task, so nothing after Sonic's runs this frame. The last one lost
+    // brings the game over, with the act still running behind it; a continue left is used for it.
+    lifeLost() {
+      state.ringCount = 0;
+      state.lives = (state.lives - 1) & 0xFF;
+      if (state.lives !== 0) { restart = restartAct; tasks.stop(); return; }
+      state.gameOver = createGameOver(assets.gameOver, state.continues > 0);
+      if (state.continues > 0) state.continues--;
+      sound.play(assets.gameOver.song);
+      tasks.add(gameOverTask, 0x2000);
+    },
     // the goal (goal.js): the clock and the rings stop (STAGE_FLAG__ACT_START and STAGE_FLAG__2), and it holds
     // the camera and, once Sonic is in his act-clear run, hands over to the results (CreateStageResults): the
     // act-clear jingle and no more music manager, and the results' task, which first runs this frame
@@ -539,19 +556,18 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       else {
         // the next zone's acts are decoded from the ROM in their turn, the screen keeping this frame meanwhile
         ended = true;
-        options.onNextZone?.({ level: state.level + 1, score: state.score, lives: state.lives, seed: state.seed });
+        options.onNextZone?.({ level: state.level + 1, score: state.score, lives: state.lives, seed: state.seed, continues: state.continues });
       }
       return false;
     },
   };
 
-  // HandleLifeLost: a life less, and the act starts over with everything in it, keeping the score, the stage
-  // clock and the last checkpoint passed. Sonic starts at that checkpoint, or at the act's start without one,
-  // and the course time goes back to what it was there (to 0 if it had run out); the camera starts from him.
-  // The act's music starts again at once (its stage init), and loading the act takes the original the
-  // whole next frame, in which nothing runs. (The game over at no lives left is not built yet.)
+  // The act starts over with everything in it after a life is lost, keeping the score, the stage clock and the
+  // last checkpoint passed. Sonic starts at that checkpoint, or at the act's start without one, and the course
+  // time goes back to what it was there (to 0 if it had run out); the camera starts from him. The act's music
+  // starts again at once (its stage init), and loading the act takes the original the whole next frame, in
+  // which nothing runs.
   function restartAct() {
-    if (state.lives > 0) state.lives--;
     const at = state.checkpoint ?? stage.spawn;
     Object.assign(player, createPlayer({ x: at.x, y: at.y, spinDashSpeeds }));
     if (state.courseTime >= MAX_COURSE_TIME && state.checkpoint) state.checkpoint.time = 0;
@@ -565,11 +581,31 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     state.boostFx = createBoostFx(player);
     state.trail = createTrail();
     if (state.water) Object.assign(state.water, createWater(stage.water));
+    state.gameOver = null;
     startCard();
     sound.playStageMusic(stage.music);
     extras?.init();
     loading = true; starMusic = false;
   }
+  // ApplyGameStageSettingsAndStart, after a continue: three lives, no score, and the act from its start as at the
+  // game's (GameStageStart), its stage clock from 0 too
+  function continueAct() {
+    state.lives = START_LIVES; state.score = 0; state.checkpoint = null; state.checkpointIndex = 0; state.tick = 0;
+    restartAct();
+  }
+
+  // the game over's four tasks, as one (gameover.js); its screen reads this frame's A and B. Once it is done the
+  // original destroys every task: the act starts over with the continue, or the game goes back to its start.
+  const gameOverTask = {
+    run() {
+      const a = input.jumpPressed, b = input.attackPressed;
+      input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
+      const end = runGameOver(state.gameOver, sound, a, b);
+      if (end === 'continue') { restart = continueAct; tasks.stop(); }
+      else if (end === 'title') { toTitle = true; tasks.stop(); }
+      return true;
+    },
+  };
 
   // GameStageStart: the next act, with everything in it new and the score, the lives and the game's random
   // numbers carried over, and its music (its stage init)
@@ -640,16 +676,19 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       firstCard = false;
       tasks.add(hudTask, 0x2180);
     }],
+    // Sonic's task has ended at the game over; his effects run on
     [0x3000, () => {
-      const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? player.heldInput ?? NO_INPUT : input;
-      stepPlayer(player, held, world);
-      animatePlayer(player, held, playerAnims, world);
-      if (!player.dead) recordSonic(state.boostFx, player);
-      recordTrail(state.trail, player);
-      if (player.anim.loaded) state.spriteRow.written = 0;
-      // the boost's effects run after him, as Rush's objects run after its player
-      if (state.rushArt && (state.rush || state.rushFx.list.length > 0)) stepRushFx(state.rushFx, player, state.rushArt, player.boost);
-      drawSonic();
+      if (!state.gameOver) {
+        const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? player.heldInput ?? NO_INPUT : input;
+        stepPlayer(player, held, world);
+        animatePlayer(player, held, playerAnims, world);
+        if (!player.dead) recordSonic(state.boostFx, player);
+        recordTrail(state.trail, player);
+        if (player.anim.loaded) state.spriteRow.written = 0;
+        // the boost's effects run after him, as Rush's objects run after its player
+        if (state.rushArt && (state.rush || state.rushFx.list.length > 0)) stepRushFx(state.rushFx, player, state.rushArt, player.boost);
+        drawSonic();
+      }
       state.effects = state.effects.filter(updateEffect);
       for (const e of state.effects) draw({ frame: frameOf(e.anim, anims), flipX: e.flipX, flipY: e.flipY, order: 8, prio: 2 }, e.x, e.y);
     }],
@@ -736,7 +775,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   }
 
   function step() {
-    if (special) return;
+    if (special || toTitle) return;
     input.poll?.();
     state.frameCount = (state.frameCount + 1) >>> 0;
     if (loading) { loading = false; return; }
@@ -753,8 +792,9 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     endFrame();
     if (state.water) endWaterFrame(state.water);
     if (madeBy >= 0) { madeBy = -1; loading = true; }
-    if (restart) { restart = false; restartAct(); }
-    if (special) options.onSpecialStage?.(handOver(state, special, { ...options, level: state.level }));
+    if (toTitle) { options.onTitle?.(); return; }
+    if (restart) { const start = restart; restart = null; start(); }
+    if (special) options.onSpecialStage?.(handOver(state, special, { ...options, level: state.level, continues: state.continues }));
   }
 
   const show = () => (frozen ? frozen.render(frozen.state) : render(state));
@@ -762,8 +802,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   function loop(now) {
     pending += Math.min(100, now - last);   // after a stall, catch up at most 100 ms instead of fast-forwarding
     last = now;
-    while (pending >= TICK_MS && !special) { step(); pending -= TICK_MS; }
-    if (special) return;   // the special stage has the screen now
+    while (pending >= TICK_MS && !special && !toTitle) { step(); pending -= TICK_MS; }
+    if (special || toTitle) return;   // the special stage, or the game's start, has the screen now
     show();
     frame = requestAnimationFrame(loop);
   }

@@ -40,14 +40,16 @@ function drawTiles(rom, img, x, y, tilesAt, wide, high, palette) {
 /**
  * The HUD's images on one sheet: { image, glyphs, ring, face }. glyphs[0–10] are white '0'–'9' and ':',
  * glyphs[11–21] the red ones; each rect is [x, y, w, h] on the sheet. The digits and the ring use the font's
- * palette (the HUD loads it into OBJ palette 6), the face its own (the same as Sonic's).
+ * palette (the HUD loads it into OBJ palette 6), or `fontPalette` in its place, the face its own (the same as
+ * Sonic's).
  */
-export function hudGraphics(rom, tableAt) {
+export function hudGraphics(rom, tableAt, fontPalette = null) {
   const entry = i => ({
     tiles: rom.requirePtr(tableAt + i * ENTRY, `UI graphics ${i}`),
     palette: readColors(rom, rom.requirePtr(tableAt + i * ENTRY + 4, `UI palette ${i}`), 16),
   });
   const font = entry(FONT), ring = entry(HUD_RING), face = entry(FACE_SONIC);
+  if (fontPalette) font.palette = fontPalette;
   const image = new ImageData(2 * GLYPHS_PER_SET * 8 + 32 + 16, 32);
   const glyphs = [];
   for (let g = 0; g < 2 * GLYPHS_PER_SET; g++) {

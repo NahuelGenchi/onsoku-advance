@@ -37,6 +37,8 @@ export function createSpecialStageRun(canvas, rom, offsets, input, sound, game, 
   const engine = createEngine(video, rom, {
     play: song => sound.play(song), stop: song => sound.stop(song),
   });
+  // every screen of the special stage is made for the original screen alone: the widescreen view is black around it
+  engine.wideBars = true;
   let finished = false;
   const ctx = {
     engine, rom, sound, game, special: null,

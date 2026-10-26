@@ -61,7 +61,6 @@ function setUpLayers(e) {
   e.dispCnt = 0x1140;
   e.bgCnt[0] = 0x9D86;
   e.bgScroll[0] = 0; e.bgScroll[1] = 0x128;
-  e.wideLayers = [null, null, null, null];
 }
 
 /** CreateSpecialStageIntro: the fall, from the special spring. */

@@ -558,6 +558,8 @@ A layout is a list of 12-byte entries in order of depth: x and y (s16, px from t
 
 **Start** opens the pause menu in the original (`sub_802D680`); the pause menu isn't built yet, so it does nothing (the act has none either).
 
+**The widescreen view** is black either side of every screen of the special stage, from the fall to the results (`wideBars`). They are made for 240 × 160 alone: a little past the screen's sides the tunnel's quarters end, and the layers show tiles the original never shows there, such as the pink pattern beside the tunnel and red columns beside the fall.
+
 **Original-game quirks kept.** These are in the ROM and the port does the same:
 
 - What isn't set again when a stage starts stays as the last special stage left it: the bob's phase, the character's sprite, and the list of animations that share graphics, which only empties when the 240 frames end and after the checkpoint. On a second visit, objects made before then wouldn't load their own tiles.

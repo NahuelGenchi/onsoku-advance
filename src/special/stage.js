@@ -181,8 +181,6 @@ function createTunnel(ctx) {
     const s = createSprite({ graphics: { src: 0, dest: 0, size: 0, anim: sp.data.paletteAnim }, variant, oamFlags: 0, frameFlags: 0 });
     e.createTask(paletteStep, { ctx, s }, 0x2000);
   }
-  // the layers past the screen's edges, for the widescreen view: as the hardware wraps them
-  e.wideLayers = [null, null, null, null];
 }
 
 // the layers' scroll: the tunnel by the whole move, the background by an eighth of it, in tiles

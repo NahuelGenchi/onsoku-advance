@@ -148,6 +148,8 @@ export function createGame(canvas, assets, input, sound = SILENT) {
     // act-clear jingle and no more music manager, and the results' task, which first runs this frame
     get goalReached() { return state.goalReached; },
     reachGoal() { state.goalReached = true; state.clockStopped = true; state.ringsStopped = true; },
+    // the act's end has Sonic now (STAGE_FLAG__2: past the goal, or a beaten boss), for the optional Boost Mode
+    get actOver() { return state.ringsStopped; },
     get camera() { return state.cam; },
     stageResults() {
       state.results = createResults(act.results, { rings: state.ringCount, courseTime: state.courseTime, level: state.level });

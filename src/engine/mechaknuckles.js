@@ -63,6 +63,9 @@ const DEFINE = () => [
   }, (b, c) => {
     const cam = c.world.camera;
     cam.maxX = b.spawnX; cam.minY = cam.y; cam.maxY = cam.y;
+    // the arena's walls, which the widescreen view doesn't show past (camera.js viewOf): the screen right of the
+    // spawn point and above it
+    cam.arena = { minX: b.spawnX, maxX: b.spawnX + SCREEN_W, minY: b.spawnY - SCREEN_H, maxY: b.spawnY };
     b.flags |= SHOWN;
   }, 0, 0, 0, 0, 0, 0, 6, 14, 'mkActivate', null),
   // WAIT: Sonic stands still, facing right, while the left edge creeps up to the spawn point
@@ -162,7 +165,9 @@ const DEFINE = () => [
     return true;
   }, (b, c) => {
     b.qx = Q(272); b.qy = -Q(100);
-    c.world.camera.maxX = c.world.terrain.width - SCREEN_W;
+    const cam = c.world.camera;
+    cam.maxX = c.world.terrain.width - SCREEN_W;
+    if (cam.arena) cam.arena.maxX = c.world.terrain.width;
     b.s.flipX = false; b.s2.flipX = false;
     startAnim(b.s2, 'eggmanSeated', true);
     b.flags |= EGGMAN;
@@ -202,10 +207,12 @@ function closeIn(b, cam) {
   if (cam.minY > b.spawnY - SCREEN_H) cam.minY--;
   else if (cam.minY < b.spawnY - SCREEN_H) cam.minY++;
 }
-// the left edge moves a pixel a frame toward the act's right end, and never shows more than the camera does
+// the left edge moves a pixel a frame toward the act's right end, and never shows more than the camera does;
+// the widescreen view's left wall goes with it
 function opening(cam) {
   if (cam.minX < cam.maxX) cam.minX++;
   if (cam.minX < cam.x) cam.minX = cam.x;
+  if (cam.arena) cam.arena.minX = cam.minX;
 }
 // what the player reads once his controls change hands: no fresh press of jump or attack
 function clearPresses(c) {

@@ -12,7 +12,7 @@ import { SINE } from './trig.js';
 import { createRenderer } from './renderer.js';
 
 const DISPCNT_WIN0 = 0x2000, DISPCNT_OBJWIN = 0x8000, ANY_WINDOW = 0xE000;
-const BRIGHTEN = 0x80, EFFECTS = 0x20;
+const BRIGHTEN = 0x80, DARKEN = 0xC0, EFFECTS = 0x20;
 const STILL_LINES = 91;   // HBlankCallback_803F92C: lines 0–90 show BG1 unscrolled
 
 // StageBgUpdate_Zone7Act2's line offsets for the lines from 91 down at stage time t: bands of stars that drift
@@ -117,7 +117,7 @@ export function createExtraRenderer(canvas, assets) {
   }
 
   function render(state) {
-    const { tick, view, sprites, windows, body, hud, card, display, scrollX, hblank = true } = state;
+    const { tick, view, sprites, windows, body, hud, card, display, scrollX, gameOver, hblank = true } = state;
     const W = parts.w, H = parts.h, ctx = parts.ctx;
     ctx.imageSmoothingEnabled = false;
     const vx = view.x, vy = view.y, ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1;
@@ -140,7 +140,7 @@ export function createExtraRenderer(canvas, assets) {
     drawList(list, true, vx, vy, ox, oy);
     if (body) drawBody(body, ox, oy);
     drawList(list, false, vx, vy, ox, oy);
-    parts.drawHud(hud.sprites);
+    parts.drawHud(hud.sprites, gameOver?.hudPalette ? parts.gameOverHud : undefined);
     if (!card) {
       let objWindow = null, objTop = null;
       if (display.dispcnt & DISPCNT_OBJWIN) {
@@ -152,6 +152,8 @@ export function createExtraRenderer(canvas, assets) {
         objTop = front.map((a, k) => (k & 3) === 3 && (a || (behind[k] && !(bodyMask && bodyMask[k]))) ? 255 : 0);
       }
       effects(display, objWindow, objTop, ox, oy);
+      // the game over's words, countdown and fade, in front of everything (renderer.js)
+      if (gameOver) parts.drawGameOver(gameOver, (display.bldCnt & 0xC0) === DARKEN);
       return;
     }
     const semi = card.sprites.length > 0 && (card.sprites[0].a0 & 0xC00) === 0x400;

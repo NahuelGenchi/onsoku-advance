@@ -139,7 +139,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
     sprites, stage, physics: { spinDashSpeeds },
     hud: extractHud(rom, offsets.uiGraphics, stage.extra?.facePalette),
     titleCard: extractTitleCard(rom, offsets.uiGraphics, offsets.titleCard, level),
-    gameOver: extractGameOver(rom, offsets),
+    gameOver: extractGameOver(rom, offsets, stage.extra?.facePalette),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
   };
@@ -301,14 +301,14 @@ function extractTitleCard(rom, uiAt, cardAt, level) {
 // the game over's song (MUS_GAME_OVER): the screen waits for it to end before it leaves, so the sound engine
 // plays it through here, without sound, to count its frames
 const GAME_OVER_SONG = 37;
-function extractGameOver(rom, offsets) {
+function extractGameOver(rom, offsets, facePalette) {
   const { image, palette, ...rest } = gameOverGraphics(rom, offsets.uiGraphics, offsets.titleCard);
   const engine = createM4A(rom.bytes, soundLayout(rom, offsets.musicPlayers), createApu());
   engine.songStart(GAME_OVER_SONG);
   const player = engine.players.find(p => p.songHeader === engine.songHeader(GAME_OVER_SONG));
   let songFrames = 0;
   do { engine.frame(); songFrames++; } while ((player.status & 0xFFFF) !== 0 && songFrames < 60 * 60);
-  return { sheet: toCanvas(image), ...rest, hudSheet: toCanvas(hudGraphics(rom, offsets.uiGraphics, null, palette).image), song: GAME_OVER_SONG, songFrames };
+  return { sheet: toCanvas(image), ...rest, hudSheet: toCanvas(hudGraphics(rom, offsets.uiGraphics, facePalette, palette).image), song: GAME_OVER_SONG, songFrames };
 }
 
 function toCanvas(img) {

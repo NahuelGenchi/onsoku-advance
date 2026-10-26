@@ -221,7 +221,8 @@ export function createRenderer(canvas, assets) {
   // middle, stretches their ways in and out to its edges, and the band runs across all of it.
   const overPixels = { data: over.sheet.getContext('2d').getImageData(0, 0, over.sheet.width, over.sheet.height).data, width: over.sheet.width };
   const WORDS = ['gameOverLeft', 'gameOverRight', 'continueLeft', 'continueRight'];
-  function drawGameOver(go) {
+  // `dark`: the brightness decrease is still what BLDCNT holds (on the Moon the robot can clear it)
+  function drawGameOver(go, dark = true) {
     const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, wide = ox > 0 || oy > 0;
     const s9 = x => (x << 23) >> 23;
     if (go.bandX !== null) {
@@ -230,7 +231,7 @@ export function createRenderer(canvas, assets) {
       if (!wide) for (let i = 0; i < 8; i++) put(s9((go.bandX + 32 * i) & 0x1FF));
       else for (let x = Math.round((left + 256) * W / 256) - 32; x > -32; x -= 32) put(x);
     }
-    if (go.bldY) darken(go.bldY);
+    if (go.bldY && dark) darken(go.bldY);
     if (go.glyph) {
       const g = go.glyph, size = g.what === 'ok' ? 32 : 16, [sx, sy] = g.what === 'ok' ? over.ok : over.digits[g.what];
       if (g.scale === null) {
@@ -384,7 +385,7 @@ export function createRenderer(canvas, assets) {
   // what another stage's renderer (extrarender.js) draws with: `use(c)` sends the drawing to canvas context c
   // and gives back the one it replaced
   render.parts = {
-    drawSprite, drawAffine, drawHud, drawCard, darken, stack,
+    drawSprite, drawAffine, drawHud, drawCard, darken, stack, drawGameOver, gameOverHud: over.hudSheet,
     get ctx() { return ctx; }, get w() { return W; }, get h() { return H; },
     use(c) { const old = ctx; ctx = c; return old; },
   };

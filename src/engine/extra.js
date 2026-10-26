@@ -4,7 +4,8 @@
 // its own player, its boss, the robot's display effects and no rings to collect but the ones its capsules
 // spill. The title card is act 1's without an act number; as it ends, the HUD comes up and a WARNING sign
 // flashes, and on the WARNING's 128th frame the robot starts to move. Super Sonic starts with 50 rings, which
-// run down by one a second; at none he dies, and the stage starts over. Beating the robot fades the screen
+// run down by one a second; at none he dies, and the stage starts over, or with his last life the game over
+// comes (gameover.js), as it does in the acts. Beating the robot fades the screen
 // to white and goes on to the true ending (trueending.js), which ends where the staff credits start
 // (`onCredits`).
 
@@ -16,6 +17,7 @@ import { createTasks, makeSprite, animate } from './objects.js';
 import { createScatter } from './scatter.js';
 import { createHud, updateHud } from './hud.js';
 import { createTitleCard, runTitleCard } from './titlecard.js';
+import { createGameOver, runGameOver } from './gameover.js';
 import { createExtraRenderer } from './extrarender.js';
 import { createTrueEnding } from './trueending.js';
 import { createEndingRenderer } from './endingrender.js';
@@ -30,7 +32,8 @@ import { SONG } from '../sound/songs.js';
 const START_LIVES = 3;
 const MAX_BRAKE_DUST = 20;     // CreateBrakingDustEffect's pool
 const MAX_RING_SPARKLES = 8;
-const PLAYER = 0x3000, BRAKE_DUST = 0x4001, WARNING = 0x2101, HUD = 0x2180;
+const PLAYER = 0x3000, BRAKE_DUST = 0x4001, WARNING = 0x2101, HUD = 0x2180, GAME_OVER = 0x2000;
+const DARKEN = 0x3FFF;   // BLDCNT as the game over's fade sets it: the brightness decrease on everything
 const SCATTER_GRAVITY = 7;     // the scattered rings' fall on the extra stage (InitPlayerHitRingsScatter)
 // the display registers as StageInit_Zone7Act2 leaves them: BG0 to BG2 and the sprites on
 const DISPCNT = 0x1F41;
@@ -48,9 +51,10 @@ const SILENT = {
 /**
  * The Moon Zone, with the same interface as createGame (game.js). On the true ending's 30th frame
  * `stageResults({ rings, courseTime, level })` puts up the results' tally (#69's), and `onCredits()` is called
- * on the frame the staff credits take over from the ending.
+ * on the frame the staff credits take over from the ending. `continues` and `onTitle()` are createGame's: the
+ * continues the game has, and what a game over without one does once it is done.
  */
-export function createExtraStage(canvas, assets, input, sound = SILENT, { stageResults, onCredits = () => {}, difficulty = 0 } = {}) {
+export function createExtraStage(canvas, assets, input, sound = SILENT, { stageResults, onCredits = () => {}, difficulty = 0, continues = 0, onTitle = () => {} } = {}) {
   const { anims } = assets.sprites;
   const stage = assets.stage, terrain = createTerrain(stage.collision);
   const bodyAnims = { roboBody: stage.extra.body.anim };
@@ -59,10 +63,14 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
   scatter.reset();
   const render = createExtraRenderer(canvas, assets);
   let renderEnding = null, shown = null;   // what the last frame showed, which the screen holds during the save
+  // The HUD's face shares its sprite palette row with Super Sonic, whose animations load his colours there; the
+  // one he dies in is Sonic's own death (21), which loads Sonic's on the frame after he dies, when it is first
+  // drawn, so the face shows them from then on
+  const withFace = s => (player.death ? s : { ...s, hud: { sprites: s.hud.sprites.map(h => (h[0] === 'face' ? ['faceSuper', h[1], h[2]] : h)) } });
   const drawFrame = () => {
-    if (!state.ending) { render(state); return; }
+    if (!state.ending) { render(withFace(state)); return; }
     // the screen keeps the frame before; with the HBlank interrupt off BG1's lines from 91 down don't scroll
-    if (state.saving > 1) { render({ ...state, ...shown, hblank: state.saving === 2 }); return; }
+    if (state.saving > 1) { render(withFace({ ...state, ...shown, hblank: state.saving === 2 })); return; }
     renderEnding ??= createEndingRenderer(render.parts, stage.extra.ending);
     renderEnding(state.ending.state);
   };
@@ -76,10 +84,12 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
     hud: createHud(), card: null, display: freshDisplay(), seed: 0, ended: false,
     ending: null,          // the true ending, once the robot is beaten
     saving: 0,             // the frames the save game still takes before it
+    continues,             // gUnknown_0300543C: a game over uses one to go on
+    gameOver: null,        // the game over (gameover.js) once Super Sonic has lost his last life
   };
   let viewW = SCREEN_W, viewH = SCREEN_H;
   state.view = viewOf(state.cam, viewW, viewH);
-  let restart = false, loading = false, cardPad = [], brakeDust = MAX_BRAKE_DUST, spawned = false;
+  let restart = null, toTitle = false, loading = false, cardPad = [], brakeDust = MAX_BRAKE_DUST, spawned = false;
   const sparkles = new Set();
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
 
@@ -114,7 +124,20 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
       Object.assign(state.cam, { minY, maxX: maxX - SCREEN_W, shiftX, shiftY });
     },
     died() { state.cam.locked = true; state.actStart = true; },
-    lifeLost() { restart = true; tasks.stop(); },
+    // HandleLifeLost: a life less. With lives left the stage starts over, and the original destroys every task,
+    // so nothing after Super Sonic's runs this frame. The last one brings the game over, with the stage and the
+    // robot running on behind it; a continue left is used for it. CreateGameOverScreen clears the blending and
+    // the windows the robot's effects use.
+    lifeLost() {
+      state.lives = (state.lives - 1) & 0xFF;
+      if (state.lives !== 0) { restart = restartStage; tasks.stop(); return; }
+      state.actStart = true;
+      state.gameOver = createGameOver(assets.gameOver, state.continues > 0);
+      if (state.continues > 0) state.continues--;
+      Object.assign(state.display, { bldCnt: 0, bldY: 0, win0: null });
+      sound.play(assets.gameOver.song);
+      tasks.add(gameOverTask, GAME_OVER);
+    },
     stopClock() { state.actStart = true; },
     // INCREMENT_SCORE_A: every 50000 points a life
     addScore(n) {
@@ -199,17 +222,15 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
   const hudTask = {
     run() {
       if (updateHud(state.hud, { ...state, stageTime: state.tick })) sound.play(SONG.TIMER);
-      // Super Sonic's colours in the face
-      state.hud.sprites = state.hud.sprites.map(s => (s[0] === 'face' ? ['faceSuper', s[1], s[2]] : s));
       return true;
     },
   };
   function startCard() { state.card = createTitleCard(assets.titleCard); state.actStart = true; state.hud.sprites = []; }
 
-  // HandleLifeLost: a life less, and the stage starts over with 50 rings; its music starts again at once and
-  // loading takes the whole next frame
+  // the stage starts over after a lost life with 50 rings; its music starts again at once and loading takes the
+  // whole next frame
   function restartStage() {
-    if (state.lives > 0) state.lives--;
+    state.gameOver = null;
     // a fresh Super Sonic (CreatePlayer), into the object his task and the camera hold; his getters only read
     // these fields, so only the fields are copied (Object.assign would try to set the getters)
     const fresh = createSuperSonic(stage.spawn);
@@ -223,6 +244,29 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
     sound.playStageMusic(stage.music);
     loading = true;
   }
+
+  // ApplyGameStageSettingsAndStart, after a continue: three lives, no score, and the stage from its start, its
+  // stage clock from 0 too
+  function continueStage() {
+    state.lives = START_LIVES; state.score = 0; state.tick = 0;
+    restartStage();
+  }
+
+  // the game over's tasks, as one (gameover.js), reading this frame's A and B; once it is done the original
+  // destroys every task, and the stage starts over with the continue or the game goes back to its start
+  const gameOverTask = {
+    run() {
+      const a = input.jumpPressed, b = input.attackPressed;
+      input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
+      const go = state.gameOver, end = runGameOver(go, sound, a, b);
+      if (end === 'continue') { restart = continueStage; tasks.stop(); }
+      else if (end === 'title') { toTitle = true; tasks.stop(); }
+      // its fade writes the brightness decrease every frame, before the robot's task, which can write over it
+      // (the end of a laser clears BLDCNT, and that frame isn't darkened)
+      else if (go.fade.on || go.black) Object.assign(state.display, { bldCnt: DARKEN, bldY: go.bldY });
+      return true;
+    },
+  };
 
   // the stage's tasks in CreateGameStage's order
   const STAGE_TASKS = [
@@ -266,7 +310,8 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
   ];
   const playerTask = superSonicTask(player, w);
   for (const [priority, run] of STAGE_TASKS) {
-    tasks.add(run ? { run: () => { run(); return true; } } : { run: () => playerTask.run() }, priority, true);
+    // Super Sonic's task has ended at the game over
+    tasks.add(run ? { run: () => { run(); return true; } } : { run: () => state.gameOver ? true : playerTask.run() }, priority, true);
   }
   startCard();
 
@@ -277,19 +322,21 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
       else state.ending.step();
       return;
     }
-    if (state.ended) return;
+    if (state.ended || toTitle) return;
     if (loading) { loading = false; return; }
     shown = { tick: state.tick, view: state.view, scrollX: state.scrollX, sprites: state.sprites, windows: state.windows, body: state.body, hud: { sprites: state.hud.sprites }, display: { ...state.display } };
     state.sprites = []; state.windows = []; state.body = null;
     tasks.run({});
-    if (restart) { restart = false; restartStage(); }
+    if (toTitle) { onTitle(); return; }
+    if (restart) { const start = restart; restart = null; start(); }
   }
 
   let frame = 0, last = 0, pending = 0;
   function loop(now) {
     pending += Math.min(100, now - last);
     last = now;
-    while (pending >= TICK_MS) { step(); pending -= TICK_MS; }
+    while (pending >= TICK_MS && !toTitle) { step(); pending -= TICK_MS; }
+    if (toTitle) return;   // the game's start has the screen now
     if (!state.ended || state.ending) drawFrame();
     frame = requestAnimationFrame(loop);
   }

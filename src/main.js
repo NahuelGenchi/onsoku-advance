@@ -1,5 +1,6 @@
 // Game page: choose a ROM, extract its assets in the browser, then play.
 
+import './engine/cpucanvas.js';
 import { createRomPicker } from './ui/rom-picker.js';
 import { loadRememberedRom, rememberRom, RUSH_ROM } from './ui/rom-store.js';
 import { extractAssets } from './rom/extract.js';

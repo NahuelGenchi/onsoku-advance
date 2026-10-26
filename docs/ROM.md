@@ -553,7 +553,7 @@ Level 3, `?level=3` in the address. Its stage init, `StageInit_Zone2Act2` (`0x08
 - **The drop.** 121 frames later the press drops in 60 px left of its spawn point and lands (song 145), and Eggman laughs.
 - **The hops.** The press hops at Sonic over and over, each hop taking 72 frames to reach where he stood. After its fourth hit, every fourth jump is a leap off the top of the screen. The leap follows Sonic, lands on him, shakes the screen (`CreateScreenShake(0x800, 0x40, 0x100, -1, 0x80)`), and hurts him unless he is in the air.
 - **Hitting it.** A jump into the top of the press hits it (song 143). It flashes white and can't be hit again for 32 frames, and each hit makes it faster.
-- **The defeat.** The eighth hit beats it (song 144). The spring and the base fly off, and the press drops to the floor and bounces. For about 4 seconds it throws debris and explosions every 8 frames.
+- **The defeat.** The eighth hit beats it (song 144). The spring and the base fly off, and the press drops to the floor and bounces. For about 4 seconds it throws debris and explosions every 8 frames. The camera stops across where it is, so a widescreen view's black closes in on that screen from the arena's sides (`cam.arena`).
 - **The escape.** Eggman flies off in the Egg Mobile and the act's music comes back.
 
 What comes next, the capsule and the end of the act, isn't built here; the game calls `world.bossDefeated(x, y)` for it. Eggman is placed from the press's shown frame (its first OAM entry), the way the original reads it.

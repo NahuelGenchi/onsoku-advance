@@ -14,6 +14,7 @@ import { tileFloor } from './terrain.js';
 import { screenShake, SCREEN_SHAKE, SHAKE } from './screenshake.js';
 import { setBossCamBounds, bossPart, bossDebris, eggMobileEscape, bossHit26, HIT_ENEMY, HIT_PLAYER } from './bosses.js';
 import { SONG } from '../sound/songs.js';
+import { SCREEN_W } from './constants.js';
 
 export const EGG_PRESS = 23;
 
@@ -221,7 +222,8 @@ export function createEggPress(e, slot, anims, ctx) {
   }
 
   // sub_802E868: the eighth hit. What is left of the press jumps 48 px up, its spring and base fly off, the
-  // camera stops where it is, and the hit scores 1000 points.
+  // camera stops where it is (and the widescreen view's arena closes in on it across), and the hit scores 1000
+  // points.
   function beaten(c) {
     qy -= 48 * 256;
     const [x, y] = at();
@@ -234,6 +236,7 @@ export function createEggPress(e, slot, anims, ctx) {
     c.add(bossPart(x, y, 'eggPressSpring', c.anims, { ...part, spin: 0x80 }));
     c.add(bossPart(x, y + 32, 'eggPressBase', c.anims, { ...part, spin: 0x180 }));
     cam.minX = Math.floor(cam.x); cam.maxX = Math.floor(cam.x);
+    cam.arena = { minX: cam.minX, maxX: cam.maxX + SCREEN_W, minY: y0 - 144, maxY: y0 + 16 };
     c.world.addScore(1000);
     phase = falling;
     falling(c);

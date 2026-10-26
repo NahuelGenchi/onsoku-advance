@@ -22,6 +22,11 @@ export const KNOWN_VERSIONS = [
       titleCard: 0x681274,
       introGraphics: 0x69EC10,
       introTables: 0x684178,
+      specialStage: 0x47FEF4,
+      specialLayouts: 0x7B97F8,
+      characterAnims: 0x4A6F04,
+      specialIntro: 0x684480,
+      specialClouds: 0x6B4B10,
     },
   },
 ];

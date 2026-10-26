@@ -528,7 +528,77 @@ The Japanese name's 16 tiles are put together as `LoadStageIntroGraphics` loads 
 - *The rest of the game:* the engine before and after the card was drawn plays 11 input runs (33,000 frames, one of them through a death and the restart, two skipping the card) to exactly the same state on every frame: Sonic, the camera, the objects, the rings, the score, the clocks and every sound.
 - These recordings also showed the background's cloud bands one frame ahead of the original: they scroll with the stage clock from before that frame's tick, as the layers' animations do.
 
-### Start positions
+### Special stages
+
+A special spring sends Sonic out of the act into a special stage, and when the stage's results end, the act starts again from the spring. Everything between the two runs of the act is a port of the original's code on the same engine as [the game's start](#the-games-start) ([`src/special/`](../src/special/)), at the GBA's 59.73 frames a second: the fall into the stage (`CreateSpecialStageIntro`), the stage (`CreateSpecialStage`, SAT-R's `special_stage/main.c`), its title card and rings counter, the Chaos Emerald's scene (`sub_8068D0C`) and the results (`sub_805D048`). The engine of the stage ([`stage.js`](../src/special/stage.js), [`player.js`](../src/special/player.js), [`objects.js`](../src/special/objects.js)) runs any of the seven stages; what makes one stage different is read from the ROM by [`stages.js`](../src/special/stages.js). Only Special Stage 1 has been played and checked so far.
+
+**The special spring** is interactable kind 102 ([`specialspring.js`](../src/engine/specialspring.js)), at (10912, 488) in Neo Green Hill act 1; levels 3, 4, 6, 7, 9 and 11 have one too. Its d bytes aren't read. It is animation 572: variant 1 waits, with the box (−15, −32, 15, 1), and variant 0 launches (five frames, 12 in all). Landing on it throws Sonic up at 7.5 px a frame and plays the spring's song. Unless the special springs are off, it then holds him and stops the course clock, and puts the camera back each frame where it was when he landed, after the camera's task has moved it and drawn the layers there. When his centre is more than 128 px above the top of the screen the act ends (every task is destroyed) and the fall starts. From `spring.ss` (Sonic falling onto it): he lands on frame 10, the act ends on frame 40, the stage starts on frame 282.
+
+**Coming back** (`sub_805D4F0`, in assembly in the decompilation): the act starts again as after a death but without losing a life (`CreateGameStage`), with Sonic 16 px up and left of the spring, which pushes him out to its side on the first frame (x 10886), and with its title card. The course time, the stage clock, the rings and the last checkpoint passed are what they were when he left; the score, the lives and the random numbers are what the special stage leaves. The special springs are then plain springs (`gPlayer.unk99[1]`) until the act starts over after a death. The Chaos Emeralds won are kept in the browser (`onsoku.emeralds` in local storage), a bit per stage, as the save keeps them (`chaosEmeralds`, `0x0300517C`).
+
+**The data.** All addresses are the USA ROM's file offsets.
+
+| What | Where | How it is found |
+| :--- | :--- | :--- |
+| `main.c`'s constants: the tunnel's backgrounds, then the tables below | `0x47FEF4` | the background of tilemap 54 at VRAM `0x06008000` / `0x0600E000`, followed by one of tilemap 55 |
+| Each level's stage (`gUnknown_08487134`), a byte per level: 0, 0, 1, 1, 2, 2, 3, 4, 5, 5, 6, 6 | constants + `0x140` | |
+| Each stage's rings targets, the checkpoint's then the goal's (stage 1: 60 and 120) | constants + `0x14C` | |
+| The character's animation by where they are and by the direction held, the push of each direction | + `0x168`, `0x190`, `0x1D0` | |
+| The character's boxes against dash pads and bombs, normal (±10) and while fast (±3) | + `0x210`, `0x218` | |
+| Each dash pad's animation and speeds (across, up, forward) | + `0x220`, `0x238` | |
+| Each kind of object's animation and its tiles' place in VRAM | + `0x298`, `0x2D0` | |
+| The 12 rings around a bumper, its 8 sparks, the speeds of the 10 rings a bomb knocks out | + `0x2EC`, `0x31C`, `0x33C` | |
+| The stages' palette animations: animation `0x340` + the stage, variants 0 and 1 | | |
+| The seven stages' layouts (`gUnknown_087BF8DC`) | `0x7B97F8` | a pointer to constants + `0x364` (stage 1's layout), followed by six more |
+| The characters' first animations (`gPlayerCharacterIdleAnims`): 0, 99, 199, 298 | `0x4A6F04` | those values |
+
+A layout is a list of 12-byte entries in order of depth: x and y (s16, px from the tunnel's middle, right and up), the depth (s32, in lines) and the type (u16): 0 a ring, `0x7FFF` the checkpoint, `0xFFFF` the goal (the last entry), any other an object of that kind. Stage 1 has 179 entries: rings, a bumper at depth 15616, the checkpoint at 16896, then a backward dash pad, two diagonal ones, a token (type 10), a ring of eight bombs, a bumper, another diagonal pad, two forward pads, and the goal at 33792.
+
+**The tunnel.** Layer 2 holds the tunnel, the four quarters of one picture (19 × 14 tiles each) around the middle of its 512 × 256 map, the other three flipped across, down and both (`DrawBackground`'s flags `0x9A`, `0x11A`, `0x19A`). Its picture is one of 16 tilemaps, 55 to 70, stepping on by the character's speed (`frame = (frame + speed / 512) & 63`, tilemap 55 + frame / 4). Layer 3 holds the background, tilemap 54. Both move against the character's place: layer 2 by up to 32 px (x / 134 × 32 and y / 94 × 32), layer 3 by an eighth of that.
+
+**The character** ([`player.js`](../src/special/player.js)) flies down the tunnel at 8 lines a frame, or up to 12 holding jump, and the D-pad steers them across it, at most ±134 px across and ±94 px up and down. Attack does a trick (45 frames), at least 12 frames after the last. Their sprite is scaled by a bob (`SIN(phase) / 1024`, the phase stepping 16 a frame) and drawn nearer the middle the further away the bob takes them. Dash pads throw them a fixed way for a while: the backward pad back up the tunnel until they come forward again, the forward pad ahead at 24 lines a frame, the diagonal ones across and ahead, half as fast again, a bomb knocks out up to 10 of their rings and makes them blink for 60 frames, and a trick within 10 frames of touching a bumper (the bumper trick) pulls the bumper's 12 rings to them, stops the music and plays its own jingle (song 43) on the third sound effects player, with the sound effects off until it ends (112 frames); then the music goes on where it stopped, fading in.
+
+**Rings and objects** ([`objects.js`](../src/special/objects.js)). A task makes each object as the character comes within 768 lines of it, and drops it 576 lines behind. Each frame one task draws all the layout's rings, a sprite for the first on screen and copies of its OAM entry for the others. Everything is scaled by how far ahead it is: with `k = ((lines ahead + 768) / 8)⁴ / 408`, it shows at `x × (k / 512 + 56) / 640` from the middle, `k / 1024 + 64` 256ths of its size. Sprites at the same depth share an affine matrix, 16 of them handed out each frame from matrix 1 (matrix 0 is the character's). The kinds:
+
+| Kind | Animation | What it does |
+| :--- | :--- | :--- |
+| 0 ring, 3 a bumper's ring | 795 | taken by the character's box within 32 lines in front (a bumper's ring within 64); the sound pans left and right by turns |
+| 1 sparkle | 796 | where a ring was taken |
+| 2 bumper | 797 | 12 rings around it (not to be taken for 15 frames) and 8 sparks (kind 13, 798), song 150; 11 frames later, its message for 60 frames: the bumper trick done or not (animation 812, variants 1 and 2) |
+| 4–9 dash pads | 799, variants 0–5 | backward, forward, then four diagonals; song 148 |
+| 10 token | 800 | counted (`gUnknown_0300507C`), song 151; each gives a continue at the results |
+| 11 bomb | 801 | explodes (kind 12, 802), song 144 |
+
+**How a stage goes** ([`stage.js`](../src/special/stage.js)). The title card shows the checkpoint's target, and the character is held still for the first 240 frames. At the checkpoint they glide back to the middle for 120 frames. With enough rings they cheer (animation 33, COOL! in animation 813), the title card shows the goal's target 151 frames later, and 420 frames after the checkpoint they fly on. Short of it, NOT ENOUGH RINGS (animation 812) shows as they reach it, they fall after the glide (animation 34, AAARGH!), and 420 frames after the checkpoint the stage fades to white over 64 frames, into the results. At the goal it is the same, and with enough rings the stage clear music (song 44) plays, the fade leads to the Chaos Emerald's scene, and the results add the emerald. The results take 616 frames without the emerald and 736 after its scene (474 frames), then the act starts again.
+
+**Start** opens the pause menu in the original (`sub_802D680`); the pause menu isn't built yet, so it does nothing (the act has none either).
+
+**The widescreen view** is black either side of every screen of the special stage, from the fall to the results (`wideBars`). They are made for 240 × 160 alone: a little past the screen's sides the tunnel's quarters end, and the layers show tiles the original never shows there, such as the pink pattern beside the tunnel and red columns beside the fall.
+
+**Original-game quirks kept.** These are in the ROM and the port does the same:
+
+- What isn't set again when a stage starts stays as the last special stage left it: the bob's phase, the character's sprite, and the list of animations that share graphics, which only empties when the 240 frames end and after the checkpoint. On a second visit, objects made before then wouldn't load their own tiles.
+- The rings counter starts its blink from whatever its task's memory held: 99, what the fall leaves there, at the start, and 0 after the checkpoint. On its first frame it reads a byte past its four glyphs.
+- A bumper's rings read the bumper's message count after the bumper's task has gone (they become plain rings once it reads 0). The port keeps the bumper's state for them; in the original that memory could already belong to another task.
+- The rings a bomb knocks out blink from a count that is never set. The port starts it at 0, which is what the recordings show.
+- Matrices 16 and 17 (the 16th depth, and the one every sprite past it shares) are never set again once used, so after their first frame they keep the parameters the V-blank leaves. Special Stage 1 never uses more than 15 depths.
+- The stage loads its own colours over the title card's, 23 frames after the card loads them at the start and 18 frames after at the checkpoint, so the card shows in the stage's colours from then on.
+
+**How it was checked.** mGBA 0.10.5 ran the USA ROM from `spring.ss`, dumping VRAM, palette RAM, OAM, the work RAM and every line's display registers after each frame. The engine ran each stage from the recorded frame where `CreateSpecialStage` runs, and every frame was compared: the character (every field), the rings taken, the random numbers, the tunnel, the checkpoint, the sound mute flag, the depths and the matrices, the shared-graphics list, VRAM, palette RAM, OAM, the registers of every line, and the picture.
+
+| Run | What it covers | Frames | Differences |
+| :--- | :--- | :--- | :--- |
+| No keys | the title card, the rings counter, the bumper touched, the checkpoint reached | 2618 | 0 |
+| Steering, jump held, tricks | rings taken, tricks, the fast flight | 2618 | 0 |
+| Sonic moved by pokes: to the bumper (then the bumper trick), 60 rings before the checkpoint, then to the token, a bomb and a diagonal pad (the backward pad and the forward pads come on their own), and 120 rings before the goal | the bumper trick and its jingle, COOL and the second title card, every kind of object (one of the four diagonal pads), the rings knocked out, the goal won, the fade to the emerald's scene | 2703 | 0 |
+| No keys, from the fall to the act again (work RAM, OAM and palette only) | the checkpoint failed, AAARGH!, the fade, the results, the act again on frame 3735 | 3695 | 0 after the first frame* |
+| The pokes above, from the fall to the act again (the same) | the emerald's scene and the results with it, the act again on frame 4195 | 4155 | 0 after the first frame* |
+
+\* On the fall's first frame, eight background colours differ: the act's palette animation still ran in that frame in the original, before the spring ended the act, and the check doesn't run the act.
+
+The bumper trick's jingle was timed in mGBA too (a run with the bumper trick forced): the sound effects stay off for 112 frames, as long as the sound engine plays song 43. The card, the counter and the results were also checked on their own (their VRAM, colours, OAM entries, registers and songs). The spring and the return were checked against the act's own recordings: the rise (40 frames), the return after a lost and a won stage, with the rings kept, the plain spring after it, and a death followed by the special spring again.
+
+**Only read in the code, not checked:** Tails, Knuckles and Amy in the special stage (their animations are the character's first animation plus the same numbers); Special Stages 2 to 7, whose data is read the same way; a second visit; the results after the goal's target was reached at the checkpoint (`unk0 == 2` with enough rings); Amy's hammer on the spring and the partner.
 
 A pair of 16-bit values (x, y) per level, in pixels, right after the collision table. Neo Green Hill Zone act 1 starts at (104, 444). The four multiplayer stages are (0, 0): they use a separate table of per-player positions.
 

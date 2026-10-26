@@ -17,7 +17,7 @@ import { createTitleScreen } from './title.js';
 export const GBA_FRAME_MS = 280896 / 16777216 * 1000;
 
 // what the player holds (engine/input.js), as the GBA's buttons
-function keysOf(input) {
+export function keysOf(input) {
   return (input.jump ? KEY.A : 0) | (input.attack ? KEY.B : 0) | (input.start ? KEY.START : 0) | (input.select ? KEY.SELECT : 0)
     | (input.right ? KEY.RIGHT : 0) | (input.left ? KEY.LEFT : 0) | (input.up ? KEY.UP : 0) | (input.down ? KEY.DOWN : 0);
 }

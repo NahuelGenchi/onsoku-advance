@@ -227,12 +227,14 @@ drawn, and Sonic Advance's own sprites behind Sonic count as background when the
 | Rush boost on or off | <kbd>R</kbd> | |
 | Show the collision (for checking the level) | <kbd>C</kbd> | |
 
+In a special stage the same controls fly Sonic down the tunnel: the D-pad or left stick steers, jump (A) speeds him up while held, and attack (B) does a trick. A trick just after touching a bumper pulls in its rings.
+
 Other controllers that your browser maps to the Xbox layout work the same way. Press a button once after the page loads so the browser notices the controller. On touch screens, on-screen buttons appear instead.
 
 ## Where it's at
 
 > [!NOTE]
-> **Early days: the first act is playable.** The game opens with the original [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67) and its [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70), and you can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets. The act has no ending yet (no goal signpost or score tally), and there is no game over yet.
+> **Early days: the first act is playable.** The game opens with the original [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67) and its [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70), and you can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets. Its special spring leads to [Special Stage 1](https://github.com/NahuelGenchi/onsoku-advance/issues/75), with the Chaos Emerald and the results, then back to the act. The act has no ending yet (no goal signpost or score tally), and there is no game over yet.
 
 Here's the road through the rest of the game. Each step has its own issue, so you can follow along.
 
@@ -253,7 +255,7 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 </tbody>
 </table>
 
-Also on the way: the title screen's demos, the character select and the menu's other modes, the [special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84), plus two more optional extras from Sonic Advance 2: its [Boost Mode](https://github.com/NahuelGenchi/onsoku-advance/issues/63) and its [mid-air tricks](https://github.com/NahuelGenchi/onsoku-advance/issues/65).
+Also on the way: the title screen's demos, the character select and the menu's other modes, the [other six special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84), plus two more optional extras from Sonic Advance 2: its [Boost Mode](https://github.com/NahuelGenchi/onsoku-advance/issues/63) and its [mid-air tricks](https://github.com/NahuelGenchi/onsoku-advance/issues/65).
 
 <details>
 <summary><b>Milestones</b></summary>
@@ -365,6 +367,8 @@ python -m http.server 8000
 ```
 
 Then open <http://localhost:8000> and choose your ROM to play.
+
+Two addresses skip ahead for testing: <http://localhost:8000/?debug> starts the act straight away, without the logos and the intro, and <http://localhost:8000/?special> starts Special Stage 1 as soon as the ROM is read, as if Sonic had just left act 1 on its special spring. When the stage ends, the act picks up again from that spring.
 
 To see everything the extractor decodes, open <http://localhost:8000/viewer.html>: Sonic's, the springs' and the rings' animations playing with their original timing, the sprite atlas, Neo Green Hill Zone act 1 with its collision, and the zone's background.
 

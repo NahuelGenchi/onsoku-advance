@@ -15,7 +15,7 @@ import { SINE } from './trig.js';
 import { SCREEN_W, SCREEN_H } from './constants.js';
 import { screenShake, SCREEN_SHAKE } from './screenshake.js';
 import { preBossCameraPan, camBounds, setCamBounds, bossHit, bossShotHit, bossBodyHit, rectHit, grabTest, explosion, debris,
-  HIT_ENEMY, HIT_PLAYER, s8, s16, I } from './bosses.js';
+  HIT_ENEMY, HIT_PLAYER, s8, s16, I } from './xbosses.js';
 import { endAttack, standUp } from './player.js';
 import { normalEnding } from './xending.js';
 
@@ -110,7 +110,7 @@ export function eggX(e, slot, anims, ctx) {
   // sub_80370B4: for the first 16 of the 32 frames after a hit, every other two, the machine is drawn in
   // OBJ palette 12, all white (palId 253 on its palette 15), while Sonic is alive; then both sprites
   function show(ctx) {
-    if (b.flash !== 0 && --b.flash > 16 && !(b.flash & 2) && !ctx.player.dead) body.white = true;
+    if (b.flash !== 0 && --b.flash > 16 && !(b.flash & 2) && !ctx.player.dead) body.allWhite = true;
     ctx.draw(body, b.x, b.y);
     ctx.draw(eggman, b.x, b.y);
   }
@@ -148,7 +148,7 @@ export function eggX(e, slot, anims, ctx) {
   // sub_8036E20: the flash goes, then, unless it is still flashing from the last hit, Sonic's attack on the
   // cockpit (only while the arm isn't all the way up) and the machine's body on Sonic
   function hitTest(ctx) {
-    if (!ctx.player.dead) body.white = false;
+    if (!ctx.player.dead) body.allWhite = false;
     if (b.flash !== 0) return;
     let hit = 0;
     if (!(b.arm.flags & 4)) hit = bossHit(body, b.x, b.y, ctx);
@@ -320,7 +320,7 @@ export function eggX(e, slot, anims, ctx) {
     ctx.world.playSound(SE_EXPLOSION);
     if (!ctx.player.dead) Object.assign(ctx.world.display, { win0: false, winOut: 0, bldCnt: 0, bldY: 0 });
     const p = ctx.player;
-    p.gsp = 0; p.ignoreInput = true; p.forcedInput = null;
+    p.gsp = 0; p.ignoreInput = true; p.heldInput = null;
     ctx.world.freezeStage();
     ctx.world.addScore(1000);
     main = falling;
@@ -410,7 +410,7 @@ function rotaryArm(b) {
   arm.task = {
     run(ctx) {
       s.flipX = s2.flipX = b.body.flipX;
-      s.white = s2.white = !!b.body.white;
+      s.allWhite = s2.allWhite = !!b.body.allWhite;
       if (b.hits >= HITS) {
         if (arm.state !== 0) {
           if (s.variant !== 6) unpoint();
@@ -628,7 +628,7 @@ function claw(b, ctx) {
             setHand(2);
             p.pushing = false; p.spinDashing = false; endAttack(p);
             p.xsp = 0; p.ysp = 0; p.gsp = 0;
-            p.carried = true; p.ignoreInput = true; p.forcedInput = null;
+            p.carried = true; p.ignoreInput = true; p.heldInput = null;
             grab(p, x, y);
             p.state = 'grabbed';
           } else if (c.radius <= c.target) { c.dr = 0; c.state++; setHand(2); }

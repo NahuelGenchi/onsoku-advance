@@ -28,7 +28,7 @@ export function findTitleCard(rom) {
 }
 
 // paints `count` 4bpp tiles of `tiles` from tile `first`, `wide` to a row, at (x, y); colour 0 is transparent
-function paint(img, x, y, tiles, first, wide, high, palette) {
+export function paint(img, x, y, tiles, first, wide, high, palette) {
   for (let t = 0; t < wide * high; t++) {
     const tx = x + (t % wide) * 8, ty = y + Math.floor(t / wide) * 8, at = (first + t) * TILE;
     for (let p = 0; p < 64; p++) {
@@ -43,10 +43,9 @@ function paint(img, x, y, tiles, first, wide, high, palette) {
 }
 
 /**
- * The card for `level` (0 is Neo Green Hill act 1) and Sonic: { image, slots, text, act }. Each slot has the OAM
+ * The card for `level` (0 is Neo Green Hill act 1) and Sonic: { image, slots, text }. Each slot has the OAM
  * shape and size of its sprites, their width and height in pixels, and its glyphs' [x, y] on the sheet; text
- * maps each piece to its glyph numbers. `act` is false past Cosmic Angel act 2 (level 11), where Task_8055904 draws
- * no act number.
+ * maps each piece to its glyph numbers.
  */
 export function titleCardGraphics(rom, uiAt, cardAt, level = 0, character = 0) {
   const entry = i => {
@@ -104,5 +103,5 @@ export function titleCardGraphics(rom, uiAt, cardAt, level = 0, character = 0) {
     text[name] = [...bytes(cardAt + at, n)].map(c => c - 32);
   }
   text.zone.push(...Array(ZONE_PADDING).fill(-32));
-  return { image, slots, text, act: level <= 11 };
+  return { image, slots, text };
 }

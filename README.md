@@ -58,8 +58,8 @@ Open the page, choose your file and play, with a keyboard, an Xbox controller or
 ## Play in three steps
 
 1. **Open the game** at **[nahuelgenchi.github.io/onsoku-advance](https://nahuelgenchi.github.io/onsoku-advance/)** in a current desktop browser.
-2. **Choose your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*). The game starts right away. Tick *Remember this ROM on this device* to skip this step next time.
-3. **Play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
+2. **Add your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*), on its card, or drop it anywhere on the page. The Sonic Advance 2 and Sonic Rush cards are for the optional [extras](#extras-you-can-switch-on). With *Remember these ROMs on this device* ticked, they are ready the next time too.
+3. **Press Play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
 
 > [!TIP]
 > **Where does the file come from?** From a Sonic Advance cartridge you own, copied to your computer with a cartridge reader. This project can't provide the game. Sonic Advance (USA) is the tested version; [docs/ROM.md](docs/ROM.md) has the details.
@@ -147,11 +147,13 @@ The goal is a game that behaves *exactly* like the original, not one that looks 
 - **The game's own sound.** The music and sound effects are played by a rebuilt copy of the cartridge's sound engine, whose output matches the original's byte for byte.
 - **Sharp pixels.** The game draws at the Game Boy Advance's own 240 × 160 and scales up in whole steps, so every pixel stays crisp on any screen.
 
+The game opens as the original does, with the SEGA and Sonic Team logos, the intro timed to its music, the title screen and the main menu. Game Start goes straight to the act, where the character select would start; the menu's other modes are next.
+
 The act opens, and starts over after a lost life, with the original title card sliding in as the screen fades up from black. The original on-screen counters show your rings, score, time and lives. Lose your last life and it's **game over**; with a continue left, the continue screen counts down from 9: press jump to play the act again with three lives, or attack to count down faster.
 
 ## Extras you can switch on
 
-Two optional additions on top of the original game. Both are off until you turn them on, and with them off the game runs exactly as without them.
+Four optional additions on top of the original game. All are off until you turn them on, and with them off the game runs exactly as without them.
 
 ### Widescreen view
 
@@ -161,6 +163,8 @@ Two optional additions on top of the original game. Both are off until you turn 
 
 See more of the act around the original screen, up to 368 × 208, filling the window at the same whole-step scale. The outline marks the Game Boy Advance's screen: the game plays exactly as it does there. Press <kbd>V</kbd> or use the *Widescreen* button in the help panel.
 
+Past the original screen, the view only shows what the game really has there. In an act that is more of the act, as far as the original's camera can go: the view stays inside the act's edges and inside a boss's arena. Where the original has nothing more to show, the view is black, like the frame around the Game Boy Advance's screen: beside an arena narrower than the view, and either side of a screen made for 240 × 160 alone. A picture's edge is never stretched or repeated to fill the space.
+
 ### Sonic Rush boost
 
 <div align="center">
@@ -169,7 +173,7 @@ See more of the act around the original screen, up to 368 × 208, filling the wi
 
 The boost from *Sonic Rush* on the Nintendo DS. Hold the boost button and Sonic blasts ahead at top speed, wrapped in Rush's blue aura and trail, smashing enemies, boulders and item boxes on contact, while nothing can hurt him. Press <kbd>R</kbd> or use the *Rush boost* button to turn it on, then hold <kbd>L</kbd> or <kbd>Shift</kbd> (<kbd>X</kbd> on a controller) to boost.
 
-Its look and sound are Sonic Rush's own, so it also needs your **Sonic Rush ROM** (`.nds`). It's asked for the first time you turn the boost on and, like the Sonic Advance file, read and kept on your device only. Its rules were read from Sonic Rush (USA) and checked in an emulator. For now it has no limit: Sonic Rush's tension gauge, which the boost uses up, isn't built yet.
+Its look and sound are Sonic Rush's own, so it also needs your **Sonic Rush ROM** (`.nds`). Add it on the start screen's Sonic Rush card, which turns the boost on, or it's asked for the first time you turn the boost on in the game. Like the Sonic Advance file, it's read and kept on your device only. Its rules were read from Sonic Rush (USA) and checked in an emulator. For now it has no limit: Sonic Rush's tension gauge, which the boost uses up, isn't built yet.
 
 <details>
 <summary><b>How the boost works, in detail</b></summary>
@@ -201,6 +205,81 @@ drawn, and Sonic Advance's own sprites behind Sonic count as background when the
 
 </details>
 
+### Sonic Advance 2 Boost Mode
+
+Boost Mode from *Sonic Advance 2*. Keep running flat out and Sonic breaks into an even faster run, with a burst of sparks and a trail of afterimages in Sonic Advance 2's light-blue boost colours. The more rings he carries, the sooner it kicks in; a hit, or slowing down, ends it. Press <kbd>B</kbd> or use the *Boost Mode* button in the help panel to turn it on. With the Rush boost on as well, the afterimages also follow Sonic while he boosts.
+
+Its look and sound are Sonic Advance 2's own, so it also needs your **Sonic Advance 2 ROM** (`.gba`). Add it on the start screen's Sonic Advance 2 card, which turns Boost Mode and the tricks on, or it's asked for the first time you turn Boost Mode on in the game. Like the Sonic Advance file, it's read and kept on your device only. Its rules were read from Sonic Advance 2 (USA), with the help of SAT-R's work on that game, and checked in an emulator.
+
+<details>
+<summary><b>How Boost Mode works, in detail</b></summary>
+<br>
+
+- **Filling up.** Sonic still runs as in Sonic Advance, up to 4.5 px a frame. Holding forward on the ground at
+  that speed fills Sonic Advance 2's hidden boost meter, faster the more rings he has: it takes 256 frames (about
+  4 seconds) with 10 rings or fewer, 170 with 11 to 49, 120 with 50 to 99, 90 with 100 to 149 and 60 (1 second)
+  with 150 or more. Leaving the ground or dropping below that speed empties it.
+- **Start.** Once the meter is full, Boost Mode starts with Sonic Advance 2's sound, a burst of sparks that
+  spread out ahead of Sonic and then sweep back past him, and the camera falling behind: its sideways speed
+  limit drops to 4 px a frame and climbs back to 16 by 1/8 px a frame.
+- **In Boost Mode.** Holding forward speeds Sonic up to 12 px a frame, at Sonic Advance 2's rate for the ring
+  count (from 8/256 to 18/256 a frame, which speed shoes don't change), and his ground speed is capped at 15. In
+  the air he speeds up twice as fast, also up to 12. Braking and friction stay Sonic Advance's.
+- **Boosters and springs.** Act 1's boosters, and side springs that throw Sonic faster than 9 px a frame from the
+  ground, put him straight into Boost Mode, without the sound or the sparks, as Sonic Advance 2's do.
+- **End.** It ends when he slows below 4.5 px a frame on the ground, when he is hurt, and when the act starts
+  over.
+- **The act's end.** Past the goal, or once a boss is beaten, Sonic runs on his own, so the meter stays empty
+  and Boost Mode doesn't start, nor from a booster or a spring. If it was already on, it ends there, with its
+  afterimages, so his run to the results is Sonic Advance's own.
+- **Afterimages.** While it lasts, three copies of Sonic follow him, each playing his animation as it was 2, 4
+  or 6 frames before, in Sonic Advance 2's boost palette, just behind him. Only one of them is drawn each frame,
+  in turn, as in Sonic Advance 2. With the [Sonic Rush boost](#sonic-rush-boost) on as well, they also show
+  while it is held; it keeps its own rules and doesn't fill the meter.
+- **Sound.** The start sound plays from your Sonic Advance 2 ROM on a second copy of the sound engine port, on top
+  of Sonic Advance's sound.
+
+Where it differs from Sonic Advance 2: outside Boost Mode's own numbers, Sonic keeps Sonic Advance's running and
+animations; the start sound has a sound engine of its own, so it never cuts off one of Sonic Advance's sounds;
+and it stops at the act's end, which Sonic Advance 2 never needs, as Sonic brakes to a stop after its goal while
+Sonic Advance has him run on at full speed.
+
+</details>
+
+### Sonic Advance 2 tricks
+
+The four mid-air tricks from *Sonic Advance 2*. Once Sonic is in the air, press the trick button (the Game Boy Advance's R) alone for the **Back Star**, a backflip, or with up for the **Hop Jump**, forward for the spinning **Humming Top**, or down for the **Bound**, a dive that bounces him back up off the ground. The Humming Top and the Bound break enemies he touches, and each trick scores 100 points. Press <kbd>T</kbd> or use the *SA2 tricks* button to turn them on, then press <kbd>E</kbd> or <kbd>I</kbd> (<kbd>RB</kbd> on a controller) in the air.
+
+Their moves, pictures and sounds are Sonic Advance 2's own, so they also need your **Sonic Advance 2 ROM** (`.gba`): the one on the start screen's Sonic Advance 2 card, or asked for the first time you turn them on in the game. Like the Sonic Advance file, it's read and kept on your device only. Their rules were read from Sonic Advance 2 (USA) and checked against it in an emulator, frame by frame.
+
+<details>
+<summary><b>How the tricks work, in detail</b></summary>
+<br>
+
+- **When.** Once Sonic is in the air: in a jump or a fall, off a spring, a ramp or the end of a grind rail, but
+  not while he is hurt, grinding, on the half-pipe or in the forced slide. Sonic Advance 2 only allows them after
+  springs, ramps and the like; here they work in any jump. One trick each time he leaves the ground, and not in
+  the first 2 to 4 frames after a spring, as in Sonic Advance 2.
+- **Wind-up.** The trick starts on the frame after the press. Sonic stops in the air for its wind-up, 12 frames
+  for the Hop Jump, 8 for the Humming Top, 2 for the Back Star and 23 for the Bound, with Sonic Advance 2's jump
+  and trick sounds (the Bound has none).
+- **Hop Jump** (with up). He rises at 6 px a frame, then falls as in a jump.
+- **Humming Top** (with the way he faces). He spins forward at 6 px a frame for 45 frames, in Sonic Advance 2's
+  spin effect, destroying enemies he touches, then falls.
+- **Back Star** (alone or with back). He flips backwards and up, at 5 px a frame back and 3.5 up.
+- **Bound** (with down). He dives, from 2 px a frame and faster each frame, leaving afterimages and destroying
+  enemies he touches. The ground throws him back up at 6 px a frame, away from its surface, with Sonic Advance 2's
+  bounce sound, and he falls as in a jump from the top.
+- **Steering.** After the wind-up of the Hop Jump, the Humming Top and the Back Star, left and right steer him as
+  in a jump, but he doesn't turn round. The Bound can't be steered until it starts to fall.
+
+Where the port differs from Sonic Advance 2: there, B in the air also starts the Bound, and a side spring on the
+ground allows a trick too; here neither does. The tricks' sounds play on their own copy of the sound engine, so
+they never take a channel from the music, as they can in Sonic Advance 2. The rules, sprites and sounds are
+compared with the original in [docs/ROM.md](docs/ROM.md#sonic-advance-2-tricks).
+
+</details>
+
 ## Controls
 
 | | Keyboard | Xbox controller |
@@ -214,11 +293,17 @@ drawn, and Sonic Advance's own sprites behind Sonic count as background when the
 | **Spin dash** | <kbd>↓</kbd> + <kbd>Z</kbd> | Down + <kbd>A</kbd> |
 | **Look up** | <kbd>↑</kbd> | Up |
 | **Boost**, with the [Rush boost](#sonic-rush-boost) on | <kbd>L</kbd> or <kbd>Shift</kbd> | <kbd>X</kbd> |
+| **Trick**, with the [SA2 tricks](#sonic-advance-2-tricks) on, in the air: alone or back for the Back Star, with up the Hop Jump, forward the Humming Top, down the Bound | <kbd>E</kbd> or <kbd>I</kbd> | <kbd>RB</kbd> |
+| **Start**: skips the intro, as jump and attack do, and opens the menu from the title screen | <kbd>Enter</kbd> | <kbd>Menu</kbd> |
+| **In the menu:** choose, then pick | <kbd>↑</kbd> <kbd>↓</kbd>, then <kbd>Z</kbd> or <kbd>Space</kbd> | D-pad or left stick, then <kbd>A</kbd> |
 | **Continue screen:** continue, or skip to the next number | <kbd>Z</kbd> or <kbd>Space</kbd>, or <kbd>X</kbd> | <kbd>A</kbd>, or <kbd>B</kbd> or <kbd>X</kbd> |
+| **Select** | <kbd>Backspace</kbd> | <kbd>View</kbd> |
 | Help panel on or off | <kbd>H</kbd> | |
 | Sound on or off | <kbd>M</kbd> | |
 | Widescreen view on or off | <kbd>V</kbd> | |
 | Rush boost on or off | <kbd>R</kbd> | |
+| Boost Mode on or off | <kbd>B</kbd> | |
+| SA2 tricks on or off | <kbd>T</kbd> | |
 | Show the collision (for checking the level) | <kbd>C</kbd> | |
 
 Other controllers that your browser maps to the Xbox layout work the same way. Press a button once after the page loads so the browser notices the controller. On touch screens, on-screen buttons appear instead.
@@ -226,7 +311,7 @@ Other controllers that your browser maps to the Xbox layout work the same way. P
 ## Where it's at
 
 > [!NOTE]
-> **Early days: the first act is playable.** You can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets. Losing your last life brings the original game over. The act has no ending yet (no goal signpost or score tally), and continues come from the special stages, which aren't built yet, so the continue screen can't show up in play for now.
+> **Early days: the first eight zones are playable.** The game opens with the original [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67) and its [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70). You can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets, through to its goal signpost and score tally, and then **act 2** with its mini loops, water bridge, bushes and hiding spikes, through to its boss, the Egg Hammer Tank, and the capsule that frees the animals and ends the zone. Act 1's special spring leads to [Special Stage 1](https://github.com/NahuelGenchi/onsoku-advance/issues/75), with the Chaos Emerald and the results, then back to the act. After the capsule the game goes on into **Secret Base Zone**: act 1 with its spotlights, enemies and gadgets, through to its goal, and act 2 with its steam exhausts, hooks, swing ropes and crane claws, through to its boss, the Egg Press. Then comes **Casino Paradise Zone**: act 1 with its pinball tubes, bumpers, flippers and balloons, and act 2 with its carousels, bowls and ship swings, through to its boss, the Egg Ball. After it comes **Ice Mountain Zone**: act 1 with its water, air bubbles and drowning, its snow, enemies and gadgets, and act 2 with its ferris wheels, blocks of ice and underwater lava, through to its boss, the Egg Spider. Then **Angel Island Zone**: act 1 with its lava, rolling boulders, whirlwinds and run wheels, through to its goal, and act 2 with its tubes, hang bars and spiked platforms, through to its boss, Mecha Knuckles. Then **Egg Rocket Zone**, with its launch, stage separations and countdown, up the rocket, and **Cosmic Angel Zone**, with its flipped gravity, tubes, Mirrors and antigravity units, through to its boss, the Egg Snake. After it comes **X Zone**, with its falling bricks and its three bosses one after the other, the Egg Wrecker, the Egg Drillster and Egg X, through to its results. **The Moon Zone**, the extra stage, is in too, with Super Sonic against the Super Egg Robo and the true ending after it: add `?level=13` to the address. Losing your last life brings the original game over and, with a continue left, the continue screen. The ending isn't built yet.
 
 Here's the road through the rest of the game. Each step has its own issue, so you can follow along.
 
@@ -235,19 +320,19 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 <tr><th align="left">Zone</th><th align="left">Act 1</th><th align="left">Act 2 and boss</th></tr>
 </thead>
 <tbody>
-<tr><td><b>Neo Green Hill</b></td><td>🟢 Playable now<br><sub>Next up: <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/69">its ending, then on to act 2</a></sub></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/83">Act 2 and the Egg Hammer Tank</a></td></tr>
-<tr><td><b>Secret Base</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/79">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/73">Act 2 and the Egg Press</a></td></tr>
-<tr><td><b>Casino Paradise</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/81">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/76">Act 2 and the Egg Ball</a></td></tr>
-<tr><td><b>Ice Mountain</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/71">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/72">Act 2 and the Egg Spider</a></td></tr>
-<tr><td><b>Angel Island</b></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/77">Planned</a></td><td>⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/80">Act 2 and Mecha Knuckles</a></td></tr>
-<tr><td><b>Egg Rocket</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/78">Planned</a></td></tr>
-<tr><td><b>Cosmic Angel</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/74">The zone and the Egg Snake</a></td></tr>
-<tr><td><b>X Zone</b></td><td colspan="2">⚪ <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/82">Its three bosses and the normal ending</a></td></tr>
+<tr><td><b>Neo Green Hill</b></td><td>🟢 Playable now, through its ending</td><td>🟢 Playable now, through the Egg Hammer Tank</td></tr>
+<tr><td><b>Secret Base</b></td><td>🟢 Playable now, through its goal</td><td>🟢 Playable now, through the Egg Press</td></tr>
+<tr><td><b>Casino Paradise</b></td><td>🟢 Playable now</td><td>🟢 Playable now, through the Egg Ball</td></tr>
+<tr><td><b>Ice Mountain</b></td><td>🟢 Playable now</td><td>🟢 Playable now, through the Egg Spider</td></tr>
+<tr><td><b>Angel Island</b></td><td>🟢 Playable now, through its goal</td><td>🟢 Playable now, through Mecha Knuckles</td></tr>
+<tr><td><b>Egg Rocket</b></td><td colspan="2">🟢 Playable now, at <code>?level=10</code><br><sub><a href="docs/egg-rocket.md">What it reads from the ROM</a></sub></td></tr>
+<tr><td><b>Cosmic Angel</b></td><td colspan="2">🟢 Playable now, through the Egg Snake<br><sub><a href="docs/cosmic-angel.md">What it reads from the ROM</a></sub></td></tr>
+<tr><td><b>X Zone</b></td><td colspan="2">🟢 Playable now, through its three bosses<br><sub>Next up: <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/96">the normal ending and the staff credits</a></sub></td></tr>
 <tr><td><b>Moon Zone</b></td><td colspan="2">🟢 The Super Egg Robo and the true ending, playable now: add <code>?level=13</code> to the address<br><sub>It will open the way the game opens it, with all seven <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/75">Chaos Emeralds</a>, once the special stages are in</sub></td></tr>
 </tbody>
 </table>
 
-Also on the way: the [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67), the [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70), the [special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84), plus two more optional extras from Sonic Advance 2: its [Boost Mode](https://github.com/NahuelGenchi/onsoku-advance/issues/63) and its [mid-air tricks](https://github.com/NahuelGenchi/onsoku-advance/issues/65).
+Also on the way: the title screen's demos, the character select and the menu's other modes, the [other six special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84).
 
 <details>
 <summary><b>Milestones</b></summary>
@@ -286,7 +371,7 @@ From a Sonic Advance cartridge you own, copied to your computer with a cartridge
 <summary><b>Is my game file uploaded anywhere?</b></summary>
 <br>
 
-No. The page reads it inside your browser and never sends it anywhere. If you tick *Remember this ROM on this device*, it's kept in your browser's storage on that device only, and *Forget the saved ROM* removes it again. The same goes for the Sonic Rush ROM.
+No. The page reads it inside your browser and never sends it anywhere. If you tick *Remember these ROMs on this device*, they're kept in your browser's storage on that device only, and *Forget the saved ROMs* on the start screen removes them again. That covers the Sonic Advance 2 and Sonic Rush ROMs too.
 
 </details>
 
@@ -310,7 +395,7 @@ It's made for a current desktop browser, with a keyboard or a controller. On tou
 <summary><b>Is there sound?</b></summary>
 <br>
 
-Yes: the act's music, the extra-life and invincibility tunes, and the sound effects of Sonic, the rings, the enemies, the item boxes and the act's springs, platforms, boosters, rails and more, all read from your ROM. <kbd>M</kbd> turns the sound on or off.
+Yes: the intro's music, SEGA's ring at the Sonic Team logo, the title screen's music, the menu's sounds, the act's music, the extra-life and invincibility tunes, and the sound effects of Sonic, the rings, the enemies, the item boxes and the act's springs, platforms, boosters, rails and more, all read from your ROM. <kbd>M</kbd> turns the sound on or off.
 
 </details>
 
@@ -343,10 +428,10 @@ flowchart LR
     rom --> ext
 ```
 
-1. **Extract.** You pick your ROM. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory, entirely in the browser.
+1. **Extract.** You add your ROMs. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory, entirely in the browser.
 2. **Simulate.** The engine steps 60 times per second with the original game's rules: acceleration, braking, gravity, jump height, roll friction, spin dash speeds and the camera's dead zones.
-3. **Draw.** Sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view draws up to 368 × 208 around the same screen; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds its trail and aura around Sonic.
-4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The Rush boost's sound plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, added to the same output.
+3. **Draw.** The logos, the intro, the title screen and the menu run on a port of the original's own engine (its tasks, sprites, backgrounds, line-by-line effects and V-blank) at the GBA's 59.73 frames a second, and a model of the GBA's video hardware draws them as mGBA does. In the act, sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view draws up to 368 × 208 around the same screen; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds its trail and aura around Sonic, the optional [Boost Mode](#sonic-advance-2-boost-mode) Sonic Advance 2's afterimages and sparks, and the optional [Sonic Advance 2 tricks](#sonic-advance-2-tricks) draw Sonic from Sonic Advance 2's sprites while he does one.
+4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The Rush boost's sound plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, and Boost Mode's and the tricks' from your Sonic Advance 2 ROM on a second copy of the Game Boy Advance one, all added to the same output.
 
 ## Run it on your own computer
 
@@ -358,7 +443,9 @@ cd onsoku-advance
 python -m http.server 8000
 ```
 
-Then open <http://localhost:8000> and choose your ROM to play.
+Then open <http://localhost:8000>, add your ROMs and press *Play*. To start another act, add its number in the game's level list: <http://localhost:8000/?level=2> is Secret Base Zone act 1.
+
+Two addresses skip ahead for testing: <http://localhost:8000/?debug> starts the act straight away, without the logos and the intro, and <http://localhost:8000/?special> starts Special Stage 1 as soon as the ROM is read, as if Sonic had just left act 1 on its special spring. When the stage ends, the act picks up again from that spring.
 
 To see everything the extractor decodes, open <http://localhost:8000/viewer.html>: Sonic's, the springs' and the rings' animations playing with their original timing, the sprite atlas, Neo Green Hill Zone act 1 with its collision, and the zone's background.
 
@@ -379,7 +466,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/TRACKING.md](docs/TRACKING.md)
 
 ## Legal
 
-Onsoku Advance is an unofficial fan project and is not affiliated with or endorsed by SEGA or Sonic Team. Sonic Advance, Sonic Rush and all related names, characters and artwork belong to SEGA.
+Onsoku Advance is an unofficial fan project and is not affiliated with or endorsed by SEGA or Sonic Team. Sonic Advance, Sonic Advance 2, Sonic Rush and all related names, characters and artwork belong to SEGA.
 
 This repository holds no ROM and no data taken from one: you need your own legally obtained copy of the game, and its graphics and sounds are read from it on your own device. The short clips on this page (in [docs/assets/gameplay](docs/assets/gameplay)) are recordings of Onsoku Advance running, made to show the project; the characters and artwork in them remain SEGA's.
 

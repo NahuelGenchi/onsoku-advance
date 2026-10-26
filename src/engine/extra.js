@@ -351,6 +351,7 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
       render.resize(wd, ht);
     },
     setRushBoost() {},   // the boost is Sonic's; Super Sonic has his own dash
+    setBoostMode() {}, setSa2Tricks() {},   // and so are Sonic Advance 2's extras
     start() {
       input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);
       sound.playStageMusic(stage.music);

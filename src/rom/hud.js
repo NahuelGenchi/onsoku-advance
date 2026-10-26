@@ -41,9 +41,8 @@ function drawTiles(rom, img, x, y, tilesAt, wide, high, palette) {
  * The HUD's images on one sheet: { image, glyphs, ring, face }. glyphs[0–10] are white '0'–'9' and ':',
  * glyphs[11–21] the red ones; each rect is [x, y, w, h] on the sheet. The digits and the ring use the font's
  * palette (the HUD loads it into OBJ palette 6), or `fontPalette` in its place, the face its own (the same as
- * Sonic's). The face shares its
- * palette with Sonic's sprite, so in the colours `facePalette` another sprite loads there (Super Sonic's, in the
- * Moon Zone) the sheet has it again as `faceSuper`.
+ * Sonic's). The face shares its palette with Sonic's sprite, so in the colours `facePalette` another sprite
+ * loads there (Super Sonic's, in the Moon Zone) the sheet has it again as `faceSuper`.
  */
 export function hudGraphics(rom, tableAt, facePalette = null, fontPalette = null) {
   const entry = i => ({

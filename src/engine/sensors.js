@@ -1,9 +1,6 @@
 // Sonic's terrain sensors, following SA1's player code (SAT-R decompilation, src/game/shared/stage/player.c).
 // Positions are Sonic's centre; sensor offsets come from spriteOffsetX (always 6) and spriteOffsetY (14
 // standing, 9 curled). Distances follow scan() in terrain.js.
-//
-// With gravity flipped (Cosmic Angel's toggles, p.inverted), his speeds and angles stay as he sees them: his
-// floor is the act's ceiling, a Y speed down moves him up the act, and an angle a is the act's -0x80 - a.
 
 import { scan, PROBE_FLOOR, PROBE_WALL, IGNORE_PLATFORMS } from './terrain.js';
 import { arcTan2, s8 } from './trig.js';
@@ -11,11 +8,6 @@ import { arcTan2, s8 } from './trig.js';
 const SOX = 6, REACH = 2 + SOX;     // the paired sensors sit 8 px either side of the centre
 const MAX_SNAP = 11;                // grounded sensors never pull Sonic further than this
 const quadrant = rot => (((rot & 0xFF) + 0x20) & 0xC0) >> 6;
-
-/** An angle turned over top to bottom: Sonic's under flipped gravity to the act's, and back. */
-export const flipAngle = rot => (-0x80 - rot) & 0xFF;
-/** The angle of the surface Sonic is on, as the act has it. */
-export const actAngle = p => (p.inverted ? flipAngle(p.rotation) : p.rotation);
 
 // ground mode from the angle, with the original's rounding at the 45° edges (sub_8022D6C)
 function groundMode(rot) {
@@ -27,32 +19,31 @@ function groundMode(rot) {
 function pair(a, b) {
   return a.d < b.d ? { d: a.d, rot: a.rot, out: b.d } : { d: b.d, rot: b.rot, out: a.d };
 }
+const even = rot => (rot === undefined || rot & 1 ? 0 : rot);
 
 // the sensor pairs the air code and the jump check use (sub_8029BB8, sub_8021B08, sub_802195C, sub_8021A34)
 function floorPair(p, t) {
   const x = Math.floor(p.x), y = Math.floor(p.y) + p.offsetY, m = p.layer | (p.ysp < 0 ? IGNORE_PLATFORMS : 0);
-  return pair(scan(t, y, x - REACH, m, 8, PROBE_FLOOR), scan(t, y, x + REACH, m, 8, PROBE_FLOOR));
+  const r = pair(scan(t, y, x - REACH, m, 8, PROBE_FLOOR), scan(t, y, x + REACH, m, 8, PROBE_FLOOR));
+  return { ...r, rot: even(r.rot) };
 }
 function ceilingPair(p, t) {
   const x = Math.floor(p.x), y = Math.floor(p.y) - p.offsetY, m = p.layer | (p.ysp < 3 ? IGNORE_PLATFORMS : 0);
-  return pair(scan(t, y, x - REACH, m, -8, PROBE_FLOOR), scan(t, y, x + REACH, m, -8, PROBE_FLOOR));
+  const r = pair(scan(t, y, x - REACH, m, -8, PROBE_FLOOR), scan(t, y, x + REACH, m, -8, PROBE_FLOOR));
+  return { ...r, rot: even(r.rot) };
 }
 function leftPair(p, t) {
   const x = Math.floor(p.x) - REACH, y = Math.floor(p.y), m = p.layer | (p.ysp < 3 ? IGNORE_PLATFORMS : 0);
-  return pair(scan(t, x, y - p.offsetY, m, -8, PROBE_WALL), scan(t, x, y + p.offsetY, m, -8, PROBE_WALL));
+  const r = pair(scan(t, x, y - p.offsetY, m, -8, PROBE_WALL), scan(t, x, y + p.offsetY, m, -8, PROBE_WALL));
+  return { ...r, rot: even(r.rot) };
 }
 function rightPair(p, t) {
   const x = Math.floor(p.x) + REACH, y = Math.floor(p.y), m = p.layer | (p.ysp < 3 ? IGNORE_PLATFORMS : 0);
-  return pair(scan(t, x, y - p.offsetY, m, 8, PROBE_WALL), scan(t, x, y + p.offsetY, m, 8, PROBE_WALL));
+  const r = pair(scan(t, x, y - p.offsetY, m, 8, PROBE_WALL), scan(t, x, y + p.offsetY, m, 8, PROBE_WALL));
+  return { ...r, rot: even(r.rot) };
 }
 
-// his floor and his ceiling (sub_8029B88, sub_8029B58): flipped, the act's ceiling and floor, whose distance
-// counts the other way. An odd angle (or none) reads 0, and flipped, an even one is turned over.
-const sensed = (r, flip) => ({ ...r, rot: r.rot === undefined || r.rot & 1 ? 0 : flip ? flipAngle(r.rot) : r.rot });
-const floorUnder = (p, t) => sensed(p.inverted ? ceilingPair(p, t) : floorPair(p, t), p.inverted);
-const ceilingOver = (p, t) => sensed(p.inverted ? floorPair(p, t) : ceilingPair(p, t), p.inverted);
-
-/** Room above (or beyond) Sonic in the act's direction `angle` (sub_8022F58); a jump needs at least 4 px. */
+/** Room above (or beyond) Sonic in the direction `angle` (sub_8022F58); a jump needs at least 4 px. */
 export function clearance(p, t, angle) {
   return [floorPair, leftPair, ceilingPair, rightPair][quadrant(angle)](p, t).d;
 }
@@ -63,7 +54,7 @@ export function clearance(p, t, angle) {
  */
 export function groundSensors(p, t) {
   const x = Math.floor(p.x), y = Math.floor(p.y), soy = p.offsetY;
-  const mode = groundMode(actAngle(p));
+  const mode = groundMode(p.rotation);
   let a, b, speed;
   if (mode === 0) {
     a = scan(t, y + soy, x - REACH, p.layer, 8, PROBE_FLOOR); b = scan(t, y + soy, x + REACH, p.layer, 8, PROBE_FLOOR); speed = p.xsp;
@@ -85,7 +76,7 @@ export function groundSensors(p, t) {
   else if (mode === 1) p.x -= val;
   else if (mode === 2) p.y -= val;
   else p.x += val;
-  if (!(rot & 1)) p.rotation = p.inverted ? flipAngle(rot) : rot;   // odd angles mean "keep the previous one"
+  if (!(rot & 1)) p.rotation = rot;   // odd angles mean "keep the previous one"
 }
 
 /**
@@ -113,10 +104,9 @@ export function wallPush(p, t, rolling = false) {
   }
 }
 
-// the wall checks every air direction starts with: 9 px out, one pixel wider than on the ground; moving
-// sideways under flipped gravity they don't pass through the platforms
-function airWall(p, t, dir, solid = false) {
-  const m = p.layer | (p.ysp < 3 && !solid ? IGNORE_PLATFORMS : 0), x = Math.floor(p.x), y = Math.floor(p.y);
+// the wall checks every air direction starts with: 9 px out, one pixel wider than on the ground
+function airWall(p, t, dir) {
+  const m = p.layer | (p.ysp < 3 ? IGNORE_PLATFORMS : 0), x = Math.floor(p.x), y = Math.floor(p.y);
   const { d } = scan(t, x + dir * (3 + SOX), y, m, 8 * dir, PROBE_WALL);
   if (d > 0) return false;
   p.x += dir * d; p.xsp = 0;
@@ -125,27 +115,26 @@ function airWall(p, t, dir, solid = false) {
 
 /**
  * Collision for an airborne Sonic, by the direction he moves (sub_8022190). `land(rot)` touches him down on
- * a surface of angle `rot`; the speed conversion that follows depends on the direction. Standing still in the
- * air he counts as moving right, or left under flipped gravity.
+ * a surface of angle `rot`; the speed conversion that follows depends on the direction.
  */
 export function airCollision(p, t, land) {
-  const vx = Math.round(p.xsp * 256), vy = Math.round(p.ysp * 256), down = p.inverted ? -1 : 1;
-  const a = vx || vy ? arcTan2(vx, vy) >> 8 : p.inverted ? 0x80 : 0;
+  const vx = Math.round(p.xsp * 256), vy = Math.round(p.ysp * 256);
+  const a = vx || vy ? arcTan2(vx, vy) >> 8 : 0;
   switch (((a - 0x20) & 0xC0) >> 6) {
     case 0: {   // moving down
       airWall(p, t, -1); airWall(p, t, 1);
-      const f = floorUnder(p, t);
+      const f = floorPair(p, t);
       if (f.d >= 0 || f.out < -(Math.floor(p.ysp) + 6)) return;
-      p.rotation = f.rot; p.y += down * f.d;
+      p.rotation = f.rot; p.y += f.d;
       land();
       landingSpeed(p, f.rot);
       return;
     }
     case 2: {   // moving up
       airWall(p, t, -1); airWall(p, t, 1);
-      const c = ceilingOver(p, t);
+      const c = ceilingPair(p, t);
       if (c.d > 0) return;
-      p.y -= down * c.d;
+      p.y -= c.d;
       // only one of the two steep ceiling slopes catches him (0x41–0x5F), as in the original
       if (((c.rot + 0x20) & 0x40) && s8(c.rot) > 0x40) {
         p.rotation = c.rot; land(); p.gsp = Math.abs(p.ysp);
@@ -156,15 +145,15 @@ export function airCollision(p, t, land) {
     }
     default: {  // moving left (1) or right (3)
       const dir = a >= 0x60 && a < 0xA0 ? -1 : 1;
-      if (airWall(p, t, dir, p.inverted)) p.gsp = p.ysp;   // a quirk of the original
-      const c = ceilingOver(p, t);
+      if (airWall(p, t, dir)) p.gsp = p.ysp;   // a quirk of the original
+      const c = ceilingPair(p, t);
       if (c.d <= 0) {
-        p.y -= down * c.d;
+        p.y -= c.d;
         if (p.ysp < 0) p.ysp = 0;
       } else if (p.ysp >= 0) {
-        const f = floorUnder(p, t);
+        const f = floorPair(p, t);
         if (f.d > 0) return;
-        p.y += down * f.d; p.rotation = f.rot;
+        p.y += f.d; p.rotation = f.rot;
         land();
         p.ysp = 0; p.gsp = p.xsp;
       }
@@ -190,7 +179,7 @@ function landingSpeed(p, rot) {
 export function setOffsetY(p, soy) {
   const dlt = soy - p.offsetY;
   if (!dlt) return;
-  switch (groundMode(actAngle(p))) {
+  switch (groundMode(p.rotation)) {
     case 0: p.y -= dlt; break;
     case 1: p.x += dlt; break;
     case 2: p.y += dlt; break;

@@ -64,6 +64,16 @@ export const SONG = {
   HOOK_RAIL: 180,          // SE_HOOK_RAIL: while a hook rail carries Sonic
   LIFT: 181,               // SE_LIFT: a crane claw carries Sonic
   STEAM_EXHAUST: 182,      // SE_LAVA_PLATFORM_SPURT: a steam exhaust blows
+  BUMPER_A: 183,           // SE_BUMPER_A: a hexagonal or round bumper
+  BUMPER_B: 184,           // SE_BUMPER_B: a triangular bumper
+  PANEL_GATE: 185,         // SE_PANEL_GATE: a panel gate spins open
+  BALLOON_POP: 189,        // a party balloon pops
   ICE_BLOCK_BREAK: 193,    // SE_193: a block of ice breaks, after SE_ITEM_BOX
   TUBE: 202,               // SE_202: a tube's track takes Sonic
+  BOWL: 206,               // SE_BOWL: a bowl catches Sonic
+  BOWL_2: 207,             // SE_BOWL_2 and SE_BOWL_3: 56 and 112 frames later
+  BOWL_3: 208,
+  CAROUSEL_A: 209,         // SE_CAROUSEL_A, _B and _C: a carousel takes Sonic, and turns slowly, faster or fast
+  CAROUSEL_B: 210,
+  CAROUSEL_C: 211,
 };

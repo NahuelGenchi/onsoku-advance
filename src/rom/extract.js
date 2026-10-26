@@ -7,7 +7,7 @@ import { Rom } from './rom.js';
 import { identify } from './identify.js';
 import { locateTables } from './locate.js';
 import { spriteTables, animationFrames, animationPalette, renderFrame, framePieces, paletteAnimation, frameLayout } from './sprites.js';
-import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks, mapHoles } from './tilemaps.js';
+import { tilemapHeader, renderMetatileAtlas, renderPlainMap, mapBanks, mapHoles, indexMetatiles, indexPlainMap } from './tilemaps.js';
 import { readCollision, readSpawn, readLoop } from './collision.js';
 import { readInteractables, readItemBoxes, entityRegions, readRings, layerToggles } from './entities.js';
 import { readColors } from './colors.js';
@@ -33,8 +33,10 @@ export const SONIC_ANIMATIONS = {
   balanceForward: [13, 0], balanceBack: [14, 0],
   // knocked back (charState 15) and dying (1)
   hurt: [19, 0], dead: [21, 0],
-  // hanging from a wall pole (charState 31)
-  pole: [38, 0],
+  // hanging from a wall pole (charState 31), and swinging round a red flag (30)
+  pole: [38, 0], flagSwing: [37, 0],
+  // holding on to a carousel (charState 33)
+  carouselRide: [40, 0],
   // grinding (charState 16; variant 1 on a rail's steep parts) and jumping off a rail before its end (20)
   grind: [44, 0], grindSteep: [44, 1], railJump: [45, 0],
   // running up a half-pipe's side, higher with each (charStates 24, 25 and 26)
@@ -93,6 +95,10 @@ export const ENEMY_ANIMATIONS = {
   411: { senbonWalk: 0, senbonSpikes: 1 },
   // and its fireball rising and falling, and the fireball's sparks
   413: { fireballRise: 0, fireballFall: 1 }, 414: { fireballSpark: 0 },
+  // Casino Paradise's: Hanabii walking and launching, its shot and the firework it bursts into, Slot
+  // walking and shooting, its coin and the coin's pieces, and Pierrot on its ball
+  415: { hanabiiWalk: 0, hanabiiLaunch: 1 }, 419: { hanabiiShot: 0 }, 416: { hanabiiFirework: 0 },
+  417: { slotWalk: 0, slotShoot: 1 }, 420: { slotCoin: 0 }, 421: { slotPiece: 0 }, 418: { pierrot: 0 },
 };
 // the item box (705), the icon that shows its prize (706: one variant per prize, the first five the
 // characters' 1-ups), the shield (750), the magnetic shield (751) and invincibility's stars and their
@@ -102,17 +108,21 @@ export const ITEM_ANIMATIONS = {
   706: { icon0: 0, icon4: 4, icon5: 5, icon6: 6, icon7: 7, icon8: 8, icon9: 9, icon10: 10 },
   750: { shield: 0 }, 751: { magneticShield: 0 }, 752: { stars: 0, starSparkle: 1 },
 };
-// Neo Green Hill's platforms: the thin one (463), which the falling one shares, the trampoline at rest and
-// bouncing (461), the bounce block (462) and the crumbling platform (904)
+// Neo Green Hill's platforms: the thin one (463), which the falling one and a ferris wheel's seat share, the
+// trampoline at rest and bouncing (461), the bounce block (462) and the crumbling platform (904)
 export const PLATFORM_ANIMATIONS = {
-  463: { thinPlatform: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 }, 904: { crumblingPlatform: 0 },
+  463: { thinPlatform: 0, ferrisSeat: 0 }, 461: { trampoline: 0, trampolineBounce: 1 }, 462: { bounceBlock: 0 }, 904: { crumblingPlatform: 0 },
 };
+// a ferris wheel's seat (463; other levels have their own, levels.js `sprites`), hub (530) and spokes (531)
+export const FERRIS_WHEEL_ANIMATIONS = { 530: { ferrisHub: 0 }, 531: { ferrisSpoke: 0 } };
 // the boulders (458), and the small and large pieces a broken one leaves (459, 460)
 export const ROCK_ANIMATIONS = { 458: { rock: 0 }, 459: { rockDebrisSmall: 0 }, 460: { rockDebrisLarge: 0 } };
 // Ice Mountain's objects: the block of ice (555) and the large and small pieces a broken one leaves (556, 557)
 export const ICE_MOUNTAIN_ANIMATIONS = { 555: { iceBlock: 0 }, 556: { iceShardsLarge: 0 }, 557: { iceShardsSmall: 0 } };
 // the breakable wall (559); some levels have their own (levels.js `sprites`)
 export const WALL_ANIMATIONS = { 559: { breakableWall: 0 } };
+// the square platform (494); other zones have their own, and some a longer one too (levels.js `sprites`)
+export const SQUARE_PLATFORM_ANIMATIONS = { 494: { squarePlatform: 0 } };
 // the splash at Sonic's feet in a waterfall
 export const WATER_ANIMATIONS = { 464: { waterSplash: 0 } };
 // the splash under Sonic on a forced slide, which a water bridge also shows under him, and the splash that
@@ -133,6 +143,10 @@ export const POLE_ANIMATIONS = { 468: { wallPole: 0, wallPoleSwing: 1 } };
 // (gUnknown_080BB41C) and the explosions (sub_8017540)
 export const BOSS_ANIMATIONS = {
   693: { eggMobile: 0, eggMobileTurn: 1 }, 694: { eggman: 0, eggmanLaugh: 2, eggmanFlee: 4, eggmanTurn: 9 },
+  // the Egg Ball's (boss_3_egg_ball.c): its pipes in the floor and the ceiling and in the walls, Eggman still,
+  // laughing and wincing, the star disc it loses, the mobile and the spike ball
+  593: { eggBallPipe: 0, eggBallPipeSide: 1 }, 622: { eggBallEggman: 0, eggBallEggmanLaugh: 1, eggBallEggmanHit: 2 },
+  623: { eggBallStarDisc: 0 }, 624: { eggBallMobile: 0 }, 625: { eggBallSpikeBall: 0 },
   695: { boltMedium: 0, boltMedium2: 1 }, 696: { boltLarge: 0, boltLarge2: 1 }, 697: { boltSmall: 0, boltSmall2: 1 },
   611: { bossExplosion: 0 },
 };
@@ -183,6 +197,40 @@ export const EGG_PRESS_ANIMATIONS = {
 // the animations whose frames' first OAM entry (their dimensions' oamIndex) the game reads: the Egg Press's,
 // which places Eggman by it
 const OAM_INDEXED = new Set([620]);
+// Casino Paradise's red flag (469): at rest, and waving as Sonic swings round it
+export const RED_FLAG_ANIMATIONS = { 469: { redFlag: 0, redFlagTug: 1 } };
+// Casino Paradise's ship swing: the ship (491, half of it, drawn twice), the hook (490) and a link of its chain (489)
+export const SHIP_SWING_ANIMATIONS = { 491: { shipSwing: 0 }, 490: { shipSwingHook: 0 }, 489: { shipSwingLink: 0 } };
+// the spiked platforms: Casino Paradise's (521), and every other zone's, spikes up (538) and down (539)
+export const SPIKED_PLATFORM_ANIMATIONS = { 521: { spikedPlatform: 0 }, 538: { spikedPlatformUp: 0 }, 539: { spikedPlatformDown: 0 } };
+// zone 3's bowl (486), whose two frames turn faster as it spins
+export const BOWL_ANIMATIONS = { 486: { bowl: 0 } };
+// zone 3's carousel (487), whose frames turn faster as it spins, and its pole (583)
+export const CAROUSEL_ANIMATIONS = { 487: { carousel: 0 }, 583: { carouselPole: 0 } };
+// zone 3's panel gates: the one Sonic runs through (496: shut, and spinning open) and the one he falls through
+// (497: spinning open, and shut)
+export const PANEL_GATE_ANIMATIONS = { 496: { panelGate: 0, panelGateOpen: 1 }, 497: { panelGateFloorOpen: 0, panelGateFloor: 1 } };
+// the fireworks in Casino Paradise's background, big and small (482, 483)
+export const BACKGROUND_ANIMATIONS = { 482: { firework: 0 }, 483: { fireworkSmall: 0 } };
+// Casino Paradise's party balloons (479 blue, 480 red, 481 yellow): whole, and bursting
+export const BALLOON_ANIMATIONS = {
+  479: { balloonBlue: 0, balloonBluePop: 1 }, 480: { balloonRed: 0, balloonRedPop: 1 }, 481: { balloonYellow: 0, balloonYellowPop: 1 },
+};
+// Casino Paradise's bumpers: the big right-angled one (475), the small triangles lying (476) and standing (477),
+// the hexagon (484) and the round one (485)
+export const BUMPER_ANIMATIONS = {
+  475: { bumperRightAngle: 0 }, 476: { bumperTriH: 0 }, 477: { bumperTriV: 0 }, 484: { bumperHexagon: 0 }, 485: { bumperRound: 0 },
+};
+// the flippers (478): lying, idle and flipping, and standing, idle and flipping; the small blue one in the
+// marble tracks (522), idle and flipping
+export const FLIPPER_ANIMATIONS = {
+  478: { flipper: 0, flipperFlip: 1, flipperStanding: 2, flipperStandingFlip: 3 }, 522: { blueFlipper: 0, blueFlipperFlip: 1 },
+};
+// the SEGA SONIC letters (492): four variants for each of its eight letters, named by their number as the
+// letters pick them (letter × 4 + 0..3)
+export const LETTER_ANIMATIONS = { 492: Object.fromEntries(Array.from({ length: 32 }, (_, v) => [`segaLetter${v}`, v])) };
+// the small Barrel of Doom (493)
+export const BARREL_ANIMATIONS = { 493: { barrelMini: 0 } };
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
@@ -190,16 +238,19 @@ export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block, and carried through a marble track), the boulders' and the ice blocks' debris, Secret Base's swinging
+// block, and carried through a marble track), the boulders' and the ice blocks' debris, the Egg Ball's star disc, Secret Base's swinging
 // hook, the Egg Hammer Tank's arm, hammer and belt, and the capsule rising, its shell and the birds circling it, and the Egg Press's spring and base;
 // their frames also keep their OAM pieces as the hardware reads them
 const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge', 'swingingHook',
   'hammerTankArm', 'hammerTankHammer', 'hammerTankBelt0', 'hammerTankBelt1', 'hammerTankBelt2', 'hammerTankBelt3',
-  'capsuleSmall', 'capsuleShell', 'animalRobin', 'animalParrot', 'eggPressSpring', 'eggPressBase']);
+  'capsuleSmall', 'capsuleShell', 'animalRobin', 'animalParrot', 'eggPressSpring', 'eggPressBase', 'eggBallStarDisc']);
 
 // each level's three tilemap entries: the front layer (drawn over Sonic), the back layer (behind him) and the
 // background
 const MAP = { front: 0, back: 1, background: 2 };
+// the most palette states the atlas is rendered for; past that, the layers are kept as colour indices and
+// drawn through the palette the animations have loaded (Cosmic Angel's eight animations have 972,000)
+const MAX_PALETTE_VARIANTS = 64;
 
 /**
  * Identifies and decodes `buffer`, with the zone of level `level` (levels.js) from that level on: its acts, each
@@ -258,7 +309,7 @@ function extractSprites(rom, tables, levelSprites = {}) {
     { list: yellow, palette: yellowPalette, skipPalette: true },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
     { list: SPIKE_ANIMATIONS, palette: animationPalette(rom, tables, SPIKES_ANIM) },
-    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...SHRUB_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GOAL_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_HAMMER_TANK_ANIMATIONS, ...CAPSULE_ANIMATIONS, ...SPECIAL_SPRING_ANIMATIONS, ...STEAM_EXHAUST_ANIMATIONS, ...EGG_PRESS_ANIMATIONS, ...HOOK_RAIL_ANIMATIONS, ...SECURITY_GATE_ANIMATIONS, ...HOOK_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...PIPE_ANIMATIONS }).map(([anim, variants]) => ({
+    ...Object.entries({ ...ENEMY_ANIMATIONS, ...ITEM_ANIMATIONS, ...PLATFORM_ANIMATIONS, ...ROCK_ANIMATIONS, ...ICE_MOUNTAIN_ANIMATIONS, ...WALL_ANIMATIONS, ...WATER_ANIMATIONS, ...SLIDE_ANIMATIONS, ...SHRUB_ANIMATIONS, ...BOOSTER_ANIMATIONS, ...CHECKPOINT_ANIMATIONS, ...POLE_ANIMATIONS, ...GOAL_ANIMATIONS, ...BOSS_ANIMATIONS, ...EGG_HAMMER_TANK_ANIMATIONS, ...CAPSULE_ANIMATIONS, ...SPECIAL_SPRING_ANIMATIONS, ...STEAM_EXHAUST_ANIMATIONS, ...EGG_PRESS_ANIMATIONS, ...HOOK_RAIL_ANIMATIONS, ...SECURITY_GATE_ANIMATIONS, ...HOOK_ANIMATIONS, ...MARBLE_TRACK_ANIMATIONS, ...PIPE_ANIMATIONS, ...BACKGROUND_ANIMATIONS, ...BALLOON_ANIMATIONS, ...BARREL_ANIMATIONS, ...BOWL_ANIMATIONS, ...BUMPER_ANIMATIONS, ...CAROUSEL_ANIMATIONS, ...FERRIS_WHEEL_ANIMATIONS, ...FLIPPER_ANIMATIONS, ...LETTER_ANIMATIONS, ...PANEL_GATE_ANIMATIONS, ...RED_FLAG_ANIMATIONS, ...SHIP_SWING_ANIMATIONS, ...SPIKED_PLATFORM_ANIMATIONS, ...SQUARE_PLATFORM_ANIMATIONS }).map(([anim, variants]) => ({
       list: Object.fromEntries(Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])),
       palette: animationPalette(rom, tables, Number(anim)),
     })),
@@ -294,7 +345,8 @@ function extractSprites(rom, tables, levelSprites = {}) {
       const frames = script.frames.map(f => {
         if (f.frame < 0) return [-1, f.delay];
         const i = frameImage(name, anim, f, f.palette, rows);
-        // the hitboxes set just before a frame come with it
+        // the hitboxes and the OAM order set just before a frame come with it
+        if (f.order !== null) return [i, f.delay, f.boxes, f.order];
         return f.boxes ? [i, f.delay, f.boxes] : [i, f.delay];
       });
       // the frames whose commands load colours, and whether going round does (animator.js)
@@ -394,16 +446,13 @@ function extractStage(rom, offsets, tables, info) {
   const palette = readColors(rom, front.palette, 256);
   const interactables = readInteractables(rom, offsets.interactables, level);
   const animations = info.paletteAnimations.map(a => paletteAnimation(rom, tables, ...[a].flat()));
-  // the two layers share one tileset and its animated tiles, so one atlas serves both
   const count = collision.metatiles.length / 144;
-  const tiles = paletteVariants(palette, animations, mapBanks(rom, front, count * front.xTiles * front.yTiles));
-  const atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.varying), follows: tiles.follows };
-  const sky = paletteVariants(palette, animations, mapBanks(rom, background, background.xTiles * background.yTiles));
-
-  return {
+  const layerBanks = mapBanks(rom, front, count * front.xTiles * front.yTiles);
+  const skyBanks = mapBanks(rom, background, background.xTiles * background.yTiles);
+  const stage = {
     width: collision.width, height: collision.height, levelX: collision.levelX, levelY: collision.levelY,
     layers: { front: collision.layers[0], back: collision.layers[1] },
-    atlas, animDelay: front.animDelay, collision,
+    animDelay: front.animDelay, collision,
     level, zone: info.zone, act: info.act, music: info.music, backgroundScroll: info.backgroundScroll ?? null,
     hudFlash: info.hudFlash ?? 1,
     spawn: readSpawn(rom, offsets.spawns, level),
@@ -414,10 +463,29 @@ function extractStage(rom, offsets, tables, info) {
     enemies: readInteractables(rom, offsets.enemies, level, 'enemies'),
     entityRegions: entityRegions(rom, offsets.interactables, level),
     paletteAnimations: animations.map(({ frames, loop }) => ({ delays: frames.map(f => f.delay), loop })),
-    background: toCanvas(renderPlainMap(rom, background, palette)),
     backgroundHoles: mapHoles(rom, background), backdrop: palette[0],
-    backgrounds: { canvases: sky.palettes.map(p => toCanvas(renderPlainMap(rom, background, p))), follows: sky.follows },
+    atlas: null, background: null, backgrounds: null, indexed: null,
   };
+  if (variantCount(animations, layerBanks) > MAX_PALETTE_VARIANTS || variantCount(animations, skyBanks) > MAX_PALETTE_VARIANTS) {
+    // the colours each animation frame loads, which the renderer applies over the stage's own
+    const loads = animations.map(a => a.frames.map(f => f.loads.map(l => ({ insert: l.insert, colors: l.colors }))));
+    stage.indexed = { palette, loads, metatiles: indexMetatiles(rom, front, count), background: indexPlainMap(rom, background) };
+    stage.atlas = { slots: stage.indexed.metatiles.slots };
+    return stage;
+  }
+  // the two layers share one tileset and its animated tiles, so one atlas serves both
+  const tiles = paletteVariants(palette, animations, layerBanks);
+  stage.atlas = { ...renderMetatileAtlas(rom, front, tiles.palettes, count, tiles.varying), follows: tiles.follows };
+  const sky = paletteVariants(palette, animations, skyBanks);
+  stage.background = toCanvas(renderPlainMap(rom, background, palette));
+  stage.backgrounds = { canvases: sky.palettes.map(p => toCanvas(renderPlainMap(rom, background, p))), follows: sky.follows };
+  return stage;
+}
+
+// how many palettes paletteVariants() would render for the rows in `banks`
+const rowsOf = a => new Set(a.frames.flatMap(f => f.loads.flatMap(l => l.colors.map((_, i) => (l.insert + i) >> 4))));
+function variantCount(animations, banks) {
+  return animations.reduce((n, a) => ([...rowsOf(a)].some(r => banks.has(r)) ? n * (a.frames.length + 1) : n), 1);
 }
 
 /**
@@ -427,7 +495,6 @@ function extractStage(rom, offsets, tables, info) {
  * one), and `varying` holds, for each of them, the rows it changes and its number of states.
  */
 function paletteVariants(base, animations, banks) {
-  const rowsOf = a => new Set(a.frames.flatMap(f => f.loads.flatMap(l => l.colors.map((_, i) => (l.insert + i) >> 4))));
   const follows = [], varying = [];
   let palettes = [base];
   animations.forEach((a, k) => {

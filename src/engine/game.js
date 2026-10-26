@@ -24,6 +24,7 @@ import { createTitleCard, runTitleCard } from './titlecard.js';
 import { createResults, runResults } from './results.js';
 import { createPaletteAnimation } from './palettes.js';
 import { createActTasks } from './acts.js';
+import { BACKGROUND_UPDATE } from './backgrounds.js';
 import { ONE_UP, SHIELD, MAGNETIC_SHIELD, INVINCIBILITY, SPEED_UP, RANDOM_RINGS, RINGS_5, RINGS_10 } from './itembox.js';
 import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { createBossCapsule } from './capsule.js';
@@ -47,6 +48,10 @@ const CAMERA_STOPS = { 1: 768 };
 // writes the save (as long as it takes mGBA, the reference) and loads the act; GameStageStart sets the act up,
 // and its stage init starts its music, two frames before its first
 const NEXT_ACT_FRAMES = 16, NEXT_ACT_LOADS = 2;
+// gFrameCount, the frames since the GBA was switched on, which counts up as each frame starts: on the act's first
+// frame it is 3838 when the act is started straight from the course select (the Egg Ball seeds the random numbers
+// with it)
+const START_FRAME_COUNT = 3838;
 // what Sonic reads while the title card holds him: the jump and attack buttons InitializePlayer leaves held, never pressed
 const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, boost: false, trick: false, jumpPressed: false, attackPressed: false, boostPressed: false, trickPressed: false };
 // and while an object holds his controls (the forced slide): nothing, as it clears his input
@@ -83,6 +88,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
     animal: 0,   // gTrappedAnimalVariant: the next defeat's animal
     seed: 0,     // gPseudoRandom: the game's random numbers, one sequence for the whole game, from 0
+    frameCount: START_FRAME_COUNT - 1,   // gFrameCount: every frame counts, the title card's and restarts' too
     palettes: palettes.map(a => a.shown),   // the frame each palette animation has loaded (palettes.js)
     objPalette: anims.objPalette,           // the sprite palette's rows as the frame ends, which the screen shows
     checkpointIndex: 0,   // gBossIndex: the number of the last checkpoint passed
@@ -162,6 +168,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     get level() { return stage.level; }, get zone() { return stage.zone; },
     get tick() { return state.tick; },
     get cameraY() { return Math.floor(state.cam.y); },
+    // the camera and its bounds, which a boss's arena changes (bosses.js) and Sonic's edges follow
+    get camera() { return state.cam; },
     get terrain() { return terrain; },
     // the camera's right edge (its maxX), where Sonic stops
     get rightEdge() { return state.cam.maxX + SCREEN_W; },
@@ -187,7 +195,6 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     },
     // the act starts over: the original destroys every task, so nothing after Sonic's runs this frame
     lifeLost() { restart = true; tasks.stop(); },
-    get level() { return state.level; },   // gCurrentLevel, which the goal's rules depend on
     // the goal (goal.js): the clock and the rings stop (STAGE_FLAG__ACT_START and STAGE_FLAG__2), and it holds
     // the camera and, once Sonic is in his act-clear run, hands over to the results (CreateStageResults): the
     // act-clear jingle and no more music manager, and the results' task, which first runs this frame
@@ -195,7 +202,6 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     reachGoal() { state.goalReached = true; state.clockStopped = true; state.ringsStopped = true; },
     // the act's end has Sonic now (STAGE_FLAG__2: past the goal, or a beaten boss), for the optional Boost Mode
     get actOver() { return state.ringsStopped; },
-    get camera() { return state.cam; },
     stageResults() {
       state.results = createResults(act.results, { rings: state.ringCount, courseTime: state.courseTime, level: state.level });
       sound.play(state.level & 1 ? SONG.BOSS_CLEAR : SONG.ACT_CLEAR);
@@ -246,6 +252,9 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // the capsule opens: the clock and the rings stop as at the goal (STAGE_FLAG__ACT_START and STAGE_FLAG__2)
     stopStage() { state.clockStopped = true; state.ringsStopped = true; },
     random,
+    get frameCount() { return state.frameCount; },
+    // gPseudoRandom set (the Egg Ball sets it to gFrameCount)
+    setSeed(value) { state.seed = value >>> 0; },
     // an item box's prize (Task_Itembox2)
     prize(kind) {
       switch (kind) {
@@ -274,6 +283,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     fadeOut: (player, speed) => sound.fadeOut(player, speed),
     playSoundPitched: (song, pitch) => sound.playPitched(song, pitch),
     freezeCamera() { state.cam.freeze = CAMERA.spinDashFreeze; },
+    // the camera stops where it is, until the act starts over
+    stopCamera() { state.cam.speedX = 0; state.cam.speedY = 0; },
     // the Rush boost: whether it is on, its start (its effects, Sonic Rush's sound effect, a screen shake, and the
     // camera's delay), and a hit's shake
     get rush() { return state.rush; },
@@ -333,6 +344,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     attack: (s, x, y) => attackTest(s, x, y, ctx),
     projectile: (s, x, y) => projectileTest(s, x, y, ctx),
     add: (task, priority) => tasks.add(task, priority),
+    removeTasks: (from, to) => tasks.removeRange(from, to),
   };
 
   function updateEffect(e) {
@@ -407,7 +419,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     else if (player.state !== 'marbleTrack') player.drawRotation = player.rotation << 2;
     if (fx) state.sprites.push(fx);
     if (!player.hidden) {
-      const s = { frame: frameOf(player.anim, playerAnims), flipX: player.facing > 0, flipY: false, order: 16, prio, sheet: playerAnims[player.anim.name]?.sheet };
+      const s = { frame: frameOf(player.anim, playerAnims), flipX: player.facing > 0, flipY: false, order: player.order, prio, sheet: playerAnims[player.anim.name]?.sheet };
       if (affine) {
         const right = player.facing > 0, scale = player.scale;
         draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.drawRotation, scaleX: right ? -scale : scale, scaleY: scale, double: false });
@@ -512,10 +524,13 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // counts the act's animated tiles. The grind rails' ends (0x900) run before it and see the last frame's
     [0x0F00, () => {
       if (state.shake >= 0 && ++state.shake >= RUSH_BOOST.shake.length) state.shake = -1;
+      const moves = state.cam.started;
       updateCamera(state.cam, player);
       animateStageTiles(stage, state.cam.tiles);
       ctx.cam = { x: Math.floor(state.cam.x), y: Math.floor(state.cam.y) };
-      ctx.view = state.view = viewOf(state.cam, viewW, viewH);
+      ctx.view = state.view = viewOf(state.cam, viewW, viewH, state.view);
+      // once it moves, it updates the zone's background (backgrounds.js)
+      if (moves) BACKGROUND_UPDATE[stage.backgroundScroll]?.(ctx, state.cam);
     }],
     [0x2000, ctx => collectRings(ctx)],
     [0x2000, ctx => entities.manager.run(ctx)],
@@ -627,6 +642,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   function step() {
     if (special) return;
     input.poll?.();
+    state.frameCount = (state.frameCount + 1) >>> 0;
     if (loading) { loading = false; return; }
     if (ended) return;
     // between two acts the screen keeps the last act's last frame

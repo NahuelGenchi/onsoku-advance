@@ -20,6 +20,8 @@ import { createPlatform } from './platforms.js';
 import { createBoulder } from './boulders.js';
 import { createIceBlock } from './iceblocks.js';
 import { createBreakableWall } from './breakablewalls.js';
+import { createSquarePlatform } from './squareplatforms.js';
+import { createFerrisWheel } from './ferriswheels.js';
 import { createWaterfall } from './waterfalls.js';
 import { createBooster } from './boosters.js';
 import { createCheckpoint } from './checkpoints.js';
@@ -46,12 +48,25 @@ import { createLava } from './lava.js';
 import { createHidingSpikes } from './hidingspikes.js';
 import { createTube } from './pipes.js';
 import { createSteamExhaust } from './steamexhausts.js';
+import { createPartyBalloon } from './balloons.js';
+import { createBumper } from './bumpers.js';
+import { createFlipper } from './flippers.js';
+import { createSegaSonicLetter } from './segaletters.js';
+import { createTeleportOrb } from './teleportorbs.js';
+import { createTubeJunction } from './junctions.js';
+import { createBarrelOfDoomMini } from './barrels.js';
+import { createRedFlag } from './redflags.js';
+import { createShipSwing } from './shipswing.js';
+import { createSpikedPlatform } from './spikedplatforms.js';
+import { createBowl } from './bowls.js';
+import { createPanelGate } from './panelgates.js';
+import { createCarousel } from './carousel.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
 /**
  * The task list: add(task, priority, permanent), run(ctx), stop(), which ends this frame's run after the
- * task running now, and reset(), which keeps the permanent tasks.
+ * task running now, removeRange(from, to), and reset(), which keeps the permanent tasks.
  */
 export function createTasks() {
   let list = [], next = null;
@@ -65,10 +80,12 @@ export function createTasks() {
     run(ctx, after = -1) {
       for (let t = list.find(t => t.priority > after); t; t = next) {
         next = list[list.indexOf(t) + 1] ?? null;
-        if (!t.run(ctx)) list.splice(list.indexOf(t), 1);
+        if (!t.run(ctx) && list.includes(t)) list.splice(list.indexOf(t), 1);
       }
     },
     stop() { next = null; },
+    /** TasksDestroyInPriorityRange: the tasks from priority `from` up to `to`, not included, go at once. */
+    removeRange(from, to) { list = list.filter(t => t.priority < from || t.priority >= to); },
     reset() { list = list.filter(t => t.permanent); next = null; },
   };
 }
@@ -166,11 +183,11 @@ function standIn(e, slot) {
   };
 }
 
-// what an interactable spawns as, in act `level`
-function interactable(e, slot, anims, ctx, level) {
+// what an interactable spawns as, in act `level` of `zone`
+function interactable(e, slot, anims, ctx, level, zone) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
-  return def ? objectTask(def, slot, anims) : createHidingSpikes(e, slot, anims) ?? createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createWaterfall(e, slot, anims)
+  return def ? objectTask(def, slot, anims) : createHidingSpikes(e, slot, anims) ?? createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createSquarePlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createMiniLoop(e, slot)
     ?? createWaterBridge(e, slot, anims) ?? createBridgeSplash(e, slot, anims) ?? createShrub(e, slot, anims)
@@ -178,6 +195,11 @@ function interactable(e, slot, anims, ctx, level) {
     ?? createConveyor(e, slot, ctx) ?? createSteamExhaust(e, slot, anims) ?? createSwingingHook(e, slot, anims)
     ?? createSwingRope(e, slot) ?? createCraneClaw(e, slot, anims) ?? createVisibilityToggle(e, slot) ?? createCurler(e, slot)
     ?? createMarbleTrack(e, slot, anims, level) ?? createLava(e, slot) ?? createTube(e, slot, anims, level)
+    ?? createPartyBalloon(e, slot, anims) ?? createBumper(e, slot, anims) ?? createFlipper(e, slot, anims)
+    ?? createSegaSonicLetter(e, slot, anims) ?? createTeleportOrb(e, slot) ?? createTubeJunction(e, slot)
+    ?? createBarrelOfDoomMini(e, slot, anims) ?? createRedFlag(e, slot, anims) ?? createShipSwing(e, slot, anims)
+    ?? createSpikedPlatform(e, slot, anims, zone) ?? createBowl(e, slot, anims) ?? createPanelGate(e, slot, anims)
+    ?? createCarousel(e, slot, anims)
     ?? (e.kind === STAGE_GOAL ? createGoal(e, slot, anims) : standIn(e, slot));
 }
 
@@ -198,7 +220,7 @@ export function createEntities(stage, anims, tasks) {
   const regions = Array.from({ length: regionsX * regionsY }, () => []);
   const slot = (e, spawn) => ({ e, live: null, gone: false, d: null, spawn });
   for (const [list, spawn] of [
-    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx, stage.level)],
+    [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx, stage.level, stage.zone)],
     [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
     [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s)],
   ]) {

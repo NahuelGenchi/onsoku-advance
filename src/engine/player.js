@@ -12,7 +12,7 @@ import { SONG } from '../sound/songs.js';
 import { SA2_SE } from '../rom/sa2tricks.js';
 
 // d-pad bits for the input history the mid-air dash reads
-const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
+export const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
 const HISTORY = 16;
 const SOX = 6;   // spriteOffsetX, half his width
 
@@ -20,7 +20,7 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip |
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
-//         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
+//         pole) | flagSwing (round a red flag) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
 //         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hook (hanging
 //         from a hook rail, a swinging hook or a crane claw) | swingRope (swinging round a rope) |
 //         marbleTrack (carried through a marble track) | hurt | dead | actClearRun (past the goal, charState 28)
@@ -48,6 +48,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     idleT: K.boredDelay, anim: makeAnimator(), spinDashSpeeds,
     animRestart: false, // an object asked for his animation to start over
     boxes: [null, null], // his sprite's hitboxes: 0 his body, 1 the attack box of the moves that destroy enemies
+    order: 16,         // his sprite's OAM order, which holding on to a carousel changes from frame to frame
     invulnerable: 0,   // frames of blinking after a hit (timerInvulnerability)
     shield: null,      // 'normal' or 'magnetic' (the itemEffect shield bits)
     invincible: 0,     // frames of invincibility left (timerInvincibility)
@@ -70,6 +71,11 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     scale: 0x100,      // unk80 and unk82: his size through the rotation hardware (8.8), smaller in a marble track
     drawRotation: 0,   // the rotation his sprite was last drawn with, which a marble track keeps
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
+    attackPressed: false, // and its attack press
+    heldDirs: 0,       // the d-pad his last frame read (heldInput): up and down dropped while left or right is held
+    pressedDirs: 0,    // the directions it found newly pressed against the frame before's heldDirs (frameInput): up
+                       // and down dropped when left or right is among them, so holding down with right or left
+                       // presses down again every frame
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,
     chain: 0,          // enemies defeated since he last touched the ground (defeatScoreIndex)
@@ -220,10 +226,12 @@ const pace = p => (p.speedUp > 0 ? 2 : 1);
 // as they are (they double it only after the movement that uses it)
 const topSpeed = p => (p.boostMode ? B.topSpeed : K.maxRunSpeed * pace(p));
 
+// each state it sets also sets his standing height, which matters only when something uncurled him without
+// moving him (a red flag's throw)
 function walk(p, dir, world) {
   const acc = p.boostMode ? B.acceleration[p.boostTier] / 256 : K.acceleration * pace(p), max = topSpeed(p);
   if (p.gsp * dir >= 0) {
-    if (p.facing !== dir) { p.state = 'turn'; p.pushing = false; }
+    if (p.facing !== dir) { p.state = 'turn'; p.pushing = false; setOffsetY(p, SPRITE_OFFSET_Y); }
     p.facing = dir;
     // running at the top speed fills Boost Mode's meter (Player_HandleGroundMovement)
     if (world.boostMode && !world.actOver && p.gsp * dir >= max) p.boostMeter += B.acceleration[p.boostTier];
@@ -234,13 +242,13 @@ function walk(p, dir, world) {
     }
     p.gsp = g;
     // on a half-pipe he keeps the state it gives him, and past the goal his act-clear run
-    if (p.state !== 'turn' && !p.halfPipe && !p.actClear) p.state = 'walk';
+    if (p.state !== 'turn' && !p.halfPipe && !p.actClear) { p.state = 'walk'; setOffsetY(p, SPRITE_OFFSET_Y); }
   } else {
     let g = p.gsp + K.deceleration * pace(p) * dir;
     if (g * dir > 0) g = K.reverseKick * dir;
     p.gsp = g;
     // the skid sound restarts on every frame Sonic is still this fast
-    if (g * dir <= -K.brakeMinSpeed) { world.playSound(SONG.BRAKE); p.state = 'brake'; }
+    if (g * dir <= -K.brakeMinSpeed) { world.playSound(SONG.BRAKE); p.state = 'brake'; setOffsetY(p, SPRITE_OFFSET_Y); }
   }
 }
 
@@ -263,11 +271,12 @@ function walkInput(p, c, world) {
   if (c.dir) walk(p, c.dir, world);
   else if (!c.sideways) {
     if (p.gsp !== 0) {
-      if (p.state === 'brake' || p.state === 'idle') p.state = 'walk';
+      if (p.state === 'brake' || p.state === 'idle') { p.state = 'walk'; setOffsetY(p, SPRITE_OFFSET_Y); }
     } else if (!p.actClear) {
       if (p.state === 'crouch') p.state = 'crouchEnd';
       else if (p.state === 'lookUp') p.state = 'lookUpEnd';
       else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+      setOffsetY(p, SPRITE_OFFSET_Y);
     }
   }
   // standing still on level ground stops the push, and at an edge he balances; not in his act-clear pose
@@ -859,6 +868,13 @@ export function stepPlayer(p, input, world) {
   const bits = (left ? LEFT : 0) | (right ? RIGHT : 0) | (input.up ? UP : 0) | (input.down ? DOWN : 0);
   p.pressed.pop(); p.pressed.unshift(bits & ~p.held[0]);
   p.held.pop(); p.held.unshift(bits);
+  // Player_HandleInputs: while an object holds his controls heldInput stays as it was and nothing is pressed
+  if (p.ignoreInput) p.pressedDirs = 0;
+  else {
+    const mask = v => v & (LEFT | RIGHT) ? v & ~(UP | DOWN) : v;
+    p.pressedDirs = mask(bits & ~p.heldDirs);
+    p.heldDirs = mask(bits);
+  }
 
   // holding left or right hides up and down from the movement code
   const c = {
@@ -868,7 +884,7 @@ export function stepPlayer(p, input, world) {
     boost: input.boost, boostPressed: input.boostPressed, trickPressed: input.trickPressed,
   };
   input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
-  p.jumpPressed = c.jumpPressed;
+  p.jumpPressed = c.jumpPressed; p.attackPressed = c.attackPressed;
 
   if (!world.boostMode) { p.boostMode = false; p.boostMeter = 0; }
   else if (!p.dead) boostModeState(p, world);
@@ -959,15 +975,17 @@ function choose(p, name, restart = false) {
 // script sets them again
 function stepAnim(p, anims) {
   const i = p.anim.i, ended = tickAnim(p.anim, anims);
-  const boxes = p.anim.i !== i && anims[p.anim.name].frames[p.anim.i][2];
-  if (boxes) for (const [slot, box] of Object.entries(boxes)) if (slot < 2) p.boxes[slot] = flipBox(box, p.facing > 0);
+  const f = p.anim.i !== i && anims[p.anim.name].frames[p.anim.i];
+  if (f?.[2]) for (const [slot, box] of Object.entries(f[2])) if (slot < 2) p.boxes[slot] = flipBox(box, p.facing > 0);
+  // it keeps the order a frame sets (animCmd_SetOamOrder) after the animation
+  if (f?.[3] !== undefined) p.order = f[3];
   return ended;
 }
 
 /**
  * Picks and steps Sonic's animation after his frame of movement, like the original sprite update, then
- * decides whether he is drawn: after a hit he blinks, 2 frames hidden and 2 shown in step with the stage
- * clock, and the blink timer runs down once he has landed. Then the speed shoes and invincibility count down.
+ * decides whether he is drawn: alive, he isn't while an object hides him, and after a hit he blinks, 2 frames
+ * hidden and 2 shown in step with the stage clock; the blink timer runs down once he has landed. Then the speed shoes and invincibility count down.
  */
 export function animatePlayer(p, input, anims, world) {
   if (p.death === 'gone') return;

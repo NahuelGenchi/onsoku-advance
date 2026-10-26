@@ -39,9 +39,7 @@ Offsets are file offsets in the tested USA ROM (add `0x08000000` for GBA address
 ### Sprites
 
 - **Sprite tables:** six pointers to the animation scripts, frame sizes, OAM layouts, palettes, 4bpp tiles and 8bpp tiles.
-- **Animation script:** 32-bit words. A negative word is a command: `-1` load tiles, `-2` load palette, `-3` jump back (loop), `-4` end, `-9` switch animation, `-11` set the sprite's priority; other commands are skipped by length. A non-negative pair is *show frame N for D ticks*.
-- **Palette loads.** `-2` (`animCmd_GetPalette`) writes its colours into the sprite palette in work RAM, which VBlank copies to the screen. So every sprite drawn from a 16-colour row shows the colours the last load left in it, whichever animation that was. Where two animations load different colours into the same row (in Secret Base, the steam exhaust's lid and other objects share row 11), the extractor also draws each frame in the other colours, and the renderer picks the version that matches the rows as the frame ends.
-- **Priority.** `-11` (`SetSpritePriority`) sets the sprite's background priority. Of Sonic's animations only his swing round a rope (animation 40, variant 1) has it: priority 2 for frames 10–15 and 3, behind both layers, for frames 16–19.
+- **Animation script:** 32-bit words. A negative word is a command: `-1` load tiles, `-2` load palette, `-3` jump back (loop), `-4` end, `-9` switch animation; other commands are skipped by length. A non-negative pair is *show frame N for D ticks*.
 - **Frame size** (12 bytes): flip flags, first OAM piece, number of pieces, width, height, anchor X, anchor Y.
 - **OAM piece** (3 × 16 bits): the GBA's own sprite attributes (shape, size, position, flips, first tile), relative to the tiles loaded for the frame.
 - Sprites face **left**; the game mirrors them when Sonic faces right.
@@ -817,15 +815,12 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Wall pole | 175 | 2 | A wall pole catches Sonic |
 | Grinding | 114 | 2 | A grind rail's start takes Sonic; it loops until he jumps or is thrown off, or another sound takes player 2 |
 | Trampoline | 176 | 2 | Every bounce |
-| Secret Base act 2 | 15 | 0 | The act starts (`MUS_SECRET_BASE__ACT_2`) |
-| Boss fight | 29 | 0 | The Egg Press's arena closes; the act's music comes back when Eggman escapes |
-| Boss hit | 143 | 1 | The Egg Press is hit |
-| Impact | 145 | 3 | The Egg Press lands from its drop and its leaps |
-| Explosion | 144 | 3 | The Egg Press is beaten |
-| Crane claw | 181 | 2 | While a crane claw carries Sonic (`SE_LIFT`) |
-| Steam exhaust | 182 | 2 | A steam exhaust blows (`SE_LAVA_PLATFORM_SPURT`) |
 | Ring | 117 | 1 or 2, then 3 | Every ring with a sparkle: first on player 2 panned left (−64) when the new count is odd, or player 1 panned right (+64) when it is even, at half volume (128); then again on its own player 3, centred, from the sparkle's script |
 | Rings from a box | 117 | 3 | The ring prizes, once for the lot |
+| Casino Paradise Zone act 1 | 16 | 0 | Act 1 starts, and starts over after a life is lost |
+| Bumper | 183 | 2 | A hexagon or round bumper throws Sonic, and a flipper flips or bats him |
+| Triangle bumper | 184 | 2 | A small triangle or right-angled bumper throws Sonic |
+| Party balloon | 189 | 2 | A balloon pops |
 
 Sounds on the same player cut each other off, as in the original. There is no landing sound in SA1.
 
@@ -948,6 +943,155 @@ What comes next, the capsule and the end of the act, isn't built here; the game 
   - stale tiles at the screen's left edge while the camera catches up after a poke.
 - *Unchanged elsewhere.* Neo Green Hill act 1 is unchanged over 1000 frames, in state and on screen. There, the live palette rows fix 52 differing pixels: an enemy's dust cloud recolouring a boulder. Secret Base act 1 draws exactly as it does without this work over a 900-frame run.
 - *Only read in the code:* the hook's first frame. `TransformSprite` runs before the first `UpdateSpriteAnimation`, so the first call reads the frame's size through a null pointer. The hook is made off screen, so that frame doesn't show in the recordings.
+
+## Casino Paradise Zone act 1
+
+Casino Paradise is zone 3 in the original's numbering (2 counting from 0, as `levels.js` does). Act 1 is level 4 in the ROM's per-level tables and starts with `?level=4`. It is 7104 × 2592 px, Sonic starts at (104, 180), and it has 351 rings, 15 item boxes, 19 enemies and 379 interactables. `StageInit_Zone3Act1` (`0x0803D854` in the USA ROM) makes the same eleven palette animations as act 2, in the same order, then starts the act's music, song 16. The background, its scroll and the fireworks in its sky are act 2's ([#76](https://github.com/NahuelGenchi/onsoku-advance/issues/76)). The thin and falling platforms take the zone's look (`495`), and the wall poles are red flags lying on their side (`470`: variant 0 at rest, 1 swinging). The item boxes are three 1-ups, a magnetic shield, four invincibility, three speed shoes, three random rings and one 10 rings.
+
+| Kind | Object | Act 1 | Module |
+| ---: | :--- | ---: | :--- |
+| 0 | Stage goal | 6 | not built: the act's end belongs to [#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69) |
+| 1, 2 | Spikes up, down | 16, 11 | `spikes.js` |
+| 5, 6 | Spikes that hide, up and down | 3, 1 | `hidingspikes.js` |
+| 7 | Checkpoint | 7 | `checkpoints.js` |
+| 8, 10–13 | Springs | 13 | `springs.js` |
+| 21, 22 | Thin and falling platforms | 5, 2 | `platforms.js` |
+| 42 | Red flag | 14 | `redflags.js` |
+| 44, 45 | Wall poles | 6, 8 | `wallpoles.js` |
+| 48–53 | Bumpers: hexagon, round, circling, small triangles lying and standing, right-angled | 6, 59, 8, 6, 10, 9 | `bumpers.js` |
+| 54, 56, 73 | Flippers: lying, standing, small blue | 12, 4, 1 | `flippers.js` |
+| 55 | Square platform | 9 | `squareplatforms.js` |
+| 57 | Small Barrel of Doom | 1 | `barrels.js` |
+| 58 | SEGA SONIC letters | 9 | `segaletters.js` |
+| 59 | Party balloon | 25 | `balloons.js` |
+| 60 | Ship swing | 2 | `shipswing.js` |
+| 61 | Spiked platform | 7 | `spikedplatforms.js` |
+| 62 | Bowl | 2 | `bowls.js` |
+| 63, 64 | Panel gates | 2, 4 | `panelgates.js` |
+| 65–68 | Marble track: direction points, drop, entrance, exit | 13, 1, 4, 4 | `marbletrack.js` |
+| 69 | Conveyor belt | 18 | `conveyors.js` |
+| 70 | Box that hides Sonic | 4 | `visibility.js` |
+| 71 | Wall bumper | 10 | `bumpers.js` |
+| 72 | Teleport orb | 3 | `teleportorbs.js` |
+| 74 | Carousel | 2 | `carousel.js` |
+| 102 | Special spring | 1 | not built: a stand-in until the special stages come |
+| 106 | Tube track | 49 | `pipes.js` |
+| 107 | Tube junction | 2 | `junctions.js` |
+
+The kinds that other zones' acts share came from their branches as they are: spikes down (#71), the hiding spikes (#77), the square platform (#72), the conveyor belts (#79), the tube tracks (#74), and the red flags, ship swings, spiked platforms, bowls, panel gates and carousels (#76). They are described with those zones. Act 1's own:
+
+- **Party balloon** (`party_balloon.c`, animations `479` blue, `480` red, `481` yellow by `d0`, each with its burst as variant 1): touching one pops it with song 189 and throws Sonic up at 6 px a frame, as a spring does. The burst shows for 33 frames; then it goes, and comes back when the camera next uncovers its place.
+- **Marble tracks** (`marble_track.c`): the pinball tubes Sonic is carried through, curled up and shrunk through the rotation hardware (character state 32, animation 39). A track is a chain of objects that hand him on by a step number kept on the player (`unk99[0]`, 0x7F off any track, which the tube tracks also use). Each takes him from a lower step, or from no track when its own step is 0, and plays song 170. The entrance (67, `488`) takes him when he lands on it, with his step set to its `d3`: he falls with gravity, moved `d1` px across over `d0` frames, until `d0` frames have gone, he has dropped more than `d2` px or a later step has him, while his sprite grows from 0xB0 to full size. Reaching within 8 px across and 10 down of a direction point (65) moves him `d0` × 8 px across and `d1` × 8 down over `d2` frames, as step `d3`. The drop (66) lets him fall within 12 px of it, as step `d1`, for at most `d2` × 3 frames or `d0` × 8 px. The exit (68, `488`), a cup 24 px wide, throws him up at 5 px a frame, shrinking, and lets him go curled up at full size as he starts to fall, unable to steer until he lands; otherwise it is solid. The entrance runs at priority `0x1900` plus its step, the points and the drop at `0x2000`, and the exit at `0x2100`, so a chain's objects run in its order.
+- **Bumpers** (`bumpers.c`; `484` hexagon, `485` round, `476` and `477` small triangles, `475` right-angled): touching one throws Sonic off it curled up, in the air, at a speed that depends on where he touched it, and shakes it for 9 frames. It throws him again on every frame he still touches it. The hexagon (48) and the round bumper (49) pick the speed by the angle from their centre to his, and can sway `d2` or `d3` × 8 px each way, a sway every 256 frames. The round one throws him straight away from it at 1092/256 px a frame and gives 10 points. The circling one (50) goes round its spot on a circle of the larger of `d2` and `d3` × 8 px, and throws him as the round one does. The small triangles (51 lying, 52 standing) throw him off whichever side he touches; the right-angled one (53) only off its slanted side. Hexagons and round bumpers play song 183, triangles 184.
+- **Wall bumper** (71) is part of the layers: while Sonic's centre is in its area, `d2` × 8 px across and `d3` × 8 down, it throws him every frame at 5 px a frame across (right when `d0` is odd) and 7 up, or 6 down when `d0` is 3 or more, without curling him up.
+- **Flippers** (`flippers.c` and `flipper_small_blue.c`; `478`, and `522` for the small blue one): coming down onto a lying flipper (54), Sonic is held curled up on its slope and rolls out at 0.3125 px a frame, his controls taken. A jump press flips him off at −1984/256 px a frame up less 1/16 px for each pixel out from the pivot, and 1/8 px across for each. Rolling off its end lets him go at 1 px a frame. The standing flipper (56) is solid, and walking or rolling into it below its pivot bats him back at 10 px a frame. Both play song 183 and their flip for 8 frames. The small blue one (73) is a step of a marble track: it throws him up at 12.5625 px a frame for `d0` frames, then lets him go.
+- **SEGA SONIC letters** (`sega_sonic_letters.c`, `492`, four variants a letter): letters Sonic can stand on, which light up and go dark on a cycle that runs with the stage clock, 500, 400 or 300 frames long by `d1`, delayed by `d2` frames. With h = (length − 161) / 2, a letter flickers on at frame 0 of its cycle, shines from 58, blinks out from 58 + h, and is dark and not solid from length − h to the end. Touching a dark letter lets Sonic drop off whatever he stands on.
+- **Teleport orb** (`teleport_orb.c`): drawn in the layers. When Sonic's centre comes within 12 px of it, it puts him at (`d0` × 256 + `d2`, `d1` × 256 + `d3`), curled up and held still, with song 170, and lets him go in the air once the camera has caught up with him: on the first frame it hasn't moved, with him inside the screen. The camera's speeds (`unk8` and `unkC`) take part in that.
+- **Tube junction** (107, `107.c`): within 10 px of it, Sonic is caught curled up and still, with song 170. From the next frame he circles it, 4 px out and a turn every 32 frames, until a fresh press of a way out sends him off from its middle at 9 px a frame. `d0` picks the ways out: 0 right or down, 1 down and right or down and left, 2 right, 3 down. After sending him off it leaves him alone for 20 frames.
+- **Small Barrel of Doom** (57, `Task_BarrelOfDoomMini` in `platform_square.c`, `493`): a barrel that bobs on a spring. Sonic lands on its top from any side while he isn't rising, and landing pushes it down by 6/10 of his falling speed. Off its place it is pulled back at 48/256 px a frame per frame, its speed loses 1% a frame, and it rests when that speed is under 48/256 px a frame within 3 px of its place. A jump from it throws him off at half its speed less 4 px a frame up.
+- **Box that hides Sonic** (70, `toggle_player_visibility.c`): along the tubes. While his centre is inside one, `d2` × 8 px across and `d3` × 8 down, it hides him when `d0` is set and shows him again when it is 0 (`MOVESTATE_100000`). Its task runs at priority `0x2000` plus `d3`. A dead Sonic is always drawn, and the box and the tube tracks show him again.
+
+Kept from the original (issue [#56](https://github.com/NahuelGenchi/onsoku-advance/issues/56)):
+
+- A party balloon restarts the partner's animation, not Sonic's (`Task_PartyBalloon` swaps the two branches), so his rise keeps the animation he had.
+- The circling bumper works out its throw from 8 times its own offset, so it doesn't throw Sonic straight away from it.
+- A bumper's shake reads two cosines past the sine table's end, where the ROM has 1 and 482, so its last two frames don't move it across.
+- The small blue flipper switches to the lying flipper's art 24 frames after it throws Sonic, until it next spawns. Read in the code only: in the recording it is off screen by then.
+
+**How it was checked.** mGBA 0.10.5 with the USA ROM, started on level 4 through the course select with `gCurrentLevel` (`0x0300514C`) set, Sonic placed by memory writes. The engine was run on the same inputs. Sonic's position, speeds, state, rings and score matched on every frame of every run. In the 21 runs recorded with video, every screen matched pixel for pixel, from the act's first frame in the first run and from the camera catching up with the placed Sonic in the others:
+
+| What | Recordings |
+| :--- | :--- |
+| Act 1 from its start | 600 frames: the title card, standing, then running: the layers, the background and its fireworks |
+| Party balloon | three pops and a respawn, the pop's song |
+| Marble tracks | two chains: entrance, three points, exit; entrance, points, the drop, two points, exit |
+| Bumpers | every kind and both flips of the triangles, nine runs of 800 to 1000 frames, and a wall bumper |
+| Flippers | the lying flipper's catch, roll and flip, the standing one's bat, and a small blue one in a marble track |
+| SEGA SONIC letters | 1000 frames over a row of letters through their cycles |
+| Teleport orb and panel gate | 800 frames |
+| Tube junctions | both ways out of one junction, 700 frames each |
+| Small Barrel of Doom | landing, bobbing, a jump off it, and down with jump on it |
+| Tube tracks, the boxes that hide Sonic, a panel gate | 1100 frames through a run of tubes |
+| Square platform, conveyor belt, wall pole | one run each, 800 to 1100 frames |
+| Hanabii, Slot, the freed animals | see *Casino Paradise's enemies* |
+
+Read in the code only: the bumpers' sway, the teleport orb's death branch and the tube junctions' other ways out (`d0` 1 to 3). On act 1 the panel gates and the carousels were only seen, not used; [#76](https://github.com/NahuelGenchi/onsoku-advance/issues/76) checked using them on act 2.
+
+### Casino Paradise's enemies
+
+| Kind | Enemy | Act 1 | Animations | What it does |
+| ---: | :--- | ---: | :--- | :--- |
+| 8 | Hanabii | 4 | `415`: walking 0, launching 1; shot `419`, firework `416` | Walks 0.625 px a frame between (`d0` + 1) × 8 and (`d0` + `d2`) × 8 px right of its spawn point, following the floor, and turns at either end. Away from the ends, with Sonic within 100 px, it stops for 19 frames and launches a shot on the 7th, then walks on and doesn't launch again for 100 frames of walking. The shot rises from its mouth at 944/256 px a frame, slowing by 44/256 px a frame per frame, and when it has nearly stopped it bursts into a firework that hangs there for 20 frames, drawn four times mirrored around its point. Only the unmirrored quarter's box hurts. |
+| 9 | Slot | 10 | `417`: floating 0, dropping 1; coin `420`, pieces `421` | Floats 0.625 px a frame between `d0` × 8 and (`d0` + `d2`) × 8 px right of its spawn point, bobbing up to 20 px above that line every 32 frames. Away from the ends, with Sonic's centre within 16 px across, it stops for 20 frames and drops a coin, then floats on for 100 frames before it can drop another. The coin falls, gaining 40/256 px a frame each frame, and shatters on the floor or on touching Sonic: six pieces fan out by the floor's angle at a random share of its speed, bounce, slow down and go after 45 frames, blinking for the last 30. The pieces don't hurt. Its sprite is a left half, drawn again mirrored. |
+| 10 | Pierrot | 5 | `418` | A clown on a ball, from [#76](https://github.com/NahuelGenchi/onsoku-advance/issues/76). It rolls 0.625 px a frame between `d0` × 8 and (`d0` + `d2`) × 8 px right of its spawn point, following the floor. The ball can't be broken: Sonic curled up bounces back off it, turned round, and it hurts him any other way. The clown on top is defeated as any enemy is. |
+
+A defeat in Casino Paradise frees a lion (`440`), which sits, a peacock (`439`), which hops away, and a parrot (`442`), which flies off swaying, in turn (`sAnimsTrappedAnimals`, `0x681154` in the USA ROM; [#77](https://github.com/NahuelGenchi/onsoku-advance/issues/77) built every zone's).
+
+Kept from the original (issue [#56](https://github.com/NahuelGenchi/onsoku-advance/issues/56)): the Hanabii squares its distances to Sonic into 16 bits (`CamCoord`), so from 182 px away along either axis the square wraps negative and it launches as if he were within 100 px.
+
+**How it was checked.** mGBA 0.10.5, from act 1 with Sonic placed by memory writes: a Hanabii walking and launching (1000 frames, its own task's memory matching on every frame) and one launching at Sonic held 182 to 199 px away, the 16-bit wrap (900); a Slot dropping coins on Sonic, the coin shattering on the floor and on him (1000 and 880); Pierrots rolling on screen in three runs; and a Slot defeated three times, with the game's next-animal counter (`gTrappedAnimalVariant`, `0x0300501C`) set to each animal (750 frames each). Sonic's state and every screen match.
+
+## Casino Paradise Zone act 2
+
+Level 5, `?level=5` in the address. Casino Paradise is zone 3 in the original's numbering (2 counting from 0, as `levels.js` and `stage.zone` do). Addresses are the USA ROM's; the decompilation's are the European ones, and for the boss's tables the USA address is the European one less `0x7100`.
+
+**The stage.** `StageInit_Zone3Act2` (`0x0803D90C`) makes eleven palette animations (816, 817, 818, 824, 825, 827, 827, 828, 843, 844, 826), each cycling one row of the background's colours, and starts song 17. 827 runs twice: two tasks load the same colours together. `StageBgUpdate_Zone3Acts12` scrolls the 256 × 256 background in bands, and the fireworks in it (animations 482 and 483) are sprites at background priority 3, drawn between the background and the back layer. They take the game's random numbers every 4th frame, which the boss's choices depend on. The act's thin and falling platforms and its ferris wheels' seats are 495 (`sPlatformThinAnims` and `gUnknown_086CEE2C`, `0x086C8D48`). Its wall poles are red flags lying on their side (470).
+
+**The title card.** Started on its own (from the course select, `?level=5`, or after a death), act 2 plays act 1's card. The card's act-2 branches test `(gCurrentLevel & 1) && gFinalBossActive != gCurrentLevel`, and in SA1 `gFinalBossActive` holds the level whose card last ended, which `ApplyGameStageSettingsAndStart` sets to the level the game starts at. The act-2 card only plays when act 2 follows act 1 in the same game, which belongs to the end of act 1 ([#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69)).
+
+**Objects.**
+
+| Kind | Object | In act 2 | Animation |
+| ---: | :--- | ---: | :--- |
+| 4 | Spikes pointing right | 3 | `454` variant 3 |
+| 42 | Red flag | 6 | `469` (still 0, swinging 1) |
+| 60 | Ship swing | 2 | ship `491` (half, drawn twice), hook `490`, link `489` |
+| 61 | Spiked platform | 5 | `521` in zone 3, `538` up and `539` down elsewhere |
+| 62 | Bowl | 4 | `486` |
+| 63 | Panel gate, upright | 3 | `496` (shut 0, spinning 1) |
+| 64 | Panel gate, lying | 1 | `497` (spinning 0, shut 1) |
+| 74 | Carousel | 2 | top `487`, pole `583` |
+| 91 | Ferris wheel seat | 8 | `495` (Ice Mountain's `ferriswheels.js`) |
+| 114 | Breakable wall | 2 | `559` (Ice Mountain's `breakablewalls.js`) |
+
+- **Red flags** (`red_flag_and_pole.c`). Sonic running into one on the ground, facing the way it points, at more than 3 px a frame (5.25 rolling), swings round it: 15 px behind the pole for 7 frames, then carried on 10 px and 7.5 px a frame for 6 frames, and let go at 10.5 px a frame or more. Sonic's character state 30 is animation 37.
+- **Ship swings** (`ship_swing.c`). A ship on a hook and five links, swinging with the stage clock. Sonic can stand on the hook and on the ship, which carries him 5 px above its point. Stepping off keeps it from taking him again for 5 frames.
+- **Spiked platforms** (`platform_spiked.c`). A solid block that swings as a thin platform does, with spikes on its top (`d0` 0) or bottom. In zone 3 the code picks animation 521 and spikes up whatever `d0` is (act 2 has platforms with `d0` 1 and 251). Landing on the spikes, or hitting them from below, hurts Sonic; squeezed into a wall or ceiling by the block, he dies.
+- **Bowls** (`bowl.c`). Sonic's body touching its box (moved 10 px toward him and 5 down) catches him (song 206). It whirls him round its middle 32 px out, from where he came in and as fast as he came, faster each frame, while it sinks 108 px with him. Songs 207 and 208 follow 56 and 112 frames later. At the bottom it spins him 64 times more on a narrowing circle and drops him out curled up.
+- **Panel gates** (`panel_gate.c`). An upright gate opens for Sonic running right (left when `d0` is set) within 32 px before it; a lying one opens for him falling (rising when `d0` is set) within 28 px of it. Opening plays song 185, sets his standing height (`PLAYERFN_CHANGE_SHIFT_OFFSETS(6, 14)`) and spins the panel for 125 frames. While it spins only the side he would come back through is solid. The upright gate pushes him out with `Coll_Player_Gate`, its attack test off; the lying one is solid as a platform.
+- **Carousels** (`carousel.c`). Within 8 px of its pole, from 48 px above its point to 12 px below, it takes Sonic (character state 33, animation 40; song 209). His ground speed becomes 7.5 px a frame the way he was going, and its spin starts from his speed (`|xsp| × 4`) and gains `0x40` a frame up to `0x8000`. It sinks 481 px (`0x3C2A58` in 1/8192 px). Its sound is song 209 every 25 frames, 210 every 16 from spin `0x3200`, and 211 every 8 from `0x4B00`. At the bottom it lets him go after 300 frames, or as soon as left or right is held on the frame before, curled up in the air at `((spin >> 2) − 0x7D0) × 2 / 3` / 256 px a frame. He goes the way he holds, or else the way he came.
+- **The OAM order an animation sets.** Animation command −12 (`animCmd_SetOamOrder`) sets the sprite's OAM order, which it keeps after the animation. Only animations 40, 139, 239 and 338 use it. Sonic's carousel animation (40) puts him behind the pole for part of each turn, and he keeps the last order it set until the carousel lets him go.
+- **Sonic's standing height.** `Player_8044F7C`, `Player_8043A2C` and `Player_8043970` call `PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 14)` whenever they set the walk, turn, brake or idle state. That changes nothing while Sonic already stands at full height. But after something uncurls him without moving him (a red flag's throw), he stays at a ball's height until the next of these, and the shift then moves him on a slope.
+- **Sonic's character states.** The table from character state to animation and variant is at `0x084A6F0C`.
+
+**Enemies.** Hanabii (8), Slot (9) and Pierrot (10, `pierrot.c`) are act 1's, in the table of Casino Paradise's enemies. More on Pierrot: Sonic curled up bouncing off its ball is moved by his ground speed against the way he faces, turned round and has his speeds reversed, so a rolling Sonic can be trapped in it (#56). Its code takes `Q(0.1875)`, 48, off its height where a pixel count seems meant; the floor test makes up for it in its first frames, off screen. Act 2's freed animals are the lion (440, sits), the peacock (439, hops) and the parrot (442, flies), from `sAnimsTrappedAnimals` (`0x08681154`).
+
+**The Egg Ball** (enemy 24, `boss_3_egg_ball.c`, spawned at (7664, 2256)). The fight goes like this:
+- **The arena.** When its spawn point comes into range, the camera's bounds close in, a pixel a frame, on 280 px left of it to it, and 184 px above it to 16 px below it. The boss music starts (the music manager's state `0x10`). The spawn also sets the game's random numbers to `gFrameCount`, the frames since the GBA was switched on. That is 3838 on an act's first frame when it is started from the course select, and the engine counts it from there.
+- **The pipes.** Eight pipes, two in each wall, the floor and the ceiling (`gUnknown_084ACDD2`, `0x084A5CD2`), slide a pixel a frame into place from 32 px out (`0x084A5D12`), 90 frames after the spawn. The two in the floor are solid.
+- **The entrance.** Two seconds after the spawn the mobile appears 85 px left of the spawn point and rises 80 px, a pixel a frame. A second later Eggman laughs, and a second after his laugh it climbs out of sight, 208 px up, and the spike ball is made.
+- **The passes.** After a second unseen, a pass picks one of eight pairs at random (`gUnknown_084ACEA4`, `0x084A5DA4`). Each pair is the mobile's path and the ball's, two of eight straight lines across the arena: across at two heights each way, or up and down at two places each way (`gUnknown_084ACE24`, `0x084A5D24`). Both move at their path's speed (489/256 px a frame across, 352/256 up and down) times a factor that grows with the hits taken: 1.0 for up to 3, then 1.2, 1.4 and 1.6 (`gUnknown_084ACDC0`, `0x084A5CC0`). A pass ends when the mobile leaves the arena, and the next comes a second later.
+- **Hitting it.** Sonic's attack box on the mobile (`Coll_Player_Enemy`) hits it (song 143): Eggman winces, and it can't be hit again for 32 frames. It flashes on two frames in every four of the first 16. The ball can't be hit, and it hurts Sonic. Eggman laughs whenever Sonic is hurt. Hit four times, it sets a pinch flag that nothing reads.
+- **The defeat.** The eighth hit beats it (song 144, 1000 points). The camera stops across, its top bound pans 40 px down and its bottom bound a screen down, and the thin platforms' tasks are removed (`TasksDestroyInPriorityRange(0x2010, 0x2011)`). The mobile falls and bounces off the floor with three quarters of its speed until it is slower than a pixel a frame, throwing debris and an explosion every 8 frames. The ball flies off toward the screen's middle, bouncing and exploding, for three seconds. The pipes slide back out at 2 px a frame.
+- **The escape.** 241 frames after it was beaten, Eggman escapes in the Egg Mobile, the star disc (623) flies off through the rotation hardware, and the music manager's state `0x30` ends the boss music. The original makes the capsule that ends the act there (`CreateBossCapsule`). The engine calls `world.bossDefeated(x, y)` at that moment, and the capsule and the end of the act are left to [#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69).
+
+**The widescreen view in the arena.** The original never shows past the arena's walls: its screen is 240 px wide and the arena 280. A wider view would, so from the spawn on the view is black past the walls (`cam.arena`, set by `setBossCamBounds`), wherever the original screen itself isn't. The black slides in from the view's sides, and the view to the arena's middle, at most 4 px a frame past what the camera itself moves, so nothing jumps when the bounds start closing in; where a boss's bounds open again, both slide back out the same way. A beaten boss's new bounds move the walls too, to where the bounds are going: the Egg Ball's to the one screen across the camera stops on, 40 px lower at the top. The HUD keeps to the corners of what is shown. The 240 × 160 screen is unchanged: the camera and the bounds match mGBA's on every frame of the fight.
+
+**The hit flash.** A boss's flash makes its sprite an OBJ window inside which the screen brightens to white (`BLDY` 16). In mGBA (checked against a debug build of its renderer) only the background and the layers turn white inside the window. The sprites there keep their colours, since nothing is a second target, and so do the backdrop and the HUD. The engine draws it the same way. Each explosion plays song 144 when it first shows, because animation 611's script starts it.
+
+**How it was checked.**
+- *The recordings.* mGBA 0.10.5 recorded the act from the course select: work RAM, OAM, the palettes, the sounds started and a screenshot after every frame. Pokes put Sonic at each object; the engine replays the same pokes and keys. The runs:
+  - the act's start, standing and running right, with the title card;
+  - the red flags, three runs, and a wall pole;
+  - the spikes pointing right, the spiked platforms (two runs), a bowl, the ship swings (two runs);
+  - the panel gates, three runs: an upright one opening, blocking while open and shut, and a lying one opening;
+  - the carousels, two runs: the full 300-frame wait, and an early exit holding right;
+  - a breakable wall (pushed against, then broken by a spin dash), a ferris wheel (ridden and jumped off), Pierrot twice (the roll into its ball and a jump onto it, and a walk into it);
+  - the Egg Ball's whole fight.
+- *The state.* Sonic, the camera and the sounds match on every frame of every object run. The fight matches on every frame from 4180 to 10664, past Eggman's escape; the later 85 frames differ only where the original's capsule lands and shakes the screen.
+- *The screen.* The engine's frames match mGBA's pixel for pixel on every frame of every object run, of the act's start (527 frames), and of three stretches of the fight (391, 71 and 461 frames).
+- *Unchanged elsewhere.* Neo Green Hill act 1 is unchanged over 3000 frames: Sonic, the camera, the sounds and the sprites on every frame, and the screen every 50th.
+- *Only read in the code:* a spiked platform crushing Sonic into a wall or ceiling, and its spikes facing down (other zones); a lying panel gate shutting and being solid from below; a carousel whose rider dies on it; the fight's other difficulties.
 
 ## Sonic Advance 2, for Boost Mode
 

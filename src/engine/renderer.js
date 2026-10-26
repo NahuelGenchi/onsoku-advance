@@ -1,11 +1,12 @@
-// Draws one 240 × 160 frame (or a wider and taller one, in the widescreen view): the zone background with its per-line scrolling, the act's back layer, the
+// Draws one 240 × 160 frame (or a wider and taller one, in the widescreen view): the zone background with its per-line scrolling, the sprites behind every
+// layer (Casino Paradise's fireworks), the act's back layer, the
 // sprites behind the front layer, the front layer, the sprites in front of it, and the HUD, the title card or
 // the act's results on top, the background and the layers in the colours the act's palette animations have
 // loaded. The sprites are the act's rings and the step's list, stacked as the GBA stacks OAM entries: a lower
 // OAM order in front, and within an order the one put in first. While the title card fades the screen in, or
 // the results fade it out, everything but their semi-transparent sprites is darkened. The widescreen view shows
-// more of the act around the original screen, which sits in its middle unless an edge of the act is near; the
-// HUD keeps to the view's corners, and the title card and the results to its middle and along its width. The
+// more of the act around the original screen, which sits in its middle unless an edge of the act is near, and is
+// black past a boss arena's walls; the HUD keeps to the corners of what it shows, and the title card and the results to its middle and along its width. The
 // optional Sonic Rush boost adds its screen shake and its effects around Sonic, drawn as the Nintendo DS draws
 // them. The optional Boost Mode's afterimages and particles are sprites like the others, drawn from a second
 // atlas: Sonic in Sonic Advance 2's boost palette, and its particles.
@@ -43,7 +44,7 @@ export function createRenderer(canvas, assets) {
   let ctx = canvas.getContext('2d', { alpha: false });   // the Rush boost borrows it for a moment (drawRushObjs)
   const { atlas, frames } = assets.sprites, hud = assets.hud, card = assets.titleCard, results = assets.results;
   const stage = assets.stage, { backgrounds } = stage;
-  const bgW = stage.background.width, scroll = BACKGROUND_SCROLL[stage.backgroundScroll];
+  const bgW = stage.background?.width, scroll = BACKGROUND_SCROLL[stage.backgroundScroll];
   // the background's pixels that show the backdrop, by map row, and what each screen line showed of the map
   const holes = new Map();
   for (const [x, y] of stage.backgroundHoles ?? []) holes.set(y, [...(holes.get(y) ?? []), x]);
@@ -300,11 +301,20 @@ export function createRenderer(canvas, assets) {
 
   // the HUD's sprites have priority 0: in front of the layers and every other sprite. The lives keep to the
   // bottom of a taller view.
-  function drawHud(sprites) {
+  function drawHud(sprites, [left, top, , bottom] = [0, 0, W, H]) {
     for (const [what, x, y] of sprites) {
       const [sx, sy, w, h] = what === 'ring' ? hud.ring : what === 'face' ? hud.face : hud.glyphs[what];
-      ctx.drawImage(hud.sheet, sx, sy, w, h, x, y < SCREEN_H / 2 ? y : y + H - SCREEN_H, w, h);
+      ctx.drawImage(hud.sheet, sx, sy, w, h, left + x, y < SCREEN_H / 2 ? top + y : y + bottom - SCREEN_H, w, h);
     }
+  }
+
+  // black around [left, top, right, bottom] of the view
+  function blackOutside([left, top, right, bottom]) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, top);
+    ctx.fillRect(0, bottom, W, H - bottom);
+    ctx.fillRect(0, top, left, bottom - top);
+    ctx.fillRect(right, top, W - right, bottom - top);
   }
 
   // the title card's sprites from their OAM attributes; they have priority 0 and the lowest OAM orders, so
@@ -485,6 +495,77 @@ export function createRenderer(canvas, assets) {
     }
   }
 
+  // The layers and the background of an act with many palette animations (stage.indexed) are colour indices,
+  // drawn through the colours the animations have loaded on this frame: the background and the back layer
+  // straight into the frame, the front layer over the sprites behind it.
+  const ix = stage.indexed, pal32 = new Uint32Array(256);
+  let ixBack = ix && new ImageData(W, H), ixFront = ix && new ImageData(W, H);
+  const ixCanvas = document.createElement('canvas');
+  ixCanvas.width = W; ixCanvas.height = H;
+  function loadPalette(shown) {
+    const p = ix.palette.slice();
+    ix.loads.forEach((frames, k) => { for (let f = 0; f <= shown[k]; f++) for (const l of frames[f]) l.colors.forEach((c, i) => { p[l.insert + i] = c; }); });
+    p.forEach(([r, g, b], i) => { pal32[i] = 0xFF000000 | (b << 16) | (g << 8) | r; });
+  }
+  // a layer's pixels under the view into `out`, where they aren't transparent
+  function indexLayer(out, layer, vx, vy, frame) {
+    const { size, pixels, slots } = ix.metatiles, slot = slots[frame], map = stage.layers[layer];
+    for (let y = 0; y < H; y++) {
+      const wy = vy + y, my = Math.floor(wy / size), row = (wy - my * size) * size;
+      if (wy < 0 || my >= stage.levelY) continue;
+      for (let x = 0; x < W;) {
+        const wx = vx + x, mx = Math.floor(wx / size), col = wx - mx * size, n = Math.min(size - col, W - x);
+        if (wx >= 0 && mx < stage.levelX) {
+          const block = slot[map[my * stage.levelX + mx]] * size * size + row + col;
+          for (let i = 0; i < n; i++) {
+            const c = pixels[block + i];
+            if (c) out[y * W + x + i] = pal32[c];
+          }
+        }
+        x += n;
+      }
+    }
+  }
+  // a layer drawn over what `c` has so far
+  function indexOver(c, layer, vx, vy, frame) {
+    const out = new Uint32Array(ixFront.data.buffer);
+    out.fill(0);
+    indexLayer(out, layer, vx, vy, frame);
+    ixCanvas.getContext('2d').putImageData(ixFront, 0, 0);
+    c.drawImage(ixCanvas, 0, 0);
+  }
+  // Neo Green Hill's own scroll (backgroundOffset, the still band mirrored past the screen's sides), as the
+  // atlas path draws it, for act 2, whose palette animations keep it as colour indices
+  function neoGreenHillIndexed(out, bg, tick, ox, oy, cx) {
+    const w = bg.width;
+    for (let y = 0; y < H; y++) {
+      const bgLine = Math.min(Math.max(y - oy, 0), bg.height - 1), row = bgLine * w, at = y * W;
+      if (STILL(bgLine)) {
+        for (let x = 0; x < W; x++) {
+          const k = x - ox, col = k < 0 ? -1 - k : k < w ? k : w - 1 - (k - w);
+          out[at + x] = pal32[bg.pixels[row + mod(col, w)]];
+        }
+        continue;
+      }
+      const off = backgroundOffset(bgLine, tick, cx) - ox;
+      for (let x = 0; x < W; x++) out[at + x] = pal32[bg.pixels[row + mod(off + x, w)]];
+    }
+  }
+
+  // the background through its scroll function, lined up with the original screen in the view's middle; the
+  // map wraps both ways and colour 0 is the backdrop
+  function indexBackground(out, tick, ox, oy, cx, cy, terrain) {
+    const bg = ix.background;
+    if (!scroll) { neoGreenHillIndexed(out, bg, tick, ox, oy, cx); return; }
+    for (let y = 0; y < H; y++) {
+      const [bx, by] = scroll(y - oy, tick, cx, cy, terrain), row = (by + y - oy) & 0xFF;
+      for (let x = 0; x < W; x++) {
+        const c = row < bg.height ? bg.pixels[row * bg.width + mod(bx + x - ox, bg.width)] : 0;
+        out[y * W + x] = pal32[c];
+      }
+    }
+  }
+
   // back to front: higher orders first, and the later entries of an order before the earlier ones
   function stack(list) {
     return list.map((s, i) => [s, i]).sort((a, b) => b[0].order - a[0].order || b[1] - a[1]).map(([s]) => s);
@@ -507,16 +588,22 @@ export function createRenderer(canvas, assets) {
     // below it and repeats its top line above it. Where the act has looped back, it scrolls on from where it was:
     // on the frame it loops back, with the camera where it was before.
     const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, cx = vx + ox - view.wrapped;
-    const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
-    if (scroll) drawScrolled(background, tick - 1, ox, oy, cx, vy + oy, terrain);
-    else for (let line = 0; line < H; line++) {
-      const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
-      if (STILL(bgLine)) { drawStill(background, bgLine, line, ox); continue; }
-      let off = mod(backgroundOffset(bgLine, tick - 1, cx) - ox, bgW);
-      for (let x = 0; x < W; off = 0) {
-        const n = Math.min(bgW - off, W - x);
-        ctx.drawImage(background, off, bgLine, n, 1, x, line, n, 1);
-        x += n;
+    if (ix) {
+      loadPalette(palettes);
+      indexBackground(new Uint32Array(ixBack.data.buffer), tick - 1, ox, oy, cx, vy + oy, terrain);
+      ctx.putImageData(ixBack, 0, 0);
+    } else {
+      const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
+      if (scroll) drawScrolled(background, tick - 1, ox, oy, cx, vy + oy, terrain);
+      else for (let line = 0; line < H; line++) {
+        const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
+        if (STILL(bgLine)) { drawStill(background, bgLine, line, ox); continue; }
+        let off = mod(backgroundOffset(bgLine, tick - 1, cx) - ox, bgW);
+        for (let x = 0; x < W; off = 0) {
+          const n = Math.min(bgW - off, W - x);
+          ctx.drawImage(background, off, bgLine, n, 1, x, line, n, 1);
+          x += n;
+        }
       }
     }
     const frame = cam.tiles.shown;
@@ -549,15 +636,18 @@ export function createRenderer(canvas, assets) {
       }
     };
     drawAll(3);
-    drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
+    if (ix) indexOver(ctx, 'back', vx, vy, frame);
+    else drawLayer(ctx, stage, 'back', vx, vy, W, H, frame, palettes);
     // the background and the back layer fill the screen, so the window turns everything drawn so far white
     const flash = whiteWindow(sprites.filter(s => s.white), vx, vy);
     if (flash) ctx.drawImage(flash, 0, 0);
     drawAll(2);
-    drawFlashedLayer(flash, c => drawLayer(c, stage, 'front', vx, vy, W, H, frame, palettes));
+    drawFlashedLayer(flash, c => (ix ? indexOver(c, 'front', vx, vy, frame) : drawLayer(c, stage, 'front', vx, vy, W, H, frame, palettes)));
     drawAll(1);
     if (showCollision) drawCollision(terrain, vx, vy);
-    drawHud(hudState.sprites);
+    // in a boss's arena, nothing past its walls; the HUD keeps to the corners of what is shown
+    if (view.clip) blackOutside(view.clip);
+    drawHud(hudState.sprites, view.clip ?? undefined);
     if (actResults) {
       // the band is semi-transparent from when the fade starts, and blending it at full weight over what's
       // behind keeps it out of the fade
@@ -582,9 +672,10 @@ export function createRenderer(canvas, assets) {
   /** Draws w × h frames from now on: 240 × 160, the original screen, or the widescreen view's size. */
   render.resize = (w, h) => {
     W = w; H = h;
-    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = flashCanvas.width = w;
-    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = flashCanvas.height = h;
+    canvas.width = objCanvas.width = overlay.width = maskCanvas.width = flashCanvas.width = ixCanvas.width = w;
+    canvas.height = objCanvas.height = overlay.height = maskCanvas.height = flashCanvas.height = ixCanvas.height = h;
     objLayer = new ImageData(w, h);
+    if (ix) { ixBack = new ImageData(w, h); ixFront = new ImageData(w, h); }
     trailBuf = new Uint8Array(w * h);
     bgRows = new Int16Array(h); bgOffsets = new Int16Array(h); inside = new Uint8Array(w);
   };

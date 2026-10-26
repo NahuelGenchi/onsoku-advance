@@ -18,6 +18,10 @@ import { tentou, TENTOU } from './tentou.js';
 import { senbon, SENBON } from './senbon.js';
 import { fireball, FIREBALL } from './fireball.js';
 import { createEggPress, EGG_PRESS } from './eggpress.js';
+import { hanabii, HANABII } from './hanabii.js';
+import { slotMachine, SLOT } from './slot.js';
+import { pierrot, PIERROT } from './pierrot.js';
+import { eggBall, EGG_BALL } from './eggball.js';
 
 export const KIKI = 0, BUZZER = 1, GAMIGAMI = 2, RHINOTANK = 3, KEROKERO = 4;
 
@@ -352,5 +356,5 @@ export const ENEMIES = {
   [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero,
   [EGG_HAMMER_TANK_INTRO]: createEggHammerTankIntro, [EGG_HAMMER_TANK]: createEggHammerTank,
   [DRISAME]: drisame, [KURAA]: kuraa, [MOLE]: mole, [TENTOU]: tentou, [SENBON]: senbon, [FIREBALL]: fireball,
-  [EGG_PRESS]: createEggPress,
+  [EGG_PRESS]: createEggPress, [HANABII]: hanabii, [SLOT]: slotMachine, [PIERROT]: pierrot, [EGG_BALL]: eggBall,
 };

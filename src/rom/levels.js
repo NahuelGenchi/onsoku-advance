@@ -26,6 +26,25 @@ export const LEVELS = {
     name: 'Secret Base Zone act 2', zone: 1, act: 1, paletteAnimations: [819, 845, 849], music: 15, backgroundScroll: 'secretBase2', hudFlash: 64,
     sprites: { thinPlatform: [506, 0], crumblingPlatform: [502, 0], trampoline: [505, 0], trampolineBounce: [505, 1], bounceBlock: [499, 0] },
   },
+  // StageInit_Zone3Act1 (0x0803D854 in the USA ROM): act 2's eleven palette animations, in the same order,
+  // then MUS_CASINO_PARADISE__ACT_1. Its thin and falling platforms are zone 3's (sPlatformThinAnims), and its
+  // wall poles are red flags lying on their side (SA1_ANIM_RED_FLAG_H, outside zone 1).
+  4: {
+    name: 'Casino Paradise Zone act 1', zone: 2, act: 0, paletteAnimations: [816, 817, 818, 824, 825, 827, 827, 828, 843, 844, 826],
+    music: 16, backgroundScroll: 'casinoParadise',
+    sprites: { thinPlatform: [495, 0], wallPole: [470, 0], wallPoleSwing: [470, 1] },
+  },
+  // StageInit_Zone3Act2 (0x0803D90C in the USA ROM): eleven palette animations, each cycling one row of the
+  // background palette (827 twice, two tasks loading the same colours together), then
+  // MUS_CASINO_PARADISE__ACT_2; StageBgUpdate_Zone3Acts12 scrolls the 256 × 256 background in bands. Its thin
+  // and falling platforms are zone 3's (sPlatformThinAnims), and so are its ferris wheels' seats
+  // (gUnknown_086CEE2C, 0x086C8D48 in the USA ROM); its wall poles are red flags lying on their side
+  // (SA1_ANIM_RED_FLAG_H, outside zone 1).
+  5: {
+    name: 'Casino Paradise Zone act 2', zone: 2, act: 1, paletteAnimations: [816, 817, 818, 824, 825, 827, 827, 828, 843, 844, 826],
+    music: 17, backgroundScroll: 'casinoParadise',
+    sprites: { thinPlatform: [495, 0], ferrisSeat: [495, 0], wallPole: [470, 0], wallPoleSwing: [470, 1] },
+  },
   // StageInit_Zone4Act1 (0x0803DDCD in the USA ROM): CreateStageWaterTask(1546, 0x7F207F20, 0); the snow is
   // tilemap 71 (TM_ICE_PARADISE_SNOW) on BG0 (CreateStageBg_Zone4)
   6: { name: 'Ice Mountain Zone act 1', zone: 3, act: 0, paletteAnimations: [822, 821], music: 18, water: { level: 1546, blend: 0x7F207F20 }, snow: 71 },

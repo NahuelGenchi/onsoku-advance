@@ -17,7 +17,7 @@ export function animateStageTiles(stage, tiles) {
 /** Animation frame of the stage's animated tiles after `n` steps of their counter (one every animDelay). */
 export function stageAnimFrame(stage, n) {
   const frames = stage.atlas.slots.length;
-  return frames > 1 ? Math.floor(n / stage.animDelay) % frames : 0;
+  return frames > 1 && n > 0 ? Math.floor(n / stage.animDelay) % frames : 0;
 }
 
 /**

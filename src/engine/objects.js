@@ -2,7 +2,7 @@
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
 // platforms, boulders, blocks of ice, breakable walls, waterfalls, boosters, checkpoints, wall poles, grind
 // rails, the incline ramp, the half-pipe, the forced slide, the mini loops, the water bridge, the shrubbery, the
-// goal, the special spring, the hook rails, the security gates, the conveyor belts, the swinging hooks, swing
+// goal, the special spring, the hook rails, the security gates, the conveyor belts, the steam exhausts, the swinging hooks, swing
 // ropes and crane claws, the visibility toggles, Secret Base's pipe curler, item boxes, enemies, and a stand-in
 // for each kind that this game doesn't build yet, so that every task keeps its place in the list.
 //
@@ -45,6 +45,7 @@ import { createCraneClaw } from './craneclaws.js';
 import { createLava } from './lava.js';
 import { createHidingSpikes } from './hidingspikes.js';
 import { createTube } from './pipes.js';
+import { createSteamExhaust } from './steamexhausts.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -174,7 +175,7 @@ function interactable(e, slot, anims, ctx, level) {
     ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createMiniLoop(e, slot)
     ?? createWaterBridge(e, slot, anims) ?? createBridgeSplash(e, slot, anims) ?? createShrub(e, slot, anims)
     ?? createSpecialSpring(e, slot, anims) ?? createHookRail(e, slot, anims) ?? createSecurityGate(e, slot, anims)
-    ?? createConveyor(e, slot, ctx) ?? createSwingingHook(e, slot, anims)
+    ?? createConveyor(e, slot, ctx) ?? createSteamExhaust(e, slot, anims) ?? createSwingingHook(e, slot, anims)
     ?? createSwingRope(e, slot) ?? createCraneClaw(e, slot, anims) ?? createVisibilityToggle(e, slot) ?? createCurler(e, slot)
     ?? createMarbleTrack(e, slot, anims, level) ?? createLava(e, slot) ?? createTube(e, slot, anims, level)
     ?? (e.kind === STAGE_GOAL ? createGoal(e, slot, anims) : standIn(e, slot));

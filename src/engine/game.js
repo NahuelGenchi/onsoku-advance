@@ -615,6 +615,15 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     row.shown = row.written ? Array.from({ length: 16 }, (_, c) => (row.written >> c & 1 ? row.bytes[c * 2] | row.bytes[c * 2 + 1] << 8 : null)) : null;
   }
 
+  // the VBlank copy of the sprite palette, on the frames a script loaded colours into it
+  function endFrame() {
+    const row = state.spriteRow;
+    row.uploaded = spritePalette.update;
+    if (!spritePalette.update) return;
+    spritePalette.update = false;
+    row.shown = row.written ? Array.from({ length: 16 }, (_, c) => (row.written >> c & 1 ? row.bytes[c * 2] | row.bytes[c * 2 + 1] << 8 : null)) : null;
+  }
+
   function step() {
     if (special) return;
     input.poll?.();

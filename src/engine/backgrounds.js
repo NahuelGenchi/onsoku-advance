@@ -27,4 +27,6 @@ export const BACKGROUND_SCROLL = {
   secretBase1(line, tick, cx, cy) {
     return cx < 1488 ? [Math.trunc((cx * 16) / (78 * 16)), 512 - 160] : secretBaseInside(line, cx, cy);
   },
+  // StageBgUpdate_Zone2Act2: the inside's all the way
+  secretBase2: (line, tick, cx, cy) => secretBaseInside(line, cx, cy),
 };

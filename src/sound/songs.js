@@ -63,6 +63,7 @@ export const SONG = {
   SHRUBBERY: 178,          // SE_SHRUBBERY: Sonic goes into a bush
   HOOK_RAIL: 180,          // SE_HOOK_RAIL: while a hook rail carries Sonic
   LIFT: 181,               // SE_LIFT: a crane claw carries Sonic
+  STEAM_EXHAUST: 182,      // SE_LAVA_PLATFORM_SPURT: a steam exhaust blows
   ICE_BLOCK_BREAK: 193,    // SE_193: a block of ice breaks, after SE_ITEM_BOX
   TUBE: 202,               // SE_202: a tube's track takes Sonic
 };

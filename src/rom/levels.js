@@ -8,6 +8,8 @@
 
 export const LEVELS = {
   0: { name: 'Neo Green Hill Zone act 1', zone: 0, act: 0, paletteAnimations: [814, 815], music: 12 },
+  // StageInit_Zone1Act2: act 1's two and 820, which steps rows 13 and 12 every 2 frames ([animation, variant])
+  1: { name: 'Neo Green Hill Zone act 2', zone: 0, act: 1, paletteAnimations: [814, 815, [820, 1], [820, 0]], music: 13 },
   // StageInit_Zone2Act1 (0x0803DD45 in the USA ROM): palette animations 819, 845 and 849 and MUS_SECRET_BASE.
   // StageBgUpdate_Zone2Act1 scrolls the background (backgrounds.js); the spotlights are made after the init (acts.js).
   // Picked from the course select, the HUD's data holds 56 (at 0x03002794) when it is made. The zone's platforms

@@ -1,10 +1,10 @@
 // The original's task list and its entities manager (SAT-R decompilation, src/task.c and
 // src/game/shared/stage/entities_manager.c), with the objects it spawns: springs, spikes, layer toggles,
 // platforms, boulders, blocks of ice, breakable walls, waterfalls, boosters, checkpoints, wall poles, grind
-// rails, the incline ramp, the half-pipe, the forced slide, the hook rails, the security gates, the conveyor
-// belts, the swinging hooks, swing ropes and crane claws, the visibility toggles, Secret Base's pipe curler,
-// item boxes, enemies, and a stand-in for each kind of act 1's that this game doesn't build yet, so that every
-// task keeps its place in the list.
+// rails, the incline ramp, the half-pipe, the forced slide, the mini loops, the water bridge, the shrubbery, the
+// goal, the special spring, the hook rails, the security gates, the conveyor belts, the swinging hooks, swing
+// ropes and crane claws, the visibility toggles, Secret Base's pipe curler, item boxes, enemies, and a stand-in
+// for each kind that this game doesn't build yet, so that every task keeps its place in the list.
 //
 // A task is { run(ctx) } and returns false from run() when it ends. The list runs once a frame in priority
 // order, and the tasks of a priority in the order they were made. The original fetches the next task before
@@ -28,6 +28,11 @@ import { createGrindRail } from './grindrails.js';
 import { createRamp } from './ramps.js';
 import { createHalfPipe } from './halfpipes.js';
 import { createSlide } from './slides.js';
+import { createMiniLoop } from './miniloops.js';
+import { createWaterBridge, createBridgeSplash } from './waterbridges.js';
+import { createShrub } from './shrubs.js';
+import { createGoal, STAGE_GOAL } from './goal.js';
+import { createSpecialSpring } from './specialspring.js';
 import { createHookRail } from './hookrails.js';
 import { createSecurityGate } from './securitygates.js';
 import { createConveyor } from './conveyors.js';
@@ -149,11 +154,9 @@ function toggle(e, slot) {
   };
 }
 
-// The act 1 kinds not built yet, as tasks at the objects' priority that do nothing but leave when their
-// spawn point does. The stage goal makes no task while its d1 is 0.
-const STAGE_GOAL = 0;
-function standIn(e, slot, kind = e.kind) {
-  if (kind === STAGE_GOAL && e.d[1] === 0) return null;
+// The kinds not built yet, as tasks at the objects' priority that do nothing but leave when their spawn point
+// does.
+function standIn(e, slot) {
   return {
     run(ctx) {
       if (offCam(e.x, e.y, ctx.cam)) { slot.live = null; return false; }
@@ -166,13 +169,15 @@ function standIn(e, slot, kind = e.kind) {
 function interactable(e, slot, anims, ctx, level) {
   if (e.kind === TOGGLE_FRONT || e.kind === TOGGLE_BACK) return toggle(e, slot);
   const def = createSpring(e) ?? createSpikes(e);
-  return def ? objectTask(def, slot, anims) : createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createWaterfall(e, slot, anims)
+  return def ? objectTask(def, slot, anims) : createHidingSpikes(e, slot, anims) ?? createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createWaterfall(e, slot, anims)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
-    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createHookRail(e, slot, anims) ?? createSecurityGate(e, slot, anims)
+    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createMiniLoop(e, slot)
+    ?? createWaterBridge(e, slot, anims) ?? createBridgeSplash(e, slot, anims) ?? createShrub(e, slot, anims)
+    ?? createSpecialSpring(e, slot, anims) ?? createHookRail(e, slot, anims) ?? createSecurityGate(e, slot, anims)
     ?? createConveyor(e, slot, ctx) ?? createSwingingHook(e, slot, anims)
     ?? createSwingRope(e, slot) ?? createCraneClaw(e, slot, anims) ?? createVisibilityToggle(e, slot) ?? createCurler(e, slot)
-    ?? createMarbleTrack(e, slot, anims, level) ?? createLava(e, slot) ?? createHidingSpikes(e, slot, anims)
-    ?? createTube(e, slot, anims, level) ?? standIn(e, slot);
+    ?? createMarbleTrack(e, slot, anims, level) ?? createLava(e, slot) ?? createTube(e, slot, anims, level)
+    ?? (e.kind === STAGE_GOAL ? createGoal(e, slot, anims) : standIn(e, slot));
 }
 
 /**
@@ -194,7 +199,7 @@ export function createEntities(stage, anims, tasks) {
   for (const [list, spawn] of [
     [stage.interactables, (s, ctx) => interactable(s.e, s, anims, ctx, stage.level)],
     [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
-    [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s, -1)],
+    [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s)],
   ]) {
     // each region keeps its interactables, then its item boxes, then its enemies
     for (const e of list) regions[e.rx + e.ry * regionsX].push(slot(e, spawn));

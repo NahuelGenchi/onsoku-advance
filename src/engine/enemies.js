@@ -10,6 +10,7 @@
 import { makeSprite, startAnim, animate } from './objects.js';
 import { tileFloor } from './terrain.js';
 import { SINE } from './trig.js';
+import { createEggHammerTankIntro, createEggHammerTank, EGG_HAMMER_TANK_INTRO, EGG_HAMMER_TANK } from './boss1.js';
 import { drisame, DRISAME } from './drisame.js';
 import { kuraa, KURAA } from './kuraa.js';
 import { mole, MOLE } from './mole.js';
@@ -346,5 +347,8 @@ function kerokero(e, slot, anims) {
 }
 
 /** Makers by enemy kind (gSpriteInits_Enemies): (entity, slot, anims, ctx) → task. */
-export const ENEMIES = { [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero,
-  [DRISAME]: drisame, [KURAA]: kuraa, [MOLE]: mole, [TENTOU]: tentou, [SENBON]: senbon, [FIREBALL]: fireball };
+export const ENEMIES = {
+  [KIKI]: kiki, [BUZZER]: buzzer, [GAMIGAMI]: gamigami, [RHINOTANK]: rhinotank, [KEROKERO]: kerokero,
+  [EGG_HAMMER_TANK_INTRO]: createEggHammerTankIntro, [EGG_HAMMER_TANK]: createEggHammerTank,
+  [DRISAME]: drisame, [KURAA]: kuraa, [MOLE]: mole, [TENTOU]: tentou, [SENBON]: senbon, [FIREBALL]: fireball,
+};

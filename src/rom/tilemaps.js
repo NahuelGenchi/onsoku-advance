@@ -53,11 +53,13 @@ export function mapBanks(rom, header, entries) {
 
 /**
  * Renders metatiles 0 … count-1 of a stage layer into one atlas, 16 per row, plus a copy of every metatile
- * that uses animated tiles for each further animation frame, and of every one that uses a palette bank in
- * `varying` for each further palette in `palettes`.
+ * that uses animated tiles for each further animation frame, and of every one that uses a palette bank a palette
+ * animation changes for each further state of the animations it uses. `palettes` holds the layer's colours
+ * under each combination of the animations' states, the first animation's the most significant digit, and
+ * `varying` the animations in that order: the rows each changes and its number of states.
  * @returns {{ canvas: HTMLCanvasElement, size: number, slots: Int16Array[][] }} slots[frame][palette][id] is the atlas slot
  */
-export function renderMetatileAtlas(rom, header, palettes, count, varying = new Set()) {
+export function renderMetatileAtlas(rom, header, palettes, count, varying = []) {
   const size = header.xTiles * 8, perMetatile = header.xTiles * header.yTiles;
   const animTiles = header.animTileSize / TILE_BYTES, frames = Math.max(1, header.animFrameCount);
   const entry = (id, i) => rom.u16(header.map + (id * perMetatile + i) * 2);
@@ -65,7 +67,19 @@ export function renderMetatileAtlas(rom, header, palettes, count, varying = new 
     for (let i = 0; i < perMetatile; i++) if (test(entry(id, i))) return true;
     return false;
   });
-  const animated = uses(e => (e & 0x3FF) < animTiles), recoloured = uses(e => varying.has(e >> 12));
+  const animated = uses(e => (e & 0x3FF) < animTiles);
+  // the palette whose colours a metatile shows under palette p: the states of the animations it doesn't use
+  // make no difference to it, so they count as the stage's own colours
+  const affects = varying.map(({ rows }) => uses(e => rows.has(e >> 12)));
+  const own = (id, p) => {
+    let q = 0, scale = 1;
+    for (let k = varying.length - 1; k >= 0; k--) {
+      const digit = Math.floor(p / scale) % varying[k].radix;
+      if (affects[k][id]) q += digit * scale;
+      scale *= varying[k].radix;
+    }
+    return q;
+  };
 
   const slots = [], jobs = [];
   for (let f = 0; f < frames; f++) {
@@ -73,8 +87,9 @@ export function renderMetatileAtlas(rom, header, palettes, count, varying = new 
     for (let p = 0; p < palettes.length; p++) {
       const slot = slots[f][p] = new Int16Array(count);
       for (let id = 0; id < count; id++) {
-        if ((f === 0 || animated[id]) && (p === 0 || recoloured[id])) { slot[id] = jobs.length; jobs.push([id, f, p]); }
-        else slot[id] = slots[animated[id] ? f : 0][recoloured[id] ? p : 0][id];
+        const q = own(id, p);
+        if ((f === 0 || animated[id]) && p === q) { slot[id] = jobs.length; jobs.push([id, f, p]); }
+        else slot[id] = slots[animated[id] ? f : 0][q][id];
       }
     }
   }

@@ -1,5 +1,6 @@
 // Recognizes a Sonic Advance ROM from its cartridge header and checksum.
 
+import { Rom } from './rom.js';
 import { KNOWN_VERSIONS, GAME_TITLE, GAME_CODES } from './versions.js';
 
 export class RomError extends Error {}
@@ -14,6 +15,12 @@ export async function sha1Hex(buffer) {
 /** Reads the GBA cartridge header (title at 0xA0, game code at 0xAC, version at 0xBC). */
 export function readHeader(rom) {
   return { title: rom.ascii(0xA0, 12), code: rom.ascii(0xAC, 4), maker: rom.ascii(0xB0, 2), revision: rom.u8(0xBC) };
+}
+
+/** Whether the header of `buffer` names Sonic Advance, before the full check: which game a file is. */
+export function isSonicAdvance(buffer) {
+  const rom = new Rom(buffer);
+  return rom.size >= 0x200 && rom.u8(0xB2) === 0x96 && readHeader(rom).title === GAME_TITLE;
 }
 
 /**

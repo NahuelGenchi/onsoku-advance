@@ -14,6 +14,7 @@ import { tileFloor, LAYER_BACK } from './terrain.js';
 import { SINE } from './trig.js';
 import { setBossCamBounds, preBossCameraPan, bossPart, bossDebris, bossExplosion, bossHit26, HIT_ENEMY, HIT_PLAYER } from './bosses.js';
 import { SONG } from '../sound/songs.js';
+import { SCREEN_W, SCREEN_H } from './constants.js';
 
 export const EGG_SNAKE = 27;
 
@@ -228,8 +229,9 @@ export function eggSnake(e, slot, anims, ctx0) {
     return true;
   }
 
-  // sub_80327C4: the eighth hit. Its four spikes fly off, the camera stops sideways and may go 160 px lower,
-  // the clock, the rings and the entities stop (gStageFlags |= 3), 1000 points, and it starts to fall
+  // sub_80327C4: the eighth hit. Its four spikes fly off, the camera stops sideways and may go 160 px lower
+  // (the widescreen view's arena with it), the clock, the rings and the entities stop (gStageFlags |= 3), 1000
+  // points, and it starts to fall
   function beaten(ctx) {
     b.qx += b.swayX << 8; b.qy += b.swayY << 8;
     const x = s16(x0 + I(b.qx)), y = s16(y0 + I(b.qy));
@@ -240,6 +242,7 @@ export function eggSnake(e, slot, anims, ctx0) {
       ctx.add(bossPart(x + dx, y + dy, 'eggSnakeSpike', ctx.anims, { vx, vy: -0x200, spin, grow: 0 }));
     }
     cam.minX = ctx.cam.x; cam.maxX = ctx.cam.x;
+    cam.arena = { minX: cam.minX, maxX: cam.maxX + SCREEN_W, minY: cam.maxY, maxY: cam.maxY + 320 };
     ctx.add(preBossCameraPan(cam, cam.maxY, cam.maxY + 320));
     ctx.world.stopStage();
     ctx.world.addScore(1000);
@@ -264,8 +267,8 @@ export function eggSnake(e, slot, anims, ctx0) {
     return true;
   }
 
-  // sub_8032D44: 60 frames where it landed; then the segments let Sonic go and blink, the camera may go down
-  // to 2208, the act's music comes back, and Eggman is in the Egg Mobile
+  // sub_8032D44: 60 frames where it landed; then the segments let Sonic go and blink, the camera (and the
+  // widescreen view's arena) may go down to 2208, the act's music comes back, and Eggman is in the Egg Mobile
   function landed(ctx) {
     if ((b.timer = (b.timer - 1) & 0xFFFF) !== 0) {
       place(ctx, s16(x0 + I(b.qx)), s16(y0 + I(b.qy)));
@@ -275,7 +278,7 @@ export function eggSnake(e, slot, anims, ctx0) {
     }
     m.after = 0xFF;
     ctx.player.onObject = null;
-    cam.maxY = 2208;
+    cam.maxY = 2208; cam.arena.maxY = cam.maxY + SCREEN_H;
     ctx.world.musicState(MUSIC_BOSS_OVER);
     b.baseX = s16(x0 + I(b.qx)); b.baseY = s16(y0 + I(b.qy));
     b.qx = 0; b.qy = 0; b.vx = 0; b.vy = -0x80; b.phase = 0;
@@ -310,7 +313,7 @@ export function eggSnake(e, slot, anims, ctx0) {
           if (!p.ignoreInput) {
             p.xsp = 0; p.ysp = 0; p.gsp = 0;
             p.ignoreInput = true; p.heldInput = x > px ? HOLD_RIGHT : HOLD_LEFT;
-            cam.speedX = 0; cam.maxX = ctx.cam.x + 240;
+            cam.speedX = 0; cam.maxX = ctx.cam.x + 240; cam.arena.maxX = cam.maxX + SCREEN_W;
           } else p.heldInput = null;
         }
         if (b.qy < -90 * 256) { b.qy = -90 * 256; b.vy = 0; }

@@ -88,6 +88,7 @@ Enemy 27, `boss_6_egg_snake.c`. The segments' task, `Task_8033AA0`, follows its 
 - The spikes fly off through the rotation hardware.
 - The boss falls through the arena, throwing debris whose pieces fall 5/256 px a frame faster each frame, against 40 for the other bosses.
 - 60 frames after it lands, Eggman rises in the Egg Mobile. Sonic is held still, then walks after him, and the act's results come.
+- A widescreen view's black follows the camera's bounds to where they are going (`cam.arena`): the one screen across the camera stops on, 160 px further down once it is beaten, down to a bottom of 2368 once it has landed, and 240 px further right when Sonic is held still.
 
 A beaten boss stops the clock, the rings and the entities manager (`STAGE_FLAG__ACT_START` and `STAGE_FLAG__2`), and zeroes the camera's speed caps. The game provides those hooks (`world.stopStage`, `cam.speedX`, `player.heldInput`). The results themselves are the act clear's work ([#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69)), called through `world.stageResults`.
 

@@ -10,6 +10,7 @@ import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { createPlayer, stepPlayer, animatePlayer, hurt } from './player.js';
 import { createRushFx, startRushFx, stepRushFx } from './rushfx.js';
 import { createBoostFx, recordSonic, stepAfterimages, startBurst, stepBursts, particleAnims } from './boostmode.js';
+import { TRICK_FX_PRIORITY, createTrail, recordTrail, spinEffect, boundTrail } from './trickfx.js';
 import { createCamera, updateCamera, viewOf } from './camera.js';
 import { animateStageTiles } from './stage.js';
 import { createRenderer } from './renderer.js';
@@ -48,9 +49,9 @@ const STAGE_INITS = [
 // and its stage init starts its music, two frames before its first
 const NEXT_ACT_FRAMES = 16, NEXT_ACT_LOADS = 2;
 // what Sonic reads while the title card holds him: the jump and attack buttons InitializePlayer leaves held, never pressed
-const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
+const CARD_INPUT = { left: false, right: false, up: false, down: false, jump: true, attack: true, boost: false, trick: false, jumpPressed: false, attackPressed: false, boostPressed: false, trickPressed: false };
 // and while an object holds his controls (the forced slide): nothing, as it clears his input
-const NO_INPUT = { left: false, right: false, up: false, down: false, jump: false, attack: false, boost: false, jumpPressed: false, attackPressed: false, boostPressed: false };
+const NO_INPUT = { left: false, right: false, up: false, down: false, jump: false, attack: false, boost: false, trick: false, jumpPressed: false, attackPressed: false, boostPressed: false, trickPressed: false };
 
 const SILENT = {
   play() {}, playOrChange() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
@@ -95,8 +96,12 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     boostMode: false,     // Sonic Advance 2's Boost Mode's setting (off unless chosen)
     boostArt: null,       // its art and sound, from the player's Sonic Advance 2 ROM
     boostFx: createBoostFx(player), // its afterimages and particles (boostmode.js)
+    tricks: false,        // Sonic Advance 2's tricks' setting (off unless chosen)
+    trickArt: null,       // their sprites, from the player's Sonic Advance 2 ROM
+    trail: createTrail(), // where Sonic was on his last frames, for the Bound's afterimages
   };
   let boostAnims = null;   // the particles' animations, numbered as the renderer's boost atlas has them
+  let playerAnims = anims;   // Sonic's animations, with the tricks' once their art is read
   let viewW = SCREEN_W, viewH = SCREEN_H;   // the original screen, or the widescreen view's size
   // the camera as InitCamera sets it up, with the act's stage init's right edge
   const newCamera = () => {
@@ -266,6 +271,18 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       startBurst(state.boostFx, player, ctx.cam.x, boostAnims);
       sound.playSa2(BOOST_MODE_SE);
     },
+    // Sonic Advance 2's tricks: whether they are on, a trick's points (INCREMENT_SCORE, a life every 50000),
+    // Sonic Advance 2's sounds, and the effects that run with them
+    get tricks() { return state.tricks; },
+    trickScore(points) {
+      const before = state.score;
+      state.score += points;
+      if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) { state.lives = (state.lives + 1) & 0xFF; extraLife = true; }
+    },
+    playSa2: song => sound.playSa2(song),
+    trickEffect(kind) {
+      tasks.add(kind === 'spin' ? spinEffect(state.trickArt) : boundTrail(state.trickArt, state.trail), TRICK_FX_PRIORITY);
+    },
     // brake dust stays where it appeared, flipped by the game's random numbers
     spawnBrakeDust() {
       if (state.effects.filter(e => e.kind === 'brake').length >= MAX_BRAKE_DUST) return;
@@ -279,13 +296,14 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   };
 
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
-  // background priority: 2 behind the front layer, 0 and 1 in front of it); `affine` sends it through the
-  // rotation hardware: { rotation (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }. With
-  // `white`, it is a window that turns everything in its shape white (a boss's hit flash). An affine's `matrix`
-  // names the OAM matrix it shares with other sprites, which all show the last transform written to it.
+  // background priority: 2 behind the front layer, 0 and 1 in front of it), and `sheet` when its frame is from
+  // another game's sprites than Sonic Advance's; `affine` sends it through the rotation hardware: { rotation
+  // (0–1023 per turn), scaleX, scaleY (8.8, negative mirrors), double }. With `white`, it is a window that turns
+  // everything in its shape white (a boss's hit flash). An affine's `matrix` names the OAM matrix it shares with
+  // other sprites, which all show the last transform written to it.
   function draw(s, x, y, affine = null) {
     if (s.frame < 0) return;
-    state.sprites.push({ frame: s.frame, x: x + drawShift + shiftX, y: y + shiftY, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, white: s.white });
+    state.sprites.push({ frame: s.frame, x: x + drawShift + shiftX, y: y + shiftY, flipX: s.flipX, flipY: s.flipY, affine, order: s.order, prio: s.prio, sheet: s.sheet, white: s.white });
   }
   // what the objects' and enemies' tasks see and use
   const ctx = {
@@ -362,7 +380,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     const prio = player.death || player.front ? 1 : 2, fx = state.rushFx.list.length > 0 ? { rush: 'obj', order: 16, prio, sonic: null } : null;
     if (fx) state.sprites.push(fx);
     if (!player.hidden) {
-      const s = { frame: frameOf(player.anim, anims), flipX: player.facing > 0, flipY: false, order: 16, prio };
+      const s = { frame: frameOf(player.anim, playerAnims), flipX: player.facing > 0, flipY: false, order: 16, prio, sheet: playerAnims[player.anim.name]?.sheet };
       if (player.state === 'walk' || player.state === 'bounce') {
         const right = player.facing > 0;
         draw(s, player.x - (right ? 1 : 0), player.y, { rotation: player.rotation << 2, scaleX: right ? -256 : 256, scaleY: 256, double: false });
@@ -420,6 +438,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     state.palettes = palettes.map(a => a.shown);
     state.ringCount = 0; state.effects = []; state.sprites = []; state.rushFx = createRushFx(); state.shake = -1; state.courseTime = state.checkpoint?.time ?? 0; state.animal = 0;
     state.boostFx = createBoostFx(player);
+    state.trail = createTrail();
     startCard();
     sound.playStageMusic(STAGE_INITS[state.level].music);
     loading = true; starMusic = false;
@@ -439,7 +458,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       tick: 0, terrain, tasks, rings, cam: newCamera(), effects: [], sprites: [], ringCount: 0, courseTime: 0,
       clockStopped: false, hud: createHud(), animal: 0, palettes: palettes.map(a => a.shown), checkpointIndex: 0,
       checkpoint: null, goalReached: false, ringsStopped: false, card: null, results: null, rushFx: createRushFx(), shake: -1,
-      boostFx: createBoostFx(player),
+      boostFx: createBoostFx(player), trail: createTrail(),
     });
     ctx.view = state.view = viewOf(state.cam, viewW, viewH);
     render = newRenderer();
@@ -479,7 +498,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       const pad = ['left', 'right', 'up', 'down'].filter(k => input[k]);
       const pressed = input.jumpPressed || input.attackPressed || pad.some(k => !cardPad.includes(k));
       cardPad = pad;
-      input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
+      input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
       if (runTitleCard(state.card, pressed)) return;
       state.card = null; state.clockStopped = false; state.cardsShown = state.level;
       state.hud = createHud();
@@ -488,8 +507,9 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     [0x3000, () => {
       const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? player.heldInput ?? NO_INPUT : input;
       stepPlayer(player, held, world);
-      animatePlayer(player, held, anims, world);
+      animatePlayer(player, held, playerAnims, world);
       if (!player.dead) recordSonic(state.boostFx, player);
+      recordTrail(state.trail, player);
       // the boost's effects run after him, as Rush's objects run after its player
       if (state.rushArt && (state.rush || state.rushFx.list.length > 0)) stepRushFx(state.rushFx, player, state.rushArt, player.boost);
       drawSonic();
@@ -507,8 +527,10 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // boosting with the Rush boost; and its particles (0x5050), in front of him
     [0x4000, () => {
       if (!state.boostMode) return;
-      const shown = stepAfterimages(state.boostFx, anims, !player.dead && (player.boostMode || player.boost));
-      if (shown && shown.frame >= 0) state.sprites.push({ ...shown, flipY: false, order: 16, boost: true });
+      // the afterimages replay his animations, a trick's too; a trick's frames are in Sonic Advance 2's own
+      // sheet, which Boost Mode's palette doesn't cover, so those are left out
+      const shown = stepAfterimages(state.boostFx, playerAnims, !player.dead && (player.boostMode || player.boost));
+      if (shown && shown.frame >= 0 && !playerAnims[shown.name]?.sheet) state.sprites.push({ ...shown, flipY: false, order: 16, boost: true });
     }],
     [0x5050, () => {
       if (!state.boostMode || state.boostFx.bursts.length === 0) return;
@@ -590,6 +612,12 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       if (art !== state.boostArt) boostAnims = art && particleAnims(art, assets.sprites.frames.length);
       state.boostArt = art; state.boostMode = on && !!art;
       if (!state.boostMode) state.boostFx.bursts = [];
+    },
+    /** Turns Sonic Advance 2's tricks on (with `art`, what sa2tricks.js read from the Sonic Advance 2 ROM) or off.
+     *  A trick under way plays out. */
+    setSa2Tricks(on, art = state.trickArt) {
+      if (art && art !== state.trickArt) playerAnims = { ...anims, ...art.anims };
+      state.trickArt = art; state.tricks = on && !!art; input.setTricks?.(state.tricks);
     },
     // the act's music starts with the act, as the stage's init does (StageInit_Zone1Act1)
     start() {

@@ -250,7 +250,7 @@ function extractSprites(rom, tables) {
 }
 
 // shelf packing with a 1px gap; rects are [x, y, w, h, anchorX, anchorY]
-function packAtlas(images, width = 512) {
+export function packAtlas(images, width = 512) {
   let x = 0, y = 0, shelf = 0;
   const rects = images.map(({ img, anchorX, anchorY }) => {
     if (x + img.width > width) { x = 0; y += shelf + 1; shelf = 0; }

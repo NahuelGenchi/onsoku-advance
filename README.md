@@ -153,7 +153,7 @@ The act opens, and starts over after a lost life, with the original title card s
 
 ## Extras you can switch on
 
-Three optional additions on top of the original game. All are off until you turn them on, and with them off the game runs exactly as without them.
+Four optional additions on top of the original game. All are off until you turn them on, and with them off the game runs exactly as without them.
 
 ### Widescreen view
 
@@ -246,6 +246,40 @@ Sonic Advance has him run on at full speed.
 
 </details>
 
+### Sonic Advance 2 tricks
+
+The four mid-air tricks from *Sonic Advance 2*. Once Sonic is in the air, press the trick button (the Game Boy Advance's R) alone for the **Back Star**, a backflip, or with up for the **Hop Jump**, forward for the spinning **Humming Top**, or down for the **Bound**, a dive that bounces him back up off the ground. The Humming Top and the Bound break enemies he touches, and each trick scores 100 points. Press <kbd>T</kbd> or use the *SA2 tricks* button to turn them on, then press <kbd>E</kbd> or <kbd>I</kbd> (<kbd>RB</kbd> on a controller) in the air.
+
+Their moves, pictures and sounds are Sonic Advance 2's own, so they also need your **Sonic Advance 2 ROM** (`.gba`), asked for the first time you turn them on and, like the Sonic Advance file, read and kept on your device only. Their rules were read from Sonic Advance 2 (USA) and checked against it in an emulator, frame by frame.
+
+<details>
+<summary><b>How the tricks work, in detail</b></summary>
+<br>
+
+- **When.** Once Sonic is in the air: in a jump or a fall, off a spring, a ramp or the end of a grind rail, but
+  not while he is hurt, grinding, on the half-pipe or in the forced slide. Sonic Advance 2 only allows them after
+  springs, ramps and the like; here they work in any jump. One trick each time he leaves the ground, and not in
+  the first 2 to 4 frames after a spring, as in Sonic Advance 2.
+- **Wind-up.** The trick starts on the frame after the press. Sonic stops in the air for its wind-up, 12 frames
+  for the Hop Jump, 8 for the Humming Top, 2 for the Back Star and 23 for the Bound, with Sonic Advance 2's jump
+  and trick sounds (the Bound has none).
+- **Hop Jump** (with up). He rises at 6 px a frame, then falls as in a jump.
+- **Humming Top** (with the way he faces). He spins forward at 6 px a frame for 45 frames, in Sonic Advance 2's
+  spin effect, destroying enemies he touches, then falls.
+- **Back Star** (alone or with back). He flips backwards and up, at 5 px a frame back and 3.5 up.
+- **Bound** (with down). He dives, from 2 px a frame and faster each frame, leaving afterimages and destroying
+  enemies he touches. The ground throws him back up at 6 px a frame, away from its surface, with Sonic Advance 2's
+  bounce sound, and he falls as in a jump from the top.
+- **Steering.** After the wind-up of the Hop Jump, the Humming Top and the Back Star, left and right steer him as
+  in a jump, but he doesn't turn round. The Bound can't be steered until it starts to fall.
+
+Where the port differs from Sonic Advance 2: there, B in the air also starts the Bound, and a side spring on the
+ground allows a trick too; here neither does. The tricks' sounds play on their own copy of the sound engine, so
+they never take a channel from the music, as they can in Sonic Advance 2. The rules, sprites and sounds are
+compared with the original in [docs/ROM.md](docs/ROM.md#sonic-advance-2-tricks).
+
+</details>
+
 ## Controls
 
 | | Keyboard | Xbox controller |
@@ -259,6 +293,7 @@ Sonic Advance has him run on at full speed.
 | **Spin dash** | <kbd>↓</kbd> + <kbd>Z</kbd> | Down + <kbd>A</kbd> |
 | **Look up** | <kbd>↑</kbd> | Up |
 | **Boost**, with the [Rush boost](#sonic-rush-boost) on | <kbd>L</kbd> or <kbd>Shift</kbd> | <kbd>X</kbd> |
+| **Trick**, with the [SA2 tricks](#sonic-advance-2-tricks) on, in the air: alone or back for the Back Star, with up the Hop Jump, forward the Humming Top, down the Bound | <kbd>E</kbd> or <kbd>I</kbd> | <kbd>RB</kbd> |
 | **Start**: skips the intro, as jump and attack do, and opens the menu from the title screen | <kbd>Enter</kbd> | <kbd>Menu</kbd> |
 | **In the menu:** choose, then pick | <kbd>↑</kbd> <kbd>↓</kbd>, then <kbd>Z</kbd> or <kbd>Space</kbd> | D-pad or left stick, then <kbd>A</kbd> |
 | **Select** | <kbd>Backspace</kbd> | <kbd>View</kbd> |
@@ -267,6 +302,7 @@ Sonic Advance has him run on at full speed.
 | Widescreen view on or off | <kbd>V</kbd> | |
 | Rush boost on or off | <kbd>R</kbd> | |
 | Boost Mode on or off | <kbd>B</kbd> | |
+| SA2 tricks on or off | <kbd>T</kbd> | |
 | Show the collision (for checking the level) | <kbd>C</kbd> | |
 
 In a special stage the same controls fly Sonic down the tunnel: the D-pad or left stick steers, jump (A) speeds him up while held, and attack (B) does a trick. A trick just after touching a bumper pulls in its rings.
@@ -297,7 +333,7 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 </tbody>
 </table>
 
-Also on the way: the title screen's demos, the character select and the menu's other modes, the [other six special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84), plus one more optional extra from Sonic Advance 2: its [mid-air tricks](https://github.com/NahuelGenchi/onsoku-advance/issues/65).
+Also on the way: the title screen's demos, the character select and the menu's other modes, the [other six special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and [Chao Hunt multiplayer](https://github.com/NahuelGenchi/onsoku-advance/issues/84).
 
 <details>
 <summary><b>Milestones</b></summary>
@@ -395,8 +431,8 @@ flowchart LR
 
 1. **Extract.** You pick your ROM. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory, entirely in the browser.
 2. **Simulate.** The engine steps 60 times per second with the original game's rules: acceleration, braking, gravity, jump height, roll friction, spin dash speeds and the camera's dead zones.
-3. **Draw.** The logos, the intro, the title screen and the menu run on a port of the original's own engine (its tasks, sprites, backgrounds, line-by-line effects and V-blank) at the GBA's 59.73 frames a second, and a model of the GBA's video hardware draws them as mGBA does. In the act, sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view draws up to 368 × 208 around the same screen; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds its trail and aura around Sonic, and the optional [Boost Mode](#sonic-advance-2-boost-mode) Sonic Advance 2's afterimages and sparks.
-4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The Rush boost's sound plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, and Boost Mode's from your Sonic Advance 2 ROM on a second copy of the Game Boy Advance one, both added to the same output.
+3. **Draw.** The logos, the intro, the title screen and the menu run on a port of the original's own engine (its tasks, sprites, backgrounds, line-by-line effects and V-blank) at the GBA's 59.73 frames a second, and a model of the GBA's video hardware draws them as mGBA does. In the act, sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view draws up to 368 × 208 around the same screen; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds its trail and aura around Sonic, the optional [Boost Mode](#sonic-advance-2-boost-mode) Sonic Advance 2's afterimages and sparks, and the optional [Sonic Advance 2 tricks](#sonic-advance-2-tricks) draw Sonic from Sonic Advance 2's sprites while he does one.
+4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The Rush boost's sound plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, and Boost Mode's and the tricks' from your Sonic Advance 2 ROM on a second copy of the Game Boy Advance one, all added to the same output.
 
 ## Run it on your own computer
 

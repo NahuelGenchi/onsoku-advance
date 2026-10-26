@@ -11,6 +11,7 @@ import { createFrontEnd } from './front/front.js';
 import { extractRush } from './rom/rush.js';
 import { openSa2 } from './rom/sa2.js';
 import { readBoostArt } from './rom/sa2boost.js';
+import { trickArt } from './rom/sa2tricks.js';
 import { createInput } from './engine/input.js';
 import { createGame, specialSpringStart } from './engine/game.js';
 import { createSpecialStageRun } from './special/run.js';
@@ -27,7 +28,8 @@ const rushButton = document.getElementById('rush');
 const rushStatus = document.getElementById('rush-status');
 const rushFile = document.getElementById('rush-file');
 const boostButton = document.getElementById('boost-mode');
-const boostStatus = document.getElementById('boost-status');
+const tricksButton = document.getElementById('tricks');
+const sa2Status = document.getElementById('sa2-status');
 const sa2File = document.getElementById('sa2-file');
 const params = new URLSearchParams(location.search);
 const debug = params.has('debug'), specialTest = params.has('special');
@@ -104,13 +106,15 @@ rushFile.addEventListener('change', async () => {
 })();
 showRush();
 
+// the extra that asked for the Sonic Advance 2 ROM, turned on once it is read
+let sa2For = null;
 // Sonic Advance 2's Boost Mode, another extra: off unless chosen. Its afterimages, particles and sound come from
 // the player's own Sonic Advance 2 ROM, asked for the first time it is turned on and then kept in this browser.
 const BOOST_KEY = 'onsoku.boostMode';
 let boostMode = false, boostArt = null;
 try { boostMode = localStorage.getItem(BOOST_KEY) === '1'; } catch { /* storage blocked: the default stands */ }
 function setBoostMode(on) {
-  if (on && !boostArt) { sa2File.click(); return; }   // turned on once the ROM is read
+  if (on && !boostArt) { sa2For = setBoostMode; sa2File.click(); return; }   // turned on once the ROM is read
   boostMode = on;
   try { localStorage.setItem(BOOST_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
   showBoostMode();
@@ -120,12 +124,32 @@ function showBoostMode() {
   boostButton.textContent = `Boost Mode: ${boostMode ? 'on' : 'off'}`;
   boostButton.setAttribute('aria-pressed', String(boostMode));
 }
+boostButton.addEventListener('click', () => { setBoostMode(!boostMode); screen.focus(); });
+// Sonic Advance 2's mid-air tricks, an extra on top of the original game: off unless chosen, like the Rush boost.
+// Their sprites and sounds come from the player's own Sonic Advance 2 ROM, asked for the first time they are
+// turned on and then kept in this browser like the Sonic Advance ROM.
+const TRICKS_KEY = 'onsoku.sa2Tricks';
+let tricks = false, tricksArt = null;
+try { tricks = localStorage.getItem(TRICKS_KEY) === '1'; } catch { /* storage blocked: the default stands */ }
+function setTricks(on) {
+  if (on && !tricksArt) { sa2For = setTricks; sa2File.click(); return; }   // turned on once the ROM is read
+  tricks = on;
+  try { localStorage.setItem(TRICKS_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
+  showTricks();
+}
+function showTricks() {
+  game?.setSa2Tricks(tricks, tricksArt);
+  tricksButton.textContent = `SA2 tricks: ${tricks ? 'on' : 'off'}`;
+  tricksButton.setAttribute('aria-pressed', String(tricks));
+}
+// what the extras from Sonic Advance 2 read from its ROM, and its sound engine's tables
 function useSa2(buffer) {
   const sa2 = openSa2(buffer);
   boostArt = readBoostArt(sa2);
+  tricksArt = trickArt(sa2);
   sound.loadSa2(sa2.sound);
 }
-boostButton.addEventListener('click', () => { setBoostMode(!boostMode); screen.focus(); });
+tricksButton.addEventListener('click', () => { setTricks(!tricks); screen.focus(); });
 sa2File.addEventListener('change', async () => {
   const file = sa2File.files[0];
   sa2File.value = '';
@@ -133,11 +157,12 @@ sa2File.addEventListener('change', async () => {
   try {
     const buffer = await file.arrayBuffer();
     useSa2(buffer);
-    boostStatus.textContent = '';
+    sa2Status.textContent = '';
     await rememberRom(file.name, buffer, SA2_ROM);
-    setBoostMode(true);
+    sa2For?.(true);
+    sa2For = null;
   } catch (error) {
-    boostStatus.textContent = error.message || String(error);
+    sa2Status.textContent = error.message || String(error);
   }
   screen.focus();
 });
@@ -146,9 +171,12 @@ sa2File.addEventListener('change', async () => {
   const saved = await loadRememberedRom(SA2_ROM);
   try { if (saved) useSa2(saved.buffer); } catch { /* not usable any more: asked for again */ }
   if (boostMode && !boostArt) setBoostMode(false);
+  if (tricks && !tricksArt) setTricks(false);
   showBoostMode();
+  showTricks();
 })();
 showBoostMode();
+showTricks();
 
 createRomPicker(picker, {
   heading: 'Play in your browser',
@@ -189,6 +217,7 @@ function play(assets, resume = null) {
   fitScreen();
   showRush();
   showBoostMode();
+  showTricks();
   game.start();
   screen.focus();
   clearInterval(statsTimer);
@@ -225,6 +254,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyV' && !stage.hidden && !e.repeat) setWide(!wide);
   if (e.code === 'KeyR' && !stage.hidden && !e.repeat) setRush(!rush);
   if (e.code === 'KeyB' && !stage.hidden && !e.repeat) setBoostMode(!boostMode);
+  if (e.code === 'KeyT' && !stage.hidden && !e.repeat) setTricks(!tricks);
 });
 
 function showStats() {

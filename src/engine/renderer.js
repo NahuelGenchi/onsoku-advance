@@ -48,6 +48,13 @@ export function createRenderer(canvas, assets) {
   });
   const base = sheetOf({ atlas, frames });
   let boost = null, boostArt = null;   // Boost Mode's atlas, made once its art is read from the ROM
+  // another game's sprites ({ atlas, frames }), as Sonic Advance 2's tricks have, made into a sheet once
+  const sheets = new WeakMap();
+  const sheetFor = other => {
+    if (!other) return base;
+    if (!sheets.has(other)) sheets.set(other, sheetOf(other));
+    return sheets.get(other);
+  };
 
   // sprites face left in the ROM; a flip mirrors them around their anchor like the GBA does
   function drawSprite(index, x, y, flipX, flipY = false, sheet = base) {
@@ -193,8 +200,8 @@ export function createRenderer(canvas, assets) {
       ctx = maskCtx;
       maskCtx.imageSmoothingEnabled = false;
       maskCtx.clearRect(0, 0, W, H);
-      if (sonic.affine) drawAffine(sonic.frame, sonic.x - vx, sonic.y - vy, sonic.affine);
-      else drawSprite(sonic.frame, sonic.x - vx, sonic.y - vy, sonic.flipX, sonic.flipY);
+      if (sonic.affine) drawAffine(sonic.frame, sonic.x - vx, sonic.y - vy, sonic.affine, sheetFor(sonic.sheet));
+      else drawSprite(sonic.frame, sonic.x - vx, sonic.y - vy, sonic.flipX, sonic.flipY, sheetFor(sonic.sheet));
       ctx = main;
       mask = maskCtx.getImageData(x0, y0, w, h).data;
     }
@@ -418,7 +425,7 @@ export function createRenderer(canvas, assets) {
     const drawAll = behind => {
       for (const s of list) {
         if ((s.prio >= 2) !== behind || s.white) continue;
-        const sheet = s.boost ? boost : base;
+        const sheet = s.boost ? boost : sheetFor(s.sheet);
         if (s.rush === 'trail') drawRushTrail(rushFx, vx, vy);
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic);
         else if (!sheet) continue;

@@ -62,7 +62,7 @@ export function stepAfterimages(fx, anims, active) {
     if (a.turn !== k || then.name === null) return;
     const right = then.facing > 0;
     shown = {
-      frame: frameOf(a.anim, anims), x: then.x, y: then.y, flipX: right, prio: then.prio,
+      frame: frameOf(a.anim, anims), name: a.anim.name, x: then.x, y: then.y, flipX: right, prio: then.prio,
       affine: then.affine ? { rotation: then.rotation << 2, scaleX: right ? -256 : 256, scaleY: 256, double: false } : null,
     };
   });

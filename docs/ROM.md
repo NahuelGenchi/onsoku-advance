@@ -4,6 +4,8 @@
 
 Onsoku Advance reads its graphics and data from **your own** Sonic Advance ROM, in your browser. The ROM is never uploaded; if you tick *Remember this ROM on this device*, it is kept in this browser's IndexedDB and can be removed with *Forget the saved ROM*.
 
+The optional [Boost Mode](#sonic-advance-2-for-boost-mode) and [Sonic Advance 2 tricks](#sonic-advance-2-tricks) read your Sonic Advance 2 ROM the same way.
+
 ## Supported versions
 
 | Version | Game code | SHA-1 | Status |
@@ -854,3 +856,56 @@ The rules' numbers are in [`src/engine/constants.js`](../src/engine/constants.js
 **The particles** are one sprite drawn up to eight times a frame, around Sonic's current position. All sixteen get their distance, direction and speed from Sonic Advance 2's own random numbers, seeded with Sonic's position and the camera's: sixteen to twenty-four pixels ahead of him, flying off across his path and slowing to 200/256 of their speed each frame. On the tenth frame the random numbers are seeded again and each gets a new speed in a random direction, while all of them drift back the way he came, 4 px a frame and a little more on each step. Every second frame the sprite's animation is stepped eight times, which the eight copies share, since they all show the same tiles.
 
 **How it was checked.** mGBA 0.10.5 recorded Leaf Forest act 1 in the tested ROM with Sonic running right and 200 rings, dumping his state, the camera and the sprite table after every frame. The meter rose by 18 a frame and started Boost Mode at 1080 with a top speed of 12 and a cap of 15, the camera's limit went from 1024 up by 32 a frame, and the afterimages showed at the delays and in the order above. The port's particles land on the same pixels as the recorded ones on all 25 frames they show.
+
+## Sonic Advance 2 tricks
+
+The optional mid-air tricks (see the [README](../README.md#sonic-advance-2-tricks)) read their sprites and sounds from the player's own Sonic Advance 2 ROM, in the browser like the Sonic Advance one, and follow Sonic Advance 2's player code as the [SAT-R](https://github.com/SAT-R) decompilation of that game describes it. [`src/rom/sa2.js`](../src/rom/sa2.js) opens the ROM and [`src/rom/sa2tricks.js`](../src/rom/sa2tricks.js) reads what the tricks use; nothing of Sonic Advance 2 is in this repository.
+
+| Version | Game code | SHA-1 | Status |
+| :--- | :--- | :--- | :--- |
+| Sonic Advance 2 (USA) | `A2NE` | `7bcd6a07af7c894746fa28073fe0c0e34408022d` | Tested |
+
+The other versions (`A2NJ`, `A2NP`) are recognized by their header, and their tables are searched for by shape as for Sonic Advance, but they are untested.
+
+**Tables.** Sonic Advance 2 keeps its sprites and songs in the same formats as the first game, so the same searches find them: the sprite tables at `0x0F40D4`, and the four music players at `0xAD4F1C` followed by 507 songs at `0xAD4F4C` (offsets in the USA ROM).
+
+**Sprites.** Sonic's tricks are animations 48 to 51 of its sprite tables, drawn with animation 48's palette into a sprite sheet of their own:
+
+| Animation | Variants | What it is |
+| :--- | :--- | :--- |
+| 48 | 0, 1, 2 | Hop Jump: the wind-up, the rise, the fall once he comes down |
+| 49 | 0, 1 | Humming Top: the wind-up and the spin (with an attack box 28 × 30 px) |
+| 49 | 2 | The Humming Top's spin effect, a sprite of its own |
+| 13 | 0 | The fall the Humming Top ends in |
+| 50 | 0, 1 | Back Star: the wind-up and the flip |
+| 51 | 0, 1, 2 | Bound: the wind-up, the dive (both with an attack box 16 × 16 px), the rise after the bounce |
+| 51 | 3 | The Bound's afterimage |
+
+The animation scripts set Sonic's body and attack boxes as in the first game, so enemies, rings and item boxes treat him the way they do in his own moves.
+
+**Rules.** The routines are at these GBA addresses in the USA ROM:
+
+| Routine | Address | What it does |
+| :--- | :--- | :--- |
+| Trick button | `0x08028ADC` | A fresh press of R picks the trick from the held d-pad: up first, then down (the Bound), then the way Sonic faces (Humming Top), otherwise the Back Star. It adds 100 points and only sets the next frame's routine, so the press frame moves as before. It is skipped while a spring's short delay runs: 4, 3, 2 or 2 frames by the spring's speed (`0x080D69C2`), counted down once a frame. |
+| Trick start | `0x080286F0` | Ends any attack, keeps Sonic's facing in the air, sets his sprite offset to 14 (5 px up from a curled jump's 9), stops him, and plays songs 116 and 230 |
+| Wind-up | `0x080287AC` | No gravity and no steering until the wind-up animation ends; then the trick's next variant and its speed: Hop Jump (0, −6), Humming Top (6, 0), Back Star (−5, −3.5) in px per frame, with x turned for facing left (`0x080D693A`). The Humming Top starts its spin effect. |
+| Trick | `0x0802890C` | Air control as in a jump without turning round, the air drag while rising, then gravity, then the move, capped at 15 px a frame down. The Hop Jump turns to its falling variant once he comes down, and the Humming Top to the fall (animation 13) after 45 frames. Landing ends it as any landing does. |
+| Bound start | `0x08011F1C` | Stops him, without a sound |
+| Bound wind-up | `0x080123FC` | No gravity until the wind-up ends; then the dive at 2 px a frame down, and its afterimages |
+| Bound dive | `0x08011F94` | 56/256 more speed down each frame. Touching the ground sends him back up at 6 px a frame: the bounce's vertical part is `−\|6 cos θ\|` and half of `6 sin θ` sideways, for the ground's angle θ, and plays song 223. |
+| Bound rise | `0x08012460` | 56/256 less speed up each frame, without steering, until he falls; then the rise variant and ordinary air movement |
+
+The spin effect follows Sonic, mirrored his way, in front of him, until his animation changes. The afterimage is drawn behind him once a frame from where he was 6, 4, 2 and 0 frames before in turn, while the dive is still at 2 px a frame or faster. Both run just after Sonic each frame (task priority `0x4001`).
+
+**Sounds.** Sonic Advance 2 sets its sound engine up exactly as the first game does (5 DirectSound channels, master volume 15, 10512 Hz), with the same structures at the same EWRAM addresses, so a second copy of the same [port](#sound) plays its songs, added to the first one's output:
+
+| Sound | Song | Player | When |
+| :--- | ---: | ---: | :--- |
+| Jump | 116 | 2 | A trick starts (not the Bound) |
+| Trick | 230 | 2 | Right after the jump sound, on the same player, so it takes the jump sound's place before that one sounds |
+| Bound | 223 | 2 | The Bound hits the ground |
+
+**How it was checked.** The reference is mGBA 0.10.5 running the USA ROM in Leaf Forest act 1 with each trick done after a jump, dumping Sonic's state, the sprites and the sound engine after every frame. Started from Sonic's recorded state at the press, the port follows his position, speeds, animation and sprite offset frame by frame through the wind-ups, the tricks and the Bound's dive; the bounce gives the recorded speeds off the recording's slope (angle 10: 186/256 sideways, −1488/256 up) and the same rise to the top on flat ground; and its sound channels match the recorded ones on every frame of the three songs (60 frames for the trick's start, 77 for the Bound) once the Game Boy channels' envelope clock is in the same phase. The port's own 59.7275 Hz sound frame starts the songs within a frame of the trick, as it does for Sonic Advance's sounds.
+
+**Where it differs.** In Sonic Advance 2 the tricks only follow a launch (springs, ramps, grind rail ends, dash rings); here they work in any jump, once each time Sonic leaves the ground. Sonic Advance 2 also starts the Bound with B in the air, and allows a trick after a side spring on the ground; neither is here. Its trick sounds share the engine with its music and can lose a Game Boy channel to it; here they have an engine of their own.

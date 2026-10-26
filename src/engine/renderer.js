@@ -14,6 +14,7 @@ import { SINE } from './trig.js';
 import { rushObjEntries, rushTrailStrips, TRAIL_COLOR } from './rushfx.js';
 import { rasterizeStrips, objLayer as dsObjLayer, to6, out8 } from './dsdraw.js';
 import { BACKGROUND_SCROLL } from './backgrounds.js';
+import { beamSpan } from './spotlights.js';
 import { bgr555ToRgb } from '../rom/colors.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
@@ -292,25 +293,36 @@ export function createRenderer(canvas, assets) {
   // Secret Base act 1's spotlights (spotlights.js): the brightness decrease by bldY sixteenths on every pixel
   // outside windows 0 and 1 but the backdrop's. Each window's lines and edges as mGBA 0.10.5 reads its
   // registers (src/gba/renderers/video-software.c): a start past the screen's end and past its own end counts
-  // as 0, and a window whose end comes before its start wraps round the screen. The widescreen view carries an
-  // edge at the original screen's left or right edge on to its own, and keeps the lines above and below the
-  // original screen's to its first and last line's windows.
+  // as 0, and a window whose end comes before its start wraps round the screen. Past the original screen, the
+  // widescreen view shows each beam's whole wedge, its sides carried on along their own lines (beamSpan); a
+  // window no beam drew carries an edge at the original screen's left or right edge on to its own, and keeps the
+  // lines above and below the original screen's to its first and last line's windows.
   function windowRange(value, max) {
     let start = value >> 8, end = value & 0xFF;
     if (start > max && start > end) start = 0;
     if (end > max) { end = max; if (start > max) start = max; }
     return [start, end];
   }
+  const NO_SHAPES = [null, null];
   function lit(blend, line, inside, ox) {
     inside.fill(0);
     if (!blend.windows) return;
-    const l = Math.min(Math.max(line, 0), SCREEN_H - 1);
+    const margin = line < 0 || line >= SCREEN_H, l = Math.min(Math.max(line, 0), SCREEN_H - 1);
+    const shapes = blend.drawn ? blend.shapes[blend.base ? 1 : 0] : NO_SHAPES;
+    // columns [a, b) of the screen, kept to the view
+    const span = (a, b) => { if (b > a) inside.fill(1, Math.max(a + ox, 0), Math.max(Math.min(b + ox, W), 0)); };
     for (let n = 0; n < 2; n++) {
+      const shape = shapes[n];
+      if (shape) {
+        const [from, to] = beamSpan(shape, line);
+        if (margin) { span(from, to); continue; }
+        span(from, Math.min(to, 0)); span(Math.max(from, SCREEN_W), to);
+      }
       const [top, bottom] = windowRange(blend.v[n], SCREEN_H);
       if (bottom >= top ? l < top || l >= bottom : l >= bottom && l < top) continue;
       const at = blend.base + l * 4 + n * 2;
       const [left, right] = windowRange(blend.drawn ? blend.buf[at] | (blend.buf[at + 1] << 8) : blend.h[n], SCREEN_W);
-      const fill = (a, b) => inside.fill(1, a === 0 ? 0 : a + ox, b === SCREEN_W ? W : b + ox);
+      const fill = (a, b) => inside.fill(1, a === 0 && !shape ? 0 : a + ox, b === SCREEN_W && !shape ? W : b + ox);
       if (right < left) { fill(0, right); fill(left, SCREEN_W); } else fill(left, right);
     }
   }

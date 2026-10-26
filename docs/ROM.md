@@ -2,7 +2,7 @@
 
 [Back to README](../README.md)
 
-Onsoku Advance reads its graphics and data from **your own** Sonic Advance ROM, in your browser. The ROM is never uploaded; if you tick *Remember this ROM on this device*, it is kept in this browser's IndexedDB and can be removed with *Forget the saved ROM*.
+Onsoku Advance reads its graphics and data from **your own** Sonic Advance ROM, in your browser. The ROM is never uploaded; if you tick *Remember these ROMs on this device* on the game's start screen (*Remember this ROM on this device* in the asset viewer), it is kept in this browser's IndexedDB, with the Sonic Advance 2 and Sonic Rush ROMs the extras read, and can be removed with *Forget the saved ROMs* (or a card's *Remove*).
 
 The optional [Boost Mode](#sonic-advance-2-for-boost-mode) and [Sonic Advance 2 tricks](#sonic-advance-2-tricks) read your Sonic Advance 2 ROM the same way.
 

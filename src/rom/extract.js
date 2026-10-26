@@ -151,28 +151,30 @@ const ACTS = [
 ];
 
 /**
- * Identifies and decodes `buffer`. `onProgress(message)` reports each stage.
+ * Identifies and decodes `buffer`. `onProgress(message)` reports each stage, and is awaited, so it can let the
+ * page draw the message before the next stage.
  * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles, sonic }, hud: { sheet, glyphs, ring, face }, acts: [{ level, stage, titleCard, results }], stage, titleCard, physics, sound }, where each act's stage is { width, height, layers, atlas, collision, spawn, loop, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgrounds }, its titleCard { sheet, slots, text } and its results { sheet, slots, text }; stage and titleCard are act 1's
  */
 export async function extractAssets(buffer, onProgress = () => {}) {
   const rom = new Rom(buffer);
-  onProgress('Checking the ROM…');
+  await onProgress('Checking the ROM…');
   const id = await identify(rom);
-  onProgress(id.known ? `Found ${id.known.name}.` : 'Unrecognized version, searching for the data…');
+  await onProgress(id.known ? `Found ${id.known.name}.` : 'Unrecognized version, searching for the data…');
   const offsets = locateTables(rom, id.known);
 
-  onProgress('Decoding Sonic…');
+  await onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
   const sprites = extractSprites(rom, tables);
-  const acts = ACTS.map((act, level) => {
-    onProgress(`Decoding ${act.name}…`);
-    return {
+  const acts = [];
+  for (const [level, act] of ACTS.entries()) {
+    await onProgress(`Decoding ${act.name}…`);
+    acts.push({
       level,
       stage: extractStage(rom, offsets, tables, level),
       titleCard: sheet(titleCardGraphics(rom, offsets.uiGraphics, offsets.titleCard, level)),
       results: sheet(resultsGraphics(rom, offsets.uiGraphics, offsets.titleCard, level)),
-    };
-  });
+    });
+  }
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
   // indexes into those in the original, so both are read
   const spinDashSpeeds = Array.from({ length: 18 }, (_, i) => rom.s16(offsets.spinDashSpeeds + i * 2) / 256);

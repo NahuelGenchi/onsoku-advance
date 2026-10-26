@@ -58,8 +58,8 @@ Open the page, choose your file and play, with a keyboard, an Xbox controller or
 ## Play in three steps
 
 1. **Open the game** at **[nahuelgenchi.github.io/onsoku-advance](https://nahuelgenchi.github.io/onsoku-advance/)** in a current desktop browser.
-2. **Choose your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*). The game starts right away. Tick *Remember this ROM on this device* to skip this step next time.
-3. **Play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
+2. **Add your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*), on its card, or drop it anywhere on the page. The Sonic Advance 2 and Sonic Rush cards are for the optional [extras](#extras-you-can-switch-on). With *Remember these ROMs on this device* ticked, they are ready the next time too.
+3. **Press Play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
 
 > [!TIP]
 > **Where does the file come from?** From a Sonic Advance cartridge you own, copied to your computer with a cartridge reader. This project can't provide the game. Sonic Advance (USA) is the tested version; [docs/ROM.md](docs/ROM.md) has the details.
@@ -173,7 +173,7 @@ Past the original screen, the view only shows what the game really has there. In
 
 The boost from *Sonic Rush* on the Nintendo DS. Hold the boost button and Sonic blasts ahead at top speed, wrapped in Rush's blue aura and trail, smashing enemies, boulders and item boxes on contact, while nothing can hurt him. Press <kbd>R</kbd> or use the *Rush boost* button to turn it on, then hold <kbd>L</kbd> or <kbd>Shift</kbd> (<kbd>X</kbd> on a controller) to boost.
 
-Its look and sound are Sonic Rush's own, so it also needs your **Sonic Rush ROM** (`.nds`). It's asked for the first time you turn the boost on and, like the Sonic Advance file, read and kept on your device only. Its rules were read from Sonic Rush (USA) and checked in an emulator. For now it has no limit: Sonic Rush's tension gauge, which the boost uses up, isn't built yet.
+Its look and sound are Sonic Rush's own, so it also needs your **Sonic Rush ROM** (`.nds`). Add it on the start screen's Sonic Rush card, which turns the boost on, or it's asked for the first time you turn the boost on in the game. Like the Sonic Advance file, it's read and kept on your device only. Its rules were read from Sonic Rush (USA) and checked in an emulator. For now it has no limit: Sonic Rush's tension gauge, which the boost uses up, isn't built yet.
 
 <details>
 <summary><b>How the boost works, in detail</b></summary>
@@ -209,7 +209,7 @@ drawn, and Sonic Advance's own sprites behind Sonic count as background when the
 
 Boost Mode from *Sonic Advance 2*. Keep running flat out and Sonic breaks into an even faster run, with a burst of sparks and a trail of afterimages in Sonic Advance 2's light-blue boost colours. The more rings he carries, the sooner it kicks in; a hit, or slowing down, ends it. Press <kbd>B</kbd> or use the *Boost Mode* button in the help panel to turn it on. With the Rush boost on as well, the afterimages also follow Sonic while he boosts.
 
-Its look and sound are Sonic Advance 2's own, so it also needs your **Sonic Advance 2 ROM** (`.gba`). It's asked for the first time you turn Boost Mode on and, like the Sonic Advance file, read and kept on your device only. Its rules were read from Sonic Advance 2 (USA), with the help of SAT-R's work on that game, and checked in an emulator.
+Its look and sound are Sonic Advance 2's own, so it also needs your **Sonic Advance 2 ROM** (`.gba`). Add it on the start screen's Sonic Advance 2 card, which turns Boost Mode and the tricks on, or it's asked for the first time you turn Boost Mode on in the game. Like the Sonic Advance file, it's read and kept on your device only. Its rules were read from Sonic Advance 2 (USA), with the help of SAT-R's work on that game, and checked in an emulator.
 
 <details>
 <summary><b>How Boost Mode works, in detail</b></summary>
@@ -250,7 +250,7 @@ Sonic Advance has him run on at full speed.
 
 The four mid-air tricks from *Sonic Advance 2*. Once Sonic is in the air, press the trick button (the Game Boy Advance's R) alone for the **Back Star**, a backflip, or with up for the **Hop Jump**, forward for the spinning **Humming Top**, or down for the **Bound**, a dive that bounces him back up off the ground. The Humming Top and the Bound break enemies he touches, and each trick scores 100 points. Press <kbd>T</kbd> or use the *SA2 tricks* button to turn them on, then press <kbd>E</kbd> or <kbd>I</kbd> (<kbd>RB</kbd> on a controller) in the air.
 
-Their moves, pictures and sounds are Sonic Advance 2's own, so they also need your **Sonic Advance 2 ROM** (`.gba`), asked for the first time you turn them on and, like the Sonic Advance file, read and kept on your device only. Their rules were read from Sonic Advance 2 (USA) and checked against it in an emulator, frame by frame.
+Their moves, pictures and sounds are Sonic Advance 2's own, so they also need your **Sonic Advance 2 ROM** (`.gba`): the one on the start screen's Sonic Advance 2 card, or asked for the first time you turn them on in the game. Like the Sonic Advance file, it's read and kept on your device only. Their rules were read from Sonic Advance 2 (USA) and checked against it in an emulator, frame by frame.
 
 <details>
 <summary><b>How the tricks work, in detail</b></summary>
@@ -372,7 +372,7 @@ From a Sonic Advance cartridge you own, copied to your computer with a cartridge
 <summary><b>Is my game file uploaded anywhere?</b></summary>
 <br>
 
-No. The page reads it inside your browser and never sends it anywhere. If you tick *Remember this ROM on this device*, it's kept in your browser's storage on that device only, and *Forget the saved ROM* removes it again. The same goes for the Sonic Rush and Sonic Advance 2 ROMs.
+No. The page reads it inside your browser and never sends it anywhere. If you tick *Remember these ROMs on this device*, they're kept in your browser's storage on that device only, and *Forget the saved ROMs* on the start screen removes them again. That covers the Sonic Advance 2 and Sonic Rush ROMs too.
 
 </details>
 
@@ -429,7 +429,7 @@ flowchart LR
     rom --> ext
 ```
 
-1. **Extract.** You pick your ROM. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory, entirely in the browser.
+1. **Extract.** You add your ROMs. The extractor locates the game's sprite and tilemap tables and decodes frames, palettes, tiles and animation scripts into memory, entirely in the browser.
 2. **Simulate.** The engine steps 60 times per second with the original game's rules: acceleration, braking, gravity, jump height, roll friction, spin dash speeds and the camera's dead zones.
 3. **Draw.** The logos, the intro, the title screen and the menu run on a port of the original's own engine (its tasks, sprites, backgrounds, line-by-line effects and V-blank) at the GBA's 59.73 frames a second, and a model of the GBA's video hardware draws them as mGBA does. In the act, sprites and layers are composed at the Game Boy Advance's own 240 × 160 resolution, including the per-line background scrolling the original uses for its sea and clouds. The widescreen view draws up to 368 × 208 around the same screen; the game runs exactly as it does at 240 × 160. The optional [Sonic Rush boost](#sonic-rush-boost) adds its trail and aura around Sonic, the optional [Boost Mode](#sonic-advance-2-boost-mode) Sonic Advance 2's afterimages and sparks, and the optional [Sonic Advance 2 tricks](#sonic-advance-2-tricks) draw Sonic from Sonic Advance 2's sprites while he does one.
 4. **Play.** A port of the game's sound engine runs on its own audio thread. It reads the songs and samples from your ROM, and its mixed output matches the original's byte for byte (see [docs/ROM.md](docs/ROM.md#sound)). The Rush boost's sound plays from your Sonic Rush ROM on a port of the Nintendo DS's sound engine, and Boost Mode's and the tricks' from your Sonic Advance 2 ROM on a second copy of the Game Boy Advance one, all added to the same output.
@@ -444,7 +444,7 @@ cd onsoku-advance
 python -m http.server 8000
 ```
 
-Then open <http://localhost:8000> and choose your ROM to play.
+Then open <http://localhost:8000>, add your ROMs and press *Play*.
 
 Two addresses skip ahead for testing: <http://localhost:8000/?debug> starts the act straight away, without the logos and the intro, and <http://localhost:8000/?special> starts Special Stage 1 as soon as the ROM is read, as if Sonic had just left act 1 on its special spring. When the stage ends, the act picks up again from that spring.
 

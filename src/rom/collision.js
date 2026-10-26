@@ -38,6 +38,15 @@ export function readSpawn(rom, spawnsAt, level) {
   return { x: rom.s16(spawnsAt + level * 4), y: rom.s16(spawnsAt + level * 4 + 2) };
 }
 
+/**
+ * Where the act loops back near its end, and by how much (sa2__gUnknown_080D650C and sa2__gUnknown_080D661C): an
+ * s16 pair per level in each table, x and y, -1 where there is none; null when the act has no loop sideways.
+ */
+export function readLoop(rom, pointsAt, shiftsAt, level) {
+  const x = rom.s16(pointsAt + level * 4);
+  return x < 0 ? null : { x, shift: rom.s16(shiftsAt + level * 4) };
+}
+
 function copy16(rom, at, count) {
   const out = new Uint16Array(count);
   for (let i = 0; i < count; i++) out[i] = rom.u16(at + i * 2);

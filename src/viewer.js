@@ -8,12 +8,14 @@ import { createTerrain } from './engine/terrain.js';
 const picker = document.getElementById('picker');
 const viewer = document.getElementById('viewer');
 const hex = n => '0x' + n.toString(16).toUpperCase().padStart(6, '0');
+// the level shown, as on the game page: viewer.html?level=8 is Angel Island Zone act 1
+const level = Number(new URLSearchParams(location.search).get('level') ?? 0) | 0;
 
 createRomPicker(picker, {
   heading: 'Asset viewer',
   intro: 'Choose your Sonic Advance ROM to see the sprites, animations and stage art the extractor decodes from it.',
   async onRom(buffer, name, setStatus) {
-    const assets = await extractAssets(buffer, setStatus);
+    const assets = await extractAssets(buffer, setStatus, { level });
     show(assets, name);
     picker.hidden = true;
     viewer.hidden = false;
@@ -30,8 +32,8 @@ function show(assets, fileName) {
     'Sprite tables': hex(info.offsets.spriteTables),
     'Tilemap table': hex(info.offsets.tilemaps),
     'Collision table': hex(info.offsets.collision),
-    'Start positions': `${hex(info.offsets.spawns)} → act 1 starts at (${stage.spawn.x}, ${stage.spawn.y})`,
-    Interactables: `${hex(info.offsets.interactables)} → ${stage.layerToggles.length} layer toggles and ${stage.interactables.filter(e => e.kind >= 8 && e.kind <= 15).length} springs in act 1`,
+    'Start positions': `${hex(info.offsets.spawns)} → level ${stage.level} starts at (${stage.spawn.x}, ${stage.spawn.y})`,
+    Interactables: `${hex(info.offsets.interactables)} → ${stage.layerToggles.length} layer toggles and ${stage.interactables.filter(e => e.kind >= 8 && e.kind <= 15).length} springs in level ${stage.level}`,
     'Spin dash speeds': `${hex(info.offsets.spinDashSpeeds)} → ${physics.spinDashSpeeds.slice(0, 9).join(', ')}; overcharged: ${physics.spinDashSpeeds.slice(9).join(', ')}`,
   };
   document.getElementById('facts').innerHTML = Object.entries(facts).map(([k, v]) => `<dt>${k}</dt><dd></dd>`).join('');

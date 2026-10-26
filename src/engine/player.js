@@ -3,15 +3,16 @@
 // hand over to the next state when they end. (x, y) is Sonic's centre; on the ground he moves along the
 // surface's angle (`rotation`, 256 steps per turn) at ground speed `gsp`.
 
-import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R } from './constants.js';
+import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R, BOOST_MODE as B, SA2_TRICKS as T, SCREEN_W, SCREEN_H } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
-import { groundSensors, wallPush, airCollision, clearance, setOffsetY } from './sensors.js';
+import { groundSensors, wallPush, airCollision, clearance, setOffsetY, actAngle } from './sensors.js';
 import { LAYER_BACK, scan, PROBE_FLOOR } from './terrain.js';
 import { sin8, cos8, s8 } from './trig.js';
 import { SONG } from '../sound/songs.js';
+import { SA2_SE } from '../rom/sa2tricks.js';
 
 // d-pad bits for the input history the mid-air dash reads
-const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
+export const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
 const HISTORY = 16;
 const SOX = 6;   // spriteOffsetX, half his width
 
@@ -19,8 +20,15 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip |
 //         spring (somersault off a spring) | springRise | springPeak | springFall | bounce (off a bounce block) |
 //         push | balanceForward (facing over an edge) | balanceBack (his back to it) | pole (swinging on a wall
-//         pole) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
-//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hurt | dead
+//         pole) | flagSwing (round a red flag) | grind | grindSteep (grinding down a steep part of a rail) | railJump (jumping off a rail
+//         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hook (hanging
+//         from a hook rail, a swinging hook or a crane claw) | swingRope (swinging round a rope) |
+//         breathe (an air bubble under water) |
+//         marbleTrack (carried through a marble track) | react (taken aback as Mecha Knuckles
+//         wakes up) | hang | hangMove (on a hang bar) | hurt | dead | actClearRun (past the goal, charState 28)
+//         and, with Sonic Advance 2's tricks on, that game's: trickUp | trickUpRise | trickUpFall (Hop Jump) |
+//         trickForward | trickForwardSpin | trickFall (Humming Top) | trickBack | trickBackFlip (Back Star) |
+//         bound | boundDive | boundRise (Bound)
 export function createPlayer({ x, y, spinDashSpeeds }) {
   return {
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
@@ -42,18 +50,38 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     idleT: K.boredDelay, anim: makeAnimator(), spinDashSpeeds,
     animRestart: false, // an object asked for his animation to start over
     boxes: [null, null], // his sprite's hitboxes: 0 his body, 1 the attack box of the moves that destroy enemies
+    order: 16,         // his sprite's OAM order, which holding on to a carousel changes from frame to frame
     invulnerable: 0,   // frames of blinking after a hit (timerInvulnerability)
     shield: null,      // 'normal' or 'magnetic' (the itemEffect shield bits)
     invincible: 0,     // frames of invincibility left (timerInvincibility)
     speedUp: 0,        // frames of speed shoes left (timerSpeedup)
+    water: false,      // MOVESTATE_IN_WATER: his centre 4 px or more below the water line
+    drownSeconds: K.drownSeconds, drownFrames: 60,   // secondsUntilDrown, framesUntilDrownCountDecrement
+    surfaceT: K.surfaceEffectDelay,   // framesUntilWaterSurfaceEffect: frames before the next splash can show
     hidden: false,     // left out of this frame's drawing: blinking, or gone below the screen after dying
+    invisible: false,  // MOVESTATE_100000: made invisible, inside a pipe (visibility.js); never while dead
     dead: false,       // MOVESTATE_DEAD
     carried: false,    // MOVESTATE_IA_OVERRIDE: an object moves him, and his own movement doesn't run
     grinding: false,   // MOVESTATE_1000000: on a grind rail, on the layer it put him on
     front: false,      // drawn in front of the front layer (his sprite's priority 1), as on a grind rail
-    halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js)
+    prio: 2,           // his sprite's priority otherwise, as his animation's SetSpritePriority commands leave it
+    halfPipe: false,   // MOVESTATE_8000: a half-pipe lifts him as he runs across it (halfpipes.js), or the water
+                       // bridge has splashed (waterbridges.js)
     ignoreInput: false, // MOVESTATE_IGNORE_INPUT: an object holds his controls, as the forced slide does
+    heldInput: null,   // what he reads while it does (heldInput): nothing, the right the goal holds, or the way a beaten boss walks him
+    forcedRoll: false, // MOVESTATE_200: a mini loop keeps him rolling (miniloops.js)
+    actClear: false,   // MOVESTATE_800000: past the goal, running in his act-clear pose until the results count up
+    plainSprings: false, // unk99[1]: back from a special stage, the special springs are plain springs until the act starts over
+    track: 0x7F,       // unk99[0]: the step of the track carrying him, 0x7F none (marbletrack.js)
+    scale: 0x100,      // unk80 and unk82: his size through the rotation hardware (8.8), smaller in a marble track
+    drawRotation: 0,   // the rotation his sprite was last drawn with, which a marble track keeps
+    scripted: false,   // MOVESTATE_800000: an object sets his state, which walking, standing and landing leave alone
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
+    attackPressed: false, // and its attack press
+    heldDirs: 0,       // the d-pad his last frame read (heldInput): up and down dropped while left or right is held
+    pressedDirs: 0,    // the directions it found newly pressed against the frame before's heldDirs (frameInput): up
+                       // and down dropped when left or right is among them, so holding down with right or left
+                       // presses down again every frame
     death: null,       // after dying: 'falling', then 'gone' with `countdown` frames to the restart
     countdown: 0,
     chain: 0,          // enemies defeated since he last touched the ground (defeatScoreIndex)
@@ -63,6 +91,18 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     boostSlow: 0,      // grounded frames in a row he moved less than its minimum speed
     boostCool: 0,      // frames before the next boost can start
     lastX: x, lastY: y, // where he was a frame ago
+    // Sonic Advance 2's Boost Mode, an extra that only runs with its setting on (world.boostMode)
+    boostMode: false,  // in Boost Mode (isBoosting)
+    boostMeter: 0,     // how far it has filled, in 1/256 px (boostSpeed)
+    boostTier: 0,      // the ring count's tier (boostThreshold)
+    // Sonic Advance 2's tricks, an extra that only runs with its setting on (world.tricks)
+    tricks: T.sonic,   // the tricks he has; null leaves them out
+    trick: null,       // the one under way: { kind: 'up' | 'forward' | 'back' | 'bound', phase, spin }
+    trickUsed: false,  // one trick each time he leaves the ground
+    trickDelay: 0,     // frames after a spring before one can start (disableTrickTimer)
+    // gravity flipped (gStageFlags' GRAVITY_INVERTED), and as it was when the stage clock last ran (gPrevStageFlags'):
+    // see sensors.js
+    inverted: false, wasInverted: false,
     held: new Array(HISTORY).fill(0), pressed: new Array(HISTORY).fill(0),
   };
 }
@@ -76,6 +116,11 @@ function uncurl(p) { p.curled = false; setOffsetY(p, SPRITE_OFFSET_Y); }
 
 /** Stands Sonic up out of a ball, keeping his feet in place (PLAYERFN_CHANGE_SHIFT_OFFSETS). */
 export function standUp(p) { uncurl(p); }
+/** Curls Sonic into a ball, keeping his feet in place (PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 9)). */
+export function curlUp(p) { curl(p); }
+// the walk's states put his hitbox back at its standing height (PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 14)): it
+// only moves him when something uncurled him without it, as Angel Island's waterfalls do
+const standHeight = p => setOffsetY(p, SPRITE_OFFSET_Y);
 
 // standing on an object, the object holds him up and the ground sensors rest (sub_8022D6C)
 function followGround(p, t) {
@@ -85,6 +130,14 @@ function followGround(p, t) {
 
 // fixed-point helpers: speeds are multiples of 1/256, and the original does this arithmetic on 8.8 integers
 const q8 = v => Math.round(v * 256);
+
+// a frame's move (PLAYERFN_UPDATE_POSITION): gravity flipped since the stage clock last ran turns his Y speed
+// around, and flipped, it moves him up the act
+function move(p) {
+  p.x += p.xsp;
+  if (p.inverted !== p.wasInverted) p.ysp = -p.ysp;
+  p.y += p.inverted ? -p.ysp : p.ysp;
+}
 
 // ground speed along the surface (sub_8029CA0 walking, sub_8029D14 rolling): not on ceilings, never from a
 // standstill, and rolling uphill only gets a quarter of the pull
@@ -106,13 +159,18 @@ function alongSurface(p) {
   p.ysp = ((g * sin8(p.rotation)) >> 8) / 256;
 }
 
-// the act's edges (sub_80232D0): Sonic stops at the sides, and falling out of the bottom kills him, thrown
-// up as high as a jump
+// the camera's bounds, the act's edges unless a boss has set its arena (sub_80232D0): past the point near its
+// end where an act loops back (act 1's run after the goal), Sonic and the camera go back by the act's distance,
+// while the camera moves; Sonic stops at the sides (the right one short of the act's own on act 2) and the top,
+// and falling out of the bottom kills him, thrown up as high as a jump; under flipped gravity he stops at the
+// bottom and dies out of the top
 function bounds(p, world) {
-  const t = world.terrain, maxX = t.width - 1 / 256, maxY = t.height - 1 / 256;
-  if (p.y >= maxY && !p.dead) { p.dead = true; p.ysp = -K.jumpSpeed; p.y = maxY; }
-  if (p.x < 0 || p.x > maxX) { p.x = Math.min(Math.max(p.x, 0), maxX); p.xsp = 0; p.gsp = 0; }
-  if (p.y < 0) { p.y = 0; p.ysp = 0; p.gsp = 0; }
+  p.x += world.loopBack(p.x);
+  const c = world.camera, maxX = world.rightEdge - 1 / 256, maxY = c.maxY + SCREEN_H - 1 / 256;
+  if (!p.dead && (p.inverted ? p.y <= c.minY : p.y >= maxY)) { p.dead = true; p.ysp = -rules(p).jumpSpeed; p.y = p.inverted ? c.minY : maxY; }
+  if (p.x < c.minX || p.x > maxX) { p.x = Math.min(Math.max(p.x, c.minX), maxX); p.xsp = 0; p.gsp = 0; }
+  if (p.y < c.minY) { p.y = c.minY; p.ysp = 0; p.gsp = 0; }
+  if (p.inverted && p.y > maxY) { p.y = maxY; p.ysp = 0; p.gsp = 0; }
 }
 
 // walls, ceilings and steep slopes drop Sonic when he is too slow for them, and lock his controls for
@@ -139,9 +197,9 @@ function doubleTap(p) {
 
 // jumps away from the surface, if there are at least 4 px of room that way
 function tryJump(p, c, world) {
-  if (!c.jumpPressed || clearance(p, world.terrain, p.rotation + 0x80) < 4) return false;
+  if (!c.jumpPressed || clearance(p, world.terrain, actAngle(p) + 0x80) < 4) return false;
   p.air = true; p.jumped = true; p.pushing = false; p.grinding = false; p.state = 'spin';
-  const a = (p.rotation - 0x40) & 0xFF, jump = q8(K.jumpSpeed);
+  const a = (p.rotation - 0x40) & 0xFF, jump = q8(rules(p).jumpSpeed);
   p.xsp = (q8(p.xsp) + ((jump * cos8(a)) >> 8)) / 256;
   p.ysp = (q8(p.ysp) + ((jump * sin8(a)) >> 8)) / 256;
   if (p.curled) p.airLock = true;   // jumping out of a roll keeps the roll's momentum
@@ -183,52 +241,73 @@ function trySpinDash(p, c, world) {
 }
 
 // speed shoes double the top speed, the acceleration and the deceleration, which the other speeds are not
-// derived from (the speed up block after sub_80232D0's water checks)
+// derived from (the speed up block at the end of Player_HandleWater)
 const pace = p => (p.speedUp > 0 ? 2 : 1);
+// what Player_HandleWater sets each frame: the numbers on land or under water (K.water)
+const rules = p => (p.water ? K.water : K);
+const accel = p => rules(p).acceleration * pace(p);
+// in Boost Mode, Sonic Advance 2's top speed and its acceleration for the ring count, which speed shoes leave
+// as they are (they double it only after the movement that uses it)
+const topSpeed = p => (p.boostMode ? B.topSpeed : rules(p).maxRunSpeed * pace(p));
 
+// each state it sets also sets his standing height, which matters only when something uncurled him without
+// moving him (a red flag's throw)
 function walk(p, dir, world) {
-  const acc = K.acceleration * pace(p), max = K.maxRunSpeed * pace(p);
+  const acc = p.boostMode ? B.acceleration[p.boostTier] / 256 : accel(p), max = topSpeed(p);
   if (p.gsp * dir >= 0) {
-    if (p.facing !== dir) { p.state = 'turn'; p.pushing = false; }
+    if (p.facing !== dir) { p.state = 'turn'; p.pushing = false; standHeight(p); }
     p.facing = dir;
+    // running at the top speed fills Boost Mode's meter (Player_HandleGroundMovement)
+    if (world.boostMode && !world.actOver && p.gsp * dir >= max) p.boostMeter += B.acceleration[p.boostTier];
     let g = p.gsp + acc * dir;
     if (g * dir > max) {
       g -= acc * dir;
       if (g * dir < max) g = max * dir;
     }
     p.gsp = g;
-    // on a half-pipe he keeps the state it gives him
-    if (p.state !== 'turn' && !p.halfPipe) p.state = 'walk';
+    // on a half-pipe he keeps the state it gives him, and past the goal his act-clear run
+    if (p.state !== 'turn' && !p.halfPipe && !p.actClear && !p.scripted) { p.state = 'walk'; standHeight(p); }
   } else {
-    let g = p.gsp + K.deceleration * pace(p) * dir;
+    let g = p.gsp + rules(p).deceleration * pace(p) * dir;
     if (g * dir > 0) g = K.reverseKick * dir;
     p.gsp = g;
     // the skid sound restarts on every frame Sonic is still this fast
-    if (g * dir <= -K.brakeMinSpeed) { world.playSound(SONG.BRAKE); p.state = 'brake'; }
+    if (g * dir <= -K.brakeMinSpeed) { world.playSound(SONG.BRAKE); p.state = 'brake'; standHeight(p); }
   }
 }
 
-// standing or running, not curled up (Player_8044F7C); the control lock skips left and right, not up and down
+// standing or running, not curled up (Player_8044F7C); the control lock and taking a breath skip left and
+// right, not up and down
 function walkStep(p, c, world) {
-  if (!p.lock) walkInput(p, c, world);
+  if (!p.lock && p.state !== 'breathe') walkInput(p, c, world);
   lookInput(p, c, world);
   if (!c.sideways) p.gsp = toward0(p.gsp, K.friction);
+  capBoostMode(p);
   alongSurface(p);
   wallPush(p, world.terrain);
+}
+
+// in Boost Mode the ground speed is capped at 15 before he moves (sub_8023260)
+function capBoostMode(p) {
+  if (p.boostMode) p.gsp = Math.min(Math.max(p.gsp, -B.maxSpeed), B.maxSpeed);
 }
 
 function walkInput(p, c, world) {
   if (c.dir) walk(p, c.dir, world);
   else if (!c.sideways) {
     if (p.gsp !== 0) {
-      if (p.state === 'brake' || p.state === 'idle') p.state = 'walk';
-    } else if (p.state === 'crouch') p.state = 'crouchEnd';
-    else if (p.state === 'lookUp') p.state = 'lookUpEnd';
-    else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+      if (p.state === 'brake' || p.state === 'idle') { p.state = 'walk'; standHeight(p); }
+    } else if (!p.actClear && !p.scripted) {
+      if (p.state === 'crouch') p.state = 'crouchEnd';
+      else if (p.state === 'lookUp') p.state = 'lookUpEnd';
+      else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
+      standHeight(p);
+    }
   }
-  // standing still on level ground stops the push, and at an edge he balances
+  // standing still on level ground stops the push, and at an edge he balances; not in his act-clear pose
   if (!((p.rotation + 0x20) & 0xC0) && p.gsp === 0) {
     p.pushing = false;
+    if (p.actClear || p.scripted) return;
     if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
     if (p.onObject) balanceOnObject(p);
     else balanceOnTerrain(p, world.terrain);
@@ -264,16 +343,18 @@ function balanceOnObject(p) {
 }
 
 // at a ledge (Player_8044E48): no ground within 8 px under his centre, none under one side of him (2 px
-// past his half-width) and ground right under the other
+// past his half-width) and ground right under the other. Under flipped gravity the sides look up, but the
+// first look is still down the act, as in the original.
 function balanceOnTerrain(p, t) {
-  const x = Math.floor(p.x), feet = Math.floor(p.y) + p.offsetY;
-  if (scan(t, feet, x, p.layer, 8, PROBE_FLOOR).d <= 8) return;
-  const left = scan(t, feet, x - 2 - SOX, p.layer, 8, PROBE_FLOOR).d, right = scan(t, feet, x + 2 + SOX, p.layer, 8, PROBE_FLOOR).d;
+  const x = Math.floor(p.x), y = Math.floor(p.y), up = p.inverted ? -1 : 1, feet = y + up * p.offsetY;
+  if (scan(t, y + p.offsetY, x, p.layer, 8, PROBE_FLOOR).d <= 8) return;
+  const left = scan(t, feet, x - 2 - SOX, p.layer, 8 * up, PROBE_FLOOR).d, right = scan(t, feet, x + 2 + SOX, p.layer, 8 * up, PROBE_FLOOR).d;
   if (left > 8 && right === 0) balance(p, -1);
   else if (left === 0 && right > 8) balance(p, 1);
 }
 
-// rolling (Player_8043DDC)
+// rolling (Player_8043DDC): a roll that stops stands him up, unless an object keeps him curled (MOVESTATE_200):
+// then it starts again at 3 px a frame the way he faces, with the rolling sound
 function rollStep(p, c, world) {
   if (c.dir && !p.lock) {
     if (p.gsp * c.dir >= 0) p.facing = c.dir;
@@ -282,8 +363,11 @@ function rollStep(p, c, world) {
       if (p.gsp * c.dir > 0) p.gsp = K.reverseKick * c.dir;
     }
   }
-  p.gsp = toward0(p.gsp, K.rollFriction * pace(p));
-  if (p.gsp === 0) { uncurl(p); p.state = c.down ? 'crouch' : 'walk'; }
+  p.gsp = toward0(p.gsp, accel(p) / 2);   // half the acceleration
+  // in a mini loop he doesn't stop: he rolls on at 3 px a frame the way he faces
+  if (p.gsp === 0 && p.forcedRoll) { p.gsp = K.forcedRollSpeed * sign(p); world.playSound(SONG.SPIN); }
+  else if (p.gsp === 0) { uncurl(p); p.state = c.down ? 'crouch' : 'walk'; }
+  capBoostMode(p);
   alongSurface(p);
   // a wall to the side stops the roll and stands him up
   if (wallPush(p, world.terrain, true) && p.curled) { uncurl(p); p.state = 'walk'; }
@@ -325,18 +409,18 @@ function attackStep(p, c, world) {
   return true;
 }
 
-/** Ends the combo, the mid-air moves and the spin dash (also Player_TransitionCancelFlyingAndBoost). */
-export function endAttack(p) { p.attack = 0; p.attackNext = 0; p.midAir = 0; p.jumped = false; p.spinDashing = false; p.halfPipe = false; }
+/** Ends the combo, the mid-air moves, the spin dash and a trick (also Player_TransitionCancelFlyingAndBoost). */
+export function endAttack(p) { p.attack = 0; p.attackNext = 0; p.midAir = 0; p.jumped = false; p.spinDashing = false; p.halfPipe = false; p.trick = null; }
 
 // jumping off a grind rail (sub_8044434), if there are at least 4 px of room that way on the layer he came
 // from, back on which he lands: straight up from the rail as fast as a jump, keeping his X speed
 function tryRailJump(p, c, world) {
   if (!c.jumpPressed) return false;
   p.layer ^= 1;
-  if (clearance(p, world.terrain, p.rotation + 0x80) < 4) { p.layer ^= 1; return false; }
+  if (clearance(p, world.terrain, actAngle(p) + 0x80) < 4) { p.layer ^= 1; return false; }
   world.stopSound(SONG.GRINDING);
   p.air = true; p.jumped = true; p.pushing = false; p.grinding = false; p.state = 'spin';
-  p.ysp = ((q8(K.jumpSpeed) * sin8((p.rotation - 0x40) & 0xFF)) >> 8) / 256;
+  p.ysp = ((q8(rules(p).jumpSpeed) * sin8((p.rotation - 0x40) & 0xFF)) >> 8) / 256;
   world.playSound(SONG.JUMP);
   p.front = false;
   curl(p);
@@ -449,6 +533,36 @@ function rushBoost(p, c, world) {
   if (p.boostCool > 0) p.boostCool--;
 }
 
+// the ring count's tier, which sets Boost Mode's acceleration and how full its meter must be
+// (Player_HandleBoostThreshold)
+const boostTier = rings => {
+  const t = B.tierRings.findIndex(n => rings >= n);
+  return t < 0 ? 0 : B.tierRings.length - t;
+};
+
+// Sonic Advance 2's Boost Mode (Player_HandleBoostState), before he moves: on the ground at the top speed with
+// the meter full for the ring count, it starts, with its particles, its sound and the camera falling behind
+// (game.js boostModeStarted). In the air, or slower, the meter empties, as it does while the Rush boost is
+// held, which keeps to its own rules. In Boost Mode the meter stays full on the ground, and slower than
+// 4.5 px a frame there it ends. Once the act is over (world.actOver: past the goal, or a boss beaten) Sonic
+// runs on his own, so the meter stays empty and Boost Mode ends where it was running: Sonic Advance 2 has no
+// such check, as Sonic brakes to a stop after its goal and Boost Mode ends by itself there.
+function boostModeState(p, world) {
+  p.boostTier = boostTier(world.ringCount);
+  const full = B.threshold[p.boostTier];
+  if (world.actOver) { p.boostMode = false; p.boostMeter = 0; }
+  else if (p.boostMode) {
+    if (p.air) return;
+    p.boostMeter = full;
+    if (Math.abs(p.gsp) < B.minSpeed) { p.boostMode = false; p.boostMeter = 0; }
+  } else if (!p.air && !p.boost && Math.abs(p.gsp) >= topSpeed(p)) {
+    if (p.boostMeter >= full) { p.boostMode = true; world.boostModeStarted(); }
+  } else p.boostMeter = 0;
+}
+
+/** Puts Sonic straight into Boost Mode, as a booster or a fast side spring does, with no particles or sound. */
+export function enterBoostMode(p) { p.boostMode = true; }
+
 // on the frame a jump or a B move starts nothing else runs; while revving a spin dash Sonic stays put but
 // still follows the ground (Player_Sonic_80473AC)
 function groundStep(p, c, world, input) {
@@ -462,7 +576,7 @@ function groundStep(p, c, world, input) {
     if (tryRailJump(p, c, world)) return;
     grindStep(p, c, input);
     bounds(p, world);
-    p.x += p.xsp; p.y += p.ysp;
+    move(p);
     followGround(p, t);
     return;
   } else if (p.boost) {
@@ -482,17 +596,19 @@ function groundStep(p, c, world, input) {
     walkStep(p, c, world);
   }
   bounds(p, world);
-  p.x += p.xsp; p.y += p.ysp;
+  move(p);
   followGround(p, t);
   fallOff(p);
 }
 
 function airStep(p, c, world) {
-  // knocked back, he flies on as he was thrown: no moves, no control and no drag (Player_AirInputControls)
+  // knocked back, he flies on as he was thrown: no moves, no control and no drag (Player_AirInputControls), but
+  // his tilt still eases back
   if (p.state === 'hurt') {
     bounds(p, world);
-    p.x += p.xsp; p.y += p.ysp;
-    p.ysp += K.gravity;
+    move(p);
+    p.ysp += rules(p).gravity;
+    tumble(p);
     airCollision(p, world.terrain, () => land(p));
     return;
   }
@@ -500,56 +616,217 @@ function airStep(p, c, world) {
   // double-tap dash, only while curled up (sub_8047714)
   if (p.curled && p.jumped && p.midAir === 0) {
     const tap = doubleTap(p);
-    if (tap) { p.midAir = 2; p.state = 'airDash'; p.xsp += K.airDashBoost * pace(p) * tap; p.ysp = 0; world.playSound(SONG.AIR_DASH); }
+    if (tap) { p.midAir = 2; p.state = 'airDash'; p.xsp += (q8(topSpeed(p)) >> 2) / 256 * tap; p.ysp = 0; world.playSound(SONG.AIR_DASH); }
   }
 
   // jump cap, or the insta-shield once the rise has slowed (Player_8044670)
   if (p.jumped) {
-    if (p.ysp < -K.jumpReleaseCap) { if (!c.jump) p.ysp = -K.jumpReleaseCap; }
+    const cap = rules(p).jumpReleaseCap;
+    if (p.ysp < -cap) { if (!c.jump) p.ysp = -cap; }
     else if (p.midAir === 0 && c.jumpPressed) {
       p.airLock = false; p.midAir = 1; p.state = 'instaShield';
       world.playSound(SONG.INSTA_SHIELD);
       world.spawnInstaShield();
     }
-  } else if (p.ysp < -K.riseCap) p.ysp = -K.riseCap;
+  } else if (!p.forcedRoll && p.ysp < -K.riseCap) p.ysp = -K.riseCap;
 
-  // air control and drag (Player_AirInputControls); boosting, Rush's air movement instead
+  // air control and drag (Player_AirInputControls); boosting, Rush's air movement instead, and in Boost Mode
+  // twice its acceleration up to its top speed (in airControl). Off a bounce block he keeps facing the way he
+  // went up.
   if (p.boost) rushAir(p, c);
-  else if (!p.airLock && c.dir) {
-    const dir = c.dir, acc = K.airAcceleration * pace(p), max = K.maxRunSpeed * pace(p);
-    if (p.state !== 'bounce') p.facing = dir;   // off a bounce block he keeps facing the way he went up
-    let v = p.xsp + acc * dir;
-    if (v * dir > max) {
-      v -= acc * dir;
-      if (v * dir < max) v = max * dir;
-    }
-    p.xsp = v;
-  }
-  if (p.ysp < 0 && !p.boost) {
-    const drag = Math.floor(p.xsp * 256 / 32) / 256;   // arithmetic shift of the 8.8 value
-    p.xsp = p.xsp > 0 ? Math.max(0, p.xsp - drag) : p.xsp < 0 ? Math.min(0, p.xsp - drag) : 0;
-  }
+  else airControl(p, c, p.state !== 'bounce');
+  if (p.ysp < 0 && !p.boost) airDrag(p);
 
   bounds(p, world);
-  p.x += p.xsp; p.y += p.ysp;
-  p.ysp += K.gravity;
-  // the angle he left the ground at eases back to upright; off a bounce block he tumbles the way he faces
-  // instead (Player_8047224)
-  const r = s8(p.rotation);
-  if (p.state === 'bounce') p.rotation = (p.rotation + 4 * p.facing) & 0xFF;
-  else p.rotation = (r > 0 ? Math.max(0, r - 2) : Math.min(0, r + 2)) & 0xFF;
+  move(p);
+  p.ysp += rules(p).gravity;
+  tumble(p);
   airCollision(p, world.terrain, () => land(p));
 }
 
-/** Touching down on the ground or an object (sub_8021BE0); the caller sets the ground speed. */
+// the angle he left the ground at eases back to upright; off a bounce block he tumbles the way he faces
+// instead (Player_8047224)
+function tumble(p) {
+  if (p.state === 'bounce') p.rotation = (p.rotation + 4 * p.facing) & 0xFF;
+  else upright(p);
+}
+
+// left or right in the air (Player_AirInputControls): twice the walking acceleration up to the top speed,
+// turning him to face that way unless `turn` is false; not after a jump out of a roll
+function airControl(p, c, turn) {
+  if (p.airLock || !c.dir) return;
+  const dir = c.dir, acc = p.boostMode ? 2 * B.acceleration[p.boostTier] / 256 : accel(p) * 2, max = topSpeed(p);
+  if (turn) p.facing = dir;
+  let v = p.xsp + acc * dir;
+  if (v * dir > max) {
+    v -= acc * dir;
+    if (v * dir < max) v = max * dir;
+  }
+  p.xsp = v;
+}
+
+// while rising, X speed loses 1/32 of itself (sub_80236C8)
+function airDrag(p) {
+  const drag = Math.floor(p.xsp * 256 / 32) / 256;   // arithmetic shift of the 8.8 value
+  p.xsp = p.xsp > 0 ? Math.max(0, p.xsp - drag) : p.xsp < 0 ? Math.min(0, p.xsp - drag) : 0;
+}
+
+// the angle he left the ground at eases back to upright, 2/256 of a turn a frame
+function upright(p) {
+  const r = s8(p.rotation);
+  p.rotation = (r > 0 ? Math.max(0, r - 2) : Math.min(0, r + 2)) & 0xFF;
+}
+
+// Sonic Advance 2's mid-air tricks, an extra on top of the original game (SAT-R decompilation of Sonic Advance
+// 2: DoTrickIfButtonPressed, Player_InitDefaultTrick, Player_WindupDefaultTrick and Player_DefaultTrick in
+// src/game/shared/stage/player.c, and the Stop 'n' Slam in src/game/sa2/stage/player_callbacks.c). They run on
+// Sonic Advance 2's code: each frame its bounds check, gravity, then the move, as that game's trick callbacks
+// do it. Each trick has a wind-up, in which he hangs in the air until its animation ends.
+const TRICK_STATES = {
+  up: ['trickUp', 'trickUpRise'], forward: ['trickForward', 'trickForwardSpin'], back: ['trickBack', 'trickBackFlip'],
+  bound: ['bound', 'boundDive'],
+};
+
+// in the air, free to move, once each time he leaves the ground and not just after a spring
+const canTrick = p => p.tricks && p.air && !p.trickUsed && p.trickDelay === 0 && p.state !== 'hurt' && !p.grinding
+  && !p.halfPipe && !p.ignoreInput;
+
+// a press picks the trick from the d-pad, up first, then down, then the way he faces, and otherwise (alone or
+// back) the Back Star. It scores 100 and starts on the next frame; this one goes on as it would.
+function tryTrick(p, c, world) {
+  if (!c.trickPressed || !canTrick(p)) return;
+  const held = p.held[0], ahead = p.facing > 0 ? RIGHT : LEFT;
+  const kind = held & UP ? 'up' : held & DOWN ? (p.tricks.bound ? 'bound' : null) : held & ahead ? 'forward' : 'back';
+  if (!kind) return;
+  p.trick = { kind, phase: 'start', spin: 0 };
+  p.trickUsed = true;
+  world.trickScore(T.score);
+}
+
+// his movement in a trick, Sonic Advance 2's (sub_80283C4 and Player_DefaultTrick): no gravity unless asked
+function trickMove(p, world, gravity) {
+  bounds(p, world);
+  if (gravity) p.ysp += rules(p).gravity;
+  p.ysp = Math.min(p.ysp, T.maxFall);
+  p.x += p.xsp; p.y += p.ysp;
+  upright(p);
+  airCollision(p, world.terrain, () => land(p));
+}
+
+// a trick's first frame (Player_InitDefaultTrick, Player_SonicAmy_InitStopNSlam): it ends what he was doing, stops
+// him, stands him up (curled up for the Bound) and plays the jump and trick sounds (none for the Bound)
+function startTrick(p, t, world) {
+  endAttack(p);
+  p.trick = t;
+  if (p.boost) stopBoost(p);
+  p.pushing = false;
+  p.xsp = 0; p.ysp = 0;
+  p.state = TRICK_STATES[t.kind][0];
+  if (t.kind === 'bound') setOffsetY(p, BALL_SPRITE_OFFSET_Y);
+  else {
+    setOffsetY(p, SPRITE_OFFSET_Y);
+    if (t.kind === 'forward') t.spin = T.spinFrames;
+    world.playSa2(SA2_SE.jump);
+    world.playSa2(SA2_SE.trick);
+  }
+  t.phase = 'windup';
+}
+
+// the Bound off the ground: back up at 6 px a frame away from the surface, half of its sideways part kept, in the
+// dive's animation (charState INVALID leaves it as it is)
+function bounce(p, t, world) {
+  const a = p.rotation, push = -T.boundBounce;
+  p.xsp = (-((push * sin8(a)) >> 8) >> 1) / 256;
+  p.ysp = -Math.abs((push * cos8(a)) >> 8) / 256;
+  p.air = true; p.onObject = null; p.trickUsed = true;
+  p.trick = t; t.phase = 'up';
+  p.state = 'boundDive';
+  world.playSa2(SA2_SE.boundImpact);
+}
+
+function trickStep(p, c, world) {
+  const t = p.trick, ended = p.anim.name === TRICK_STATES[t.kind][0] && p.anim.done;
+  switch (t.phase) {
+    case 'start':
+      startTrick(p, t, world);
+      if (t.kind === 'bound') { trickMove(p, world, false); return; }
+      // falls through: the wind-up's first frame
+    case 'windup':
+      if (t.kind === 'bound') {
+        // Player_SonicAmy_WindupStopNSlam: it moves first, then dives at 2 px a frame as the wind-up ends,
+        // leaving afterimages
+        trickMove(p, world, false);
+        if (p.trick !== t || !ended) return;
+        p.ysp = T.boundStart / 256;
+        p.state = 'boundDive'; t.phase = 'dive';
+        world.trickEffect('bound');
+        return;
+      }
+      // Player_WindupDefaultTrick: as the wind-up ends he is thrown, and the Humming Top's spin effect starts
+      if (ended) {
+        const [vx, vy] = p.tricks[t.kind];
+        p.xsp = vx * p.facing / 256; p.ysp = vy / 256;
+        p.state = TRICK_STATES[t.kind][1]; t.phase = 'trick';
+        if (t.kind === 'forward') world.trickEffect('spin');
+      }
+      trickMove(p, world, false);
+      return;
+    case 'trick':
+      // Player_DefaultTrick: the Hop Jump turns to its fall once he comes down, and the Humming Top ends in a
+      // fall after its spin; he steers without turning round, and the drag and gravity work as usual
+      if (t.kind === 'up' && p.state === 'trickUpRise' && p.ysp > 0) p.state = 'trickUpFall';
+      if (t.spin !== 0) t.spin--;
+      else if (t.kind === 'forward') p.state = 'trickFall';
+      airControl(p, c, false);
+      if (p.ysp < 0) airDrag(p);
+      trickMove(p, world, true);
+      return;
+    case 'dive':
+      // Player_SonicAmy_StopNSlam: faster each frame, until he hits the ground and bounces
+      p.ysp += T.boundDrop / 256;
+      trickMove(p, world, false);
+      if (p.trick?.phase === 'landed') bounce(p, p.trick, world);
+      return;
+    case 'landed':
+      // his dive met an object, which stood him on it
+      bounce(p, t, world);
+      return;
+    case 'up':
+      // Player_SonicAmy_StopNSlam_AfterGroundCollision: slowing the same way, and rising, then he falls
+      p.ysp += T.boundDrop / 256;
+      if (p.ysp >= 0) { p.state = 'boundRise'; t.phase = 'fall'; }
+      trickMove(p, world, false);
+      return;
+    case 'fall':
+      // Player_SonicAmy_StopNSlam_FallAfterCollision: as in any fall
+      airControl(p, c, true);
+      if (p.ysp < 0) airDrag(p);
+      trickMove(p, world, true);
+  }
+}
+
+/** Touching down on the ground or an object (sub_8021BE0); the caller sets the ground speed. A Bound's dive
+ *  bounces off it instead, on his next movement (trickStep). */
 export function land(p) {
+  const bound = p.trick?.phase === 'dive';
+  p.trickUsed = false;
   p.air = false; p.pushing = false;
-  p.state = 'walk';
-  if (p.curled) uncurl(p);
-  p.offsetY = SPRITE_OFFSET_Y;   // set outright, even when something uncurled him without moving him
+  // in a mini loop he lands rolling, as he was
+  if (!p.forcedRoll) {
+    if (!p.actClear && !p.scripted) p.state = 'walk';
+    if (p.curled) uncurl(p);
+    p.offsetY = SPRITE_OFFSET_Y;   // set outright, even when something uncurled him without moving him
+  }
   p.airLock = false;
   p.chain = 0;
   endAttack(p);
+  if (bound) p.trick = { kind: 'bound', phase: 'landed' };
+}
+
+/** On the ground past the goal and fast enough, Sonic lands into his act-clear run (Task_ShowResults). */
+export function startActClear(p) {
+  land(p);
+  p.state = 'actClearRun'; p.actClear = true;
 }
 
 /**
@@ -561,8 +838,10 @@ export function land(p) {
 export function hurt(p, terrain) {
   if (p.invulnerable > 0 || p.invincible > 0 || p.boost) return false;
   p.invulnerable = K.invulnerable;
+  p.boostMode = false;   // a hit ends Boost Mode (Player_InitHurt)
   p.xsp = p.xsp < 0 || (p.xsp === 0 && p.facing < 0) ? K.hurtSpeedX : -K.hurtSpeedX;
   p.ysp = -K.hurtSpeedY;
+  if (p.water) { p.xsp = (q8(p.xsp) >> 1) / 256; p.ysp = (q8(p.ysp) >> 1) / 256; }
   p.onObject = null; p.air = true; p.pushing = false;
   endAttack(p);
   p.airLock = false;
@@ -576,21 +855,37 @@ export function hurt(p, terrain) {
   return true;
 }
 
+/**
+ * Knocks Sonic off at the given speeds in his hurt state, blinking as after a hit but keeping his rings, as
+ * the boss capsule does when it lands on him (Task_801623C).
+ */
+export function knockAside(p, xsp, ysp) {
+  p.invulnerable = K.invulnerable;
+  p.xsp = xsp; p.ysp = ysp;
+  p.onObject = null; p.air = true; p.pushing = false;
+  endAttack(p);
+  p.airLock = false;
+  p.state = 'hurt';
+  uncurl(p);
+}
+
 // dead (Task_PlayerMain's death block, then Task_PlayerDied and Task_PlayerHandleDeath): on the first frame he
-// stops moving sideways and the camera and clock stop; then he falls through everything until he is 80 px
-// below the screen, and the act restarts 61 frames later
+// stops moving sideways (his ground speed is left as it was) and the camera and clock stop; then he falls through everything until he is 80 px
+// below the screen (above it under flipped gravity), and the act restarts 61 frames later. Drowned, the death
+// has its own sound, and he sinks as slowly as anything under water.
 function deadStep(p, world) {
   if (!p.death) {
     p.death = 'falling'; p.state = 'dead';
-    p.xsp = 0; p.gsp = 0; p.invulnerable = 2; p.onObject = null; p.pushing = false;
+    p.xsp = 0; p.invulnerable = 2; p.onObject = null; p.pushing = false;
     endAttack(p);
-    world.died();
+    world.died(p.drownSeconds < 0);
     return;
   }
   if (p.death === 'falling') {
-    if (p.y >= world.cameraY + K.deadBelowScreen - 1 / 256) { p.death = 'gone'; p.countdown = K.deadRestart; p.hidden = true; return; }
-    p.y += p.ysp;
-    p.ysp += K.gravity;
+    const gone = p.inverted ? p.y <= world.cameraY - K.deadBelowScreen + SCREEN_H : p.y >= world.cameraY + K.deadBelowScreen - 1 / 256;
+    if (gone) { p.death = 'gone'; p.countdown = K.deadRestart; p.hidden = true; return; }
+    move(p);
+    p.ysp += rules(p).gravity;
     return;
   }
   if (p.countdown !== 0) p.countdown--;
@@ -598,40 +893,122 @@ function deadStep(p, world) {
 }
 
 /**
- * Advances the player one frame. `world` provides tick, cameraY, terrain, died(), lifeLost(), spawnDashDust(),
- * spawnInstaShield(), freezeCamera(), playSound(song) and playSoundPitched(song, pitch), and for the Rush boost
- * rush (its setting) and boosted().
+ * Advances the player one frame. `world` provides tick, cameraY, terrain, died(drowned), lifeLost(), spawnDashDust(),
+ * spawnInstaShield(), freezeCamera(), playSound(song), stopSound(song) and playSoundPitched(song, pitch), the
+ * water's waterLevel, surfaceSplash(x), drownCountdown(n), drowningMusic(), drowned(), breathOut(x, y) and
+ * random(), for the Rush boost
+ * rush (its setting) and boosted(), for Boost Mode boostMode (its setting), ringCount, boostModeStarted()
+ * and actOver (true once the act's end has taken Sonic's controls; absent before an act can end), and for
+ * Sonic Advance 2's tricks tricks (their setting), trickScore(points), playSa2(song) and
+ * trickEffect('spin' | 'bound').
  */
 export function stepPlayer(p, input, world) {
   const left = input.left, right = input.right, sideways = left || right;
   const bits = (left ? LEFT : 0) | (right ? RIGHT : 0) | (input.up ? UP : 0) | (input.down ? DOWN : 0);
   p.pressed.pop(); p.pressed.unshift(bits & ~p.held[0]);
   p.held.pop(); p.held.unshift(bits);
+  // Player_HandleInputs: while an object holds his controls heldInput stays as it was and nothing is pressed
+  if (p.ignoreInput) p.pressedDirs = 0;
+  else {
+    const mask = v => v & (LEFT | RIGHT) ? v & ~(UP | DOWN) : v;
+    p.pressedDirs = mask(bits & ~p.heldDirs);
+    p.heldDirs = mask(bits);
+  }
 
   // holding left or right hides up and down from the movement code
   const c = {
     dir: left && !right ? -1 : right && !left ? 1 : 0, sideways,
     up: input.up && !sideways, down: input.down && !sideways,
     jump: input.jump, jumpPressed: input.jumpPressed, attackPressed: input.attackPressed,
-    boost: input.boost, boostPressed: input.boostPressed,
+    boost: input.boost, boostPressed: input.boostPressed, trickPressed: input.trickPressed,
   };
-  input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
-  p.jumpPressed = c.jumpPressed;
+  input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
+  p.jumpPressed = c.jumpPressed; p.attackPressed = c.attackPressed;
 
+  if (!world.boostMode) { p.boostMode = false; p.boostMeter = 0; }
+  else if (!p.dead) boostModeState(p, world);
   if (world.rush) rushBoost(p, c, world);
   else if (p.boost) stopBoost(p);
 
-  if (p.dead) deadStep(p, world);
-  else if (p.carried) return;
-  else if (p.air) airStep(p, c, world);
-  else groundStep(p, c, world, input);
+  if (p.dead) { deadStep(p, world); return; }
+  handleWater(p, world);
+  if (p.carried) return;
+  if (p.trick) trickStep(p, c, world);
+  else if (p.air) {
+    if (world.tricks) tryTrick(p, c, world);
+    airStep(p, c, world);
+  } else groundStep(p, c, world, input);
 }
 
-// state -> animation, with the walk cycle's speed and the idle timer (sub_802486C)
+// the countdown's numbers, by the second they show at (SpawnDrowningCountdownNum)
+const COUNTDOWN = { 12: 5, 10: 4, 8: 3, 6: 2, 4: 1, 2: 0 };
+
+// Player_HandleWater, before he moves: he is in the water while his centre is 4 px or more below its line
+// (world.waterLevel, -1 in an act without water). Going in halves his X speed and quarters his Y speed,
+// coming out doubles his Y speed, and each makes a splash at the line with its sound, at most one every
+// 10 frames. Under water a second goes every 60 frames: at 12, 10, 8, 6, 4 and 2 a number counts down over
+// him, at 11 the drowning music starts and below 0 he drowns; every 16th frame of the stage clock he lets a
+// bubble out, one time in four. Out of the water the count starts over and the drowning music stops.
+function handleWater(p, world) {
+  const level = world.waterLevel;
+  if (level >= 0 && Math.floor(p.y) - 4 >= level) {
+    if (!p.water) {
+      p.water = true;
+      p.xsp = (q8(p.xsp) >> 1) / 256; p.ysp = (q8(p.ysp) >> 2) / 256;
+      surfaceSplash(p, world);
+    }
+    if (--p.drownFrames < 1) {
+      const second = p.drownSeconds--;
+      if (second === 11) world.drowningMusic();
+      else if (second in COUNTDOWN) world.drownCountdown(COUNTDOWN[second]);
+      if (p.drownSeconds < 0) { p.dead = true; p.ysp = 0; world.drowned(); }
+      p.drownFrames = 60;
+    }
+    if (world.tick % 16 === 0 && (world.random() & 0x300) === 0) world.breathOut(p.x + (p.facing < 0 ? -4 : 4), p.y - 4);
+  } else {
+    if (p.water) {
+      p.water = false;
+      p.ysp = (((q8(p.ysp) << 17) >> 16)) / 256;
+      surfaceSplash(p, world);
+    }
+    p.drownFrames = 60; p.drownSeconds = K.drownSeconds;
+    if (level >= 0) world.stopSound(SONG.DROWNING);
+  }
+  if (p.surfaceT !== 0) p.surfaceT--;
+}
+
+function surfaceSplash(p, world) {
+  if (p.surfaceT >= 1) return;
+  p.surfaceT = K.surfaceEffectDelay;
+  world.surfaceSplash(Math.floor(p.x));
+}
+
+/**
+ * A breath from an air bubble (Task_BubbleContainingAir): his moves end, he uncurls (in the air without
+ * moving his centre), stops dead, and the drowning count starts over.
+ */
+export function breathe(p) {
+  endAttack(p);
+  p.state = 'breathe';
+  if (p.curled) {
+    if (p.air) { p.curled = false; p.offsetY = SPRITE_OFFSET_Y; } else uncurl(p);
+  }
+  p.xsp = 0; p.ysp = 0; p.gsp = 0; p.pushing = false;
+  p.drownFrames = 60; p.drownSeconds = K.drownSeconds;
+}
+
+// state -> animation, with the walk cycle's speed and the idle timer (sub_802486C); under water every
+// animation plays at half its speed, rounded up
 function chooseAnimation(p, input) {
+  const name = pickAnimation(p, input);
+  if (p.water) p.anim.speed -= p.anim.speed >> 1;
+  return name;
+}
+
+function pickAnimation(p, input) {
   const a = p.anim, speed = Math.abs(p.gsp);
   a.speed = ANIMATION.normalSpeed;
-  if (p.gsp !== 0 || input.left || input.right || input.up || input.down || input.jump || input.attack || input.boost) p.idleT = K.boredDelay;
+  if (p.gsp !== 0 || input.left || input.right || input.up || input.down || input.jump || input.attack || input.boost || input.trick) p.idleT = K.boredDelay;
   if (p.pushing) p.state = 'push';
   switch (p.state) {
     case 'idle':
@@ -666,7 +1043,7 @@ function afterAnimation(p, world) {
     case 'spinDashRev': p.state = 'spinDash'; break;
     case 'crouchEnd': p.state = p.gsp !== 0 ? 'walk' : 'idle'; break;
     case 'lookUpEnd': p.state = 'idle'; break;
-    case 'turn': p.state = 'walk'; break;
+    case 'turn': case 'breathe': p.state = 'walk'; break;
     case 'spring': case 'springPeak': p.state = 'springFall'; break;
     case 'spinAttack': case 'slideEnd':
       endAttack(p); p.state = p.gsp !== 0 ? 'walk' : 'idle'; break;
@@ -676,7 +1053,7 @@ function afterAnimation(p, world) {
         world.playSound(SONG.SLIDE);
       } else if (p.attackNext === 2) {
         endAttack(p);
-        p.xsp = -p.xsp; p.ysp = -K.jumpSpeed;   // flips backwards, away from the way he was going
+        p.xsp = -p.xsp; p.ysp = -rules(p).jumpSpeed;   // flips backwards, away from the way he was going
         p.air = true; curl(p); p.state = 'backflip';
         world.playSound(SONG.JUMP);
       } else { endAttack(p); p.state = 'idle'; p.gsp = 0; }
@@ -684,12 +1061,24 @@ function afterAnimation(p, world) {
   }
 }
 
-// a hitbox under his facing, as the sprite system applies it when the box is set
-const flipBox = (box, flip) => (box && flip ? [-box[2], box[1], -box[0], box[3]] : box);
+// a hitbox under his facing, and turned over under flipped gravity, as the sprite system applies his
+// sprite's flips when the box is set
+function flipBox(box, flipX, flipY) {
+  if (!box) return box;
+  let [l, t, r, b] = box;
+  if (flipY) [t, b] = [-b, -t];
+  if (flipX) [l, r] = [-r, -l];
+  return [l, t, r, b];
+}
 
-// a new animation clears both his hitboxes until its script sets them (sub_802486C)
+// a new animation clears both his hitboxes until its script sets them (sub_802486C). Bouncing off a bounce
+// block shows the walk animation (4, variant 0): only a new animation or variant restarts the sprite, so
+// between the two states the cycle carries on where it was.
+const SAME_ANIMATION = { bounce: 'walk' };
 function choose(p, name, restart = false) {
-  if (p.anim.name !== name) p.boxes = [null, null];
+  const was = p.anim.name;
+  if (!restart && was !== name && (SAME_ANIMATION[was] ?? was) === (SAME_ANIMATION[name] ?? name)) { p.anim.name = name; return; }
+  if (was !== name) p.boxes = [null, null];
   setAnim(p.anim, name, restart);
 }
 
@@ -697,15 +1086,17 @@ function choose(p, name, restart = false) {
 // script sets them again
 function stepAnim(p, anims) {
   const i = p.anim.i, ended = tickAnim(p.anim, anims);
-  const boxes = p.anim.i !== i && anims[p.anim.name].frames[p.anim.i][2];
-  if (boxes) for (const [slot, box] of Object.entries(boxes)) if (slot < 2) p.boxes[slot] = flipBox(box, p.facing > 0);
+  const f = p.anim.i !== i && anims[p.anim.name].frames[p.anim.i];
+  if (f?.[2]) for (const [slot, box] of Object.entries(f[2])) if (slot < 2) p.boxes[slot] = flipBox(box, p.facing > 0, p.inverted);
+  // it keeps the order a frame sets (animCmd_SetOamOrder) after the animation
+  if (f?.[3] !== undefined) p.order = f[3];
   return ended;
 }
 
 /**
  * Picks and steps Sonic's animation after his frame of movement, like the original sprite update, then
- * decides whether he is drawn: after a hit he blinks, 2 frames hidden and 2 shown in step with the stage
- * clock, and the blink timer runs down once he has landed. Then the speed shoes and invincibility count down.
+ * decides whether he is drawn: alive, he isn't while an object hides him, and after a hit he blinks, 2 frames
+ * hidden and 2 shown in step with the stage clock; the blink timer runs down once he has landed. Then the speed shoes and invincibility count down.
  */
 export function animatePlayer(p, input, anims, world) {
   if (p.death === 'gone') return;
@@ -720,7 +1111,8 @@ export function animatePlayer(p, input, anims, world) {
     choose(p, chooseAnimation(p, input));
   }
   p.prevState = p.state;
-  p.hidden = !p.dead && p.invulnerable > 0 && (world.tick & 2) !== 0;
+  if (p.trickDelay > 0) p.trickDelay--;
+  p.hidden = !p.dead && (p.invisible || (p.invulnerable > 0 && (world.tick & 2) !== 0));
   // dead, the timers count down only on the frame he dies: the tasks that take over from then on leave them
   if (p.dead && p.invulnerable === 1) return;
   if (p.state !== 'hurt' && p.invulnerable > 0) p.invulnerable--;

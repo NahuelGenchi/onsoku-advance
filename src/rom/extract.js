@@ -20,6 +20,7 @@ import { extraStageArt, EXTRA_SPRITES } from './extra.js';
 import { gameOverGraphics } from './gameover.js';
 import { createM4A } from '../sound/m4a.js';
 import { createApu } from '../sound/apu.js';
+import { normalEndingArt } from './credits.js';
 
 // [animation id, variant] in the sprite tables, as the ROM's character state table maps them for Sonic
 export const SONIC_ANIMATIONS = {
@@ -444,6 +445,8 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
     };
     // the extra stage's robot body and the colours Super Sonic gives the HUD's face
     if (act.extra) acts[l].stage.extra = extraStageArt(rom, offsets, tables, l);
+    // the congratulations', the staff credits' and the message's
+    if (act.ending) acts[l].stage.normalEnding = normalEndingArt(rom, offsets);
   }
   // nine release speeds, then the nine of the alternate table right after them: a charge past 8.0
   // indexes into those in the original, so both are read

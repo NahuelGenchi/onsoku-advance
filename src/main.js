@@ -16,6 +16,7 @@ import { trickArt } from './rom/sa2tricks.js';
 import { createInput } from './engine/input.js';
 import { createGame, specialSpringStart } from './engine/game.js';
 import { createSpecialStageRun } from './special/run.js';
+import { createNormalEnding } from './engine/normalending.js';
 import { createSound } from './sound/audio.js';
 import { SCREEN_W, SCREEN_H, VIEW_MAX_W, VIEW_MAX_H } from './engine/constants.js';
 import { THE_MOON, ALL_EMERALDS } from './engine/unlock.js';
@@ -234,7 +235,11 @@ function play(assets, resume = null, carry = null) {
     onNextZone: next => nextZone(next),
     // a game over without a continue goes back to the start of the game, the SEGA logo
     onTitle: () => queueMicrotask(restartGame),
+    // after the true ending, the staff credits; called from inside a step, so the game changes once that
+    // frame is over
+    onCredits: () => queueMicrotask(() => endGame(assets, 'credits')),
   });
+  playing = assets;
   fitScreen();
   showRush();
   showBoostMode();
@@ -243,7 +248,22 @@ function play(assets, resume = null, carry = null) {
   screen.focus();
   clearInterval(statsTimer);
   statsTimer = setInterval(showStats, 100);
-  if (debug) globalThis.onsoku = { game, assets, input, sound, nextZone };
+  if (debug) globalThis.onsoku = { game, assets, input, sound, nextZone, endGame: from => endGame(assets, from) };
+}
+
+// the zone being played, whose art the ending after it reads
+let playing = null;
+
+// the ending after the last stage (normalending.js): without all seven Chaos Emeralds the congratulations after
+// X Zone's results, with them the credits after the true ending; at its end the game starts over from the
+// SEGA logo
+function endGame(assets, from) {
+  const { seed } = game.state;
+  game.stop();
+  game = createNormalEnding(screen, assets, input, sound, { from, emeralds: from === 'credits', seed, onEnd: () => queueMicrotask(restartGame) });
+  fitScreen();
+  game.start();
+  if (debug) globalThis.onsoku = { game, assets, input, sound, nextZone, endGame: from => endGame(assets, from) };
 }
 
 // back to the start of the game, the SEGA logo, with no continues and act 1's art (read again if another
@@ -259,9 +279,8 @@ async function restartGame() {
 async function nextZone({ level, ...carry }) {
   continues = carry.continues ?? continues;
   // past X Zone the Moon Zone opens with all seven Chaos Emeralds (unlock.js; the ROM also wants every
-  // character to have cleared X Zone, and only Sonic is in this game); otherwise the normal ending comes, which
-  // isn't built yet, and the screen keeps the results' last frame
-  if (level === THE_MOON && emeralds !== ALL_EMERALDS) return;
+  // character to have cleared X Zone, and only Sonic is in this game); otherwise the normal ending comes
+  if (level === THE_MOON && emeralds !== ALL_EMERALDS) { queueMicrotask(() => endGame(playing, 'congratulations')); return; }
   const from = game;
   let assets;
   try {
@@ -312,6 +331,7 @@ addEventListener('keydown', e => {
 function showStats() {
   if (!game) { stats.textContent = specialStage ? 'special stage' : ''; return; }
   const { player } = game.state;
+  if (!player) { stats.textContent = ''; return; }
   const speed = Math.abs(player.air ? player.xsp : player.gsp);
   stats.textContent = `speed ${speed.toFixed(2)} · ${player.state} · ${player.anim.name}`;
 }

@@ -57,8 +57,9 @@ export function frameLayout(rom, tables, anim, frame) {
 }
 
 // the OAM pieces of a frame: each one's size, its place in the frame, the flips its entry carries and a
-// function giving the colour index of its pixel (px, py), unflipped (0 is transparent). A background sprite's
-// tile numbers count whole tiles: sub_80039E4 writes them straight into the background's map.
+// function giving the colour index of its pixel (px, py), unflipped (0 is transparent). A 256-colour piece's
+// tile number counts whole 64-byte tiles: DisplaySprite doubles it for OAM, and sub_80039E4 writes a background
+// sprite's straight into the background's map.
 function oamPieces(rom, tables, anim, f, tilesAt, eightBpp, background = false) {
   const oamBase = rom.requirePtr(tables.oam + anim * 4, `OAM data of animation ${anim}`);
   return Array.from({ length: f.pieces }, (_, i) => {
@@ -69,7 +70,7 @@ function oamPieces(rom, tables, anim, f, tilesAt, eightBpp, background = false) 
     const tile0 = a2 & 0x3FF, bank = (a2 >> 12) & 15, tilesWide = w / 8;
     const color = (px, py) => {
       const tx = px >> 3, ty = py >> 3, ix = px & 7, iy = py & 7;
-      if (bpp8) return rom.u8(tilesAt + tile0 * (background ? 64 : 32) + (ty * tilesWide + tx) * 64 + iy * 8 + ix);
+      if (bpp8) return rom.u8(tilesAt + tile0 * 64 + (ty * tilesWide + tx) * 64 + iy * 8 + ix);
       const b = rom.u8(tilesAt + (tile0 + ty * tilesWide + tx) * 32 + iy * 4 + (ix >> 1));
       const c = ix & 1 ? b >> 4 : b & 15;
       return c && c + bank * 16;

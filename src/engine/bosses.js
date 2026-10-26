@@ -19,10 +19,12 @@ const toward = (v, to) => (to > v ? v + 1 : to < v ? v - 1 : v);
  * Bosses_SetCamBounds: the camera's bounds close in on the arena from where it is. The right edge goes to `maxX`
  * at once; the top, bottom and left edges start at the screen's and move 1 px a frame to `minY`, `maxY` and
  * `minX` (Task_8017244), a bottom edge further down than the screen's starting 160 px below it instead. The
- * arguments are the screen's edges in the act, as the original has them.
+ * arguments are the screen's edges in the act, as the original has them. They are the arena's walls, which the
+ * widescreen view doesn't show past (camera.js viewOf).
  */
 export function setBossCamBounds(cam, minY, maxY, minX, maxX) {
   const x = Math.floor(cam.x), y = Math.floor(cam.y);
+  cam.arena = { minX, maxX, minY, maxY };
   cam.minY = y; cam.maxY = y; cam.minX = x; cam.maxX = maxX - SCREEN_W;
   if (maxY > y + SCREEN_H) cam.maxY = y + 320 - SCREEN_H;
   return {

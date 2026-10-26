@@ -8,6 +8,8 @@
 import { SCREEN_W, SCREEN_H, CAMERA as C, RUSH_BOOST as R } from './constants.js';
 
 const centreY = p => Math.floor(p.y);
+// how far the widescreen view slides in a frame toward a boss's arena (viewOf)
+const ARENA_SLIDE = 4;
 
 // starts with Sonic centred horizontally and his body 84px from the top, not yet kept inside the act
 // (InitCamera); its task's first frame only sets it going (Task_CallUpdateCamera), so it moves from the second
@@ -21,6 +23,9 @@ export function createCamera(p, terrain) {
     leadX: 0, leadY: 0, leadTargetX: 0, leadTargetY: 0, scroll: 0, prevX: p.x, prevY: p.y,
     // the most it moves in a frame (unk8, unkC)
     speedX: C.maxSpeedX, speedY: C.maxSpeedY,
+    // a boss's arena, { minX, maxX, minY, maxY }, its walls in the act, from when a boss starts closing the bounds
+    // in on it (bosses.js); only the widescreen view reads it
+    arena: null,
   };
   cam.targetX = cam.x; cam.targetY = cam.y;
   return cam;
@@ -109,11 +114,35 @@ export function updateCamera(cam, p) {
 /**
  * What a view of w × h px shows around the camera (the widescreen view; 240 × 160 is the original screen): the
  * original screen's area kept inside the act, as the renderer draws it, with as much around it as fits inside
- * the act too, then moved by a screen shake. `x` and `y` are its top left corner in the act.
+ * the act too, then moved by a screen shake. `x` and `y` are its top left corner in the act (`bx` and `by`
+ * before the shake).
+ * In a boss's arena it shows nothing past the arena's walls, except where the original screen itself is:
+ * `clip` is then [left, top, right, bottom], what of the view the act shows, with black around it (null for
+ * all of it), and `edges` the same in the act. An arena narrower or shorter than the view sits in its middle.
+ * From `prev`, the view the frame before, the view and the black's edges slide there at most ARENA_SLIDE px a
+ * frame.
  */
-export function viewOf(cam, w = SCREEN_W, h = SCREEN_H) {
+export function viewOf(cam, w = SCREEN_W, h = SCREEN_H, prev = null) {
   const cx = Math.min(Math.max(Math.floor(cam.x) - cam.shakeX, 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y) - cam.shakeY, 0), cam.maxY);
-  const x = Math.max(0, Math.min(cx - ((w - SCREEN_W) >> 1), cam.maxX + SCREEN_W - w));
-  const y = Math.max(0, Math.min(cy - ((h - SCREEN_H) >> 1), cam.maxY + SCREEN_H - h));
-  return { x: x + cam.shakeX, y: y + cam.shakeY, w, h };
+  let x = Math.max(0, Math.min(cx - ((w - SCREEN_W) >> 1), cam.maxX + SCREEN_W - w));
+  let y = Math.max(0, Math.min(cy - ((h - SCREEN_H) >> 1), cam.maxY + SCREEN_H - h));
+  const { arena: a } = cam;
+  let clip = null, edges = null;
+  if (a) {
+    // the walls, moved out to the original screen's edges where it is past them
+    edges = [Math.min(a.minX, cx), Math.min(a.minY, cy), Math.max(a.maxX, cx + SCREEN_W), Math.max(a.maxY, cy + SCREEN_H)];
+    const place = (v, lo, hi, size) => (hi - lo < size ? lo - ((size - (hi - lo)) >> 1) : Math.max(lo, Math.min(v, hi - size)));
+    x = place(x, edges[0], edges[2], w); y = place(y, edges[1], edges[3], h);
+    if (prev && prev.w === w && prev.h === h) {
+      const slide = (from, to) => from + Math.max(-ARENA_SLIDE, Math.min(to - from, ARENA_SLIDE));
+      const was = prev.edges ?? [prev.bx, prev.by, prev.bx + w, prev.by + h];
+      x = slide(prev.bx, x); y = slide(prev.by, y);
+      edges = edges.map((e, i) => slide(was[i], e));
+    }
+    // the original screen is always in the view, and never black
+    x = Math.max(cx + SCREEN_W - w, Math.min(x, cx)); y = Math.max(cy + SCREEN_H - h, Math.min(y, cy));
+    edges = [Math.min(edges[0], cx), Math.min(edges[1], cy), Math.max(edges[2], cx + SCREEN_W), Math.max(edges[3], cy + SCREEN_H)];
+    clip = [Math.max(edges[0] - x, 0), Math.max(edges[1] - y, 0), Math.min(edges[2] - x, w), Math.min(edges[3] - y, h)];
+  }
+  return { x: x + cam.shakeX, y: y + cam.shakeY, w, h, clip, edges, bx: x, by: y };
 }

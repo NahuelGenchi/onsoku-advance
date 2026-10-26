@@ -336,7 +336,7 @@ export function createGame(canvas, assets, input, sound = SILENT) {
       updateCamera(state.cam, player);
       state.bgAnim++;
       ctx.cam = { x: Math.floor(state.cam.x), y: Math.floor(state.cam.y) };
-      ctx.view = state.view = viewOf(state.cam, viewW, viewH);
+      ctx.view = state.view = viewOf(state.cam, viewW, viewH, state.view);
       if (moves && backgroundUpdate) backgroundUpdate(ctx, state.cam);
     }],
     [0x2000, ctx => collectRings(ctx)],

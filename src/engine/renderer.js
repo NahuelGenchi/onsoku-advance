@@ -5,9 +5,9 @@
 // in front, and within an order the one put in first. A boss's hit flash turns the background and the layers
 // white inside its sprite's shape. While the title card fades the screen in, everything but
 // its semi-transparent sprites is darkened. The widescreen view shows more of the act around the original
-// screen, which sits in its middle unless an edge of the act is near; the HUD keeps to the view's corners and
-// the title card to its middle. The optional Sonic Rush boost adds its screen shake and its effects around
-// Sonic, drawn as the Nintendo DS draws them.
+// screen, which sits in its middle unless an edge of the act is near, and is black past a boss arena's walls;
+// the HUD keeps to the corners of what it shows and the title card to its middle. The optional Sonic Rush
+// boost adds its screen shake and its effects around Sonic, drawn as the Nintendo DS draws them.
 
 import { SCREEN_W, SCREEN_H, RUSH_BOOST } from './constants.js';
 import { drawLayer, stageAnimFrame, paletteVariant, collisionImage } from './stage.js';
@@ -201,11 +201,20 @@ export function createRenderer(canvas, assets) {
 
   // the HUD's sprites have priority 0: in front of the layers and every other sprite. The lives keep to the
   // bottom of a taller view.
-  function drawHud(sprites) {
+  function drawHud(sprites, [left, top, , bottom] = [0, 0, W, H]) {
     for (const [what, x, y] of sprites) {
       const [sx, sy, w, h] = what === 'ring' ? hud.ring : what === 'face' ? hud.face : hud.glyphs[what];
-      ctx.drawImage(hud.sheet, sx, sy, w, h, x, y < SCREEN_H / 2 ? y : y + H - SCREEN_H, w, h);
+      ctx.drawImage(hud.sheet, sx, sy, w, h, left + x, y < SCREEN_H / 2 ? top + y : y + bottom - SCREEN_H, w, h);
     }
+  }
+
+  // black around [left, top, right, bottom] of the view
+  function blackOutside([left, top, right, bottom]) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, top);
+    ctx.fillRect(0, bottom, W, H - bottom);
+    ctx.fillRect(0, top, left, bottom - top);
+    ctx.fillRect(right, top, W - right, bottom - top);
   }
 
   // the title card's sprites from their OAM attributes; they have priority 0 and the lowest OAM orders, so
@@ -434,7 +443,9 @@ export function createRenderer(canvas, assets) {
     else layerOver('front', vx, vy, frame, palettes);
     drawAll(0, 1);
     if (showCollision) drawCollision(terrain, vx, vy);
-    drawHud(hudState.sprites);
+    // in a boss's arena, nothing past its walls; the HUD keeps to the corners of what is shown
+    if (view.clip) blackOutside(view.clip);
+    drawHud(hudState.sprites, view.clip ?? undefined);
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
     // behind keeps them out of the fade

@@ -4,18 +4,21 @@
 // state, a splash under him; with d0 set it sends him left, otherwise right. It only starts on him once the
 // one-tile floor probe from his centre finds the ground within 3 px. In the air, or out of the box, it gives
 // his controls back, with the jump and attack buttons he holds then not counting as presses, and leaving the
-// box fades out the second sound effect player. Its priority is 0x1000 plus d1, and once spawned it stays.
+// box fades out the second sound effect player. In Angel Island (zone 5) the splash is mud, and the slide's
+// own sound starts as it takes him. Its priority is 0x1000 plus d1, and once spawned it stays.
 
 import { makeSprite, animate } from './objects.js';
 import { endAttack, standUp } from './player.js';
 import { tileFloor } from './terrain.js';
+import { SONG } from '../sound/songs.js';
 
 export const FORCED_SLIDE = 46;
+const ZONE_5 = 4;   // zones count from 0
 const SPEED = 4;
 const SE2 = 2, FADE = 4;   // m4aMPlayFadeOut(&gMPlayInfo_SE2, 4)
 
-/** The task for a forced slide entity, or null when `e` is not one. */
-export function createSlide(e, anims) {
+/** The task for a forced slide entity, or null when `e` is not one; `zone` is the act's. */
+export function createSlide(e, anims, zone) {
   if (e.kind !== FORCED_SLIDE) return null;
   const dir = e.d[0] ? -1 : 1, w = e.d[2] * 8, h = e.d[3] * 8;
   const splash = makeSprite('slideSplash', { flipX: dir < 0, order: 3 });
@@ -35,6 +38,7 @@ export function createSlide(e, anims) {
       if (x >= e.x && x <= e.x + w && y >= e.y && y <= e.y + h) {
         if ((held !== 0 || tileFloor(ctx.world.terrain, x, y, p.layer) <= 3) && !p.onObject) {
           if (!p.air) {
+            if (held === 0 && zone === ZONE_5) ctx.world.playSound(SONG.MUD_SLIDE);
             held = 1;
             // Player_TransitionCancelFlyingAndBoost
             endAttack(p); p.pushing = false; p.airLock = false;

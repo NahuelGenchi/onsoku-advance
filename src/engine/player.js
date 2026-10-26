@@ -24,7 +24,8 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         before its end) | halfPipeLow | halfPipeMid | halfPipeHigh (running up a half-pipe's side) | hook (hanging
 //         from a hook rail, a swinging hook or a crane claw) | swingRope (swinging round a rope) |
 //         breathe (an air bubble under water) |
-//         marbleTrack (carried through a marble track) | hurt | dead | actClearRun (past the goal, charState 28)
+//         marbleTrack (carried through a marble track) | react (taken aback as Mecha Knuckles
+//         wakes up) | hang | hangMove (on a hang bar) | hurt | dead | actClearRun (past the goal, charState 28)
 //         and, with Sonic Advance 2's tricks on, that game's: trickUp | trickUpRise | trickUpFall (Hop Jump) |
 //         trickForward | trickForwardSpin | trickFall (Humming Top) | trickBack | trickBackFlip (Back Star) |
 //         bound | boundDive | boundRise (Bound)
@@ -74,6 +75,7 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     track: 0x7F,       // unk99[0]: the step of the track carrying him, 0x7F none (marbletrack.js)
     scale: 0x100,      // unk80 and unk82: his size through the rotation hardware (8.8), smaller in a marble track
     drawRotation: 0,   // the rotation his sprite was last drawn with, which a marble track keeps
+    scripted: false,   // MOVESTATE_800000: an object sets his state, which walking, standing and landing leave alone
     jumpPressed: false, // the jump press his last frame read (frameInput), which objects look at on the next
     attackPressed: false, // and its attack press
     heldDirs: 0,       // the d-pad his last frame read (heldInput): up and down dropped while left or right is held
@@ -251,7 +253,7 @@ function walk(p, dir, world) {
     }
     p.gsp = g;
     // on a half-pipe he keeps the state it gives him, and past the goal his act-clear run
-    if (p.state !== 'turn' && !p.halfPipe && !p.actClear) { p.state = 'walk'; standHeight(p); }
+    if (p.state !== 'turn' && !p.halfPipe && !p.actClear && !p.scripted) { p.state = 'walk'; standHeight(p); }
   } else {
     let g = p.gsp + rules(p).deceleration * pace(p) * dir;
     if (g * dir > 0) g = K.reverseKick * dir;
@@ -282,7 +284,7 @@ function walkInput(p, c, world) {
   else if (!c.sideways) {
     if (p.gsp !== 0) {
       if (p.state === 'brake' || p.state === 'idle') { p.state = 'walk'; standHeight(p); }
-    } else if (!p.actClear) {
+    } else if (!p.actClear && !p.scripted) {
       if (p.state === 'crouch') p.state = 'crouchEnd';
       else if (p.state === 'lookUp') p.state = 'lookUpEnd';
       else if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
@@ -292,7 +294,7 @@ function walkInput(p, c, world) {
   // standing still on level ground stops the push, and at an edge he balances; not in his act-clear pose
   if (!((p.rotation + 0x20) & 0xC0) && p.gsp === 0) {
     p.pushing = false;
-    if (p.actClear) return;
+    if (p.actClear || p.scripted) return;
     if (p.state !== 'crouchEnd' && p.state !== 'lookUpEnd') p.state = 'idle';
     if (p.onObject) balanceOnObject(p);
     else balanceOnTerrain(p, world.terrain);
@@ -337,7 +339,8 @@ function balanceOnTerrain(p, t) {
   else if (left === 0 && right > 8) balance(p, 1);
 }
 
-// rolling (Player_8043DDC)
+// rolling (Player_8043DDC): a roll that stops stands him up, unless an object keeps him curled (MOVESTATE_200):
+// then it starts again at 3 px a frame the way he faces, with the rolling sound
 function rollStep(p, c, world) {
   if (c.dir && !p.lock) {
     if (p.gsp * c.dir >= 0) p.facing = c.dir;
@@ -790,7 +793,7 @@ export function land(p) {
   p.air = false; p.pushing = false;
   // in a mini loop he lands rolling, as he was
   if (!p.forcedRoll) {
-    if (!p.actClear) p.state = 'walk';
+    if (!p.actClear && !p.scripted) p.state = 'walk';
     if (p.curled) uncurl(p);
     p.offsetY = SPRITE_OFFSET_Y;   // set outright, even when something uncurled him without moving him
   }

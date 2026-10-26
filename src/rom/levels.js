@@ -83,6 +83,17 @@ export const LEVELS = {
       squarePlatformLong: [537, 0], breakableWall: [595, 0], ironBall: [541, 0], bowl: [546, 0],
     },
   },
+  // StageInit_Zone5Act2: palette animation 823 (the waterfalls) and act 2's song. CreateStageBg_Zone5 puts tilemap
+  // 72 (TM_EGG_ROCKET_CLOUDS) on BG0, which StageBgUpdate_Zone5Acts12 moves left over the still background and
+  // blends over it. The zone's thin platforms (sPlatformThinAnims), bounce blocks (sBounceBlockAnims), waterfall
+  // splash (gUnknown_086CED28) and mud slides' splash (gAnimSlideSplashes) are its own.
+  // StageInit_Zone5Act2 (0x0803DE75): the same, with act 2's song; its mud slides' splash (gAnimSlideSplashes) is
+  // zone 5's own too. Its boss, Mecha Knuckles, is the act's enemy 26 (`boss` names its animations in extract.js).
+  9: {
+    name: 'Angel Island Zone act 2', zone: 4, act: 1, paletteAnimations: [823], music: 21, clouds: 72,
+    sprites: { thinPlatform: [535, 0], bounceBlock: [543, 0], waterSplash: [552, 0], slideSplash: [568, 0] },
+    boss: 'mechaKnuckles',
+  },
 };
 
 /** The entry of `level`, or an error for one this game can't load yet. */

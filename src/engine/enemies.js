@@ -27,6 +27,7 @@ import { eggBall, EGG_BALL } from './eggball.js';
 import { eggSpider, EGG_SPIDER } from './eggspider.js';
 import { yukimaru, yukimaruWall, YUKIMARU, YUKIMARU_WALL } from './yukimaru.js';
 import { pen, PEN } from './pen.js';
+import { createMechaKnuckles, MECHA_KNUCKLES } from './mechaknuckles.js';
 
 export const KIKI = 0, BUZZER = 1, GAMIGAMI = 2, RHINOTANK = 3, KEROKERO = 4, LEON = 11, WAMU = 13;
 
@@ -459,4 +460,5 @@ export const ENEMIES = {
   [EGG_PRESS]: createEggPress, [HANABII]: hanabii, [SLOT]: slotMachine, [PIERROT]: pierrot, [EGG_BALL]: eggBall,
   [YUKIMARU]: yukimaru, [YUKIMARU_WALL]: yukimaruWall, [PEN]: pen, [EGG_SPIDER]: eggSpider,
   [LEON]: leon, [WAMU]: wamu,
+  [MECHA_KNUCKLES]: createMechaKnuckles,
 };

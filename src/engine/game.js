@@ -279,6 +279,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     bossDefeated(x, y) { tasks.add(createBossCapsule(x, y, anims, state.level >> 1), 0x2000); },
     // the capsule opens: the clock and the rings stop as at the goal (STAGE_FLAG__ACT_START and STAGE_FLAG__2)
     stopStage() { state.clockStopped = true; state.ringsStopped = true; },
+    // Mecha Knuckles' arena: rising scattered rings bounce off ceilings too, until the act starts over
+    scatterOffCeilings() { scatter.ceilings = true; },
     random,
     get frameCount() { return state.frameCount; },
     // gPseudoRandom set (the Egg Ball sets it to gFrameCount)
@@ -310,6 +312,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     stopSound: song => sound.stop(song),
     fadeOut: (player, speed) => sound.fadeOut(player, speed),
     playSoundPitched: (song, pitch) => sound.playPitched(song, pitch),
+    playSoundOrChange: song => sound.playOrChange(song),
     freezeCamera() { state.cam.freeze = CAMERA.spinDashFreeze; },
     // the camera stops where it is, until the act starts over
     stopCamera() { state.cam.speedX = 0; state.cam.speedY = 0; },
@@ -344,12 +347,13 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     trickEffect(kind) {
       tasks.add(kind === 'spin' ? spinEffect(state.trickArt) : boundTrail(state.trickArt, state.trail), TRICK_FX_PRIORITY);
     },
-    // brake dust stays where it appeared, flipped by the game's random numbers
-    spawnBrakeDust() {
+    // brake dust stays where it appeared, flipped by the game's random numbers (CreateBrakingDustEffect)
+    brakeDust(x, y) {
       if (state.effects.filter(e => e.kind === 'brake').length >= MAX_BRAKE_DUST) return;
       const r = random();
-      spawn('brake', 'brakeDust', player.x, feetY(), (r & 0x400) !== 0, (r & 0x800) !== 0);
+      spawn('brake', 'brakeDust', x, y, (r & 0x400) !== 0, (r & 0x800) !== 0);
     },
+    spawnBrakeDust() { world.brakeDust(player.x, feetY()); },
     // spin dash dust follows Sonic's feet while he charges, bigger while the charge is above 2.0
     spawnDashDust() { spawn('dash', 'dashDust', player.x, feetY(), player.facing > 0); },
     // the insta-shield's flash follows Sonic, facing the way he faced when it started

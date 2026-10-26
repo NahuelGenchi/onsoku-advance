@@ -53,6 +53,7 @@ export function createScatter(anims) {
       this.ceilings = false;
       rings = Array.from({ length: SLOTS }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, layer: 0, shown: false }));
       setAnim(anim, 'ring', true);
+      this.ceilings = false;
     },
 
     /** InitScatteringRings: up to 48 rings from (x, y), in the free slots; the rest are lost. */

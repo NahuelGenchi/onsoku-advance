@@ -12,7 +12,7 @@
 // just before its place in the list (the last of its priority, say) only runs from the next frame.
 
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
-import { createSpring } from './springs.js';
+import { createSpring, createHidingSpring } from './springs.js';
 import { createSpikes } from './spikes.js';
 import { ENEMIES } from './enemies.js';
 import { createItemBox } from './itembox.js';
@@ -74,6 +74,8 @@ import { createLift } from './lifts.js';
 import { createRunWheel } from './runwheels.js';
 import { createUpdraft } from './updrafts.js';
 import { createIronBall } from './ironballs.js';
+import { createTube as createRollTube } from './tubes.js';
+import { createHangBar } from './hangbars.js';
 
 export const OBJECTS = 0x2000;   // the priority of the entities and of most tasks they make
 
@@ -202,7 +204,7 @@ function interactable(e, slot, anims, ctx, level, zone) {
   const def = createSpring(e) ?? createSpikes(e);
   return def ? objectTask(def, slot, anims) : createHidingSpikes(e, slot, anims) ?? createPlatform(e, slot, anims) ?? createBoulder(e, slot, anims) ?? createIceBlock(e, slot, anims) ?? createBreakableWall(e, slot, anims) ?? createMovingSpring(e, slot, anims) ?? createSquarePlatform(e, slot, anims) ?? createSlowPlatform(e, slot, anims) ?? createFerrisWheel(e, slot, anims) ?? createLavaPlatform(e, slot, anims) ?? createWaterfall(e, slot, anims, ctx)
     ?? createBooster(e, slot, anims) ?? createCheckpoint(e, slot, anims, ctx) ?? createWallPole(e, slot, anims) ?? createGrindRail(e, slot)
-    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims) ?? createMiniLoop(e, slot)
+    ?? createRamp(e, slot) ?? createHalfPipe(e, slot) ?? createSlide(e, anims, zone) ?? createMiniLoop(e, slot)
     ?? createWaterBridge(e, slot, anims) ?? createBridgeSplash(e, slot, anims) ?? createShrub(e, slot, anims)
     ?? createSpecialSpring(e, slot, anims) ?? createHookRail(e, slot, anims) ?? createSecurityGate(e, slot, anims)
     ?? createConveyor(e, slot, ctx) ?? createSteamExhaust(e, slot, anims) ?? createSwingingHook(e, slot, anims)
@@ -215,6 +217,7 @@ function interactable(e, slot, anims, ctx, level, zone) {
     ?? createCarousel(e, slot, anims) ?? createSnow(e, slot, ctx) ?? createAirBubbles(e, slot, anims) ?? createSkatingStone(e, slot, anims, ctx)
     ?? createTorch(e, slot) ?? createBoulderSpawner(e, slot, anims) ?? createFloat(e, slot) ?? createLift(e, slot, anims)
     ?? createRunWheel(e, slot, anims) ?? createUpdraft(e, slot, anims) ?? createIronBall(e, slot, anims)
+    ?? createRollTube(e, slot) ?? createHidingSpring(e, slot, anims) ?? createHangBar(e, slot)
     ?? (e.kind === STAGE_GOAL ? createGoal(e, slot, anims) : standIn(e, slot));
 }
 

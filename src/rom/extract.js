@@ -55,6 +55,10 @@ export const SONIC_ANIMATIONS = {
   breathe: [17, 0],
   // spinning in a whirlwind (charState 37)
   float: [42, 0],
+  // taken aback as Mecha Knuckles wakes up (charState 39)
+  react: [24, 0],
+  // hanging from a hang bar, still (charState 35) and moving along it (36)
+  hang: [41, 0], hangMove: [41, 1],
 };
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -166,8 +170,11 @@ export const STONE_ANIMATIONS = {
   547: { skatingStone: 0 }, 548: { stoneDebrisLarge: 0 }, 549: { stoneDebrisSmall: 0 },
   529: { iceStone: 0 }, 553: { iceStoneDebrisLarge: 0 }, 554: { iceStoneDebrisSmall: 0 },
 };
-// the speed boosters (471): flat, on a slight slope up to the right, and up to the left
-export const BOOSTER_ANIMATIONS = { 471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 } };
+// the speed boosters (471): flat, on a slight slope up to the right, and up to the left; and on a steep slope
+export const BOOSTER_ANIMATIONS = {
+  471: { booster: 0, boosterSlightRight: 1, boosterSlightLeft: 2 },
+  571: { boosterSteep: 0 }, 570: { boosterSteep2: 0 },   // steep, turned counter-clockwise and clockwise
+};
 // Angel Island's torches (558)
 export const TORCH_ANIMATIONS = { 558: { torch: 0 } };
 // the checkpoints (452): waiting, spinning as Sonic passes (its script starts song 169, which the game plays,
@@ -279,6 +286,22 @@ export const UPDRAFT_ANIMATIONS = { 564: { debrisA: 0 }, 565: { debrisB: 0 }, 56
 // the ring all rings share (animation 707) and the sparkle left where one is collected (708); the sparkle's
 // script starts song 117 itself, which the game plays (src/engine/game.js)
 export const RING_ANIMATIONS = { ring: [707, 0], ringSparkle: [708, 0] };
+// each boss's animations, by animation, for the act that has it (levels.js `boss`)
+export const LEVEL_BOSS_ANIMATIONS = {
+  // Mecha Knuckles (boss_5_mecha_knuckles.c): its first phase (631–643) and second (644–657), the rocket and the
+  // parts it breaks into, the Egg Mobile (693) with Eggman in it (694), and the explosions it and its rocket leave
+  mechaKnuckles: {
+    631: { mkActivate: 0, mkActivateEnd: 1 }, 632: { mkIdle: 0 }, 634: { mkHit: 0 }, 635: { mkGround: 0 },
+    636: { mkSpin: 0 }, 637: { mkSpinDash: 0 }, 638: { mkGlide: 0 }, 640: { mkLand: 0, mkLandEnd: 1 }, 642: { mkCover: 0 },
+    643: { mkPunch: 0, mkPunchEnd: 1 }, 644: { mkIdleB: 0 }, 646: { mkHitB: 0 }, 648: { mkSpinB: 0 }, 649: { mkSpinDashB: 0 },
+    650: { mkGlideB: 0 }, 652: { mkLandB: 0, mkLandEndB: 1 }, 654: { mkCoverB: 0 }, 655: { mkLaunch: 0, mkLaunchEnd: 1 },
+    656: { mkRocket: 0 }, 657: { mkDefeated: 0, mkDefeatedEnd: 1 }, 658: { mkPart0: 0, mkPart1: 1, mkPart2: 2, mkPart3: 3, mkPart4: 4 },
+    693: { eggMobile: 0, eggMobileEnd: 1 }, 694: { eggmanSeated: 3, eggmanTurn: 6, eggmanLaugh: 9 },
+    611: { explosion: 0 },
+  },
+};
+const bossSprites = boss => Object.fromEntries(Object.entries(LEVEL_BOSS_ANIMATIONS[boss] ?? {})
+  .flatMap(([anim, variants]) => Object.entries(variants).map(([name, v]) => [name, [Number(anim), v]])));
 // the weaker up springs are yellow: they skip the animation's red palette (33) and draw with sprite
 // palette 36 in the next OBJ palette slot
 const YELLOW_SPRING_PALETTE = 36;
@@ -292,7 +315,8 @@ const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmal
   'capsuleSmall', 'capsuleShell', 'animalRobin', 'animalParrot', 'eggPressSpring', 'eggPressBase', 'eggBallStarDisc',
   'stoneDebrisSmall', 'stoneDebrisLarge', 'iceStoneDebrisSmall', 'iceStoneDebrisLarge',
   'bubblesSmall', 'bubblesGroup', ...[0, 1, 2, 3, 4, 5].map(n => `drownCountdown${n}`),
-  'eggSpiderPart', 'eggSpiderLeg']);
+  'eggSpiderPart', 'eggSpiderLeg',
+  'mkRocket', 'mkPart0', 'mkPart1', 'mkPart2', 'mkPart3', 'mkPart4']);
 // the sprite palette that fills the whole OBJ palette when an act with water starts, and that the colours
 // under water are made from (LoadPalette423Anim, InitWaterPalettes)
 const UNDERWATER_OBJ_PALETTE = 423;
@@ -326,7 +350,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   const levels = Object.keys(LEVELS).map(Number).filter(l => l >= level && LEVELS[l].zone === info.zone).sort((a, b) => a - b);
   // the zone's water, which its acts share
   const water = levels.map(l => LEVELS[l].water).find(Boolean);
-  const sprites = extractSprites(rom, tables, water, Object.assign({}, ...levels.map(l => LEVELS[l].sprites ?? {})));
+  const sprites = extractSprites(rom, tables, water, Object.assign({}, ...levels.map(l => ({ ...LEVELS[l].sprites, ...bossSprites(LEVELS[l].boss) }))));
   const acts = [];
   for (const l of levels) {
     const act = levelInfo(l);

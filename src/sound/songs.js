@@ -87,4 +87,6 @@ export const SONG = {
   RUN_WHEEL_SLOW: 212,     // SE_RUN_WHEEL_A, B and C: a run wheel turning, by its speed
   RUN_WHEEL_MEDIUM: 213,
   RUN_WHEEL_FAST: 214,
+  ROCKET: 200,             // SE_200: Mecha Knuckles' rocket, stopped as it goes
+  MUD_SLIDE: 201,          // SE_201: Angel Island's forced slide takes Sonic
 };

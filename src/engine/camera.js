@@ -8,7 +8,7 @@
 import { SCREEN_W, SCREEN_H, CAMERA as C, RUSH_BOOST as R } from './constants.js';
 
 const centreY = p => Math.floor(p.y);
-// how far the widescreen view slides in a frame toward a boss's arena (viewOf)
+// how far the widescreen view slides in a frame into a boss's arena and out of it (viewOf)
 const ARENA_SLIDE = 4;
 
 // starts with Sonic centred horizontally and his body 84px from the top, not yet kept inside the act
@@ -24,7 +24,7 @@ export function createCamera(p, terrain) {
     // the most it moves in a frame (unk8, unkC)
     speedX: C.maxSpeedX, speedY: C.maxSpeedY,
     // a boss's arena, { minX, maxX, minY, maxY }, its walls in the act, from when a boss starts closing the bounds
-    // in on it (bosses.js); only the widescreen view reads it
+    // in on it (bosses.js, or the boss's own code) until they open again (null); only the widescreen view reads it
     arena: null,
   };
   cam.targetX = cam.x; cam.targetY = cam.y;
@@ -115,34 +115,45 @@ export function updateCamera(cam, p) {
  * What a view of w × h px shows around the camera (the widescreen view; 240 × 160 is the original screen): the
  * original screen's area kept inside the act, as the renderer draws it, with as much around it as fits inside
  * the act too, then moved by a screen shake. `x` and `y` are its top left corner in the act (`bx` and `by`
- * before the shake).
+ * before the shake, `cx` and `cy` the original screen's).
  * In a boss's arena it shows nothing past the arena's walls, except where the original screen itself is:
  * `clip` is then [left, top, right, bottom], what of the view the act shows, with black around it (null for
  * all of it), and `edges` the same in the act. An arena narrower or shorter than the view sits in its middle.
- * From `prev`, the view the frame before, the view and the black's edges slide there at most ARENA_SLIDE px a
- * frame.
+ * From `prev`, the view the frame before, the view and the black's edges keep up with where they are going as
+ * far as the camera moved, and close the rest at most ARENA_SLIDE px a frame, into an arena, as its walls move
+ * and out of it again once they are gone (`tx`, `ty` and `targets`, where they were going).
  */
 export function viewOf(cam, w = SCREEN_W, h = SCREEN_H, prev = null) {
   const cx = Math.min(Math.max(Math.floor(cam.x) - cam.shakeX, 0), cam.maxX), cy = Math.min(Math.max(Math.floor(cam.y) - cam.shakeY, 0), cam.maxY);
   let x = Math.max(0, Math.min(cx - ((w - SCREEN_W) >> 1), cam.maxX + SCREEN_W - w));
   let y = Math.max(0, Math.min(cy - ((h - SCREEN_H) >> 1), cam.maxY + SCREEN_H - h));
-  const { arena: a } = cam;
-  let clip = null, edges = null;
+  const { arena: a } = cam, was = prev && prev.w === w && prev.h === h ? prev : null;
+  if (!a && !was?.edges) return { x: x + cam.shakeX, y: y + cam.shakeY, w, h, clip: null, edges: null, bx: x, by: y, cx, cy };
+  // the walls, moved out to the original screen's edges where it is past them; out of an arena, none
+  let walls = [-Infinity, -Infinity, Infinity, Infinity];
   if (a) {
-    // the walls, moved out to the original screen's edges where it is past them
-    edges = [Math.min(a.minX, cx), Math.min(a.minY, cy), Math.max(a.maxX, cx + SCREEN_W), Math.max(a.maxY, cy + SCREEN_H)];
+    walls = [Math.min(a.minX, cx), Math.min(a.minY, cy), Math.max(a.maxX, cx + SCREEN_W), Math.max(a.maxY, cy + SCREEN_H)];
     const place = (v, lo, hi, size) => (hi - lo < size ? lo - ((size - (hi - lo)) >> 1) : Math.max(lo, Math.min(v, hi - size)));
-    x = place(x, edges[0], edges[2], w); y = place(y, edges[1], edges[3], h);
-    if (prev && prev.w === w && prev.h === h) {
-      const slide = (from, to) => from + Math.max(-ARENA_SLIDE, Math.min(to - from, ARENA_SLIDE));
-      const was = prev.edges ?? [prev.bx, prev.by, prev.bx + w, prev.by + h];
-      x = slide(prev.bx, x); y = slide(prev.by, y);
-      edges = edges.map((e, i) => slide(was[i], e));
-    }
-    // the original screen is always in the view, and never black
-    x = Math.max(cx + SCREEN_W - w, Math.min(x, cx)); y = Math.max(cy + SCREEN_H - h, Math.min(y, cy));
-    edges = [Math.min(edges[0], cx), Math.min(edges[1], cy), Math.max(edges[2], cx + SCREEN_W), Math.max(edges[3], cy + SCREEN_H)];
-    clip = [Math.max(edges[0] - x, 0), Math.max(edges[1] - y, 0), Math.min(edges[2] - x, w), Math.min(edges[3] - y, h)];
+    x = place(x, walls[0], walls[2], w); y = place(y, walls[1], walls[3], h);
   }
-  return { x: x + cam.shakeX, y: y + cam.shakeY, w, h, clip, edges, bx: x, by: y };
+  const tx = x, ty = y;
+  const slide = (from, to) => from + Math.max(-ARENA_SLIDE, Math.min(to - from, ARENA_SLIDE));
+  // how far toward where it is going now from where it was going: no more than the camera moved
+  const keep = (to, before, moved) => (before === undefined ? 0 : Math.max(-Math.abs(moved), Math.min(to - before, Math.abs(moved))));
+  if (was) { x = slide(was.bx + keep(tx, was.tx, cx - was.cx), tx); y = slide(was.by + keep(ty, was.ty, cy - was.cy), ty); }
+  // the original screen is always in the view, and never black
+  x = Math.max(cx + SCREEN_W - w, Math.min(x, cx)); y = Math.max(cy + SCREEN_H - h, Math.min(y, cy));
+  // the black's edges go to the walls, or to the view's own past them
+  const targets = [Math.max(walls[0], x), Math.max(walls[1], y), Math.min(walls[2], x + w), Math.min(walls[3], y + h)];
+  let edges = targets;
+  if (was) {
+    const from = was.edges ?? [was.bx, was.by, was.bx + w, was.by + h];
+    edges = targets.map((e, i) => slide(from[i] + keep(e, was.targets?.[i], i & 1 ? cy - was.cy : cx - was.cx), e));
+  }
+  edges = [Math.min(edges[0], cx), Math.min(edges[1], cy), Math.max(edges[2], cx + SCREEN_W), Math.max(edges[3], cy + SCREEN_H)];
+  const clip = [Math.max(edges[0] - x, 0), Math.max(edges[1] - y, 0), Math.min(edges[2] - x, w), Math.min(edges[3] - y, h)];
+  const view = { x: x + cam.shakeX, y: y + cam.shakeY, w, h, clip, edges, bx: x, by: y, cx, cy, tx, ty, targets };
+  // out of an arena, the black is gone once it has slid off the view's sides, and the view is where it goes
+  if (!a && clip[0] === 0 && clip[1] === 0 && clip[2] === w && clip[3] === h && x === tx && y === ty) Object.assign(view, { clip: null, edges: null });
+  return view;
 }

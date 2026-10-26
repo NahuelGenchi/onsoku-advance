@@ -11,7 +11,7 @@
 // copies run past the V-blank; the screens ported here never do, on the recordings they are checked against,
 // so that isn't modelled.
 
-import { REG, SCREEN_W } from './video.js';
+import { REG, SCREEN_W, SCREEN_H } from './video.js';
 
 export const FLAGS = {
   UPDATE_BG_PALETTES: 0x1, UPDATE_OBJ_PALETTES: 0x2, HBLANK_COPY: 0x4, KEEP_HBLANK_BUFFER: 0x20,
@@ -61,8 +61,10 @@ export function createEngine(video, rom, sound) {
     // for the widescreen view (video.js): how each layer goes on past the screen's edges, as the screens set it
     // with their layers (null: wrapping, as the hardware does); every sprite piece DisplaySprite puts out, where
     // it really is; a window effect's true shape, for each half of the H-blank buffer and each window; and the
-    // H-blank buffer's scroll values before they are cut to the registers' 9 bits (NaN where not known)
-    wideLayers: [null, null, null, null], wideOam: [], wideWindows: [[null, null], [null, null]],
+    // H-blank buffer's scroll values before they are cut to the registers' 9 bits (NaN where not known). A screen
+    // laid out for the original screen alone, with nothing of its own past its edges, sets wideBars: the view
+    // is then black around it.
+    wideLayers: [null, null, null, null], wideOam: [], wideWindows: [[null, null], [null, null]], wideBars: false,
     hblankTrue: new Float64Array(iwram.byteLength >> 1).fill(NaN),
   };
   const gfxQueue = new Array(GFX_QUEUE).fill(null), bgQueue = new Array(BG_QUEUE).fill(null);
@@ -276,7 +278,7 @@ export function createEngine(video, rom, sound) {
   }
   const copyHBlankEntry = at => copyHBlankLine(e.hblankTarget, at, e.hblankSize);
   let hdma = null;   // this frame's H-blank DMA: where it starts reading
-  let wide = { layers: e.wideLayers, sprites: [], windows: null };   // what the widescreen view draws this frame by
+  let wide = { layers: e.wideLayers, sprites: [], windows: null, bars: false };   // what the widescreen view draws this frame by
 
   // --- keys (core.c: GetInput) ---------------------------------------------------------------------------------
   function readKeys() {
@@ -322,6 +324,7 @@ export function createEngine(video, rom, sound) {
       layers: e.wideLayers.slice(),
       sprites: e.wideOam.sort((p, q) => p.order - q.order),   // as processOam orders them
       windows: target === REG.WIN0H ? [shapes[0], hdma.size === 4 ? shapes[1] : null] : target === REG.WIN1H ? [null, shapes[1]] : null,
+      bars: e.wideBars,
     };
     e.wideOam = [];
     copyGraphics();
@@ -342,18 +345,28 @@ export function createEngine(video, rom, sound) {
   };
   /** Draws the frame into `out` (240 × 160 RGBA words), with the H-blank DMA between its lines; `probe(y)`, if
    *  given, sees the registers as each line is drawn. With `view` ({ w, h }), the widescreen view instead,
-   *  w × h words (video.js drawFrame). */
+   *  w × h words (video.js drawFrame), or the original screen in its middle with black around it (wideBars). */
   e.draw = (out, probe, view) => {
     probe?.(0);
     let at = hdma?.at;
-    video.drawFrame(out, (hdma || probe) && (y => {
+    const bars = view && wide.bars;
+    video.drawFrame(bars ? screen : out, (hdma || probe) && (y => {
       if (hdma) {
         copyHBlankLine(hdma.target, at, hdma.size);
         at += hdma.size;
       }
       if (probe && y < 159) probe(y + 1);
-    }), view && wideView(view));
+    }), view && !bars && wideView(view));
+    if (bars) letterbox(out, view);
   };
+
+  // the original screen as drawn, put in the middle of a view of w × h with black around it
+  const screen = new Uint32Array(SCREEN_W * SCREEN_H);
+  function letterbox(out, { w, h }) {
+    const ox = (w - SCREEN_W) >> 1, oy = (h - SCREEN_H) >> 1;
+    out.fill(0xFF000000);
+    for (let y = 0; y < SCREEN_H; y++) out.set(screen.subarray(y * SCREEN_W, (y + 1) * SCREEN_W), (y + oy) * w + ox);
+  }
 
   // the widescreen view of this frame. A sprite that slides in from past the screen's right edge (its wideFrom
   // is its x on the first frame it shows) slides in from past the view's edge instead: faster across the

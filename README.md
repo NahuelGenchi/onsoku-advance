@@ -163,6 +163,8 @@ Two optional additions on top of the original game. Both are off until you turn 
 
 See more of the game around the original screen, from the opening logos on, up to 368 × 208, filling the window at the same whole-step scale. The outline marks the Game Boy Advance's screen: the game plays exactly as it does there. Press <kbd>V</kbd> or use the *Widescreen* button in the help panel.
 
+Past the original screen, the view only shows what the game really has there. In an act that is more of the act, as far as the original's camera can go: the view stays inside the act's edges and inside a boss's arena. Where the original has nothing more to show, the view is black, like the frame around the Game Boy Advance's screen: beside an arena narrower than the view, and either side of a screen made for 240 × 160 alone. A picture's edge is never stretched or repeated to fill the space.
+
 ### Sonic Rush boost
 
 <div align="center">

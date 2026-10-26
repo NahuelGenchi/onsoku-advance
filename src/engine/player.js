@@ -477,11 +477,14 @@ const boostTier = rings => {
 // the meter full for the ring count, it starts, with its particles, its sound and the camera falling behind
 // (game.js boostModeStarted). In the air, or slower, the meter empties, as it does while the Rush boost is
 // held, which keeps to its own rules. In Boost Mode the meter stays full on the ground, and slower than
-// 4.5 px a frame there it ends.
+// 4.5 px a frame there it ends. Once the act is over (world.actOver: past the goal, or a boss beaten) Sonic
+// runs on his own, so the meter stays empty and Boost Mode ends where it was running: Sonic Advance 2 has no
+// such check, as Sonic brakes to a stop after its goal and Boost Mode ends by itself there.
 function boostModeState(p, world) {
   p.boostTier = boostTier(world.ringCount);
   const full = B.threshold[p.boostTier];
-  if (p.boostMode) {
+  if (world.actOver) { p.boostMode = false; p.boostMeter = 0; }
+  else if (p.boostMode) {
     if (p.air) return;
     p.boostMeter = full;
     if (Math.abs(p.gsp) < B.minSpeed) { p.boostMode = false; p.boostMeter = 0; }
@@ -646,7 +649,8 @@ function deadStep(p, world) {
 /**
  * Advances the player one frame. `world` provides tick, cameraY, terrain, died(), lifeLost(), spawnDashDust(),
  * spawnInstaShield(), freezeCamera(), playSound(song) and playSoundPitched(song, pitch), for the Rush boost
- * rush (its setting) and boosted(), and for Boost Mode boostMode (its setting), ringCount and boostModeStarted().
+ * rush (its setting) and boosted(), and for Boost Mode boostMode (its setting), ringCount, boostModeStarted()
+ * and actOver (true once the act's end has taken Sonic's controls; absent before an act can end).
  */
 export function stepPlayer(p, input, world) {
   const left = input.left, right = input.right, sideways = left || right;

@@ -71,7 +71,7 @@ function side(o, p, world) {
   if (!face) return false;
   const dir = o.kind === SPRING_LEFT ? -1 : 1;
   if (face === dir) {
-    if (world.boostMode && !p.air && o.speed > B.sideSpring) enterBoostMode(p);
+    if (world.boostMode && !world.actOver && !p.air && o.speed > B.sideSpring) enterBoostMode(p);
     p.xsp = p.gsp = o.speed * dir;
     endAttack(p);
     p.state = p.curled ? 'spin' : 'walk';

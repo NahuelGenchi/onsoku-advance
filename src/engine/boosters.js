@@ -34,7 +34,7 @@ export function createBooster(e, slot, anims) {
         if (!KEPT.has(p.state)) p.state = 'walk';
         p.facing = dir;
         if (p.gsp * dir < BOOSTED) p.gsp = p.xsp = BOOST * dir;
-        if (ctx.world.boostMode) enterBoostMode(p);
+        if (ctx.world.boostMode && !ctx.world.actOver) enterBoostMode(p);
       }
       if (offCam(e.x, e.y, ctx.cam)) { slot.live = null; return false; }
       animate(o, anims);

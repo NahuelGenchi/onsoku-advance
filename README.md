@@ -225,6 +225,9 @@ Its look and sound are Sonic Advance 2's own, so it also needs your **Sonic Adva
   ground, put him straight into Boost Mode, without the sound or the sparks, as Sonic Advance 2's do.
 - **End.** It ends when he slows below 4.5 px a frame on the ground, when he is hurt, and when the act starts
   over.
+- **The act's end.** Past the goal, or once a boss is beaten, Sonic runs on his own, so the meter stays empty
+  and Boost Mode doesn't start, nor from a booster or a spring. If it was already on, it ends there, with its
+  afterimages, so his run to the results is Sonic Advance's own.
 - **Afterimages.** While it lasts, three copies of Sonic follow him, each playing his animation as it was 2, 4
   or 6 frames before, in Sonic Advance 2's boost palette, just behind him. Only one of them is drawn each frame,
   in turn, as in Sonic Advance 2. With the [Sonic Rush boost](#sonic-rush-boost) on as well, they also show
@@ -233,7 +236,9 @@ Its look and sound are Sonic Advance 2's own, so it also needs your **Sonic Adva
   of Sonic Advance's sound.
 
 Where it differs from Sonic Advance 2: outside Boost Mode's own numbers, Sonic keeps Sonic Advance's running and
-animations; and the start sound has a sound engine of its own, so it never cuts off one of Sonic Advance's sounds.
+animations; the start sound has a sound engine of its own, so it never cuts off one of Sonic Advance's sounds;
+and it stops at the act's end, which Sonic Advance 2 never needs, as Sonic brakes to a stop after its goal while
+Sonic Advance has him run on at full speed.
 
 </details>
 

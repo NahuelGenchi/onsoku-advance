@@ -244,7 +244,7 @@ export function createRenderer(canvas, assets) {
   // c + (255 - c) × bldY / 16, rounded down. The window's edges are WIN0H and WIN0V's, kept to the screen as
   // mGBA keeps them, and one that wraps covers both ends. In the widescreen view the original screen sits in
   // the middle, and a window that reaches its edge goes on to the view's.
-  function windowRange(reg, size, extra) {
+  function brightenRange(reg, size, extra) {
     let start = reg >> 8, end = reg & 0xFF;
     if (start > size && start > end) start = 0;
     if (end > size) { end = size; if (start > size) start = size; }
@@ -258,7 +258,7 @@ export function createRenderer(canvas, assets) {
     if (!win0 || (bldCnt & 0xC0) !== 0x80 || !(bldCnt & 0x3F) || bldY === 0) return;
     const inside = (winIn & 0x20) !== 0, outside = (winOut & 0x20) !== 0;
     if (!inside && !outside) return;
-    const y16 = Math.min(bldY, 16), h = windowRange(win0h, SCREEN_W, (W - SCREEN_W) >> 1), v = windowRange(win0v, SCREEN_H, (H - SCREEN_H) >> 1);
+    const y16 = Math.min(bldY, 16), h = brightenRange(win0h, SCREEN_W, (W - SCREEN_W) >> 1), v = brightenRange(win0v, SCREEN_H, (H - SCREEN_H) >> 1);
     const img = ctx.getImageData(0, 0, W, H), d = img.data;
     for (let y = 0; y < H; y++) {
       const rowIn = within(y, v);

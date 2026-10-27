@@ -1,123 +1,109 @@
-// The game page's start: a card for each ROM the game reads, the Sonic Advance ROM it runs on and the two its
-// optional extras take from. A ROM is chosen or dropped on its card, or dropped anywhere on the page, where it
-// goes to the card of the game its header names. Each is read as soon as it is chosen, and kept in this browser
-// if the player wants, so Play starts the game straight away.
+// The game page's start: a row for each ROM the game reads, the Sonic Advance ROM it runs on and the two its
+// optional extras take from, with the switches for those extras under it. A ROM is chosen on its row or dropped
+// on it, or dropped anywhere on the page, where it goes to the row of the game its header names. Each is read as
+// soon as it is chosen, and kept in this browser if the player wants, so Play starts the game straight away.
 
 import { loadRememberedRom, rememberRom, forgetRom } from './rom-store.js';
+import { bindController } from './setup-controller.js';
 
 const MAX_BYTES = 512 * 1024 * 1024;   // the largest Nintendo DS cartridge; a Game Boy Advance one is 32 MB
 
+// pixel art on the grid of the page's font, Monocraft: a unit is one of its pixels, 2 px at its 18 px size
+const pixels = (name, width, height, path) =>
+  `<svg class="${name}" viewBox="0 0 ${width} ${height}" width="${width * 2}" height="${height * 2}" shape-rendering="crispEdges" aria-hidden="true"><path d="${path}" fill="currentColor" fill-rule="evenodd"/></svg>`;
 const ICONS = {
-  gba: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h12.6l6.9 6.9v14.6a2.5 2.5 0 0 1-2.5 2.5h-17A2.5 2.5 0 0 1 5 25.5z" fill="currentColor" fill-opacity=".18" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><rect x="9" y="9" width="14" height="10" rx="1.6" fill="currentColor"/><path d="M10 24.5h1.6M13.5 24.5h1.6M17 24.5h1.6M20.5 24.5h1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,
-  nds: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 5.5A1.5 1.5 0 0 1 9.5 4h10.3L24 8.2v18.3a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 8 26.5z" fill="currentColor" fill-opacity=".18" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M11.5 7.5v2.6M14.5 7.5v2.6M17.5 7.5v2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="11" y="13" width="10" height="10" rx="1.4" fill="currentColor"/></svg>`,
-  upload: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5V4.5m0 0-4.5 4.5M12 4.5 16.5 9M4.5 15v2.5A2 2 0 0 0 6.5 19.5h11a2 2 0 0 0 2-2V15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  check: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7.5 12.4 3 3 6-6.4" fill="none" stroke="#062814" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  alert: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 7v6.2M12 16.6v.2" fill="none" stroke="#2a0606" stroke-width="2.4" stroke-linecap="round"/></svg>`,
-  lock: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2" fill="currentColor" fill-opacity=".22" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`,
-  play: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.6v12.8a1 1 0 0 0 1.5.86l10.4-6.4a1 1 0 0 0 0-1.72L9.5 4.74A1 1 0 0 0 8 5.6z" fill="currentColor"/></svg>`,
+  empty: pixels('mark-empty', 7, 7, 'M0 0h7v7H0zM1 1v5h5V1z'),
+  reading: pixels('mark-reading', 7, 7, 'M0 0h7v7H0zM1 1v5h5V1zM2 2h3v3H2z'),
+  ready: pixels('mark-ready', 7, 7, 'M5 1h2v1H5zM4 2h2v1H4zM0 3h2v1H0zM3 3h2v1H3zM1 4h3v1H1zM2 5h1v1H2z'),
+  play: pixels('play-icon', 4, 7, 'M0 0h1v7H0zM1 1h1v5H1zM2 2h1v3H2zM3 3h1v1H3z'),
+  drop: pixels('drop-icon', 7, 7, 'M3 0h1v5H3zM1 2h1v1H1zM5 2h1v1H5zM2 3h1v1H2zM4 3h1v1H4zM0 5h1v1H0zM6 5h1v1H6zM0 6h7v1H0z'),
 };
 
 const escape = text => String(text).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
-const megabytes = bytes => `${Math.round(bytes / (1024 * 1024))} MB`;
 // waits for the page to draw what was just set, or a moment when it isn't drawing (a hidden tab)
 const drawn = () => new Promise(resolve => { requestAnimationFrame(() => setTimeout(resolve)); setTimeout(resolve, 100); });
 
 /**
- * Renders the screen into `host`. Each of `slots` is { key, store, title, platform, icon, color, required, role,
- * accept, kind, claims(buffer), read(buffer, progress), unload(), extras }: `claims` says whether a file's header
- * names this game; `read` reads the ROM and resolves to a line about it (its region), or throws with a message
- * for the player, keeping the ROM it had; `unload` lets go of that one; `extras` are its options, each { label,
- * name, hint, get(), set(on), auto }, where `name` is how the line under Play names it and `auto` turns it on
- * when the ROM is chosen. `onPlay()` starts the game once every required ROM is read.
+ * Renders the screen into `host`. Each of `slots` is { key, store, title, platform, required, accept, claims(buffer),
+ * read(buffer, progress), unload(), extras }: `claims` says whether a file's header names this game; `read` reads
+ * the ROM and resolves to a line about it (its region), or throws with a message for the player, keeping the ROM
+ * it had; `unload` lets go of that one; `extras` are its options, each { label, hint, key, get(), set(on), auto },
+ * where `key` is the key that switches it in the game and `auto` turns it on when the ROM is chosen. `onPlay()`
+ * starts the game once every required ROM is read.
  */
 export function createRomSetup(host, { heading, intro, slots, onPlay }) {
   host.innerHTML = `
     <div class="setup">
       <header class="setup-head">
-        <p class="eyebrow">音速 · Onsoku Advance</p>
+        <div class="setup-top">
+          <p class="setup-brand">音速 Onsoku Advance</p>
+          <div class="pad" data-state="gone"><span class="pad-icon" aria-hidden="true"></span><span class="pad-note" role="status" aria-live="polite"></span></div>
+        </div>
         <h1>${heading}</h1>
         <p class="setup-intro">${intro}</p>
       </header>
-      <ol class="setup-meter" aria-label="Your ROMs">
-        ${slots.map(s => `<li data-for="${s.key}" style="--game: ${s.color}"><span class="dot"></span>${s.title}</li>`).join('')}
-        <li class="count" aria-live="polite"></li>
-      </ol>
-      <div class="setup-cards">${slots.map(card).join('')}</div>
+      <ul class="roms" aria-label="Your ROMs">${slots.map(row).join('')}</ul>
       <div class="setup-play">
-        <button type="button" class="play" disabled>${ICONS.play}<span class="play-label">Play</span><kbd>Enter</kbd></button>
+        <button type="button" class="play" disabled>${ICONS.play}<span>Play</span><kbd>Enter</kbd></button>
         <p class="play-note" aria-live="polite"></p>
       </div>
       <footer class="setup-foot">
-        <label class="remember"><input type="checkbox" checked> Remember these ROMs on this device</label>
-        <p class="privacy">${ICONS.lock}<span>Your ROMs never leave this device: this page reads them in your browser, and only keeps them here if you choose. <button type="button" class="link forget" hidden>Forget the saved ROMs</button></span></p>
+        <label class="remember"><input type="checkbox" checked> Remember on this device</label>
+        <button type="button" class="link forget" hidden>Forget the saved ROMs</button>
       </footer>
-      <div class="setup-drag" aria-hidden="true"><div>${ICONS.upload}<strong>Drop your ROMs</strong><span>Each one goes to its own game</span></div></div>
+      <div class="setup-drag" aria-hidden="true"><div>${ICONS.drop}<span>Drop your ROMs</span><small>Each one goes to its own game</small></div></div>
     </div>`;
 
-  function card(s) {
+  function row(s) {
     const id = `rom-${s.key}`;
     return `
-      <article class="rom" data-slot="${s.key}" data-state="empty" style="--game: ${s.color}" aria-labelledby="${id}-title">
-        <header class="rom-head">
-          <span class="rom-art">${ICONS[s.icon]}</span>
-          <div class="rom-name">
-            <p class="rom-platform">${s.platform}</p>
+      <li class="rom" data-slot="${s.key}" data-state="empty">
+        <div class="rom-main">
+          <span class="rom-mark">${ICONS.empty}${ICONS.reading}${ICONS.ready}</span>
+          <div class="rom-text">
             <h2 id="${id}-title">${s.title}</h2>
+            <p class="rom-detail" id="${id}-detail"></p>
           </div>
-          <span class="rom-tag" data-required="${s.required}">${s.required ? 'Required' : 'Optional'}</span>
-        </header>
-        <p class="rom-role">${s.role}</p>
-        <div class="rom-body">
-          <div class="rom-drop">
-            <span class="rom-drop-icon">${ICONS.upload}</span>
-            <button type="button" class="rom-select" aria-describedby="${id}-hint">Select your file</button>
-            <span class="rom-hint" id="${id}-hint">or drop the ${s.kind} file here</span>
+          <button type="button" class="rom-add" aria-describedby="${id}-title ${id}-detail">Add</button>
+          <div class="rom-actions">
+            <button type="button" class="rom-change" aria-describedby="${id}-title">Change</button>
+            <button type="button" class="rom-remove" aria-label="Remove ${s.title}" title="Remove">×</button>
           </div>
-          <div class="rom-reading" role="progressbar" aria-label="Reading ${s.title}">
-            <span class="rom-progress-text">Reading…</span>
-            <span class="rom-bar"><span></span></span>
-          </div>
-          <div class="rom-ready">
-            <span class="rom-check">${ICONS.check}</span>
-            <div class="rom-file">
-              <strong class="rom-file-name"></strong>
-              <span class="rom-detail"></span>
-            </div>
-            <div class="rom-actions">
-              <button type="button" class="link rom-change">Change</button>
-              <button type="button" class="link rom-remove">Remove</button>
-            </div>
-          </div>
+          <span class="rom-bar" role="progressbar" aria-label="Reading ${s.title}"><span></span></span>
         </div>
         <p class="rom-status" role="status" aria-live="polite"></p>
         ${s.extras.length ? `<ul class="rom-extras">${s.extras.map((e, i) => `
           <li><label class="switch">
             <span class="switch-text"><span class="switch-label">${e.label}</span><span class="switch-hint">${e.hint}</span></span>
+            <kbd title="${e.key} switches it in the game">${e.key}</kbd>
             <input type="checkbox" role="switch" data-extra="${i}">
             <span class="switch-track" aria-hidden="true"><span></span></span>
           </label></li>`).join('')}</ul>` : ''}
         <input type="file" accept="${s.accept}" multiple hidden>
-      </article>`;
+      </li>`;
   }
 
   const $ = sel => host.querySelector(sel);
-  const play = $('.play'), note = $('.play-note'), count = $('.count');
+  const play = $('.play'), note = $('.play-note');
   const remember = $('.remember input'), forget = $('.forget');
-  const cards = Object.fromEntries(slots.map(s => {
+  const rows = Object.fromEntries(slots.map(s => {
     const el = host.querySelector(`.rom[data-slot="${s.key}"]`);
     const q = sel => el.querySelector(sel);
     return [s.key, {
-      slot: s, el, token: 0, saved: false,
-      input: q('input[type=file]'), status: q('.rom-status'), progress: q('.rom-progress-text'),
-      name: q('.rom-file-name'), detail: q('.rom-detail'), extras: [...el.querySelectorAll('[data-extra]')],
-      meter: host.querySelector(`.setup-meter [data-for="${s.key}"]`),
+      slot: s, el, token: 0, saved: false, about: '',
+      input: q('input[type=file]'), status: q('.rom-status'), text: q('.rom-text'), detail: q('.rom-detail'),
+      extras: [...el.querySelectorAll('[data-extra]')],
     }];
   }));
 
+  // the line under a ROM's name: what it is while it's missing, what was read once it's in (while it's being read,
+  // the reading's progress). It wraps after a dot, never before one.
   function setState(c, state) {
     c.el.dataset.state = state;
-    c.meter.dataset.state = state;
     const ready = state === 'ready';
+    const line = parts => parts.filter(Boolean).join(' · ').replaceAll(' · ', '\u00a0· ');
+    if (ready) c.detail.textContent = line([c.about, c.saved && 'remembered']);
+    else if (state === 'empty') c.detail.textContent = line([c.slot.platform, c.slot.required ? 'required' : 'optional']);
     c.extras.forEach((box, i) => { box.disabled = !ready; box.checked = ready && c.slot.extras[i].get(); });
     update();
   }
@@ -127,44 +113,35 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
     c.status.dataset.kind = kind;
   }
 
-  // the Play button, the count and the line under the button
+  // the Play button and the line under it
   function update() {
-    const all = Object.values(cards);
-    const ready = all.filter(c => c.el.dataset.state === 'ready');
+    const all = Object.values(rows);
     const missing = all.filter(c => c.slot.required && c.el.dataset.state !== 'ready');
     const reading = all.some(c => c.el.dataset.state === 'reading');
-    count.textContent = `${ready.length} of ${all.length} ready`;
     play.disabled = missing.length > 0 || reading;
     forget.hidden = !all.some(c => c.saved);
-    if (missing.length) {
-      note.textContent = `Add your ${missing.map(c => c.slot.title).join(' and ')} ROM to play.`;
-      return;
-    }
-    const on = ready.flatMap(c => c.slot.extras.filter(e => e.get()).map(e => e.name));
-    const absent = all.filter(c => !c.slot.required && c.el.dataset.state !== 'ready').map(c => c.slot.title);
-    note.textContent = (reading ? 'Reading… ' : on.length ? `Ready, with ${list(on)}.` : 'Ready to play.')
-      + (absent.length ? ` ${list(absent)} ${absent.length > 1 ? 'are' : 'is'} optional.` : '');
+    note.textContent = reading ? 'Reading…'
+      : missing.length ? `Add your ${list(missing.map(c => c.slot.title))} ROM to play.` : 'Ready to play.';
   }
   const list = items => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`);
 
-  // reads `buffer` into the card's game, resolving to null or what's wrong with it; `store` keeps it in this
+  // reads `buffer` into the row's game, resolving to null or what's wrong with it; `store` keeps it in this
   // browser, `auto` turns its extras on. A ROM it can't read leaves the one it had.
   async function load(c, buffer, name, { store = false, auto = false, saved = false } = {}) {
     const token = ++c.token, had = c.el.dataset.state === 'ready';
     say(c, '');
-    c.progress.textContent = 'Reading…';
+    c.detail.textContent = 'Reading…';
     setState(c, 'reading');
     await drawn();
     try {
       const detail = await c.slot.read(buffer, async text => {
-        if (token === c.token) c.progress.textContent = text;
+        if (token === c.token) c.detail.textContent = text;
         await drawn();
       });
       if (token !== c.token) return null;
-      c.name.textContent = name;
-      c.name.title = name;
+      c.text.title = name;
+      c.about = detail;
       c.saved = saved || (store && await rememberRom(name, buffer, c.slot.store));
-      c.detail.textContent = [detail, megabytes(buffer.byteLength), c.saved ? 'saved on this device' : ''].filter(Boolean).join(' · ');
       if (auto) c.slot.extras.forEach(e => { if (e.auto) e.set(true); });
       setState(c, 'ready');
       return null;
@@ -177,17 +154,17 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
     }
   }
 
-  // a chosen or dropped file: to the card of the game its header names, else to `target` (whose check then says
+  // a chosen or dropped file: to the row of the game its header names, else to `target` (whose check then says
   // what's wrong with it). Resolves to { key, error }: the game it went to and, when it couldn't be read, why.
   async function addFile(file, target, auto, alone) {
-    const into = target && cards[target];
+    const into = target && rows[target];
     const fail = error => { if (into) say(into, error, 'error'); else showNote(error); return { key: null, error }; };
     if (file.size > MAX_BYTES) return fail(`${file.name} is too large to be a Game Boy Advance or Nintendo DS ROM.`);
     const buffer = await file.arrayBuffer();
-    const c = Object.values(cards).find(c => c.slot.claims(buffer)) ?? into;
+    const c = Object.values(rows).find(c => c.slot.claims(buffer)) ?? into;
     if (!c) return fail(`${file.name} isn't Sonic Advance, Sonic Advance 2 or Sonic Rush.`);
     const error = await load(c, buffer, file.name, { store: remember.checked, auto });
-    if (!error && alone && into && into !== c) say(into, `That was ${c.slot.title}, so it went to its own card.`);
+    if (!error && alone && into && into !== c) say(into, `That was ${c.slot.title}, so it went to its own row.`);
     return { key: c.slot.key, error };
   }
   function showNote(text) {
@@ -197,7 +174,7 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
   }
 
   /**
-   * Adds `files`, each to its game's card (`target`'s when its header names none); `auto` turns their extras on.
+   * Adds `files`, each to its game's row (`target`'s when its header names none); `auto` turns their extras on.
    * Resolves to { key, error } for each: the game it went to, and why it couldn't be read when it couldn't.
    */
   async function add(files, target = null, { auto = true } = {}) {
@@ -206,11 +183,13 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
     return results;
   }
 
-  for (const c of Object.values(cards)) {
+  for (const c of Object.values(rows)) {
     const pick = () => c.input.click();
-    c.el.querySelector('.rom-select').addEventListener('click', pick);
+    c.el.querySelector('.rom-add').addEventListener('click', pick);
     c.el.querySelector('.rom-change').addEventListener('click', pick);
-    c.el.querySelector('.rom-drop').addEventListener('click', e => { if (!e.target.closest('button')) pick(); });
+    c.el.querySelector('.rom-main').addEventListener('click', e => {
+      if (c.el.dataset.state === 'empty' && !e.target.closest('button')) pick();
+    });
     c.input.addEventListener('change', () => { const files = [...c.input.files]; c.input.value = ''; add(files, c.slot.key); });
     c.el.querySelector('.rom-remove').addEventListener('click', async () => {
       c.token++;
@@ -218,16 +197,18 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
       c.slot.extras.forEach(e => e.set(false));
       await forgetRom(c.slot.store);
       c.saved = false;
+      c.about = '';
+      c.text.removeAttribute('title');
       setState(c, 'empty');
       say(c, `${c.slot.title} was removed${c.slot.required ? '' : '; its extras are off'}.`);
-      c.el.querySelector('.rom-select').focus();
+      c.el.querySelector('.rom-add').focus();
     });
-    c.extras.forEach((box, i) => box.addEventListener('change', () => { c.slot.extras[i].set(box.checked); update(); }));
+    c.extras.forEach((box, i) => box.addEventListener('change', () => c.slot.extras[i].set(box.checked)));
     c.el.addEventListener('dragover', e => { e.preventDefault(); c.el.classList.add('over'); });
     c.el.addEventListener('dragleave', e => { if (!c.el.contains(e.relatedTarget)) c.el.classList.remove('over'); });
   }
 
-  // files dragged over the page: the overlay, and on a drop each file to its game's card
+  // files dragged over the page: the overlay, and on a drop each file to its game's row
   let depth = 0;
   const hasFiles = e => [...(e.dataTransfer?.types ?? [])].includes('Files');
   addEventListener('dragenter', e => { if (host.hidden || !hasFiles(e)) return; depth++; host.classList.add('dragging'); });
@@ -247,26 +228,30 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
     if (e.key === 'Enter' && !play.disabled && !e.target.closest('button, input, label, a')) { e.preventDefault(); onPlay(); }
   });
   forget.addEventListener('click', async () => {
-    for (const c of Object.values(cards)) {
+    for (const c of Object.values(rows)) {
       await forgetRom(c.slot.store);
-      if (c.saved) c.detail.textContent = c.detail.textContent.replace(' · saved on this device', '');
       c.saved = false;
+      if (c.el.dataset.state === 'ready') setState(c, 'ready');
     }
     update();
     note.textContent = 'The saved ROMs were removed from this browser. The ones above stay until you leave the page.';
   });
 
+  bindController(host, {
+    blocked: el => say(rows[el.closest('.rom').dataset.slot], 'Your browser opens the file list only from the mouse or the keyboard. You can also drop the file here.'),
+  });
+
+  for (const c of Object.values(rows)) setState(c, 'empty');
   // the ROMs kept from an earlier visit, each read again
-  const restored = Promise.all(Object.values(cards).map(async c => {
+  const restored = Promise.all(Object.values(rows).map(async c => {
     const saved = await loadRememberedRom(c.slot.store);
     if (saved && c.el.dataset.state === 'empty') await load(c, saved.buffer, saved.name, { saved: true });
   })).then(() => { if (!play.disabled) play.focus({ preventScroll: true }); });
-  update();
 
   return {
     add, restored,
     /** Shows the extras as they are now (they can also be changed in the game). */
-    refresh() { for (const c of Object.values(cards)) setState(c, c.el.dataset.state); },
-    focus() { (play.disabled ? host.querySelector('.rom[data-state="empty"] .rom-select') : play)?.focus(); },
+    refresh() { for (const c of Object.values(rows)) setState(c, c.el.dataset.state); },
+    focus() { (play.disabled ? host.querySelector('.rom[data-state="empty"] .rom-add') : play)?.focus(); },
   };
 }

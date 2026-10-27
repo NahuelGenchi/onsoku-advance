@@ -164,13 +164,12 @@ const region = code => REGIONS[code[3]] ?? code;
 const MAX_GBA_BYTES = 32 * 1024 * 1024;   // largest Game Boy Advance cartridge
 
 const setup = createRomSetup(picker, {
-  heading: 'Play in your browser',
-  intro: 'Add your ROMs and everything is ready before the game starts: Sonic Advance to play, Sonic Advance 2 and Sonic Rush for the extras they bring. Drop them anywhere on this page, or choose each one below.',
+  heading: 'Insert cartridge',
+  intro: 'Add or drop your ROMs. They never leave this device.',
   slots: [
     {
-      key: 'sa1', store: SA1_ROM, title: 'Sonic Advance', platform: 'Game Boy Advance', icon: 'gba', color: '#4f86ff',
-      required: true, role: 'The game itself: Neo Green Hill Zone act 1, the intro, the music and the sound.',
-      accept: '.gba,.agb,.bin', kind: '.gba', claims: isSonicAdvance,
+      key: 'sa1', store: SA1_ROM, title: 'Sonic Advance', platform: 'Game Boy Advance', required: true,
+      accept: '.gba,.agb,.bin', claims: isSonicAdvance,
       async read(buffer, progress) {
         if (buffer.byteLength > MAX_GBA_BYTES) throw new RomError('This file is too large to be a Game Boy Advance ROM.');
         const assets = await extractAssets(buffer, progress, { level: firstLevel });
@@ -178,26 +177,24 @@ const setup = createRomSetup(picker, {
         return `${assets.info.region} · ${assets.info.version ? 'tested version' : 'untested version'}`;
       },
       unload() { sa1 = null; },
-      extras: [{ label: 'Widescreen view', name: 'the widescreen view', hint: 'More of the game around the original screen · V', get: () => wide, set: setWide }],
+      extras: [{ label: 'Widescreen view', hint: 'See more of the stage', key: 'V', get: () => wide, set: setWide }],
     },
     {
-      key: 'sa2', store: SA2_ROM, title: 'Sonic Advance 2', platform: 'Game Boy Advance', icon: 'gba', color: '#ff8a3d',
-      required: false, role: 'Its Boost Mode with the afterimages, and its mid-air tricks, on top of the original game.',
-      accept: '.gba,.agb,.bin', kind: '.gba', claims: isSa2,
+      key: 'sa2', store: SA2_ROM, title: 'Sonic Advance 2', platform: 'Game Boy Advance', required: false,
+      accept: '.gba,.agb,.bin', claims: isSa2,
       read: buffer => region(useSa2(buffer)),
       unload() { boostArt = tricksArt = null; },
       extras: [
-        { label: 'Boost Mode', name: 'Boost Mode', hint: 'Keep running at top speed · B', get: () => boostMode, set: setBoostMode, auto: true },
-        { label: 'Mid-air tricks', name: 'the mid-air tricks', hint: 'E or RB in the air · T', get: () => tricks, set: setTricks, auto: true },
+        { label: 'Boost Mode', hint: 'Keep running at top speed', key: 'B', get: () => boostMode, set: setBoostMode, auto: true },
+        { label: 'Mid-air tricks', hint: 'E or RB in the air', key: 'T', get: () => tricks, set: setTricks, auto: true },
       ],
     },
     {
-      key: 'rush', store: RUSH_ROM, title: 'Sonic Rush', platform: 'Nintendo DS', icon: 'nds', color: '#b77dff',
-      required: false, role: 'Its boost, with the flames and the sound, on top of the original game.',
-      accept: '.nds', kind: '.nds', claims: isRush,
+      key: 'rush', store: RUSH_ROM, title: 'Sonic Rush', platform: 'Nintendo DS', required: false,
+      accept: '.nds', claims: isRush,
       read: buffer => region(useRush(buffer)),
       unload() { rushArt = null; },
-      extras: [{ label: 'Rush boost', name: 'the Rush boost', hint: 'Shift, L or X on a controller · R', get: () => rush, set: setRush, auto: true }],
+      extras: [{ label: 'Rush boost', hint: 'Shift, L or X on a controller', key: 'R', get: () => rush, set: setRush, auto: true }],
     },
   ],
   onPlay() {

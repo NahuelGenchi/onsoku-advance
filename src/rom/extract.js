@@ -537,7 +537,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
   const images = [], byKey = new Map(), anims = {}, made = [], rowKeys = new Map();
   const frameImage = (name, anim, f, palette, rows, under) => {
     // identical frames (same layout, tiles and palette) share one atlas entry
-    const key = `${anim}:${f.frame}:${f.tilesAt}:${palette.join()}`;
+    const key = `${anim}:${f.frame}:${f.tilesAt}:${paletteKey(palette)}`;
     if (!byKey.has(key)) {
       const src = [rom, tables, anim, f.frame, f.tilesAt, palette, f.eightBpp];
       const { img, layout } = renderFrame(...src);
@@ -591,7 +591,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
         colors.forEach((c, k) => { palette[row * 16 + k] = c; });
         const j = frameImage(m.name, m.anim, m.f, palette, m.rows, m.under);
         if (j === i) continue;
-        if (images[j].img.data.every((v, k) => v === images[i].img.data[k])) continue;
+        if (samePixels(images[j].img, images[i].img)) continue;
         (alts[i] ??= []).push([row, key, j]);
       }
     }
@@ -615,23 +615,47 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
   }));
   // a rotated frame's pieces go into the atlas after the frames, and its rect gets them as [x, y, w, h, atlasX, atlasY]
   const pieces = images.flatMap((image, i) => (image.pieces ?? []).map((p, k) => ({ img: p.img, frame: i, x: p.x, y: p.y, redraw: () => redraw(i).pieces[k].img })));
-  const all = [...images, ...pieces], { canvas, rects } = packAtlas(all);
-  const underAtlas = under && paintAtlas(canvas.width, canvas.height, rects, all.map((image, i) => (image.redraw ? image.redraw() : redraw(i).img)));
-  // and once the Egg Spider's task copies the OBJ palette as it is every frame, each in its own colours, in the
-  // water's
-  const underOwn = under && paintAtlas(canvas.width, canvas.height, [[0, 0]], [tintImage(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height), water.blend)]);
-  pieces.forEach((p, k) => {
-    const [ax, ay, w, h] = rects[images.length + k];
-    (rects[p.frame][6] ??= []).push([p.x, p.y, w, h, ax, ay]);
-  });
-  rects.length = images.length;
   // Sonic's frames and his row of colours, for drawing them with colours written over (renderer.js), and in an
   // act with water his row under water, for another game's Sonic drawn there
   const sonic = {
     frames: [...new Set(Object.keys(SONIC_ANIMATIONS).flatMap(name => anims[name].frames.map(f => f[0]).filter(i => i >= 0)))],
     colors: sonicPalette.slice(0, 16), under: under ? under.slice(0, 16) : null,
   };
-  return { atlas: canvas, under: underAtlas || null, underOwn: underOwn || null, frames: rects, anims, tiles, sonic, alts };
+  // The renderer reads pixels back only from the rotated pieces and from Sonic's frames in the colours they show
+  // in, so those are packed first, in the atlas's top rows (`pixelRows`), and only those rows are kept as pixels
+  // (`pixels`) besides the atlas itself.
+  const sampled = new Set(sonic.frames.flatMap(i => [i, ...(alts[i] ?? []).map(([, , j]) => j)]));
+  const all = [...images, ...pieces];
+  const { canvas, rects, image, rows } = packAtlas(all, { first: i => i >= images.length || sampled.has(i) });
+  const top = img => img.data.slice(0, rows * img.width * 4);
+  const underImage = under && composeAtlas(canvas.width, canvas.height, rects, all.map((image, i) => (image.redraw ? image.redraw() : redraw(i).img)));
+  // and once the Egg Spider's task copies the OBJ palette as it is every frame, each in its own colours, in the
+  // water's
+  const ownImage = under && tintImage(image, water.blend);
+  pieces.forEach((p, k) => {
+    const [ax, ay, w, h] = rects[images.length + k];
+    (rects[p.frame][6] ??= []).push([p.x, p.y, w, h, ax, ay]);
+  });
+  rects.length = images.length;
+  return {
+    atlas: canvas, under: under ? toCanvas(underImage) : null, underOwn: under ? toCanvas(ownImage) : null, frames: rects, anims, tiles, sonic, alts,
+    pixelRows: rows, pixels: top(image), underPixels: under ? top(underImage) : null, underOwnPixels: under ? top(ownImage) : null,
+  };
+}
+
+// a palette's colours as a string, two characters a colour, the same for two palettes only when all their colours are
+function paletteKey(palette) {
+  const codes = new Array(palette.length * 2);
+  for (let i = 0; i < palette.length; i++) { const [r, g, b] = palette[i]; codes[2 * i] = r | (g << 8); codes[2 * i + 1] = b; }
+  return String.fromCharCode(...codes);
+}
+
+// whether two images have the same size and pixels
+function samePixels(a, b) {
+  if (a.data.length !== b.data.length) return false;
+  const x = new Uint32Array(a.data.buffer, a.data.byteOffset, a.data.length >> 2), y = new Uint32Array(b.data.buffer, b.data.byteOffset, b.data.length >> 2);
+  for (let k = 0; k < x.length; k++) if (x[k] !== y[k]) return false;
+  return true;
 }
 
 // the sprite palette rows a palette load fills, each as [row, key]: the key (palId * 256 + the colour of that
@@ -649,25 +673,37 @@ function cutTile(img, tx, ty) {
   return out;
 }
 
-// shelf packing with a 1px gap; rects are [x, y, w, h, anchorX, anchorY]
-export function packAtlas(images, width = 512) {
-  let x = 0, y = 0, shelf = 0;
-  const rects = images.map(({ img, anchorX, anchorY }) => {
+/**
+ * Shelf packing with a 1px gap, tallest first, so the shelves waste little; rects are [x, y, w, h, anchorX,
+ * anchorY], in the images' order. The images `first(i)` picks go on the shelves at the top, the first `rows`
+ * rows. Returns the atlas as a canvas and as its pixels (`image`).
+ */
+export function packAtlas(images, { width = 2048, first = () => false } = {}) {
+  const group = images.map((_, i) => (first(i) ? 0 : 1));
+  const order = images.map((_, i) => i).sort((a, b) => group[a] - group[b] || images[b].img.height - images[a].img.height || a - b);
+  const rects = new Array(images.length);
+  let x = 0, y = 0, shelf = 0, rows = 0, at = 0;
+  for (const i of order) {
+    const { img, anchorX, anchorY } = images[i];
+    if (group[i] !== at) { at = group[i]; rows = shelf ? y + shelf + 1 : y; if (shelf) { x = 0; y = rows; shelf = 0; } }
     if (x + img.width > width) { x = 0; y += shelf + 1; shelf = 0; }
-    const rect = [x, y, img.width, img.height, anchorX, anchorY];
+    rects[i] = [x, y, img.width, img.height, anchorX, anchorY];
     x += img.width + 1; shelf = Math.max(shelf, img.height);
-    return rect;
-  });
-  return { canvas: paintAtlas(width, y + shelf, rects, images.map(i => i.img)), rects };
+  }
+  if (!at) rows = y + shelf;
+  const image = composeAtlas(width, y + shelf, rects, images.map(i => i.img));
+  return { canvas: toCanvas(image), rects, image, rows };
 }
 
-// a w × h canvas with each of `imgs` at its rect
-function paintAtlas(w, h, rects, imgs) {
-  const canvas = document.createElement('canvas');
-  canvas.width = w; canvas.height = h;
-  const g = canvas.getContext('2d');
-  imgs.forEach((img, i) => g.putImageData(img, rects[i][0], rects[i][1]));
-  return canvas;
+// w × h pixels with each of `imgs` at its rect; the rects don't overlap, so each is copied as it is, as
+// putImageData would
+function composeAtlas(w, h, rects, imgs) {
+  const out = new ImageData(w, Math.max(1, h)), d = out.data;
+  imgs.forEach((img, i) => {
+    const [x, y] = rects[i], row = img.width * 4;
+    for (let r = 0; r < img.height; r++) d.set(img.data.subarray(r * row, (r + 1) * row), ((y + r) * w + x) * 4);
+  });
+  return out;
 }
 
 function extractStage(rom, offsets, tables, info) {

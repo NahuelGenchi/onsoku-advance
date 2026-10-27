@@ -56,27 +56,48 @@ export function frameLayout(rom, tables, anim, frame) {
   };
 }
 
-// the OAM pieces of a frame: each one's size, its place in the frame, the flips its entry carries and a
-// function giving the colour index of its pixel (px, py), unflipped (0 is transparent). A 256-colour piece's
-// tile number counts whole 64-byte tiles: DisplaySprite doubles it for OAM, and sub_80039E4 writes a background
+// the OAM pieces of a frame: each one's size, its place in the frame, the flips its entry carries and its
+// pixels' colour indices, row by row and unflipped (`indices`, 0 is transparent). A 256-colour piece's tile
+// number counts whole 64-byte tiles: DisplaySprite doubles it for OAM, and sub_80039E4 writes a background
 // sprite's straight into the background's map.
+// The pieces don't depend on the palette, and a frame is often drawn in several, so they are decoded once for
+// the sprite tables (`decoded`, by what is read: the animation's OAM entries, the tiles and the colour depth).
+const decoded = new WeakMap();
 function oamPieces(rom, tables, anim, f, tilesAt, eightBpp, background = false) {
-  const oamBase = rom.requirePtr(tables.oam + anim * 4, `OAM data of animation ${anim}`);
+  if (!decoded.has(tables)) decoded.set(tables, new Map());
+  const made = decoded.get(tables), key = `${anim}:${f.oamIndex}:${f.pieces}:${tilesAt}:${eightBpp ? 1 : 0}`;
+  if (!made.has(key)) made.set(key, decodePieces(rom, tables, anim, f, tilesAt, eightBpp));
+  return made.get(key);
+}
+function decodePieces(rom, tables, anim, f, tilesAt, eightBpp) {
+  const oamBase = rom.requirePtr(tables.oam + anim * 4, `OAM data of animation ${anim}`), bytes = rom.bytes;
   return Array.from({ length: f.pieces }, (_, i) => {
     const o = oamBase + (f.oamIndex + i) * 6;
     const a0 = rom.u16(o), a1 = rom.u16(o + 2), a2 = rom.u16(o + 4);
     const [w, h] = OAM_SIZES[((a0 >> 14) & 3) * 4 + ((a1 >> 14) & 3)];
     const bpp8 = eightBpp || ((a0 >> 13) & 1) === 1;
     const tile0 = a2 & 0x3FF, bank = (a2 >> 12) & 15, tilesWide = w / 8;
-    const color = (px, py) => {
-      const tx = px >> 3, ty = py >> 3, ix = px & 7, iy = py & 7;
-      if (bpp8) return rom.u8(tilesAt + tile0 * 64 + (ty * tilesWide + tx) * 64 + iy * 8 + ix);
-      const b = rom.u8(tilesAt + (tile0 + ty * tilesWide + tx) * 32 + iy * 4 + (ix >> 1));
-      const c = ix & 1 ? b >> 4 : b & 15;
-      return c && c + bank * 16;
-    };
-    return { x: a1 & 0x1FF, y: a0 & 0xFF, w, h, hflip: (a1 >> 12) & 1, vflip: (a1 >> 13) & 1, color };
+    // (a byte past the ROM's end reads as transparent)
+    const indices = new Uint8Array(w * h);
+    for (let py = 0; py < h; py++) {
+      const ty = py >> 3, iy = py & 7;
+      for (let px = 0; px < w; px++) {
+        const tx = px >> 3, ix = px & 7;
+        if (bpp8) { indices[py * w + px] = bytes[tilesAt + tile0 * 64 + (ty * tilesWide + tx) * 64 + iy * 8 + ix] ?? 0; continue; }
+        const b = bytes[tilesAt + (tile0 + ty * tilesWide + tx) * 32 + iy * 4 + (ix >> 1)] ?? 0;
+        const c = ix & 1 ? b >> 4 : b & 15;
+        indices[py * w + px] = c && c + bank * 16;
+      }
+    }
+    return { x: a1 & 0x1FF, y: a0 & 0xFF, w, h, hflip: (a1 >> 12) & 1, vflip: (a1 >> 13) & 1, indices };
   });
+}
+
+// a palette as the 32-bit pixels ImageData holds (RGBA in memory order), opaque; a colour it lacks is magenta
+function packed(palette) {
+  const out = new Uint32Array(256);
+  for (let c = 0; c < 256; c++) { const [r, g, b] = palette[c] ?? [255, 0, 255]; out[c] = (0xFF000000 | (b << 16) | (g << 8) | r) >>> 0; }
+  return out;
 }
 
 /**
@@ -86,19 +107,20 @@ function oamPieces(rom, tables, anim, f, tilesAt, eightBpp, background = false) 
  */
 export function renderFrame(rom, tables, anim, frame, tilesAt, palette, eightBpp, { background = false } = {}) {
   const f = frameLayout(rom, tables, anim, frame);
-  const img = new ImageData(Math.max(1, f.width), Math.max(1, f.height));
+  const img = new ImageData(Math.max(1, f.width), Math.max(1, f.height)), out = new Uint32Array(img.data.buffer), colors = packed(palette);
   for (const p of oamPieces(rom, tables, anim, f, tilesAt, eightBpp, background)) {
     let { x, y, w, h, hflip, vflip } = p;
     if (f.flip & 2) { vflip ^= 1; y = f.height - h - y; }
     if (f.flip & 1) { hflip ^= 1; x = f.width - w - x; }
     for (let py = 0; py < h; py++) {
+      const dy = y + (vflip ? h - 1 - py : py);
+      if (dy < 0 || dy >= f.height) continue;
       for (let px = 0; px < w; px++) {
-        const c = p.color(px, py);
+        const c = p.indices[py * w + px];
         if (!c) continue;
-        const dx = x + (hflip ? w - 1 - px : px), dy = y + (vflip ? h - 1 - py : py);
-        if (dx < 0 || dy < 0 || dx >= f.width || dy >= f.height) continue;
-        const rgb = palette[c] ?? [255, 0, 255], k = (dy * f.width + dx) * 4;
-        img.data[k] = rgb[0]; img.data[k + 1] = rgb[1]; img.data[k + 2] = rgb[2]; img.data[k + 3] = 255;
+        const dx = x + (hflip ? w - 1 - px : px);
+        if (dx < 0 || dx >= f.width) continue;
+        out[dy * f.width + dx] = colors[c];
       }
     }
   }
@@ -111,17 +133,10 @@ export function renderFrame(rom, tables, anim, frame, tilesAt, palette, eightBpp
  * rotated entry's flip bits as part of its matrix number, so neither flips the pixels.
  */
 export function framePieces(rom, tables, anim, frame, tilesAt, palette, eightBpp) {
-  const f = frameLayout(rom, tables, anim, frame);
+  const f = frameLayout(rom, tables, anim, frame), colors = packed(palette);
   return oamPieces(rom, tables, anim, f, tilesAt, eightBpp).map(p => {
-    const img = new ImageData(p.w, p.h);
-    for (let py = 0; py < p.h; py++) {
-      for (let px = 0; px < p.w; px++) {
-        const c = p.color(px, py);
-        if (!c) continue;
-        const rgb = palette[c] ?? [255, 0, 255], k = (py * p.w + px) * 4;
-        img.data[k] = rgb[0]; img.data[k + 1] = rgb[1]; img.data[k + 2] = rgb[2]; img.data[k + 3] = 255;
-      }
-    }
+    const img = new ImageData(p.w, p.h), out = new Uint32Array(img.data.buffer);
+    for (let k = 0; k < p.indices.length; k++) if (p.indices[k]) out[k] = colors[p.indices[k]];
     return { x: p.x, y: p.y, img };
   });
 }

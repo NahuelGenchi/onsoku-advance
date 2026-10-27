@@ -78,9 +78,11 @@ export function createRenderer(canvas, assets) {
   // the sprites' sheet, or the one in the colours under water while the screen below the water line is drawn:
   // palette 423's, or once a boss's task copies the sprite palette every frame (InitWaterPalettes, `ownColours`)
   // each sprite's own
-  const aboveSheet = sheetOf({ atlas, frames });
-  const underSheet = assets.sprites.under ? sheetOf({ atlas: assets.sprites.under, frames }) : null;
-  const ownSheet = assets.sprites.underOwn ? sheetOf({ atlas: assets.sprites.underOwn, frames }) : underSheet;
+  // (the extractor keeps the atlases' top rows as pixels: those of the rotated pieces and Sonic's frames)
+  const { pixels: atlasPx, underPixels, underOwnPixels } = assets.sprites;
+  const aboveSheet = sheetOf({ atlas, frames, pixels: atlasPx });
+  const underSheet = assets.sprites.under ? sheetOf({ atlas: assets.sprites.under, frames, pixels: underPixels }) : null;
+  const ownSheet = assets.sprites.underOwn ? sheetOf({ atlas: assets.sprites.underOwn, frames, pixels: underOwnPixels }) : underSheet;
   let base = aboveSheet, ownColours = false;
   // Another game's sheet in the colours under water: the colours in `swap` (by 'r,g,b') take the one it gives,
   // and every other colour is mixed with the water's, as the HUD's are
@@ -101,8 +103,9 @@ export function createRenderer(canvas, assets) {
         if (!rgb) to.set(c, rgb = tintRgb([c & 0xFF, (c >> 8) & 0xFF, c >> 16], blend));
         words[i] = (w & 0xFF000000) | rgb[0] | (rgb[1] << 8) | (rgb[2] << 16);
       }
+      // as many rows as the sheet keeps as pixels
       const canvas = document.createElement('canvas');
-      canvas.width = sheet.atlas.width; canvas.height = sheet.atlas.height;
+      canvas.width = sheet.atlas.width; canvas.height = px.length / 4 / canvas.width;
       canvas.getContext('2d').putImageData(new ImageData(px, canvas.width, canvas.height), 0, 0);
       made.set(key, { atlas: canvas, pixels: px });
     }
@@ -143,33 +146,55 @@ export function createRenderer(canvas, assets) {
   // the rotation hardware's sprites are put together here pixel by pixel, then drawn over the frame
   const resultsSheet = results && sheetOf({ atlas: results.sheet });
   // for Sonic, the atlas with his colours as the sprite palette shows them when something wrote over them
-  // (game.js, spriteRow)
-  const atlasPixels = base.pixels;
-  let tinted = null, tintedKey = null;
-  function tint(shown) {
+  // (game.js, spriteRow): its top rows, where his frames are, kept for the last few colourings shown, as a
+  // flash goes back and forth between two or three. Secret Base's spotlights write new colours over his on many
+  // frames, so a colouring starts blank and each frame is put in it the first time it is drawn (`index`).
+  const atlasPixels = base.pixels, tintedSheets = new Map(), MAX_TINTED = 4;
+  // how many times his colours are swapped in each rect of the sheet ('x,y'): once for each of his frames and
+  // their pieces there
+  const sonicRects = new Map();
+  for (const i of assets.sprites.sonic.frames) {
+    const [sx, sy, , , , , pieces] = frames[i];
+    for (const at of [`${sx},${sy}`, ...(pieces ?? []).map(([, , , , ax, ay]) => `${ax},${ay}`)]) sonicRects.set(at, (sonicRects.get(at) ?? 0) + 1);
+  }
+  function tint(shown, index) {
     const key = shown.join();
-    if (key === tintedKey) return tinted;
-    const { frames: sonicFrames, colors } = assets.sprites.sonic;
-    const px = atlasPixels.slice(), from = new Map();
-    shown.forEach((v, c) => { if (v !== null) from.set(colors[c].join(), bgr555ToRgb(v)); });
-    const recolor = (x0, y0, w, h) => {
+    let tinted = tintedSheets.get(key);
+    if (tinted) { tintedSheets.delete(key); tintedSheets.set(key, tinted); }
+    else {
+      // each colour as 0xBBGGRR
+      const { colors } = assets.sprites.sonic, from = new Map(), rows = atlasPixels.length / 4 / atlas.width;
+      shown.forEach((v, c) => { if (v !== null) from.set(colors[c][0] | (colors[c][1] << 8) | (colors[c][2] << 16), bgr555ToRgb(v)); });
+      const canvas = document.createElement('canvas');
+      canvas.width = atlas.width; canvas.height = rows;
+      const px = new Uint8ClampedArray(atlasPixels.length);
+      tinted = { ...sheetOf({ atlas: canvas, frames, pixels: px }), from, image: new ImageData(px, atlas.width, rows), put: new Set(), done: new Set() };
+      tintedSheets.set(key, tinted);
+      if (tintedSheets.size > MAX_TINTED) tintedSheets.delete(tintedSheets.keys().next().value);
+    }
+    if (index >= 0 && !tinted.done.has(index)) {
+      tinted.done.add(index);
+      const [sx, sy, w, h, , , pieces] = frames[index];
+      for (const [x, y, rw, rh] of [[sx, sy, w, h], ...(pieces ?? []).map(([, , pw, ph, ax, ay]) => [ax, ay, pw, ph])]) putTinted(tinted, x, y, rw, rh);
+    }
+    return tinted;
+  }
+  // the rect at (x0, y0) of a colouring, copied from the sheet with his colours swapped, once
+  function putTinted({ atlas: canvas, pixels: px, image, from, put }, x0, y0, w, h) {
+    const at = `${x0},${y0}`;
+    if (put.has(at)) return;
+    put.add(at);
+    const width = canvas.width;
+    for (let y = y0; y < y0 + h; y++) px.set(atlasPixels.subarray((y * width + x0) * 4, (y * width + x0 + w) * 4), (y * width + x0) * 4);
+    for (let n = sonicRects.get(at) ?? 0; n > 0; n--) {
       for (let y = y0; y < y0 + h; y++) {
-        for (let k = (y * atlas.width + x0) * 4, end = k + w * 4; k < end; k += 4) {
-          const to = px[k + 3] && from.get(`${px[k]},${px[k + 1]},${px[k + 2]}`);
+        for (let k = (y * width + x0) * 4, end = k + w * 4; k < end; k += 4) {
+          const to = px[k + 3] && from.get(px[k] | (px[k + 1] << 8) | (px[k + 2] << 16));
           if (to) { px[k] = to[0]; px[k + 1] = to[1]; px[k + 2] = to[2]; }
         }
       }
-    };
-    for (const i of sonicFrames) {
-      const [sx, sy, w, h, , , pieces] = frames[i];
-      recolor(sx, sy, w, h);
-      for (const [, , pw, ph, ax, ay] of pieces ?? []) recolor(ax, ay, pw, ph);
     }
-    const canvas = tinted?.atlas ?? document.createElement('canvas');
-    canvas.width = atlas.width; canvas.height = atlas.height;
-    canvas.getContext('2d').putImageData(new ImageData(px, atlas.width, atlas.height), 0, 0);
-    tinted = sheetOf({ atlas: canvas, frames, pixels: px }); tintedKey = key;
-    return tinted;
+    canvas.getContext('2d').putImageData(image, 0, 0, x0, y0, w, h);
   }
   let objLayer = new ImageData(W, H);
   const objCanvas = document.createElement('canvas');
@@ -960,7 +985,7 @@ export function createRenderer(canvas, assets) {
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic, [first, end], below);
         else if (!sheet) continue;
         else {
-          const own = !s.sheet && s.sonicRow && spriteRow?.shown ? tint(spriteRow.shown) : sheet;
+          const own = !s.sheet && s.sonicRow && spriteRow?.shown ? tint(spriteRow.shown, s.frame) : sheet;
           if (s.affine) drawAffine(s.frame, s.x - dx, s.y - dy, s.affine, own, matrices[s.affine.matrix]);
           else if (s.allWhite) drawAllWhite(s, dx, dy, own);
           else drawSprite(s.frame, s.x - dx, s.y - dy, s.flipX, s.flipY, own);

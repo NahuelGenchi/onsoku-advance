@@ -165,12 +165,13 @@ export function particleAnims(art, count) {
  * Advance 2's boost palette (the two games' Sonic palettes have the same layout, so each colour takes the
  * boost palette's colour at its index), and the particles' frames after it. Returns { atlas, frames, pixels }.
  */
-export function boostAtlas({ atlas, frames, sonic }, art) {
-  const images = art.particles.images, top = atlas.height + 1, width = atlas.width;
+export function boostAtlas({ atlas, frames, sonic, pixelRows = atlas.height }, art) {
+  // Sonic's frames are in the atlas's top rows (extract.js), so only those are copied
+  const images = art.particles.images, top = pixelRows + 1, width = atlas.width;
   const canvas = document.createElement('canvas');
   canvas.width = width; canvas.height = top + Math.max(...images.map(i => i.img.height));
   const g = canvas.getContext('2d');
-  g.drawImage(atlas, 0, 0);
+  if (pixelRows) g.drawImage(atlas, 0, 0, width, pixelRows, 0, 0, width, pixelRows);
   let x = 0;
   const more = images.map(({ img, anchorX, anchorY }) => {
     g.putImageData(img, x, top);
@@ -184,7 +185,7 @@ export function boostAtlas({ atlas, frames, sonic }, art) {
     return [[fx, fy, w, h], ...(pieces ?? []).map(([, , pw, ph, tx, ty]) => [tx, ty, pw, ph])];
   });
   // read back once; a pixel two frames share is recoloured once
-  const img = g.getImageData(0, 0, width, canvas.height), d = img.data, done = new Uint8Array(width * atlas.height);
+  const img = g.getImageData(0, 0, width, canvas.height), d = img.data, done = new Uint8Array(width * pixelRows);
   for (const [rx, ry, w, h] of regions) {
     for (let row = ry; row < ry + h; row++) {
       for (let i = row * width + rx, end = i + w; i < end; i++) {

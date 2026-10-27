@@ -58,7 +58,7 @@ Open the page, choose your file and play, with a keyboard, an Xbox controller or
 ## Play in three steps
 
 1. **Open the game** at **[nahuelgenchi.github.io/onsoku-advance](https://nahuelgenchi.github.io/onsoku-advance/)** in a current desktop browser.
-2. **Add your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*), on its card, or drop it anywhere on the page. The Sonic Advance 2 and Sonic Rush cards are for the optional [extras](#extras-you-can-switch-on). With *Remember these ROMs on this device* ticked, they are ready the next time too.
+2. **Add your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*), with its *Add* button, or drop it anywhere on the page. Sonic Advance 2 and Sonic Rush, below it, are for the optional [extras](#extras-you-can-switch-on). With *Remember on this device* ticked, they are ready the next time too.
 3. **Press Play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
 
 > [!TIP]
@@ -173,7 +173,7 @@ Past the original screen, the view only shows what the game really has there. In
 
 The boost from *Sonic Rush* on the Nintendo DS. Hold the boost button and Sonic blasts ahead at top speed, wrapped in Rush's blue aura and trail, smashing enemies, boulders and item boxes on contact, while nothing can hurt him. Press <kbd>R</kbd> or use the *Rush boost* button to turn it on, then hold <kbd>L</kbd> or <kbd>Shift</kbd> (<kbd>X</kbd> on a controller) to boost.
 
-Its look and sound are Sonic Rush's own, so it also needs your **Sonic Rush ROM** (`.nds`). Add it on the start screen's Sonic Rush card, which turns the boost on, or it's asked for the first time you turn the boost on in the game. Like the Sonic Advance file, it's read and kept on your device only. Its rules were read from Sonic Rush (USA) and checked in an emulator. For now it has no limit: Sonic Rush's tension gauge, which the boost uses up, isn't built yet.
+Its look and sound are Sonic Rush's own, so it also needs your **Sonic Rush ROM** (`.nds`). Add it on the start screen, next to Sonic Rush, which turns the boost on, or it's asked for the first time you turn the boost on in the game. Like the Sonic Advance file, it's read and kept on your device only. Its rules were read from Sonic Rush (USA) and checked in an emulator. For now it has no limit: Sonic Rush's tension gauge, which the boost uses up, isn't built yet.
 
 <details>
 <summary><b>How the boost works, in detail</b></summary>
@@ -209,7 +209,7 @@ drawn, and Sonic Advance's own sprites behind Sonic count as background when the
 
 Boost Mode from *Sonic Advance 2*. Keep running flat out and Sonic breaks into an even faster run, with a burst of sparks and a trail of afterimages in Sonic Advance 2's light-blue boost colours. The more rings he carries, the sooner it kicks in; a hit, or slowing down, ends it. Press <kbd>B</kbd> or use the *Boost Mode* button in the help panel to turn it on. With the Rush boost on as well, the afterimages also follow Sonic while he boosts.
 
-Its look and sound are Sonic Advance 2's own, so it also needs your **Sonic Advance 2 ROM** (`.gba`). Add it on the start screen's Sonic Advance 2 card, which turns Boost Mode and the tricks on, or it's asked for the first time you turn Boost Mode on in the game. Like the Sonic Advance file, it's read and kept on your device only. Its rules were read from Sonic Advance 2 (USA), with the help of SAT-R's work on that game, and checked in an emulator.
+Its look and sound are Sonic Advance 2's own, so it also needs your **Sonic Advance 2 ROM** (`.gba`). Add it on the start screen, next to Sonic Advance 2, which turns Boost Mode and the tricks on, or it's asked for the first time you turn Boost Mode on in the game. Like the Sonic Advance file, it's read and kept on your device only. Its rules were read from Sonic Advance 2 (USA), with the help of SAT-R's work on that game, and checked in an emulator.
 
 <details>
 <summary><b>How Boost Mode works, in detail</b></summary>
@@ -250,7 +250,7 @@ Sonic Advance has him run on at full speed.
 
 The four mid-air tricks from *Sonic Advance 2*. Once Sonic is in the air, press the trick button (the Game Boy Advance's R) alone for the **Back Star**, a backflip, or with up for the **Hop Jump**, forward for the spinning **Humming Top**, or down for the **Bound**, a dive that bounces him back up off the ground. The Humming Top and the Bound break enemies he touches, and each trick scores 100 points. Press <kbd>T</kbd> or use the *SA2 tricks* button to turn them on, then press <kbd>E</kbd> or <kbd>I</kbd> (<kbd>RB</kbd> on a controller) in the air.
 
-Their moves, pictures and sounds are Sonic Advance 2's own, so they also need your **Sonic Advance 2 ROM** (`.gba`): the one on the start screen's Sonic Advance 2 card, or asked for the first time you turn them on in the game. Like the Sonic Advance file, it's read and kept on your device only. Their rules were read from Sonic Advance 2 (USA) and checked against it in an emulator, frame by frame.
+Their moves, pictures and sounds are Sonic Advance 2's own, so they also need your **Sonic Advance 2 ROM** (`.gba`): the one added on the start screen, next to Sonic Advance 2, or asked for the first time you turn them on in the game. Like the Sonic Advance file, it's read and kept on your device only. Their rules were read from Sonic Advance 2 (USA) and checked against it in an emulator, frame by frame.
 
 <details>
 <summary><b>How the tricks work, in detail</b></summary>
@@ -306,7 +306,9 @@ compared with the original in [docs/ROM.md](docs/ROM.md#sonic-advance-2-tricks).
 | SA2 tricks on or off | <kbd>T</kbd> | |
 | Show the collision (for checking the level) | <kbd>C</kbd> | |
 
-Other controllers that your browser maps to the Xbox layout work the same way. Press a button once after the page loads so the browser notices the controller. On touch screens, on-screen buttons appear instead.
+Other controllers that your browser maps to the Xbox layout work the same way. Press a button once after the page loads so the browser notices the controller; on the start screen, a small controller badge lights up while an Xbox controller is connected, and fades and leaves when it's unplugged. On touch screens, on-screen buttons appear instead.
+
+The start screen works with the controller too: the d-pad or left stick moves between its buttons and switches, <kbd>A</kbd> presses the one picked, and <kbd>Menu</kbd> starts the game, like <kbd>Enter</kbd> on the keyboard. Browsers open the file list only from the mouse or the keyboard, so add the ROM files that way, or drop them on the page.
 
 ## Multiplayer: Chao Hunt
 
@@ -387,7 +389,7 @@ From a Sonic Advance cartridge you own, copied to your computer with a cartridge
 <summary><b>Is my game file uploaded anywhere?</b></summary>
 <br>
 
-No. The page reads it inside your browser and never sends it anywhere. If you tick *Remember these ROMs on this device*, they're kept in your browser's storage on that device only, and *Forget the saved ROMs* on the start screen removes them again. That covers the Sonic Advance 2 and Sonic Rush ROMs too.
+No. The page reads it inside your browser and never sends it anywhere. If you tick *Remember on this device*, they're kept in your browser's storage on that device only, and *Forget the saved ROMs* on the start screen removes them again. That covers the Sonic Advance 2 and Sonic Rush ROMs too.
 
 </details>
 
@@ -479,6 +481,8 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/TRACKING.md](docs/TRACKING.md)
 ## Thanks
 
 - The [SAT-R](https://github.com/SAT-R) decompilation of Sonic Advance, the reference for the game's data formats, physics and camera behavior. None of its code or data is copied into this repository.
+- [Monocraft](https://github.com/IdreesInc/Monocraft) by Idrees Hassan, the pixel font of the start screen. A subset of it is bundled under the SIL Open Font License 1.1 ([styles/fonts/Monocraft-OFL.txt](styles/fonts/Monocraft-OFL.txt)).
+- [Pixelarticons](https://github.com/halfmage/pixelarticons) by Gerrit Halfmann, whose gamepad icon is the start screen's controller badge, under the MIT License ([styles/icons/pixelarticons-LICENSE.txt](styles/icons/pixelarticons-LICENSE.txt)).
 
 ## Legal
 

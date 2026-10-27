@@ -1,6 +1,6 @@
 <div align="center">
 
-# Onsoku Advance
+# Sonic Advance Dreamport
 
 ### Sonic Advance, rebuilt to play in your web browser.
 
@@ -10,7 +10,7 @@ Nothing to install. Bring your own copy of the game; it never leaves your device
 
 <a href="https://nahuelgenchi.github.io/onsoku-advance/"><img src="docs/assets/gameplay/hero.webp" width="736" alt="Sonic races through two loops in Neo Green Hill Zone, passes a checkpoint, grinds down a long rail collecting rings and speeds off past the flower beds"></a>
 
-<sub>Neo Green Hill Zone, act 1, in the optional widescreen view. Every clip on this page is a recording of Onsoku Advance itself.</sub>
+<sub>Neo Green Hill Zone, act 1, in the optional widescreen view. Every clip on this page is a recording of Sonic Advance Dreamport itself.</sub>
 
 <br>
 
@@ -26,11 +26,11 @@ Nothing to install. Bring your own copy of the game; it never leaves your device
 
 ## What is it?
 
-Onsoku Advance lets you play **Sonic Advance**, Sonic's 2001 adventure for the Game Boy Advance, in a web browser.
+Sonic Advance Dreamport lets you play **Sonic Advance**, Sonic's 2001 adventure for the Game Boy Advance, in a web browser.
 
-It isn't an emulator (a program that imitates a Game Boy Advance). Instead, the game has been rebuilt piece by piece, so that Sonic runs, jumps and rolls the way he does on the cartridge. The pictures, levels, music and sounds come from **your own copy of the game**: you open your Sonic Advance file on the game's page, and Onsoku Advance reads everything it needs from it, right there on your device.
+It isn't an emulator (a program that imitates a Game Boy Advance). Instead, the game has been rebuilt piece by piece, so that Sonic runs, jumps and rolls the way he does on the cartridge. The pictures, levels, music and sounds come from **your own copy of the game**: you open your Sonic Advance file on the game's page, and Sonic Advance Dreamport reads everything it needs from it, right there on your device.
 
-*Onsoku* (音速) is Japanese for "speed of sound".
+A *Dreamport* is a port of a game you know, with the extras fans dream of, each one optional. The project was called *Onsoku Advance* until October 2026; *onsoku* (音速) is Japanese for "speed of sound".
 
 <table>
 <tr>
@@ -66,7 +66,7 @@ Open the page, choose your file and play, with a keyboard, an Xbox controller or
 
 ## What Sonic can do
 
-All of this works today. Each clip was played and recorded in Onsoku Advance, in Neo Green Hill Zone act 1.
+All of this works today. Each clip was played and recorded in Sonic Advance Dreamport, in Neo Green Hill Zone act 1.
 
 <table>
 <tr>
@@ -373,7 +373,7 @@ The game is [live on GitHub Pages](https://nahuelgenchi.github.io/onsoku-advance
 <summary><b>Is this an emulator?</b></summary>
 <br>
 
-No. An emulator imitates the Game Boy Advance and runs the cartridge's original program. Onsoku Advance never runs that program: the game's rules have been written again from scratch in JavaScript, the language of web pages, and only the pictures, levels, music and sounds are read from your copy of the game.
+No. An emulator imitates the Game Boy Advance and runs the cartridge's original program. Sonic Advance Dreamport never runs that program: the game's rules have been written again from scratch in JavaScript, the language of web pages, and only the pictures, levels, music and sounds are read from your copy of the game.
 
 </details>
 
@@ -436,7 +436,7 @@ flowchart LR
         direction LR
         ext["Extractor<br/>finds the sprite and<br/>tilemap tables"]
         data[("Sprites · palettes<br/>tiles · animations")]
-        engine["Onsoku engine<br/>physics · animation · camera"]
+        engine["Game engine<br/>physics · animation · camera"]
         screen["240 × 160 canvas"]
         sound["Sound engine<br/>songs · samples · PSG"]
         speakers["Audio output"]
@@ -486,9 +486,9 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/TRACKING.md](docs/TRACKING.md)
 
 ## Legal
 
-Onsoku Advance is an unofficial fan project and is not affiliated with or endorsed by SEGA or Sonic Team. Sonic Advance, Sonic Advance 2, Sonic Rush and all related names, characters and artwork belong to SEGA.
+Sonic Advance Dreamport is an unofficial fan project and is not affiliated with or endorsed by SEGA or Sonic Team. Sonic Advance, Sonic Advance 2, Sonic Rush and all related names, characters and artwork belong to SEGA.
 
-This repository holds no ROM and no data taken from one: you need your own legally obtained copy of the game, and its graphics and sounds are read from it on your own device. The short clips on this page (in [docs/assets/gameplay](docs/assets/gameplay)) are recordings of Onsoku Advance running, made to show the project; the characters and artwork in them remain SEGA's.
+This repository holds no ROM and no data taken from one: you need your own legally obtained copy of the game, and its graphics and sounds are read from it on your own device. The short clips on this page (in [docs/assets/gameplay](docs/assets/gameplay)) are recordings of Sonic Advance Dreamport running, made to show the project; the characters and artwork in them remain SEGA's.
 
 The project's own code, documentation and artwork are licensed under [GPL-3.0-or-later](LICENSE).
 

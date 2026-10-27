@@ -11,7 +11,7 @@ const MAX_ROM_BYTES = 32 * 1024 * 1024;   // largest GBA cartridge
 export function createRomPicker(host, { heading, intro, onRom }) {
   host.innerHTML = `
     <div class="picker-card">
-      <p class="eyebrow">音速 · Onsoku Advance</p>
+      <p class="eyebrow">音速 · Sonic Advance Dreamport</p>
       <h1>${heading}</h1>
       <p class="intro">${intro}</p>
       <button type="button" class="continue" hidden></button>

@@ -36,7 +36,7 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
     <div class="setup">
       <header class="setup-head">
         <div class="setup-top">
-          <p class="setup-brand">音速 Onsoku Advance</p>
+          <p class="setup-brand">音速 Sonic Advance Dreamport</p>
           <div class="pad" data-state="gone"><span class="pad-icon" aria-hidden="true"></span><span class="pad-note" role="status" aria-live="polite"></span></div>
         </div>
         <h1>${heading}</h1>

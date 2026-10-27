@@ -37,11 +37,14 @@ export function createSynth(rom, layout, rate) {
     pending.set(pcm.subarray(SOUND.HALF + base, SOUND.HALF + base + n), n);
   }
 
+  // the cycle counts start again from 0 with each frame, so they stay small whole numbers: a growing one would
+  // become a new object at every step on the audio thread
   function tick() {
-    if (cycle >= nextFrame) { frameStart = nextFrame; nextFrame += FRAME_CYCLES; frame(); }
+    if (cycle >= nextFrame) { cycle -= nextFrame; frameStart = 0; nextFrame = FRAME_CYCLES; frame(); }
     const i = Math.floor((cycle - frameStart) / SAMPLE_CYCLES);
     apu.run(TICK);
-    [curL, curR] = apu.mix(playing[i], playing[n + i]);
+    const out = apu.mix(playing[i], playing[n + i]);
+    curL = out[0]; curR = out[1];
     cycle += TICK;
   }
 
@@ -52,22 +55,26 @@ export function createSynth(rom, layout, rate) {
     call(name, ...args) { queue.push([name, args]); },
     /** Fills `left` and `right` with the next samples, in [-1, 1] times `gain`. */
     render(left, right, gain = 1, dcBlock = true) {
+      // the running fractions in local variables while the block is made: kept outside the function, each new
+      // value would be a new object
+      let f = frac, iL = inL, iR = inR, oL = outL, oR = outR;
       for (let j = 0; j < left.length; j++) {
         let need = ticksPerSample, l = 0, r = 0;
         while (need > 1e-9) {
-          if (frac >= 1) { tick(); frac -= 1; }
-          const take = Math.min(1 - frac, need);
+          if (f >= 1) { tick(); f -= 1; }
+          const take = Math.min(1 - f, need);
           l += curL * take; r += curR * take;
-          frac += take; need -= take;
+          f += take; need -= take;
         }
         l /= ticksPerSample * FULL_SCALE; r /= ticksPerSample * FULL_SCALE;
         if (dcBlock) {
-          outL = l - inL + DC_POLE * outL; inL = l;
-          outR = r - inR + DC_POLE * outR; inR = r;
-          l = outL; r = outR;
+          oL = l - iL + DC_POLE * oL; iL = l;
+          oR = r - iR + DC_POLE * oR; iR = r;
+          l = oL; r = oR;
         }
         left[j] = l * gain; right[j] = r * gain;
       }
+      frac = f; inL = iL; inR = iR; outL = oL; outR = oR;
     },
   };
 }

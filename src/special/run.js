@@ -19,6 +19,7 @@ import { createVideo, SCREEN_W, SCREEN_H } from '../gba/video.js';
 import { createEngine } from '../gba/engine.js';
 import { spriteTables } from '../rom/sprites.js';
 import { GBA_FRAME_MS, keysOf } from '../front/front.js';
+import { createClock } from '../engine/clock.js';
 import { createSpecialStageIntro, createEmeraldScene } from './intro.js';
 import { createSpecialStage } from './stage.js';
 import { createTitleCard } from './card.js';
@@ -76,12 +77,12 @@ export function createSpecialStageRun(canvas, rom, offsets, input, sound, game, 
     drawn = true;
   }
 
-  let frame = 0, last = performance.now(), pending = 0;
+  let frame = 0;
+  const clock = createClock(GBA_FRAME_MS);
+  clock.reset();
   function loop(now) {
-    pending += Math.min(100, now - last);
-    last = now;
     let ran = false;
-    while (pending >= GBA_FRAME_MS && !finished) { step(); ran = true; pending -= GBA_FRAME_MS; }
+    for (let n = clock.steps(now); n > 0 && !finished; n--) { step(); ran = true; }
     if (ran) draw();
     if (finished) { stop(); done(game); return; }
     frame = requestAnimationFrame(loop);

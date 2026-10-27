@@ -10,6 +10,7 @@
 // (`onCredits`).
 
 import { TICK_MS, SCREEN_W, SCREEN_H } from './constants.js';
+import { createClock } from './clock.js';
 import { makeAnimator, setAnim, tickAnim, frameOf } from './animator.js';
 import { createCamera, updateCamera, viewOf } from './camera.js';
 import { createTerrain } from './terrain.js';
@@ -331,13 +332,14 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
     if (restart) { const start = restart; restart = null; start(); }
   }
 
-  let frame = 0, last = 0, pending = 0;
+  // a frame is drawn once, after its step (clock.js)
+  let frame = 0;
+  const clock = createClock(TICK_MS, { snap: true });
   function loop(now) {
-    pending += Math.min(100, now - last);
-    last = now;
-    while (pending >= TICK_MS && !toTitle) { step(); pending -= TICK_MS; }
+    let ran = false;
+    for (let n = clock.steps(now); n > 0 && !toTitle; n--) { step(); ran = true; }
     if (toTitle) return;   // the game's start has the screen now
-    if (!state.ended || state.ending) drawFrame();
+    if (ran && (!state.ended || state.ending)) drawFrame();
     frame = requestAnimationFrame(loop);
   }
 
@@ -353,7 +355,7 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
     setRushBoost() {},   // the boost is Sonic's; Super Sonic has his own dash
     setBoostMode() {}, setSa2Tricks() {},   // and so are Sonic Advance 2's extras
     start() {
-      input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop);
+      input.enabled = true; clock.reset(); frame = requestAnimationFrame(loop);
       sound.playStageMusic(stage.music);
     },
     stop() { input.enabled = false; input.release(); cancelAnimationFrame(frame); sound.stopAll(); },

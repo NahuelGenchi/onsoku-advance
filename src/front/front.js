@@ -12,6 +12,7 @@ import { spriteTables } from '../rom/sprites.js';
 import { createSegaLogo } from './logos.js';
 import { createIntro } from './intro.js';
 import { createTitleScreen } from './title.js';
+import { createClock } from '../engine/clock.js';
 
 // a GBA frame: 280896 cycles of its 16.78 MHz clock, the rate the music plays at
 export const GBA_FRAME_MS = 280896 / 16777216 * 1000;
@@ -65,12 +66,13 @@ export function createFrontEnd(canvas, rom, offsets, input, sound, play) {
     drawn = true;
   }
 
-  let frame = 0, last = performance.now(), pending = 0;
+  // on the GBA's own frame rate, which the music keeps to (clock.js)
+  let frame = 0;
+  const clock = createClock(GBA_FRAME_MS);
+  clock.reset();
   function loop(now) {
-    pending += Math.min(100, now - last);   // after a stall, catch up at most 100 ms instead of fast-forwarding
-    last = now;
     let ran = false;
-    while (pending >= GBA_FRAME_MS && !done) { step(); ran = true; pending -= GBA_FRAME_MS; }
+    for (let n = clock.steps(now); n > 0 && !done; n--) { step(); ran = true; }
     if (ran) draw();   // a frame is drawn once, from the H-blank effects its V-blank set up
     if (done) { stop(); play(); return; }
     frame = requestAnimationFrame(loop);

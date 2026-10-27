@@ -8,6 +8,7 @@ import { createChaoHunt } from './engine/chaohunt.js';
 import { createResultsScreen } from './engine/mpresults.js';
 import { createInput, PLAYER_KEYS, playerPads } from './engine/input.js';
 import { TICK_MS } from './engine/constants.js';
+import { createClock } from './engine/clock.js';
 
 // what the link hands every GBA as the round starts, by default as in the link recordings (docs/ROM.md):
 // the shared random number and the Chao's place among the stage's eight
@@ -45,19 +46,20 @@ export function startMultiplayer({ container, assets, count, sound, seed = DEFAU
   }
 
   // every GBA steps its frame, then the link carries what each sent
-  let frame = 0, last = performance.now(), pending = 0;
+  // and a frame is drawn once, after its step (clock.js)
+  let frame = 0;
+  const clock = createClock(TICK_MS, { snap: true });
   function loop(now) {
-    pending += Math.min(100, now - last);
-    last = now;
-    while (pending >= TICK_MS) {
+    const n = clock.steps(now);
+    for (let i = 0; i < n; i++) {
       for (const g of gbas) g.screen.step();
       link.endFrame();
-      pending -= TICK_MS;
     }
-    for (const g of gbas) g.screen.draw();
+    if (n) for (const g of gbas) g.screen.draw();
     frame = requestAnimationFrame(loop);
   }
   for (const g of gbas) g.game.start(false);
+  clock.reset();
   frame = requestAnimationFrame(loop);
   gbas[0].canvas.focus();
 

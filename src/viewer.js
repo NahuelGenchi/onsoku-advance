@@ -39,7 +39,8 @@ function show(assets, fileName) {
   document.getElementById('facts').innerHTML = Object.entries(facts).map(([k, v]) => `<dt>${k}</dt><dd></dd>`).join('');
   [...document.querySelectorAll('#facts dd')].forEach((dd, i) => { dd.textContent = Object.values(facts)[i]; });
 
-  document.getElementById('atlas').append(scaled(sprites.atlas, 2));
+  // the atlas is 2048 px wide, so at its own size; the box scrolls
+  document.getElementById('atlas').append(scaled(sprites.atlas, 1));
   document.getElementById('background').append(scaled(stage.background, 2));
   showMap(stage);
   previewAnimations(sprites);

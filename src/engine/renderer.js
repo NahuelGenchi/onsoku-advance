@@ -78,9 +78,11 @@ export function createRenderer(canvas, assets) {
   // the sprites' sheet, or the one in the colours under water while the screen below the water line is drawn:
   // palette 423's, or once a boss's task copies the sprite palette every frame (InitWaterPalettes, `ownColours`)
   // each sprite's own
-  const aboveSheet = sheetOf({ atlas, frames });
-  const underSheet = assets.sprites.under ? sheetOf({ atlas: assets.sprites.under, frames }) : null;
-  const ownSheet = assets.sprites.underOwn ? sheetOf({ atlas: assets.sprites.underOwn, frames }) : underSheet;
+  // (the extractor keeps the atlases' top rows as pixels: those of the rotated pieces and Sonic's frames)
+  const { pixels: atlasPx, underPixels, underOwnPixels } = assets.sprites;
+  const aboveSheet = sheetOf({ atlas, frames, pixels: atlasPx });
+  const underSheet = assets.sprites.under ? sheetOf({ atlas: assets.sprites.under, frames, pixels: underPixels }) : null;
+  const ownSheet = assets.sprites.underOwn ? sheetOf({ atlas: assets.sprites.underOwn, frames, pixels: underOwnPixels }) : underSheet;
   let base = aboveSheet, ownColours = false;
   // Another game's sheet in the colours under water: the colours in `swap` (by 'r,g,b') take the one it gives,
   // and every other colour is mixed with the water's, as the HUD's are
@@ -101,8 +103,9 @@ export function createRenderer(canvas, assets) {
         if (!rgb) to.set(c, rgb = tintRgb([c & 0xFF, (c >> 8) & 0xFF, c >> 16], blend));
         words[i] = (w & 0xFF000000) | rgb[0] | (rgb[1] << 8) | (rgb[2] << 16);
       }
+      // as many rows as the sheet keeps as pixels
       const canvas = document.createElement('canvas');
-      canvas.width = sheet.atlas.width; canvas.height = sheet.atlas.height;
+      canvas.width = sheet.atlas.width; canvas.height = px.length / 4 / canvas.width;
       canvas.getContext('2d').putImageData(new ImageData(px, canvas.width, canvas.height), 0, 0);
       made.set(key, { atlas: canvas, pixels: px });
     }
@@ -143,33 +146,55 @@ export function createRenderer(canvas, assets) {
   // the rotation hardware's sprites are put together here pixel by pixel, then drawn over the frame
   const resultsSheet = results && sheetOf({ atlas: results.sheet });
   // for Sonic, the atlas with his colours as the sprite palette shows them when something wrote over them
-  // (game.js, spriteRow)
-  const atlasPixels = base.pixels;
-  let tinted = null, tintedKey = null;
-  function tint(shown) {
+  // (game.js, spriteRow): its top rows, where his frames are, kept for the last few colourings shown, as a
+  // flash goes back and forth between two or three. Secret Base's spotlights write new colours over his on many
+  // frames, so a colouring starts blank and each frame is put in it the first time it is drawn (`index`).
+  const atlasPixels = base.pixels, tintedSheets = new Map(), MAX_TINTED = 4;
+  // how many times his colours are swapped in each rect of the sheet ('x,y'): once for each of his frames and
+  // their pieces there
+  const sonicRects = new Map();
+  for (const i of assets.sprites.sonic.frames) {
+    const [sx, sy, , , , , pieces] = frames[i];
+    for (const at of [`${sx},${sy}`, ...(pieces ?? []).map(([, , , , ax, ay]) => `${ax},${ay}`)]) sonicRects.set(at, (sonicRects.get(at) ?? 0) + 1);
+  }
+  function tint(shown, index) {
     const key = shown.join();
-    if (key === tintedKey) return tinted;
-    const { frames: sonicFrames, colors } = assets.sprites.sonic;
-    const px = atlasPixels.slice(), from = new Map();
-    shown.forEach((v, c) => { if (v !== null) from.set(colors[c].join(), bgr555ToRgb(v)); });
-    const recolor = (x0, y0, w, h) => {
+    let tinted = tintedSheets.get(key);
+    if (tinted) { tintedSheets.delete(key); tintedSheets.set(key, tinted); }
+    else {
+      // each colour as 0xBBGGRR
+      const { colors } = assets.sprites.sonic, from = new Map(), rows = atlasPixels.length / 4 / atlas.width;
+      shown.forEach((v, c) => { if (v !== null) from.set(colors[c][0] | (colors[c][1] << 8) | (colors[c][2] << 16), bgr555ToRgb(v)); });
+      const canvas = document.createElement('canvas');
+      canvas.width = atlas.width; canvas.height = rows;
+      const px = new Uint8ClampedArray(atlasPixels.length);
+      tinted = { ...sheetOf({ atlas: canvas, frames, pixels: px }), from, image: new ImageData(px, atlas.width, rows), put: new Set(), done: new Set() };
+      tintedSheets.set(key, tinted);
+      if (tintedSheets.size > MAX_TINTED) tintedSheets.delete(tintedSheets.keys().next().value);
+    }
+    if (index >= 0 && !tinted.done.has(index)) {
+      tinted.done.add(index);
+      const [sx, sy, w, h, , , pieces] = frames[index];
+      for (const [x, y, rw, rh] of [[sx, sy, w, h], ...(pieces ?? []).map(([, , pw, ph, ax, ay]) => [ax, ay, pw, ph])]) putTinted(tinted, x, y, rw, rh);
+    }
+    return tinted;
+  }
+  // the rect at (x0, y0) of a colouring, copied from the sheet with his colours swapped, once
+  function putTinted({ atlas: canvas, pixels: px, image, from, put }, x0, y0, w, h) {
+    const at = `${x0},${y0}`;
+    if (put.has(at)) return;
+    put.add(at);
+    const width = canvas.width;
+    for (let y = y0; y < y0 + h; y++) px.set(atlasPixels.subarray((y * width + x0) * 4, (y * width + x0 + w) * 4), (y * width + x0) * 4);
+    for (let n = sonicRects.get(at) ?? 0; n > 0; n--) {
       for (let y = y0; y < y0 + h; y++) {
-        for (let k = (y * atlas.width + x0) * 4, end = k + w * 4; k < end; k += 4) {
-          const to = px[k + 3] && from.get(`${px[k]},${px[k + 1]},${px[k + 2]}`);
+        for (let k = (y * width + x0) * 4, end = k + w * 4; k < end; k += 4) {
+          const to = px[k + 3] && from.get(px[k] | (px[k + 1] << 8) | (px[k + 2] << 16));
           if (to) { px[k] = to[0]; px[k + 1] = to[1]; px[k + 2] = to[2]; }
         }
       }
-    };
-    for (const i of sonicFrames) {
-      const [sx, sy, w, h, , , pieces] = frames[i];
-      recolor(sx, sy, w, h);
-      for (const [, , pw, ph, ax, ay] of pieces ?? []) recolor(ax, ay, pw, ph);
     }
-    const canvas = tinted?.atlas ?? document.createElement('canvas');
-    canvas.width = atlas.width; canvas.height = atlas.height;
-    canvas.getContext('2d').putImageData(new ImageData(px, atlas.width, atlas.height), 0, 0);
-    tinted = sheetOf({ atlas: canvas, frames, pixels: px }); tintedKey = key;
-    return tinted;
+    canvas.getContext('2d').putImageData(image, 0, 0, x0, y0, w, h);
   }
   let objLayer = new ImageData(W, H);
   const objCanvas = document.createElement('canvas');
@@ -574,8 +599,9 @@ export function createRenderer(canvas, assets) {
 
   // A still line of the background, its column 0 at the original screen's left edge `ox`. The widescreen view
   // shows it mirrored past its own edges, which carries its clouds and islands on without a seam.
+  // `rows` lines of it from `line` down (map rows `bgLine` on)
   const mirrored = new WeakMap();
-  function drawStill(background, bgLine, line, ox) {
+  function drawStill(background, bgLine, line, ox, rows = 1) {
     let flip = mirrored.get(background);
     if (!flip) {
       flip = document.createElement('canvas');
@@ -585,24 +611,34 @@ export function createRenderer(canvas, assets) {
       mirrored.set(background, flip);
     }
     const n = Math.min(bgW, W - ox), right = W - ox - n;
-    if (ox > 0) ctx.drawImage(flip, bgW - ox, bgLine, ox, 1, 0, line, ox, 1);
-    ctx.drawImage(background, 0, bgLine, n, 1, ox, line, n, 1);
-    if (right > 0) ctx.drawImage(flip, 0, bgLine, right, 1, ox + n, line, right, 1);
+    if (ox > 0) ctx.drawImage(flip, bgW - ox, bgLine, ox, rows, 0, line, ox, rows);
+    ctx.drawImage(background, 0, bgLine, n, rows, ox, line, n, rows);
+    if (right > 0) ctx.drawImage(flip, 0, bgLine, right, rows, ox + n, line, right, rows);
+  }
+
+  // `rows` lines of the background from screen line `line` down, from map row `row` on and map column `off` at
+  // the left edge, repeating across. Lines that scroll alike and show the map's rows in order are drawn in one
+  // go, which puts the same pixels on the screen as a line at a time with far fewer calls.
+  function drawRows(background, off, row, rows, line) {
+    for (let dx = 0; dx < W; off = 0) {
+      const n = Math.min(bgW - off, W - dx);
+      ctx.drawImage(background, off, row, n, rows, dx, line, n, rows);
+      dx += n;
+    }
   }
 
   // The background of a level whose scroll backgrounds.js gives, line by line from the map row and column it
   // starts at; the map repeats both ways.
   function drawScrolled(background, tick, ox, oy, cx, cy, terrain) {
+    let start = 0;
     for (let line = 0; line < H; line++) {
       const [x, y] = scroll(line - oy, tick, cx, cy, terrain), row = mod(y + line - oy, background.height);
-      let off = mod(x - ox, bgW);
-      bgRows[line] = row; bgOffsets[line] = off;
-      for (let dx = 0; dx < W; off = 0) {
-        const n = Math.min(bgW - off, W - dx);
-        ctx.drawImage(background, off, row, n, 1, dx, line, n, 1);
-        dx += n;
-      }
+      bgRows[line] = row; bgOffsets[line] = mod(x - ox, bgW);
+      if (bgOffsets[line] === bgOffsets[start] && row === bgRows[start] + line - start) continue;
+      drawRows(background, bgOffsets[start], bgRows[start], line - start, start);
+      start = line;
     }
+    drawRows(background, bgOffsets[start], bgRows[start], H - start, start);
   }
 
   // The layers and the background of an act with many palette animations (stage.indexed) are colour indices,
@@ -682,13 +718,14 @@ export function createRenderer(canvas, assets) {
     }
   }
 
-  // One line of a background that wraps around its map both ways, the original screen's left edge at map column x
-  function drawWrapped(background, x, bgLine, line, ox) {
-    let off = mod(x - ox, bgW);
-    for (let at = 0; at < W; off = 0) {
-      const n = Math.min(bgW - off, W - at);
-      ctx.drawImage(background, off, mod(bgLine, bgH), n, 1, at, line, n, 1);
-      at += n;
+  // The screen's lines above `end` of a background that wraps around its map both ways, the original screen's
+  // left edge at map column x and its first line at map row bgLine
+  function drawWrapped(background, x, bgLine, end, ox) {
+    const off = mod(x - ox, bgW);
+    for (let line = 0; line < end;) {
+      const row = mod(bgLine + line, bgH), rows = Math.min(end - line, bgH - row);
+      drawRows(background, off, row, rows, line);
+      line += rows;
     }
   }
 
@@ -918,17 +955,24 @@ export function createRenderer(canvas, assets) {
       const background = backgrounds.canvases[paletteVariant(stage, backgrounds.follows, palettes)];
       if (scroll) drawScrolled(background, tick - 1, ox, oy, cx, vy + oy, terrain);
       else if (stage.clouds) drawCloudBackground(tick, palettes, ox, oy, !(titleCard?.fading || cardOver));
-      else if (ice) for (let y = 0; y < split; y++) drawWrapped(background, ice.bgX, ice.bgY + y - oy, y, ox);
-      else for (let line = 0; line < H; line++) {
-        const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
-        const scrollLine = Math.min(bgLine, stops - 1);
-        if (STILL(scrollLine)) { drawStill(background, bgLine, line, ox); continue; }
-        let off = mod(backgroundOffset(scrollLine, tick - 1, cx) - ox, bgW);
-        for (let x = 0; x < W; off = 0) {
-          const n = Math.min(bgW - off, W - x);
-          ctx.drawImage(background, off, bgLine, n, 1, x, line, n, 1);
-          x += n;
+      else if (ice) drawWrapped(background, ice.bgX, ice.bgY - oy, split, ox);
+      else {
+        // runs of lines that scroll alike over consecutive map rows go together (drawRows)
+        let start = 0, still = false, off = 0, first = 0;
+        const flush = end => {
+          if (end <= start) return;
+          if (still) drawStill(background, first, start, ox, end - start);
+          else drawRows(background, off, first, end - start, start);
+        };
+        for (let line = 0; line < H; line++) {
+          const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
+          const scrollLine = Math.min(bgLine, stops - 1), isStill = STILL(scrollLine);
+          const o = isStill ? 0 : mod(backgroundOffset(scrollLine, tick - 1, cx) - ox, bgW);
+          if (line > start && isStill === still && o === off && bgLine === first + line - start) continue;
+          flush(line);
+          start = line; still = isStill; off = o; first = bgLine;
         }
+        flush(H);
       }
     }
     if (ice && under) drawUnderBackground(ice.bgX, ice.bgY, under.colors, tick, split, line, ox, oy);
@@ -960,7 +1004,7 @@ export function createRenderer(canvas, assets) {
         else if (s.rush === 'obj') drawRushObjs(rushFx, rushArt, vx, vy, s.sonic, [first, end], below);
         else if (!sheet) continue;
         else {
-          const own = !s.sheet && s.sonicRow && spriteRow?.shown ? tint(spriteRow.shown) : sheet;
+          const own = !s.sheet && s.sonicRow && spriteRow?.shown ? tint(spriteRow.shown, s.frame) : sheet;
           if (s.affine) drawAffine(s.frame, s.x - dx, s.y - dy, s.affine, own, matrices[s.affine.matrix]);
           else if (s.allWhite) drawAllWhite(s, dx, dy, own);
           else drawSprite(s.frame, s.x - dx, s.y - dy, s.flipX, s.flipY, own);

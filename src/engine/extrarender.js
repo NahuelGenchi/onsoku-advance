@@ -123,17 +123,26 @@ export function createExtraRenderer(canvas, assets) {
     const vx = view.x, vy = view.y, ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1;
     // BG1: each line from 91 down scrolls by the offset the camera task wrote with this frame's stage time (when
     // the HBlank interrupt sets it); its map is 256 px wide and repeats
+    // the run of lines from `start` that scroll alike over consecutive map rows goes in one go, which puts the
+    // same pixels on the screen as a line at a time
     const t = tick - 1;
+    let start = 0, first = 0, from = 0;
+    const flush = end => {
+      for (let x = 0, off = from; x < W; off = 0) {
+        const n = Math.min(256 - off, W - x);
+        ctx.drawImage(background, off, first, n, end - start, x, start, n, end - start);
+        x += n;
+      }
+    };
     for (let line = 0; line < H; line++) {
       const sy = line - oy, bgLine = Math.min(Math.max(sy, 0), background.height - 1);
       let off = (hblank && sy >= STILL_LINES && sy < SCREEN_H ? bg1Offset(sy - STILL_LINES, t) : 0) - ox;
       off = ((off % 256) + 256) % 256;
-      for (let x = 0; x < W;) {
-        const n = Math.min(256 - off, W - x);
-        ctx.drawImage(background, off, bgLine, n, 1, x, line, n, 1);
-        x += n; off = 0;
-      }
+      if (line > start && off === from && bgLine === first + line - start) continue;
+      if (line > start) flush(line);
+      start = line; first = bgLine; from = off;
     }
+    flush(H);
     // BG0: the ground, where the stage's scrolling has taken it
     drawLayer(ctx, stage, 'back', vx + scrollX, vy, W, H, 0, []);
     const list = parts.stack(sprites);

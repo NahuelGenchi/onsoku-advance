@@ -36,6 +36,7 @@ import { SONG } from '../sound/songs.js';
 import { RUSH_BOOST_SE } from '../rom/rush.js';
 import { BOOST_MODE_SE } from '../rom/sa2boost.js';
 import { createExtraStage } from './extra.js';
+import { createClock } from './clock.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
@@ -841,14 +842,15 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     if (special) options.onSpecialStage?.(handOver(state, special, { ...options, level: state.level, continues: state.continues }));
   }
 
-  const show = () => (frozen ? frozen.render(frozen.state) : render(state));
-  let frame = 0, last = 0, pending = 0;
+  const show = () => { drawn = true; return frozen ? frozen.render(frozen.state) : render(state); };
+  // a frame is drawn once, after its step: a display faster than 60 Hz draws nothing new in between
+  let frame = 0, drawn = false;
+  const clock = createClock(TICK_MS, { snap: true });
   function loop(now) {
-    pending += Math.min(100, now - last);   // after a stall, catch up at most 100 ms instead of fast-forwarding
-    last = now;
-    while (pending >= TICK_MS && !special && !toTitle) { step(); pending -= TICK_MS; }
+    let ran = false;
+    for (let n = clock.steps(now); n > 0 && !special && !toTitle; n--) { step(); ran = true; }
     if (special || toTitle) return;   // the special stage, or the game's start, has the screen now
-    show();
+    if (ran) show();
     frame = requestAnimationFrame(loop);
   }
 
@@ -861,6 +863,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       viewW = w; viewH = h;
       ctx.view = state.view = viewOf(state.cam, w, h);
       render.resize(w, h);
+      if (drawn) show();   // at once, as resizing the canvas clears it
     },
     /** Turns the Sonic Rush boost on (with `art`, what rush.js read from the Sonic Rush ROM) or off. */
     setRushBoost(on, art = state.rushArt) { state.rushArt = art; state.rush = on && !!art; input.setRush?.(state.rush); },
@@ -879,7 +882,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // the act's music starts with the act, as the stage's init does (StageInit_ZoneNActM); a multiplayer game
     // steps its GBAs together itself (`ownLoop` false)
     start(ownLoop = true) {
-      input.enabled = true; last = performance.now(); pending = 0;
+      input.enabled = true; clock.reset();
       if (ownLoop) frame = requestAnimationFrame(loop);
       sound.playStageMusic(stage.music);
     },

@@ -3,6 +3,7 @@
 // and, without all seven Chaos Emeralds, the message (credits.js). Its end is where the SEGA logo comes up.
 
 import { TICK_MS } from './constants.js';
+import { createClock } from './clock.js';
 import { createRenderer } from './renderer.js';
 import { createEndingRenderer } from './endingrender.js';
 import { createCongratulations } from './congratulations.js';
@@ -59,12 +60,13 @@ export function createNormalEnding(canvas, assets, input, sound = SILENT, { from
     if (!state.ended) renderEnding(state.scene.state);
   }
 
-  let frame = 0, last = 0, pending = 0;
+  // a frame is drawn once, after its step (clock.js)
+  let frame = 0;
+  const clock = createClock(TICK_MS, { snap: true });
   function loop(now) {
-    pending += Math.min(100, now - last);
-    last = now;
-    while (pending >= TICK_MS) { step(); pending -= TICK_MS; }
-    draw();
+    const n = clock.steps(now);
+    for (let i = 0; i < n; i++) step();
+    if (n) draw();
     frame = requestAnimationFrame(loop);
   }
 
@@ -72,7 +74,7 @@ export function createNormalEnding(canvas, assets, input, sound = SILENT, { from
     state, step, draw,
     setView(w, h) { render.resize(w, h); },
     setRushBoost() {},
-    start() { input.enabled = true; last = performance.now(); pending = 0; frame = requestAnimationFrame(loop); },
+    start() { input.enabled = true; clock.reset(); frame = requestAnimationFrame(loop); },
     stop() { input.enabled = false; input.release(); cancelAnimationFrame(frame); sound.stopAll(); },
   };
 }

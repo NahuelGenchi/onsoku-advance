@@ -29,7 +29,7 @@ The act's three checkpoints (kind 7) have no post and no sprite. `d0` numbers th
 
 ## The end of the act
 
-The act ends at the rocket's top through the stage goal (kind 0, `stage_goal.c`), the same entity as the other acts' goal post, with three Egg Rocket branches. This game doesn't build it here yet: it is left to the act clear's work ([#69](https://github.com/NahuelGenchi/onsoku-advance/issues/69)), and until then the goals stay stand-ins.
+The act ends at the rocket's top through the stage goal (kind 0, `stage_goal.c`), the same entity as the other acts' goal post, with three Egg Rocket branches. This game doesn't build it here yet: it is left to the act clear's work ([#69](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/69)), and until then the goals stay stand-ins.
 
 - Three goals sit on the act's top edge, at (2144, 0), (2160, 0) and (2176, 0), with `d1` = 1. A fourth at (2080, 168) has `d1` = 0, so only multiplayer makes it; in Egg Rocket, multiplayer skips the `d1` = 1 ones instead.
 - A goal fires once Sonic's centre is right of its point and his body's box (hitbox 0) holds the point. Elsewhere being right of it is enough.

@@ -8,13 +8,13 @@ Nothing to install. Bring your own copy of the game; it never leaves your device
 
 <br>
 
-<a href="https://nahuelgenchi.github.io/onsoku-advance/"><img src="docs/assets/gameplay/hero.webp" width="736" alt="Sonic races through two loops in Neo Green Hill Zone, passes a checkpoint, grinds down a long rail collecting rings and speeds off past the flower beds"></a>
+<a href="https://nahuelgenchi.github.io/sonic-advance-dreamport/"><img src="docs/assets/gameplay/hero.webp" width="736" alt="Sonic races through two loops in Neo Green Hill Zone, passes a checkpoint, grinds down a long rail collecting rings and speeds off past the flower beds"></a>
 
 <sub>Neo Green Hill Zone, act 1, in the optional widescreen view. Every clip on this page is a recording of Sonic Advance Dreamport itself.</sub>
 
 <br>
 
-<a href="https://nahuelgenchi.github.io/onsoku-advance/"><img src="docs/assets/play.svg" width="300" height="72" alt="Play in your browser"></a>
+<a href="https://nahuelgenchi.github.io/sonic-advance-dreamport/"><img src="docs/assets/play.svg" width="300" height="72" alt="Play in your browser"></a>
 
 <br>
 
@@ -57,7 +57,7 @@ Open the page, choose your file and play, with a keyboard, an Xbox controller or
 
 ## Play in three steps
 
-1. **Open the game** at **[nahuelgenchi.github.io/onsoku-advance](https://nahuelgenchi.github.io/onsoku-advance/)** in a current desktop browser.
+1. **Open the game** at **[nahuelgenchi.github.io/sonic-advance-dreamport](https://nahuelgenchi.github.io/sonic-advance-dreamport/)** in a current desktop browser.
 2. **Add your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*), with its *Add* button, or drop it anywhere on the page. Sonic Advance 2 and Sonic Rush, below it, are for the optional [extras](#extras-you-can-switch-on). With *Remember on this device* ticked, they are ready the next time too.
 3. **Press Play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
 
@@ -143,7 +143,7 @@ Act 1 also has its loops, springs, spikes, grind rails, speed boosters, checkpoi
 The goal is a game that behaves *exactly* like the original, not one that looks roughly like it.
 
 - **Rules from the source.** Sonic's speed, jumps and rolls, the camera and every object follow the original game's rules, as worked out by [SAT-R](https://github.com/SAT-R), the community project that turned Sonic Advance's program back into readable code.
-- **Checked against the real thing.** The results are compared with the original game running in an emulator. Even the original's own bugs are kept, so the two match; they are [listed](https://github.com/NahuelGenchi/onsoku-advance/issues/56) for an optional fix later.
+- **Checked against the real thing.** The results are compared with the original game running in an emulator. Even the original's own bugs are kept, so the two match; they are [listed](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/56) for an optional fix later.
 - **The game's own sound.** The music and sound effects are played by a rebuilt copy of the cartridge's sound engine, whose output matches the original's byte for byte.
 - **Sharp pixels.** The game draws at the Game Boy Advance's own 240 × 160 and scales up in whole steps, so every pixel stays crisp on any screen.
 
@@ -314,7 +314,7 @@ The start screen works with the controller too: the d-pad or left stick moves be
 
 The original game's Chao Hunt, on its first multiplayer stage, for 2 to 4 players on one computer. Each player gets their own Game Boy Advance screen on the page. Three minutes on the clock, one Chao hidden in the stage: grab it, and knock whoever has it to take it from them. Whoever holds it when time runs out wins.
 
-To play, add `?level=14` to the game's address, for example [nahuelgenchi.github.io/onsoku-advance/?level=14](https://nahuelgenchi.github.io/onsoku-advance/?level=14), and `&players=3` or `&players=4` for more than two. The rules, the stage and its objects, the mystery item boxes, the music and the results screen are the original's, checked against the original running on linked emulators ([docs/ROM.md](docs/ROM.md#multiplayer-chao-hunt) has the details).
+To play, add `?level=14` to the game's address, for example [nahuelgenchi.github.io/sonic-advance-dreamport/?level=14](https://nahuelgenchi.github.io/sonic-advance-dreamport/?level=14), and `&players=3` or `&players=4` for more than two. The rules, the stage and its objects, the mystery item boxes, the music and the results screen are the original's, checked against the original running on linked emulators ([docs/ROM.md](docs/ROM.md#multiplayer-chao-hunt) has the details).
 
 | | Player 1 | Player 2 | Players 3 and 4 |
 | :--- | :--- | :--- | :--- |
@@ -329,7 +329,7 @@ For now everyone plays Sonic, which the original doesn't allow. The results scre
 ## Where it's at
 
 > [!NOTE]
-> **Early days: the first eight zones are playable.** The game opens with the original [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/onsoku-advance/issues/67) and its [title screen and main menu](https://github.com/NahuelGenchi/onsoku-advance/issues/70). You can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets, through to its goal signpost and score tally, and then **act 2** with its mini loops, water bridge, bushes and hiding spikes, through to its boss, the Egg Hammer Tank, and the capsule that frees the animals and ends the zone. Act 1's special spring leads to [Special Stage 1](https://github.com/NahuelGenchi/onsoku-advance/issues/75), with the Chaos Emerald and the results, then back to the act. After the capsule the game goes on into **Secret Base Zone**: act 1 with its spotlights, enemies and gadgets, through to its goal, and act 2 with its steam exhausts, hooks, swing ropes and crane claws, through to its boss, the Egg Press. Then comes **Casino Paradise Zone**: act 1 with its pinball tubes, bumpers, flippers and balloons, and act 2 with its carousels, bowls and ship swings, through to its boss, the Egg Ball. After it comes **Ice Mountain Zone**: act 1 with its water, air bubbles and drowning, its snow, enemies and gadgets, and act 2 with its ferris wheels, blocks of ice and underwater lava, through to its boss, the Egg Spider. Then **Angel Island Zone**: act 1 with its lava, rolling boulders, whirlwinds and run wheels, through to its goal, and act 2 with its tubes, hang bars and spiked platforms, through to its boss, Mecha Knuckles. Then **Egg Rocket Zone**, with its launch, stage separations and countdown, up the rocket, and **Cosmic Angel Zone**, with its flipped gravity, tubes, Mirrors and antigravity units, through to its boss, the Egg Snake. After it comes **X Zone**, with its falling bricks and its three bosses one after the other, the Egg Wrecker, the Egg Drillster and Egg X, through to its results. **The Moon Zone**, the extra stage, is in too, with Super Sonic against the Super Egg Robo and the true ending after it: add `?level=13` to the address. Losing your last life brings the original game over and, with a continue left, the continue screen. After X Zone's results comes the normal ending, with the staff credits and the closing message, and the Moon Zone's true ending goes on to the staff credits too. The first stage of [Chao Hunt](#multiplayer-chao-hunt), for 2 to 4 players, is in too: add `?level=14` to the address.
+> **Early days: the first eight zones are playable.** The game opens with the original [SEGA and Sonic Team logos and the intro](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/67) and its [title screen and main menu](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/70). You can play all of **Neo Green Hill Zone act 1**, with its music, sounds, rings, enemies, item boxes and every one of its gadgets, through to its goal signpost and score tally, and then **act 2** with its mini loops, water bridge, bushes and hiding spikes, through to its boss, the Egg Hammer Tank, and the capsule that frees the animals and ends the zone. Act 1's special spring leads to [Special Stage 1](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/75), with the Chaos Emerald and the results, then back to the act. After the capsule the game goes on into **Secret Base Zone**: act 1 with its spotlights, enemies and gadgets, through to its goal, and act 2 with its steam exhausts, hooks, swing ropes and crane claws, through to its boss, the Egg Press. Then comes **Casino Paradise Zone**: act 1 with its pinball tubes, bumpers, flippers and balloons, and act 2 with its carousels, bowls and ship swings, through to its boss, the Egg Ball. After it comes **Ice Mountain Zone**: act 1 with its water, air bubbles and drowning, its snow, enemies and gadgets, and act 2 with its ferris wheels, blocks of ice and underwater lava, through to its boss, the Egg Spider. Then **Angel Island Zone**: act 1 with its lava, rolling boulders, whirlwinds and run wheels, through to its goal, and act 2 with its tubes, hang bars and spiked platforms, through to its boss, Mecha Knuckles. Then **Egg Rocket Zone**, with its launch, stage separations and countdown, up the rocket, and **Cosmic Angel Zone**, with its flipped gravity, tubes, Mirrors and antigravity units, through to its boss, the Egg Snake. After it comes **X Zone**, with its falling bricks and its three bosses one after the other, the Egg Wrecker, the Egg Drillster and Egg X, through to its results. **The Moon Zone**, the extra stage, is in too, with Super Sonic against the Super Egg Robo and the true ending after it: add `?level=13` to the address. Losing your last life brings the original game over and, with a continue left, the continue screen. After X Zone's results comes the normal ending, with the staff credits and the closing message, and the Moon Zone's true ending goes on to the staff credits too. The first stage of [Chao Hunt](#multiplayer-chao-hunt), for 2 to 4 players, is in too: add `?level=14` to the address.
 
 Here's the road through the rest of the game. Each step has its own issue, so you can follow along.
 
@@ -346,11 +346,11 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 <tr><td><b>Egg Rocket</b></td><td colspan="2">🟢 Playable now, at <code>?level=10</code><br><sub><a href="docs/egg-rocket.md">What it reads from the ROM</a></sub></td></tr>
 <tr><td><b>Cosmic Angel</b></td><td colspan="2">🟢 Playable now, through the Egg Snake<br><sub><a href="docs/cosmic-angel.md">What it reads from the ROM</a></sub></td></tr>
 <tr><td><b>X Zone</b></td><td colspan="2">🟢 Playable now, through its three bosses, the normal ending and the staff credits</td></tr>
-<tr><td><b>Moon Zone</b></td><td colspan="2">🟢 The Super Egg Robo, the true ending and the staff credits, playable now: add <code>?level=13</code> to the address<br><sub>It will open the way the game opens it, with all seven <a href="https://github.com/NahuelGenchi/onsoku-advance/issues/75">Chaos Emeralds</a>, once the special stages are in</sub></td></tr>
+<tr><td><b>Moon Zone</b></td><td colspan="2">🟢 The Super Egg Robo, the true ending and the staff credits, playable now: add <code>?level=13</code> to the address<br><sub>It will open the way the game opens it, with all seven <a href="https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/75">Chaos Emeralds</a>, once the special stages are in</sub></td></tr>
 </tbody>
 </table>
 
-Also on the way: the title screen's demos, the character select and the menu's other modes, the [other six special stages](https://github.com/NahuelGenchi/onsoku-advance/issues/75) and the other three [Chao Hunt](#multiplayer-chao-hunt) stages.
+Also on the way: the title screen's demos, the character select and the menu's other modes, the [other six special stages](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/75) and the other three [Chao Hunt](#multiplayer-chao-hunt) stages.
 
 <details>
 <summary><b>Milestones</b></summary>
@@ -358,12 +358,12 @@ Also on the way: the title screen's demos, the character select and the menu's o
 
 | Milestone | Outcome | Issues closed |
 | :--- | :--- | :--- |
-| [M0 — Project foundation](https://github.com/NahuelGenchi/onsoku-advance/milestone/1) | Repository, documentation, tracking and presentation | ![M0 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/onsoku-advance/1?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
-| [M1 — Playable prototype](https://github.com/NahuelGenchi/onsoku-advance/milestone/2) | Sonic on a Neo Green Hill platform, assets from your own ROM | ![M1 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/onsoku-advance/2?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
-| [M2 — Stages and gameplay](https://github.com/NahuelGenchi/onsoku-advance/milestone/3) | Full stages with collision, rings, objects, enemies, sound and music | ![M2 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/onsoku-advance/3?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
-| [M3 — Release](https://github.com/NahuelGenchi/onsoku-advance/milestone/4) | A hosted build and versioned releases, with no game files | ![M3 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/onsoku-advance/4?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
+| [M0 — Project foundation](https://github.com/NahuelGenchi/sonic-advance-dreamport/milestone/1) | Repository, documentation, tracking and presentation | ![M0 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/sonic-advance-dreamport/1?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
+| [M1 — Playable prototype](https://github.com/NahuelGenchi/sonic-advance-dreamport/milestone/2) | Sonic on a Neo Green Hill platform, assets from your own ROM | ![M1 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/sonic-advance-dreamport/2?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
+| [M2 — Stages and gameplay](https://github.com/NahuelGenchi/sonic-advance-dreamport/milestone/3) | Full stages with collision, rings, objects, enemies, sound and music | ![M2 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/sonic-advance-dreamport/3?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
+| [M3 — Release](https://github.com/NahuelGenchi/sonic-advance-dreamport/milestone/4) | A hosted build and versioned releases, with no game files | ![M3 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/sonic-advance-dreamport/4?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
 
-The game is [live on GitHub Pages](https://nahuelgenchi.github.io/onsoku-advance/); versioned releases are planned.
+The game is [live on GitHub Pages](https://nahuelgenchi.github.io/sonic-advance-dreamport/); versioned releases are planned.
 
 </details>
 
@@ -397,7 +397,7 @@ No. The page reads it inside your browser and never sends it anywhere. If you ti
 <summary><b>Which version of Sonic Advance works?</b></summary>
 <br>
 
-**Sonic Advance (USA)** is the tested version. Other versions are recognized from their cartridge header, and the game searches them for what it needs; the [asset viewer](https://nahuelgenchi.github.io/onsoku-advance/viewer.html) shows whether that worked. [docs/ROM.md](docs/ROM.md) has the list and how to help add a version.
+**Sonic Advance (USA)** is the tested version. Other versions are recognized from their cartridge header, and the game searches them for what it needs; the [asset viewer](https://nahuelgenchi.github.io/sonic-advance-dreamport/viewer.html) shows whether that worked. [docs/ROM.md](docs/ROM.md) has the list and how to help add a version.
 
 </details>
 
@@ -456,8 +456,8 @@ flowchart LR
 There is no build step. The pages use JavaScript modules, which browsers only load over HTTP, so serve the repository folder with any static file server and open it on `localhost`:
 
 ```sh
-git clone https://github.com/NahuelGenchi/onsoku-advance.git
-cd onsoku-advance
+git clone https://github.com/NahuelGenchi/sonic-advance-dreamport.git
+cd sonic-advance-dreamport
 python -m http.server 8000
 ```
 
@@ -476,7 +476,7 @@ flowchart LR
     issue["Issue<br/>scope and done criteria"] --> branch["Branch<br/>type/issue-slug"] --> pr["Pull request<br/>Closes #issue"] --> milestone["Milestone<br/>M0 → M3"]
 ```
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/TRACKING.md](docs/TRACKING.md) before opening work. Bugs and ideas start as an [issue](https://github.com/NahuelGenchi/onsoku-advance/issues/new/choose). Never attach ROMs, save files or extracted game assets.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/TRACKING.md](docs/TRACKING.md) before opening work. Bugs and ideas start as an [issue](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/new/choose). Never attach ROMs, save files or extracted game assets.
 
 ## Thanks
 

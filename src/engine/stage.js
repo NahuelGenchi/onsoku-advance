@@ -84,7 +84,13 @@ export function packPalette(colors) {
 
 // what an indexed layer is put together in before it goes onto the frame, in blocks of at most this size
 const BLOCK = 1024;
-let scratch = null;
+let scratch = null, blockImage = null;
+// a block's pixels, all clear, kept from one frame to the next while the block's size stays
+function clearBlock(w, h) {
+  if (blockImage?.width !== w || blockImage.height !== h) blockImage = new ImageData(w, h);
+  else blockImage.data.fill(0);
+  return blockImage;
+}
 
 /**
  * Draws a layer kept as colour indices (an indexed atlas) in the colours of the palette animations' frames
@@ -98,7 +104,7 @@ export function drawIndexedLayer(ctx, stage, layer, x, y, w, h, animFrame = 0, s
   for (let by = 0; by < h; by += BLOCK) {
     for (let bx = 0; bx < w; bx += BLOCK) {
       const bw = Math.min(BLOCK, w - bx), bh = Math.min(BLOCK, h - by);
-      const img = new ImageData(bw, bh), out = new Uint32Array(img.data.buffer);
+      const img = clearBlock(bw, bh), out = new Uint32Array(img.data.buffer);
       let any = false;
       for (let row = 0; row < bh; row++) {
         const wy = y + by + row;

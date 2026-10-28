@@ -61,6 +61,8 @@ Open the page, choose your file and play, with a keyboard, an Xbox controller or
 2. **Add your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*), with its *Add* button, or drop it anywhere on the page. Sonic Advance 2 and Sonic Rush, below it, are for the optional [extras](#extras-you-can-switch-on). With *Remember on this device* ticked, they are ready the next time too.
 3. **Press Play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
 
+*Back to dreamports*, at the top of the start screen, goes back to the [dreamports.net](https://dreamports.net/) menu.
+
 > [!TIP]
 > **Where does the file come from?** From a Sonic Advance cartridge you own, copied to your computer with a cartridge reader. This project can't provide the game. Sonic Advance (USA) is the tested version; [docs/ROM.md](docs/ROM.md) has the details.
 
@@ -308,7 +310,7 @@ compared with the original in [docs/ROM.md](docs/ROM.md#sonic-advance-2-tricks).
 
 Other controllers that your browser maps to the Xbox layout work the same way. Press a button once after the page loads so the browser notices the controller; on the start screen, a small controller badge lights up while an Xbox controller is connected, and fades and leaves when it's unplugged. On touch screens, on-screen buttons appear instead.
 
-The start screen works with the controller too: the d-pad or left stick moves between its buttons and switches, <kbd>A</kbd> presses the one picked, and <kbd>Menu</kbd> starts the game, like <kbd>Enter</kbd> on the keyboard. Browsers open the file list only from the mouse or the keyboard, so add the ROM files that way, or drop them on the page.
+The start screen works with the controller too: the d-pad or left stick moves between its links, buttons and switches, <kbd>A</kbd> presses the one picked, and <kbd>Menu</kbd> starts the game, like <kbd>Enter</kbd> on the keyboard. Browsers open the file list only from the mouse or the keyboard, so add the ROM files that way, or drop them on the page.
 
 ## Multiplayer: Chao Hunt
 

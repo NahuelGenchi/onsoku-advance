@@ -1,0 +1,19 @@
+// How Cloudflare serves the game at dreamports.net/play/sonic-advance/, as its own Worker with no server code.
+// Cloudflare looks files up by their full address, so the build copies the committed game into
+// dist/play/sonic-advance/: the two pages, src/, styles/ and the social preview picture. Nothing else is
+// published: no docs, no README media, and never a ROM, since only committed files are copied.
+{
+  "name": "sonic-advance-dreamport",
+  "compatibility_date": "2026-10-28",
+  "build": {
+    "command": "rm -rf dist && mkdir -p dist/play/sonic-advance && git archive HEAD index.html viewer.html src styles docs/assets/social-preview.png | tar -x -C dist/play/sonic-advance"
+  },
+  "assets": { "directory": "./dist" },
+  // These run before dreamports.net's own Worker, which serves the rest of the site.
+  "routes": [
+    { "pattern": "dreamports.net/play/sonic-advance", "zone_name": "dreamports.net" },
+    { "pattern": "dreamports.net/play/sonic-advance/*", "zone_name": "dreamports.net" }
+  ],
+  // No sonic-advance-dreamport.<account>.workers.dev copy of the game.
+  "workers_dev": false
+}

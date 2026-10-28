@@ -30,6 +30,7 @@ import {
 import { createSuperEggRobo, BOSS } from './eggrobo.js';
 import { SONG } from '../sound/songs.js';
 import { createPauseMenu, PAUSE_PRIORITY } from './pause.js';
+import { openSave, saveActCleared, saveMoonCleared, WRITE_FRAMES } from './save.js';
 
 const START_LIVES = 3;
 const MAX_BRAKE_DUST = 20;     // CreateBrakingDustEffect's pool
@@ -41,8 +42,9 @@ const SCATTER_GRAVITY = 7;     // the scattered rings' fall on the extra stage (
 const DISPCNT = 0x1F41;
 const SUPER_EGG_ROBO = 31;     // the robot's entity kind
 // CreateExtraStageResults writes the save game with interrupts off. mGBA 0.10.5 goes on showing the last frame
-// meanwhile, 14 frames without the HBlank interrupt and one with it back on, then the ending's white screen for
-// two before its first frame runs.
+// meanwhile, 14 frames without the HBlank interrupt (the write's, WRITE_FRAMES, only when the save has changed
+// since it was last written) and one with it back on, then the ending's white screen for two before its first
+// frame runs.
 const SAVE_FRAMES = 16;
 const SINE8 = a => SINE[a & 1023] >> 6;   // SIN_24_8
 
@@ -53,10 +55,12 @@ const SILENT = {
 /**
  * The Moon Zone, with the same interface as createGame (game.js). On the true ending's 30th frame
  * `stageResults({ rings, courseTime, level })` puts up the results' tally (#69's), and `onCredits()` is called
- * on the frame the staff credits take over from the ending. `continues` and `onTitle()` are createGame's: the
- * continues the game has, and what a game over without one does once it is done.
+ * on the frame the staff credits take over from the ending. `save`, `startLevel`, `continues` and `onTitle()` are
+ * createGame's: the save, which the robot's defeat and the game over write, the level the game was started on,
+ * the continues the game has, and what a game over without one does once it is done.
  */
-export function createExtraStage(canvas, assets, input, sound = SILENT, { stageResults, onCredits = () => {}, difficulty = 0, continues = 0, onTitle = () => {} } = {}) {
+export function createExtraStage(canvas, assets, input, sound = SILENT, { stageResults, onCredits = () => {}, save = openSave(null), startLevel = 0, continues = 0, onTitle = () => {} } = {}) {
+  const difficulty = save.difficultyLevel;
   const { anims } = assets.sprites;
   const stage = assets.stage, terrain = createTerrain(stage.collision);
   const bodyAnims = { roboBody: stage.extra.body.anim };
@@ -96,6 +100,9 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
   let viewW = SCREEN_W, viewH = SCREEN_H;
   state.view = viewOf(state.cam, viewW, viewH);
   let restart = null, toTitle = false, loading = false, cardPad = [], brakeDust = MAX_BRAKE_DUST, spawned = false;
+  // the frames the game over's save still takes (WRITE_FRAMES), in which nothing else runs and the screen keeps
+  // its frame, and what comes after it
+  let saving = 0, afterSave = null;
   let startHeld = false, startPressed = false;   // Start as the last frame read it, and pressed this frame
   const sparkles = new Set();
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
@@ -156,14 +163,19 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
     body(sprite, sx, sy, rotation) { state.body = { frame: sprite.frame, sx, sy, rotation }; },
     scatterRings(x, y, n) { scatter.launchCapsule(x, y, n, player.layer, random); },
     brakeDust(x, y, dx) { if (brakeDust > 0) { brakeDust--; tasks.add(dust(x, y, dx), BRAKE_DUST); } },
-    // the fade has reached white: TasksDestroyAll, and the true ending takes over (CreateExtraStageResults);
-    // without its art (a ROM version where it isn't found) the credits come straight on
+    // the fade has reached white: TasksDestroyAll, and the true ending takes over (CreateExtraStageResults), with
+    // the Moon cleared in the save, which is written; the stage results it puts up count the rings into the
+    // save's ring bank (CreateStageResults). Without its art (a ROM version where it isn't found) the credits
+    // come straight on.
     defeated() {
       tasks.stop();
       state.ended = true;
+      saveMoonCleared(save);
+      const written = save.write();
       if (!stage.extra.ending) { onCredits(); return; }
-      state.ending = createTrueEnding(anims, sound, { rings: state.ringCount, courseTime: state.courseTime, stageResults, onCredits });
-      state.saving = SAVE_FRAMES;
+      const results = r => { saveActCleared(save, { ...r, startLevel }); stageResults?.(r); };
+      state.ending = createTrueEnding(anims, sound, { rings: state.ringCount, courseTime: state.courseTime, stageResults: results, onCredits });
+      state.saving = written ? SAVE_FRAMES : SAVE_FRAMES - WRITE_FRAMES;
     },
   };
 
@@ -261,14 +273,18 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
   }
 
   // the game over's tasks, as one (gameover.js), reading this frame's A and B; once it is done the original
-  // destroys every task, and the stage starts over with the continue or the game goes back to its start
+  // writes the save, then destroys every task, and the stage starts over with the continue or the game goes
+  // back to its start
   const gameOverTask = {
     run() {
       const a = input.jumpPressed, b = input.attackPressed;
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
       const go = state.gameOver, end = runGameOver(go, sound, a, b);
-      if (end === 'continue') { restart = continueStage; tasks.stop(); }
-      else if (end === 'title') { toTitle = true; tasks.stop(); }
+      if (end) {
+        const after = end === 'continue' ? () => { restart = continueStage; } : () => { toTitle = true; };
+        if (save.write()) { saving = WRITE_FRAMES; afterSave = after; } else after();
+        tasks.stop();
+      }
       // its fade writes the brightness decrease every frame, before the robot's task, which can write over it
       // (the end of a laser clears BLDCNT, and that frame isn't darkened)
       else if (go.fade.on || go.black) Object.assign(state.display, { bldCnt: DARKEN, bldY: go.bldY });
@@ -334,6 +350,13 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
     if (state.ending) {
       if (state.saving > 0) state.saving--;
       else state.ending.step();
+      return;
+    }
+    if (saving > 0) {
+      if (--saving > 0) return;
+      afterSave();
+      if (toTitle) { onTitle(); return; }
+      if (restart) { const start = restart; restart = null; start(); }
       return;
     }
     if (state.ended || toTitle) return;

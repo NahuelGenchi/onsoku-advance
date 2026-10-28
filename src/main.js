@@ -20,6 +20,7 @@ import { createNormalEnding } from './engine/normalending.js';
 import { createSound } from './sound/audio.js';
 import { SCREEN_W, SCREEN_H, VIEW_MAX_W, VIEW_MAX_H } from './engine/constants.js';
 import { THE_MOON, ALL_EMERALDS } from './engine/unlock.js';
+import { openSave } from './engine/save.js';
 import { levelInfo } from './rom/levels.js';
 import { startMultiplayer, DEFAULT_SEED, DEFAULT_CHAO_PLACE } from './multiplayer.js';
 
@@ -81,15 +82,11 @@ romFile.addEventListener('change', async () => {
   screen.focus();
 });
 
-// the Chaos Emeralds won, a bit per special stage: the save's record of them, kept in this browser; and the
-// continues the special stages have given, kept for this visit
-const EMERALDS_KEY = 'onsoku.emeralds';
-let emeralds = 0, continues = 0;
-try { emeralds = Number(localStorage.getItem(EMERALDS_KEY)) & 0x7F; } catch { /* storage blocked: none yet */ }
-function keepEmeralds(won) {
-  emeralds = won;
-  try { localStorage.setItem(EMERALDS_KEY, String(won)); } catch { /* kept for this visit only */ }
-}
+// the save (save.js), read as the GBA is switched on and kept in this browser, which the game changes and writes
+// as it goes; the continues the special stages have given, kept for this visit; and the level the game was
+// started on, the course select's (gMultiplayerCurrentLevel: the level pick's, or 0 from the start)
+const save = openSave();
+let continues = 0, startLevel = 0;
 
 // Sonic Rush's boost, an extra on top of the original game: off unless chosen, like the widescreen view. Its
 // effects and sound come from the player's own Sonic Rush ROM.
@@ -230,7 +227,7 @@ function start(buffer, assets) {
   const multi = !!assets.stage.multiplayerSpawns;
   wideButton.disabled = rushButton.disabled = boostButton.disabled = tricksButton.disabled = multi;
   if (multi) { startRound(assets); return; }
-  const leaving = specialTest && specialSpringStart(assets, { emeralds, continues });
+  const leaving = specialTest && specialSpringStart(assets, { emeralds: save.chaosEmeralds, continues });
   if (leaving) { enterSpecialStage(assets, leaving); return; }
   if (debug) { play(assets); return; }
   front = createFrontEnd(screen, rom, assets.info.offsets, input, sound, () => { front = null; play(assets); });
@@ -241,8 +238,10 @@ function start(buffer, assets) {
 // the act, after the game's start, again from what the special stage hands back (`resume`), or the next zone's
 // first act with what the game carries over (`carry`)
 function play(assets, resume = null, carry = null) {
+  const levelPick = assets.first !== 0 && assets.first === firstLevel && !carry;
+  if (!resume && !carry) startLevel = levelPick ? assets.first : 0;
   game = createGame(screen, assets, input, sound, {
-    resume, carry, emeralds, continues, levelPick: assets.first !== 0 && assets.first === firstLevel && !carry,
+    resume, carry, save, startLevel, continues, levelPick,
     onSpecialStage: handover => enterSpecialStage(assets, handover),
     onNextZone: next => nextZone(next),
     // a game over without a continue goes back to the start of the game, the SEGA logo
@@ -260,7 +259,7 @@ function play(assets, resume = null, carry = null) {
   screen.focus();
   clearInterval(statsTimer);
   statsTimer = setInterval(showStats, 100);
-  if (debug) globalThis.onsoku = { game, assets, input, sound, nextZone, endGame: from => endGame(assets, from) };
+  if (debug) globalThis.onsoku = { game, assets, input, sound, save, nextZone, endGame: from => endGame(assets, from) };
 }
 
 // the zone being played, whose art the ending after it reads
@@ -272,10 +271,10 @@ let playing = null;
 function endGame(assets, from) {
   const { seed } = game.state;
   game.stop();
-  game = createNormalEnding(screen, assets, input, sound, { from, emeralds: from === 'credits', seed, onEnd: () => queueMicrotask(restartGame) });
+  game = createNormalEnding(screen, assets, input, sound, { from, emeralds: from === 'credits', seed, save, onEnd: () => queueMicrotask(restartGame) });
   fitScreen();
   game.start();
-  if (debug) globalThis.onsoku = { game, assets, input, sound, nextZone, endGame: from => endGame(assets, from) };
+  if (debug) globalThis.onsoku = { game, assets, input, sound, save, nextZone, endGame: from => endGame(assets, from) };
 }
 
 // back to the start of the game, the SEGA logo, with no continues and act 1's art (read again if another
@@ -292,7 +291,7 @@ async function nextZone({ level, ...carry }) {
   continues = carry.continues ?? continues;
   // past X Zone the Moon Zone opens with all seven Chaos Emeralds (unlock.js; the ROM also wants every
   // character to have cleared X Zone, and only Sonic is in this game); otherwise the normal ending comes
-  if (level === THE_MOON && emeralds !== ALL_EMERALDS) { queueMicrotask(() => endGame(playing, 'congratulations')); return; }
+  if (level === THE_MOON && save.chaosEmeralds !== ALL_EMERALDS) { queueMicrotask(() => endGame(playing, 'congratulations')); return; }
   const from = game;
   let assets;
   try {
@@ -307,12 +306,13 @@ async function nextZone({ level, ...carry }) {
 }
 
 // a special spring sent Sonic out of the act: the special stage on the same screen, then the act again from
-// what it hands back, with the Chaos Emeralds and the continues it leaves kept
+// what it hands back: the Chaos Emerald its results win goes into the save (written with the next act's results)
+// and the continues it gives are kept
 function enterSpecialStage(assets, handover) {
   game?.stop(); game = null;
   specialStage = createSpecialStageRun(screen, rom, assets.info.offsets, input, sound, handover, back => {
     specialStage = null;
-    keepEmeralds(back.emeralds);
+    save.chaosEmeralds = back.emeralds;
     continues = back.continues;
     play(assets, back);
   });

@@ -40,6 +40,7 @@ import { BOOST_MODE_SE } from '../rom/sa2boost.js';
 import { createExtraStage } from './extra.js';
 import { createClock } from './clock.js';
 import { createPauseMenu, PAUSE_PRIORITY } from './pause.js';
+import { openSave, saveActCleared, WRITE_FRAMES } from './save.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
@@ -52,13 +53,6 @@ const MAX_COURSE_TIME = 10 * 3600;
 // far short of the act's right edge the camera and Sonic stop, by level (Neo Green Hill act 2 keeps its boss's
 // arena out)
 const CAMERA_STOPS = { 1: 768 };
-// GoToNextLevel: the frames from the one the results end in to the next act's first, while the original
-// writes the save (as long as it takes mGBA, the reference) and loads the act; GameStageStart sets the act up,
-// and its stage init starts its music, two frames before its first
-const NEXT_ACT_FRAMES = 16, NEXT_ACT_LOADS = 2;
-// WriteSaveGame, as a game over ends: the frames it takes mGBA (the reference), from the one the game over ends in,
-// in which nothing else runs, gFrameCount doesn't count and the screen keeps its frame
-const SAVE_FRAMES = 14;
 // gFrameCount, the frames since the GBA was switched on, which counts up as each frame starts: on the act's first
 // frame it is 3838 when the act is started straight from the course select (the Egg Ball seeds the random numbers
 // with it)
@@ -83,13 +77,14 @@ const SILENT = {
 /**
  * The act on `canvas`. `options`: onSpecialStage(game), called the frame a special spring sends Sonic out of the
  * act, after which it stops; resume, such a `game` as the special stage hands it back, to start the act again
- * from; emeralds, the Chaos Emeralds won so far (a bit per special stage), and continues, the continues the
- * player has, which it hands on; onNextZone({ level, score, lives, seed }), called as the results of the last
- * act decoded end, to go on to the next zone's first act with what the game carries over; carry, those
+ * from; save, the save (save.js), which the act changes and writes as the original does, and which has the Chaos
+ * Emeralds won so far and the time limit setting; startLevel, the level the game was started on (the course
+ * select's, the level pick's); continues, the continues the player has, which it hands on;
+ * onNextZone({ level, score, lives, seed }), called as the results of the last act decoded end, once the save is
+ * written, to go on to the next zone's first act with what the game carries over; carry, those
  * { score, lives, seed, continues } to start with; levelPick, set when the act is started from the level pick (?level=N);
  * onTitle(), called when a game over sends the game back to its start (the SEGA logo), after which the act does
- * nothing more; timeLimit, false to turn the 10:00 time limit off (a save's timeLimitDisabled, which a new save
- * leaves on).
+ * nothing more.
  *
  * `options.mode` makes it one GBA's game in a multiplayer mode (chaohunt.js): where Sonic starts (`start`), its
  * tasks (`setup(game)`), what ends the title card (`cardEnd()`), his life lost (`lifeLost()`), what he reads of
@@ -101,7 +96,8 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   if (assets.stage.extra) return createExtraStage(canvas, assets, input, sound, options);
   const { spinDashSpeeds } = assets.physics;
   const mode = options.mode ?? null;
-  const timeLimit = options.timeLimit ?? true;   // !LOADED_SAVE->timeLimitDisabled
+  const save = options.save ?? openSave(null);
+  const timeLimit = !save.timeLimitDisabled;
   // the animations, and which colours their palette loads last left in each row of the sprite palette (animator.js)
   const anims = { ...assets.sprites.anims, objPalette: new Array(16).fill(-1) };
   // the act being played (assets.acts, by level), and what is its own: its map, its objects and their tasks,
@@ -192,10 +188,12 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   let madeBy = options.levelPick && stage.level !== 0 ? 0x2001 : -1;
   const hudFlash = options.levelPick ? stage.hudFlash : 1;
   let extraLife = false, loading = false, starMusic = false;
-  let restart = null;   // how the act starts over at the end of this frame: restartAct or continueAct
+  let restart = null;   // what comes at the end of this frame: the act over again (restartAct, continueAct), the
+                        // next act, or the game's start
   let toTitle = false;  // a game over is sending the game back to its start
-  let saving = 0, afterSave = null;   // the frames the game over's save still takes, and what comes after it
-  let nextAct = 0;    // the frames left until the next act starts, once the results are over
+  // the frames the save's write still takes (WRITE_FRAMES), in which nothing else runs, gFrameCount doesn't count
+  // and the screen keeps its frame, and what comes after it
+  let saving = 0, afterSave = null;
   let ended = false;  // past the last act built so far, the screen keeps its last frame
   let frozen = null;  // until then, the last act's last frame, which the screen keeps: { render, state }
   let drawShift = 0;   // how far right of the view the rest of this frame draws, after the act looped back
@@ -296,9 +294,9 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // time over (timeover.js), with the act running on behind it, which starts the act over after it. Otherwise
     // it is HandleLifeLost: his rings gone and a life less, and with lives left the act starts over at once;
     // the original destroys every task, so nothing after Sonic's runs this frame. The last life lost either way
-    // brings the game over, with the act still running behind it; a continue left is used for it. (A time over's
-    // game over also keeps the best score in the save, which isn't built yet.) In a multiplayer mode he starts
-    // again where he started, and the stage goes on.
+    // brings the game over, with the act still running behind it; a continue left is used for it. A time over's
+    // game over without one keeps the score in the save, if it is the best yet (unk420). In a multiplayer mode he
+    // starts again where he started, and the stage goes on.
     lifeLost() {
       state.noPause = true;
       if (mode) { mode.lifeLost(); return; }
@@ -313,6 +311,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
         return;
       }
       if (state.lives !== 0) { restart = restartAct; tasks.stop(); return; }
+      if (timeUp && state.continues === 0) save.unk420 = Math.max(state.score, save.unk420);
       state.gameOver = createGameOver(assets.gameOver, state.continues > 0);
       if (state.continues > 0) state.continues--;
       sound.play(assets.gameOver.song);
@@ -320,13 +319,15 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     },
     // the goal (goal.js): the clock and the rings stop (STAGE_FLAG__ACT_START and STAGE_FLAG__2), and it holds
     // the camera and, once Sonic is in his act-clear run, hands over to the results (CreateStageResults): the
-    // act-clear jingle and no more music manager, and the results' task, which first runs this frame
+    // act's rings to the save's ring bank and the act cleared, the act-clear jingle and no more music manager,
+    // and the results' task, which first runs this frame
     get goalReached() { return state.goalReached; },
     reachGoal() { state.goalReached = true; state.clockStopped = true; state.ringsStopped = true; },
     // the act's end has Sonic now (STAGE_FLAG__2: past the goal, or a beaten boss), for the optional Boost Mode
     get actOver() { return state.ringsStopped; },
     stageResults() {
       state.noPause = true;
+      saveActCleared(save, { level: state.level, rings: state.ringCount, startLevel: options.startLevel ?? 0 });
       state.results = createResults(act.results, { rings: state.ringCount, courseTime: state.courseTime, level: state.level });
       sound.play(state.level & 1 ? SONG.BOSS_CLEAR : SONG.ACT_CLEAR);
       sound.musicOff();
@@ -588,7 +589,9 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     destroy() { state.hud.sprites = []; },
   };
   // the results' task and their pieces' (0x2100 and 0x2120): the score counts up, and once they are over the
-  // original destroys every task and goes on to the next act (GoToNextLevel), stopping all sound
+  // original destroys every task and goes on to the next act (GoToNextLevel), stopping all sound. It writes the
+  // save, then starts the act (GameStageStart), whose loading takes it the whole next frame. Past the last act
+  // decoded, the next zone's acts are decoded in their turn, the screen keeping this frame meanwhile.
   const resultsTask = {
     run() {
       const r = runResults(state.results, {
@@ -604,12 +607,11 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       state.results = null;
       tasks.stop();
       sound.stopAll();
-      if (assets.acts[state.level + 1]) nextAct = NEXT_ACT_FRAMES;
-      else {
-        // the next zone's acts are decoded from the ROM in their turn, the screen keeping this frame meanwhile
+      const next = assets.acts[state.level + 1] ? () => { startNextAct(); loading = true; } : () => {
         ended = true;
         options.onNextZone?.({ level: state.level + 1, score: state.score, lives: state.lives, seed: state.seed, continues: state.continues });
-      }
+      };
+      if (save.write()) { saving = WRITE_FRAMES; afterSave = next; } else restart = next;
       return false;
     },
   };
@@ -659,15 +661,15 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
 
   // the game over's four tasks, as one (gameover.js); its screen reads this frame's A and B. Once it is done the
   // original writes the save, then destroys every task: the act starts over with the continue, or the game goes
-  // back to its start.
+  // back to its start, this frame when the save was up to date.
   const gameOverTask = {
     run() {
       const a = input.jumpPressed, b = input.attackPressed;
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
       const end = runGameOver(state.gameOver, sound, a, b);
       if (!end) return true;
-      afterSave = end === 'continue' ? continueAct : () => { toTitle = true; };
-      saving = SAVE_FRAMES;
+      const after = end === 'continue' ? continueAct : () => { toTitle = true; };
+      if (save.write()) { saving = WRITE_FRAMES; afterSave = after; } else restart = after;
       tasks.stop();
       return true;
     },
@@ -882,11 +884,6 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     state.frameCount = (state.frameCount + 1) >>> 0;
     if (loading) { loading = false; return; }
     if (ended) return;
-    // between two acts the screen keeps the last act's last frame
-    if (nextAct > 0) {
-      if (--nextAct === NEXT_ACT_LOADS) startNextAct();
-      if (nextAct > 0) return;
-    }
     frozen = null;
     // paused, the sprites stay as the last frame left them, and no task reads the buttons pressed
     const paused = state.paused;
@@ -898,9 +895,9 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     endFrame();
     if (state.water) endWaterFrame(state.water);
     if (madeBy >= 0) { madeBy = -1; loading = true; }
-    if (toTitle) { options.onTitle?.(); return; }
     if (restart) { const start = restart; restart = null; start(); }
-    if (special) options.onSpecialStage?.(handOver(state, special, { ...options, level: state.level, continues: state.continues }));
+    if (toTitle) { options.onTitle?.(); return; }
+    if (special) options.onSpecialStage?.(handOver(state, special, { level: state.level, emeralds: save.chaosEmeralds, continues: state.continues }));
   }
 
   const show = () => { drawn = true; return frozen ? frozen.render(frozen.state) : render(state); };

@@ -8,10 +8,11 @@ import { createRenderer } from './renderer.js';
 import { createEndingRenderer } from './endingrender.js';
 import { createCongratulations } from './congratulations.js';
 import { createStaffCredits } from './credits.js';
+import { openSave, WRITE_FRAMES } from './save.js';
 
 // CreateCongratulationsAnimation writes the save game with interrupts off before its first frame, and the
-// screen goes on showing the last frame meanwhile. The frames this takes are the Moon Zone's (extra.js), as the
-// save is the same.
+// screen goes on showing the last frame meanwhile. The frames this takes are the Moon Zone's (extra.js), the
+// write's (WRITE_FRAMES) only when the save has changed since it was last written.
 const SAVE_FRAMES = 16;
 
 const SILENT = { play() {}, stopAll() {} };
@@ -20,9 +21,9 @@ const SILENT = { play() {}, stopAll() {} };
  * `from`: 'congratulations' after X Zone's results, or 'credits' (the true ending's onCredits). `emeralds`:
  * all seven collected, so the credits go straight on to the end. `onEnd()` is called on the frame the SEGA
  * logo would come up. `state.seed` is the game's random numbers (gPseudoRandom), which the congratulations'
- * streaks use.
+ * streaks use. `save` is the save (save.js), which the congratulations write.
  */
-export function createNormalEnding(canvas, assets, input, sound = SILENT, { from = 'congratulations', emeralds = false, seed = 0, onEnd = () => {} } = {}) {
+export function createNormalEnding(canvas, assets, input, sound = SILENT, { from = 'congratulations', emeralds = false, seed = 0, save = openSave(null), onEnd = () => {} } = {}) {
   const { anims } = assets.sprites, art = assets.stage.normalEnding;
   // what the screen showed, held while the save is written
   const held = document.createElement('canvas');
@@ -43,7 +44,10 @@ export function createNormalEnding(canvas, assets, input, sound = SILENT, { from
   const congratulations = () => {
     state.scene = createCongratulations(anims, sound, { random, onCredits: credits });
   };
-  if (from === 'congratulations') { sound.stopAll(); state.saving = SAVE_FRAMES; } else credits();
+  if (from === 'congratulations') {
+    sound.stopAll();
+    state.saving = save.write() ? SAVE_FRAMES : SAVE_FRAMES - WRITE_FRAMES;
+  } else credits();
 
   function step() {
     input.poll?.();

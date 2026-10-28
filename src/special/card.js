@@ -6,6 +6,7 @@
 // When the card ends, the rings counter starts (ctx.hud).
 
 import { createUiTask, uiGfxStackInit, uiGraphics, loadUiGfx, drawUiText, drawUiTextAffine, glyphs, createFade, fadeStep, fadeShow } from '../front/ui.js';
+import { uiSlots } from './intro.js';
 
 const OBJ_VRAM = 0x10000;
 const CARD_FRAMES = 0xFF;
@@ -31,7 +32,7 @@ const line = fields => ({ unk0: 0, unk2: 0, unk4: 0, unk6: 0, unk8: 0, unkA: 0, 
  */
 export function createTitleCard(ctx, arg) {
   const e = ctx.engine;
-  createUiTask(e);
+  createUiTask(e, uiSlots);
   uiGfxStackInit(e);
   const band = { ctx, unk18: 0, unk1A: 0, o: line({ unkA: 0xF0, unkC: 0x7E, unkE: 8, unk10: SLOT_BAND, unk12: PALETTE, unk16: 1, unk8: 0xA }) };
   const task10 = e.createTask(bandStep, band, 0x2120);

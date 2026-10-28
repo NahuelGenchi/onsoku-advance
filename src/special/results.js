@@ -9,6 +9,7 @@
 // slides off to the left, and then the act starts again.
 
 import { createUiTask, uiGfxStackInit, uiGraphics, loadUiGfx, drawUiText, drawUiTextAffine, glyphs } from '../front/ui.js';
+import { uiSlots } from './intro.js';
 import { SINE } from '../engine/trig.js';
 import { SONG } from '../sound/songs.js';
 
@@ -41,7 +42,7 @@ const scaled = fields => line({ unk0: 0x100, unk2: 0, unk4: 0, unkA: 0x39, unkC:
  */
 export function createResults(ctx, arg) {
   const e = ctx.engine, { game, special } = ctx;
-  createUiTask(e);
+  createUiTask(e, uiSlots);
   e.bgScroll.fill(0);
 
   let won = 0, bonus = 0, had = 0;

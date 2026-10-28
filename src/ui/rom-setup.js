@@ -17,7 +17,22 @@ const ICONS = {
   ready: pixels('mark-ready', 7, 7, 'M5 1h2v1H5zM4 2h2v1H4zM0 3h2v1H0zM3 3h2v1H3zM1 4h3v1H1zM2 5h1v1H2z'),
   play: pixels('play-icon', 4, 7, 'M0 0h1v7H0zM1 1h1v5H1zM2 2h1v3H2zM3 3h1v1H3z'),
   drop: pixels('drop-icon', 7, 7, 'M3 0h1v5H3zM1 2h1v1H1zM5 2h1v1H5zM2 3h1v1H2zM4 3h1v1H4zM0 5h1v1H0zM6 5h1v1H6zM0 6h7v1H0z'),
+  back: pixels('back-icon', 7, 7, 'M3 0h1v7H3zM2 1h1v5H2zM1 2h1v3H1zM0 3h7v1H0z'),
 };
+
+// the game's own page on dreamports.net, where the way back goes when the player didn't come from its menu
+const DREAMPORTS = 'https://dreamports.net/dreamports/sonic-advance-dreamport/';
+// whether the page before this one is the dreamports.net menu: a page of the same site outside the games, which
+// are under /play/
+function cameFromMenu() {
+  if (history.length < 2 || !location.pathname.startsWith('/play/')) return false;
+  try {
+    const from = new URL(document.referrer);
+    return from.origin === location.origin && !from.pathname.startsWith('/play/');
+  } catch {
+    return false;
+  }
+}
 
 const escape = text => String(text).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 // waits for the page to draw what was just set, or a moment when it isn't drawing (a hidden tab)
@@ -35,6 +50,7 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
   host.innerHTML = `
     <div class="setup">
       <header class="setup-head">
+        <a class="setup-back" href="${DREAMPORTS}">${ICONS.back}<span>Back to dreamports</span></a>
         <div class="setup-top">
           <p class="setup-brand">音速 Sonic Advance Dreamport</p>
           <div class="pad" data-state="gone"><span class="pad-icon" aria-hidden="true"></span><span class="pad-note" role="status" aria-live="polite"></span></div>
@@ -95,6 +111,13 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
       extras: [...el.querySelectorAll('[data-extra]')],
     }];
   }));
+
+  // back to dreamports.net: from its menu, back in the browser's history, so the menu comes back as it was left
+  $('.setup-back').addEventListener('click', e => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !cameFromMenu()) return;
+    e.preventDefault();
+    history.back();
+  });
 
   // the line under a ROM's name: what it is while it's missing, what was read once it's in (while it's being read,
   // the reading's progress). It wraps after a dot, never before one.

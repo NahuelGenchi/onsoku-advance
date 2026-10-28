@@ -1,14 +1,14 @@
 // The start screen with a controller: the badge that lights up while an Xbox controller is connected, with a
-// short note as it comes and goes, and the screen's buttons run from the pad. The d-pad or the left stick moves
-// between them, A presses the one picked and Menu presses Play. Browsers only show a controller to the page once
-// one of its buttons is pressed.
+// short note as it comes and goes, and the screen's links and buttons run from the pad. The d-pad or the left
+// stick moves between them, A presses the one picked and Menu presses Play. Browsers only show a controller to the
+// page once one of its buttons is pressed.
 
 import { connectedPads } from '../engine/input.js';
 
 const XBOX = /xbox|xinput|045e|microsoft/i;   // the names browsers give Microsoft's controllers
 const DEAD_ZONE = 0.5;
 const REPEAT_AFTER = 380, REPEAT_EVERY = 130;   // ms: a held direction moves again, then keeps moving
-const PRESSABLE = 'button:not([hidden]):not(:disabled), input:not([type=file]):not(:disabled)';
+const PRESSABLE = 'a[href], button:not([hidden]):not(:disabled), input:not([type=file]):not(:disabled)';
 const A = 0, MENU = 9;
 
 /**
@@ -37,12 +37,13 @@ export function bindController(host, { blocked }) {
   addEventListener('gamepaddisconnected', showBadge);
 
   // moving between the screen's buttons, toward `dir`, from where they are drawn: to the nearest line of them
-  // that way, then the one on it nearest across
+  // that way, then the one on it nearest across. The first move picks Play, or while it waits for a ROM the
+  // first button, never the link out of the game.
   const area = el => (el.closest('.switch') ?? el).getBoundingClientRect();
   function move(dir) {
     const all = [...host.querySelectorAll(PRESSABLE)].filter(el => el.getClientRects().length);
     const from = all.includes(document.activeElement) ? document.activeElement : null;
-    if (!from) return pick(host.querySelector('.play:not(:disabled)') ?? all[0]);
+    if (!from) return pick(host.querySelector('.play:not(:disabled)') ?? all.find(el => !el.matches('a')) ?? all[0]);
     const a = area(from), across = dir === 'left' || dir === 'right', sign = dir === 'up' || dir === 'left' ? -1 : 1;
     const centre = r => (across ? [r.left + r.width / 2, r.top + r.height / 2] : [r.top + r.height / 2, r.left + r.width / 2]);
     const [a1, a2] = centre(a);

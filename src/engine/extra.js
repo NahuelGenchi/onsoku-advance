@@ -55,11 +55,13 @@ const SILENT = {
 /**
  * The Moon Zone, with the same interface as createGame (game.js). On the true ending's 30th frame
  * `stageResults({ rings, courseTime, level })` puts up the results' tally (#69's), and `onCredits()` is called
- * on the frame the staff credits take over from the ending. `save`, `startLevel`, `continues` and `onTitle()` are
- * createGame's: the save, which the robot's defeat and the game over write, the level the game was started on,
- * the continues the game has, and what a game over without one does once it is done.
+ * on the frame the staff credits take over from the ending. `save`, `startLevel`, `continues`, `carry` and
+ * `onTitle()` are createGame's: the save, which the robot's defeat and the game over write, the level the game was
+ * started on, the continues the game has, what the game carries over from X Zone (GameStageStart keeps the score,
+ * the lives and the random numbers; without it, the course select's start: no score, three lives, the random
+ * numbers from 0), and what a game over without a continue does once it is done.
  */
-export function createExtraStage(canvas, assets, input, sound = SILENT, { stageResults, onCredits = () => {}, save = openSave(null), startLevel = 0, continues = 0, onTitle = () => {} } = {}) {
+export function createExtraStage(canvas, assets, input, sound = SILENT, { stageResults, onCredits = () => {}, save = openSave(null), startLevel = 0, continues = 0, carry = null, onTitle = () => {} } = {}) {
   const difficulty = save.difficultyLevel;
   const { anims } = assets.sprites;
   const stage = assets.stage, terrain = createTerrain(stage.collision);
@@ -85,9 +87,9 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
   const state = {
     tick: 0, player, terrain, cam: createCamera(player, terrain), view: null, sprites: [], windows: [], body: null,
     scrollX: 0,            // how much further than the camera the ground has scrolled (RenderMetatileLayers)
-    ringCount: START_RINGS, lives: START_LIVES, score: 0, courseTime: 0,
+    ringCount: START_RINGS, lives: carry?.lives ?? START_LIVES, score: carry?.score ?? 0, courseTime: 0,
     actStart: true,        // STAGE_FLAG__ACT_START: the title card, a death or the robot's defeat stop the clock
-    hud: createHud(), card: null, display: freshDisplay(), seed: 0, ended: false,
+    hud: createHud(), card: null, display: freshDisplay(), seed: carry?.seed ?? 0, ended: false,
     ending: null,          // the true ending, once the robot is beaten
     saving: 0,             // the frames the save game still takes before it
     continues,             // gUnknown_0300543C: a game over uses one to go on

@@ -58,10 +58,10 @@ Open the page, choose your file and play, with a keyboard, an Xbox controller or
 ## Play in three steps
 
 1. **Open the game** at **[dreamports.net/play/sonic-advance](https://dreamports.net/play/sonic-advance/)** in a current desktop browser.
-2. **Add your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*), with its *Add* button, or drop it anywhere on the page. Sonic Advance 2 and Sonic Rush, below it, are for the optional [extras](#extras-you-can-switch-on). With *Remember on this device* ticked, they are ready the next time too.
-3. **Press Play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
+2. **Add your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*), with its *add* button, or drop it anywhere on the page. Sonic Advance 2 and Sonic Rush, below it, are for the optional [extras](#extras-you-can-switch-on). With *remember on this device* ticked, they are ready the next time too.
+3. **Press play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
 
-*Back to dreamports*, at the top of the start screen, goes back to the [dreamports.net](https://dreamports.net/) menu.
+*dreamports*, at the top left of the start screen, goes back to the [dreamports.net](https://dreamports.net/) menu. The start screen is drawn like that menu, and is light or dark as the menu is: as your device is set, unless you picked a look in the menu's settings.
 
 > [!TIP]
 > **Where does the file come from?** From a Sonic Advance cartridge you own, copied to your computer with a cartridge reader. This project can't provide the game. Sonic Advance (USA) is the tested version; [docs/ROM.md](docs/ROM.md) has the details.
@@ -395,7 +395,7 @@ From a Sonic Advance cartridge you own, copied to your computer with a cartridge
 <summary><b>Is my game file uploaded anywhere?</b></summary>
 <br>
 
-No. The page reads it inside your browser and never sends it anywhere. If you tick *Remember on this device*, they're kept in your browser's storage on that device only, and *Forget the saved ROMs* on the start screen removes them again. That covers the Sonic Advance 2 and Sonic Rush ROMs too.
+No. The page reads it inside your browser and never sends it anywhere. If you tick *remember on this device*, they're kept in your browser's storage on that device only, and *forget the saved roms* on the start screen removes them again. That covers the Sonic Advance 2 and Sonic Rush ROMs too.
 
 </details>
 
@@ -405,7 +405,7 @@ No. The page reads it inside your browser and never sends it anywhere. If you ti
 
 The game's save, the same one the cartridge keeps: the acts you've cleared, the Chaos Emeralds you've won, the rings banked for the Tiny Chao Garden, a best score and the game's settings. It's written at the same moments as on the cartridge: as each act's results end, as a game over ends, before the endings, and as the Options menu closes. So a Chaos Emerald counts as kept once the next act's results are over. *Delete Game Data* in the Options menu erases it, as on the cartridge. The screens that use the rest of the save, such as the course select and the player data, aren't built yet.
 
-Besides the save, it remembers which extras you've switched on and whether the widescreen view is on, and keeps your ROMs if you tick *Remember on this device*. All of it stays in your browser's storage for this site, on this device, and is never sent anywhere. Clearing the site's data in your browser removes it. If your browser blocks the site's storage, as some private windows do, the game still plays, but forgets the save when you close the page.
+Besides the save, it remembers which extras you've switched on and whether the widescreen view is on, and keeps your ROMs if you tick *remember on this device*. All of it stays in your browser's storage for this site, on this device, and is never sent anywhere. Clearing the site's data in your browser removes it. If your browser blocks the site's storage, as some private windows do, the game still plays, but forgets the save when you close the page.
 
 </details>
 
@@ -423,7 +423,7 @@ Besides the save, it remembers which extras you've switched on and whether the w
 
 It's made for a current desktop browser, with a keyboard or a controller. On touch screens, on-screen buttons appear so you can play by touch.
 
-On an iPhone or iPad, *Add* opens Files with all your files to choose from, not only ROMs, because iOS doesn't know the `.gba` and `.nds` file types. Choose the ROM there; the page checks which game it is.
+On an iPhone or iPad, *add* opens Files with all your files to choose from, not only ROMs, because iOS doesn't know the `.gba` and `.nds` file types. Choose the ROM there; the page checks which game it is.
 
 </details>
 
@@ -479,7 +479,7 @@ cd sonic-advance-dreamport
 python -m http.server 8000
 ```
 
-Then open <http://localhost:8000>, add your ROMs and press *Play*. To start another act, add its number in the game's level list: <http://localhost:8000/?level=2> is Secret Base Zone act 1.
+Then open <http://localhost:8000>, add your ROMs and press *play*. To start another act, add its number in the game's level list: <http://localhost:8000/?level=2> is Secret Base Zone act 1.
 
 Two addresses skip ahead for testing: <http://localhost:8000/?debug> starts the act straight away, without the logos and the intro, and <http://localhost:8000/?special> starts Special Stage 1 as soon as the ROM is read, as if Sonic had just left act 1 on its special spring. When the stage ends, the act picks up again from that spring. With the level of another act that has a special spring it starts that act's stage instead: <http://localhost:8000/?special&level=3> is Special Stage 2, from Secret Base Zone act 2.
 
@@ -502,6 +502,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/TRACKING.md](docs/TRACKING.md)
 
 - The [SAT-R](https://github.com/SAT-R) decompilation of Sonic Advance, the reference for the game's data formats, physics and camera behavior. None of its code or data is copied into this repository.
 - [Monocraft](https://github.com/IdreesInc/Monocraft) by Idrees Hassan, the pixel font of the start screen. A subset of it is bundled under the SIL Open Font License 1.1 ([styles/fonts/Monocraft-OFL.txt](styles/fonts/Monocraft-OFL.txt)).
+- [Newsreader](https://github.com/productiontype/Newsreader) by Production Type, the start screen's text font, as on dreamports.net. Its Latin letters are bundled under the SIL Open Font License 1.1 ([styles/fonts/Newsreader-OFL.txt](styles/fonts/Newsreader-OFL.txt)).
 - [Pixelarticons](https://github.com/halfmage/pixelarticons) by Gerrit Halfmann, whose gamepad icon is the start screen's controller badge, under the MIT License ([styles/icons/pixelarticons-LICENSE.txt](styles/icons/pixelarticons-LICENSE.txt)).
 
 ## Legal

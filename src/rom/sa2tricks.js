@@ -24,7 +24,7 @@ export const TRICK_ANIMATIONS = {
 // hitting the ground its own
 export const SA2_SE = { jump: 116, trick: 230, boundImpact: 223 };
 
-const unexpected = what => new RomError(`Unexpected data in the Sonic Advance 2 ROM: ${what}.`);
+const unexpected = what => new RomError(`unexpected data in the Sonic Advance 2 rom: ${what}.`);
 
 /** Reads the tricks' art: { atlas, frames, anims } like the Sonic Advance sprites (extract.js), each
  *  animation marked with this sheet so the game draws its frames from it, and `palette`, Sonic's row of

@@ -157,42 +157,42 @@ function useSa2(buffer) {
 
 // the Sonic Advance ROM and what the extractor read from it, once it is chosen
 let sa1 = null;
-const REGIONS = { E: 'USA', J: 'Japan', P: 'Europe' };
+const REGIONS = { E: 'usa', J: 'japan', P: 'europe' };
 const region = code => REGIONS[code[3]] ?? code;
 const MAX_GBA_BYTES = 32 * 1024 * 1024;   // largest Game Boy Advance cartridge
 
 const setup = createRomSetup(picker, {
-  heading: 'Insert cartridge',
-  intro: 'Add or drop your ROMs. They never leave this device.',
+  heading: 'insert cartridge',
+  intro: 'add or drop your roms. they never leave this device.',
   slots: [
     {
-      key: 'sa1', store: SA1_ROM, title: 'Sonic Advance', platform: 'Game Boy Advance', required: true,
+      key: 'sa1', store: SA1_ROM, title: 'Sonic Advance', platform: 'game boy advance', required: true,
       accept: '.gba,.agb,.bin', claims: isSonicAdvance,
       async read(buffer, progress) {
-        if (buffer.byteLength > MAX_GBA_BYTES) throw new RomError('This file is too large to be a Game Boy Advance ROM.');
+        if (buffer.byteLength > MAX_GBA_BYTES) throw new RomError('this file is too large to be a game boy advance rom.');
         const assets = await extractAssets(buffer, progress, { level: firstLevel });
         sa1 = { buffer, assets };
-        return `${assets.info.region} · ${assets.info.version ? 'tested version' : 'untested version'}`;
+        return `${assets.info.region.toLowerCase()} · ${assets.info.version ? 'tested version' : 'untested version'}`;
       },
       unload() { sa1 = null; },
-      extras: [{ label: 'Widescreen view', hint: 'See more of the stage', key: 'V', get: () => wide, set: setWide }],
+      extras: [{ label: 'widescreen view', hint: 'see more of the stage', key: 'v', get: () => wide, set: setWide }],
     },
     {
-      key: 'sa2', store: SA2_ROM, title: 'Sonic Advance 2', platform: 'Game Boy Advance', required: false,
+      key: 'sa2', store: SA2_ROM, title: 'Sonic Advance 2', platform: 'game boy advance', required: false,
       accept: '.gba,.agb,.bin', claims: isSa2,
       read: buffer => region(useSa2(buffer)),
       unload() { boostArt = tricksArt = null; },
       extras: [
-        { label: 'Boost Mode', hint: 'Keep running at top speed', key: 'B', get: () => boostMode, set: setBoostMode, auto: true },
-        { label: 'Mid-air tricks', hint: 'E or RB in the air', key: 'T', get: () => tricks, set: setTricks, auto: true },
+        { label: 'boost mode', hint: 'keep running at top speed', key: 'b', get: () => boostMode, set: setBoostMode, auto: true },
+        { label: 'mid-air tricks', hint: 'flips and dives in the air', keys: 'with e or i (rb on a controller)', key: 't', get: () => tricks, set: setTricks, auto: true },
       ],
     },
     {
-      key: 'rush', store: RUSH_ROM, title: 'Sonic Rush', platform: 'Nintendo DS', required: false,
+      key: 'rush', store: RUSH_ROM, title: 'Sonic Rush', platform: 'nintendo ds', required: false,
       accept: '.nds', claims: isRush,
       read: buffer => region(useRush(buffer)),
       unload() { rushArt = null; },
-      extras: [{ label: 'Rush boost', hint: 'Shift, L or X on a controller', key: 'R', get: () => rush, set: setRush, auto: true }],
+      extras: [{ label: 'rush boost', hint: 'a burst of speed', keys: 'with shift or l (x on a controller)', key: 'r', get: () => rush, set: setRush, auto: true }],
     },
   ],
   onPlay() {

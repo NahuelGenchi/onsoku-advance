@@ -399,8 +399,8 @@ function part(b, variant, c) {
 
 /**
  * CreateEntity_MechaKnuckles: the boss's task for enemy 26, at 208 px right of its spawn point and 32 px above
- * it, with 8 lives (on the normal difficulty, the only one this game has: the original takes 2 off for each
- * level of its difficulty setting) and its second phase from 4 lives. It makes scattered rings bounce off
+ * it, with 8 lives and its second phase from 4 (on Normal: on Easy the original gives it 6 lives and the second
+ * phase from 3, which the port doesn't apply yet). It makes scattered rings bounce off
  * ceilings until the act starts over. Once spawned it never spawns again in the act.
  */
 export function createMechaKnuckles(e, slot, anims, ctx) {

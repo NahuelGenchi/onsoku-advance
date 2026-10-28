@@ -3,7 +3,7 @@
 // bobs up to 20 px above that line and back down every 32 frames. Away from the ends, with Sonic's centre within
 // 16 px of its own across, it stops for 20 frames and drops a coin, then floats on and doesn't drop another for
 // 100 frames spent between the ends. Its sprite is a left half, drawn again mirrored for the right. In Casino
-// Paradise the original makes it only on Normal; this game has no difficulty setting.
+// Paradise the original makes it only on Normal; the port doesn't apply Easy yet.
 //
 // The coin falls, gaining 40/256 px a frame each frame, and shatters on the floor or on touching Sonic: six
 // pieces fan out by the floor's angle at a random share of its speed, bounce, slow down, and go after 45

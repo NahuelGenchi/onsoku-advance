@@ -3,17 +3,20 @@
 // then the logo zooms in from four times its size over 13, slowing as it comes. A second after the copyright line
 // shows, "PRESS START" blinks above it, on and off every 32 frames, and Start opens the main menu: the five items
 // where "PRESS START" was, the chosen one lit. Up and Down move through them, wrapping round, with the key
-// repeat, and A on Game Start fades the screen to black and stops the music.
+// repeat, and A on Game Start or Options fades the screen to black and stops the music. Options opens the Options
+// menu (options.js), which comes back to the main menu with the title screen's layers drawn again and a fade in.
 //
 // What isn't built yet goes nowhere. The original starts a demo after 900 frames on the title screen; here the
-// title screen stays as it is. A on VS, Time Attack, Options or Tiny Chao Garden does nothing, and Game Start
-// goes to the act, where the character select would start. The screens are in English, the language screen's
-// default for a new game; the saved language isn't read yet.
+// title screen stays as it is. A on VS, Time Attack or Tiny Chao Garden does nothing, and Game Start goes to the
+// act, where the character select would start. The screens are in English, the language screen's default for a
+// new game; the saved language isn't read yet.
 
 import { createSprite, updateSprite, displaySprite } from '../gba/sprite.js';
 import { createBackground, drawBackground, transformBackground } from '../gba/background.js';
 import { FLAGS, KEY } from '../gba/engine.js';
 import { SONG } from '../sound/songs.js';
+import { createFade, fadeStep } from './ui.js';
+import { createOptionsMenu } from './options.js';
 
 const UI_LANGUAGE = 1;   // English
 const TM_TITLE_LOGO = 73 + UI_LANGUAGE, TM_TITLE_BG = 75;
@@ -21,6 +24,7 @@ const ANIM_CHAO_HOVER_SIDE = 699, ANIM_PRESS_START = 779, ANIM_TITLE_COPYRIGHT =
 // the tiles the original gives each sprite: "PRESS START"'s are the Japanese one's, the bigger of the two
 const PRESS_START_TILES = 23 * 2, COPYRIGHT_TILES = 3 * 30;
 const MENU_ITEMS = 5, MENU_TOP = 93, MENU_SPACE = 14;
+const GAME_START = 0, OPTIONS = 3;
 const ITEM_TILES = [28, 16, 28, 20, 40];
 const ITEM_VARIANTS = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5];   // by item, then language
 const BLEND_STEP = 0x55, BLEND_END = 0x1000;
@@ -135,27 +139,50 @@ function freeTitle(t) {
 }
 
 /**
- * CreateMainMenu(0), as the title screen opens it: the title screen's layers stay as they are, the logo at its
- * size.
+ * CreateMainMenu: as the title screen opens it (CreateMainMenu(0)), the title screen's layers stay as they are,
+ * the logo at its size. Coming `back` from another screen (CreateMainMenu(1)), their maps are cleared and the
+ * layers drawn again, and the screen fades in from black over 16 frames.
  */
-export function createMainMenu(ctx) {
+export function createMainMenu(ctx, back = false) {
   const e = ctx.engine;
   e.dispCnt = 0x1541;
   e.bgCnt[2] = 0x568D;
   e.bgCnt[0] = 0x1482;
   e.bgScroll.fill(0, 0, 6);
   const menu = {
-    ctx, selectedItem: 0, unk1B0: 0, items: [],
+    ctx, selectedItem: 0, unk1B0: 0, back, items: [],
     s: sprite(1, 0x40, { x: 120, y: 80, frameFlags: 0x10000 }),
+    fade: createFade(0, 1, 2, 0, 0x200, 1),
   };
   e.createTask(showMenu, menu, 0x2000);
+  if (back) {
+    // as the title screen does: the maps cleared, the logo's to tile 255, and the tiles it clears straight away
+    e.mapFill[0].value = 0;
+    e.mapFill[0].rect.set([0, 0, 0xFF, 0x20]);
+    e.mapFill[2].value = 0xFF;
+    e.mapFill[2].rect.set([0, 0, 0xFF, 0x20]);
+    e.video.vram.fill(0, 0, 0x40);
+    e.video.vram.fill(0, 0xFFC0, 0xFFC0 + 0x80);
+    drawBackground(e, ctx.tilemaps, createBackground({ layoutVram: 20 * 0x800, tilemapId: TM_TITLE_BG, targetTilesX: 30, targetTilesY: 20, flags: 4 }));
+    drawBackground(e, ctx.tilemaps, createBackground({
+      graphics: { src: 0, dest: 3 * 0x4000, size: 0, anim: 0 }, layoutVram: 22 * 0x800, tilemapId: TM_TITLE_LOGO,
+      targetTilesX: 24, targetTilesY: 10, flags: 4 | 2,
+    }));
+  }
   placeLogo(e, 0x100);
+  if (back) {
+    fadeStep(e, menu.fade);
+    // filling both maps and drawing both layers at once takes the GBA (mGBA) past the next V-blank: the menu's
+    // tasks run a frame late
+    e.lag(1);
+  }
 }
 
-// Task_MainMenuInit: the Chao, which the menu animates but never shows, and the items, shown from the next frame;
-// the key repeat set to 20 frames, then 8, and the windows and the blend off
+// Task_MainMenuInit: once a fade in has ended, the Chao, which the menu animates but never shows, and the items,
+// shown from the next frame; the key repeat set to 20 frames, then 8, and the windows and the blend off
 function showMenu(t) {
   const menu = t.data, { ctx } = menu, e = ctx.engine, s = menu.s;
+  if (menu.back && !fadeStep(e, menu.fade)) return;
   if (s.graphics.size === 0) {
     Object.assign(s, { x: 0, y: 0, oamFlags: 0x3C0, variant: 0, animCursor: 0, qAnimDelay: 0, prevVariant: 0xFF, animSpeed: 0x10, palId: 0, frameFlags: 0x400 });
     Object.assign(s.graphics, { dest: 0x10000, size: 0, anim: ANIM_CHAO_HOVER_SIDE });
@@ -195,8 +222,9 @@ function chooseItem(t) {
     updateSprite(e, ctx.sprites, item);
     displaySprite(e, ctx.sprites, item);
   });
-  // the other items' screens aren't built: A on them does nothing (the original fades out to them too)
-  if (e.pressed & KEY.A && menu.selectedItem === 0) {
+  // VS's, Time Attack's and Tiny Chao Garden's screens aren't built: A on them does nothing (the original fades
+  // out to them too)
+  if (e.pressed & KEY.A && (menu.selectedItem === GAME_START || menu.selectedItem === OPTIONS)) {
     e.playSong(SONG.SELECT);
     t.main = fadeOut;
     menu.unk1B0 = 0;
@@ -223,12 +251,20 @@ function fadeOut(t) {
 }
 
 // Task_800DEE4: the items' tiles freed and the music stopped (a song started on its player, the player cleared
-// and the song stopped), then the character select, which isn't built, so the act
+// and the song stopped), then the character select, which isn't built, so the act; or the windows and the blend
+// off, and the Options menu
 function leaveMenu(t) {
-  const menu = t.data, { ctx } = menu, e = ctx.engine;
-  for (const item of menu.items) e.vramFree(item.graphics.dest);
+  const menu = t.data, { ctx } = menu, e = ctx.engine, item = menu.selectedItem;
+  for (const s of menu.items) e.vramFree(s.graphics.dest);
   e.destroyTask(t);
   e.playSong(SONG.BOSS_FIGHT);
   e.stopSong(SONG.BOSS_FIGHT);
-  ctx.play();
+  if (item === GAME_START) {
+    ctx.play();
+    return;
+  }
+  e.dispCnt &= ~0x6000;
+  e.bldCnt = 0;
+  e.bldY = 0;
+  createOptionsMenu(ctx);
 }

@@ -50,6 +50,7 @@ export function createEngine(video, rom, sound) {
     stopSong: song => sound?.stop(song),   // m4aSongNumStop
     pauseSongs: song => sound?.pause?.(song),   // the pause menu's start (Task_PauseMenuInit)
     continueSongs: () => sound?.continueAll?.(),   // m4aMPlayAllContinue
+    stopAllSongs: () => sound?.stopAll?.(),   // m4aMPlayAllStop
     flags: 0, flagsPreVBlank: 0, frameCount: 0,
     // the RAM copies of the display registers (gDispCnt, gBgCntRegs, gBgScrollRegs as [x, y] per layer,
     // gBgAffineRegs for BG2 and BG3, gWinRegs: WIN0H, WIN1H, WIN0V, WIN1V, WININ, WINOUT, gBldRegs)
@@ -119,15 +120,32 @@ export function createEngine(video, rom, sound) {
       break;
     }
   };
-  function runTasks() {
+  // a task keeping the CPU busy for whole frames (the flash's erase or write): { frames, then, task, next }
+  let stall = null;
+  function runTasks(from = head) {
     const paused = e.flags & FLAGS.PAUSED;
-    for (let t = head; t; t = nextTask) {
+    for (let t = from; t; t = nextTask) {
       nextTask = t.next;
       e.curTask = t;
       if (!(t.flags & TASK.INACTIVE) && (!paused || t.flags & TASK.RUNS_PAUSED)) t.main(t);
+      if (stall) { stall.next = nextTask; break; }
     }
     e.curTask = nextTask = null;
   }
+  /**
+   * The running task keeps the CPU busy here for `frames` frames, with the interrupts off: no V-blank, so the
+   * screen stays as it was and the frame count stops. Then `then()` goes on with the task's code, the tasks after
+   * it run, and the frame ends with its V-blank. The keys aren't read again until the next frame.
+   */
+  e.stall = (frames, then) => { stall = { frames, then, task: e.curTask, next: null }; };
+  // frames the next screen update takes up, on top of its own
+  let lagging = 0;
+  /**
+   * The screen update at the end of this frame (its V-blank's copies, as the main loop makes them after
+   * VBlankIntrWait) is too much for one frame: the next `frames` frames do nothing, and the tasks run again after
+   * them. The engine doesn't count the CPU's time, so a screen that takes it this way says so.
+   */
+  e.lag = frames => { lagging = frames; };
   /** The tasks in the list's order, for checking. */
   e.tasks = () => {
     const list = [];
@@ -366,8 +384,23 @@ export function createEngine(video, rom, sound) {
 
   /** One frame: the keys, the tasks and the V-blank. Then draw() shows it. */
   e.run = () => {
-    readKeys();
-    runTasks();
+    if (lagging) {
+      lagging--;
+      return;
+    }
+    if (stall) {
+      if (--stall.frames > 0) return;
+      const { then, task, next } = stall;
+      stall = null;
+      e.curTask = task;
+      then();
+      e.curTask = null;
+      if (next) runTasks(next);
+    } else {
+      readKeys();
+      runTasks();
+    }
+    if (stall) return;
     e.flagsPreVBlank = e.flags;
     vblank();
   };

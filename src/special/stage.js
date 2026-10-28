@@ -46,8 +46,8 @@ const GOAL = 1, CHECKPOINT = 2;
 const START = 240, END_WAIT = 0x1A4;
 const END = { CHECKPOINT: 0x40, GOAL: 0x80 };
 const SE3 = 3;
-// SetPlayerControls with the save's default button setting
-const CONTROLS = { jump: 0x1, attack: 0x2 };
+// SetPlayerControls with the save's button setting: A jumps and B attacks, or the other way round (REVERSE)
+const CONTROLS = { jump: 0x1, attack: 0x2 }, REVERSE = { jump: 0x2, attack: 0x1 };
 
 // the tunnel: its four quarters, 19 × 14 tiles each, around the middle of layer 2's map, the others flipped
 // across, down and both; and the background on layer 3
@@ -61,7 +61,7 @@ export function createSpecialStage(ctx) {
   ctx.tables ??= stageTables(ctx.rom, ctx.offsets);
   const data = stageData(ctx.rom, ctx.offsets, ctx.stageIndex);
   const sp = ctx.special = {
-    data, collected: 0, targets: data.targets, target: data.targets[0], extra: 0, muted: 0, controls: CONTROLS,
+    data, collected: 0, targets: data.targets, target: data.targets[0], extra: 0, muted: 0, controls: ctx.game.btnConfig === 1 ? REVERSE : CONTROLS,
     checkpoint: { kind: 0, timer: 0, blend: 0 }, bg: { x: 0, y: 0, frame: 0, unk13: 0 }, stageFlags: 0,
     ...kept, chunks: new Uint16Array(16), music: null,
     // the count the rings counter blinks by starts at what its task's memory held (hud.js): at the stage's

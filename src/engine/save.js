@@ -29,6 +29,8 @@ const MAX_COURSE_TIME = 10 * 3600;
 
 /** The frames a write takes mGBA (the reference), in which nothing else runs and gFrameCount doesn't count. */
 export const WRITE_FRAMES = 14;
+/** The frames erasing the flash takes mGBA (sub_8012F6C, the Options menu's Delete Game Data). */
+export const ERASE_FRAMES = 1;
 
 // the browser's storage, or null where it is blocked
 function browserStorage() {
@@ -103,6 +105,13 @@ export function openSave(storage = browserStorage()) {
     set score(v) { view.setUint32(0x428, v >>> 0, true); },
     unlockedLevel: character => view.getUint16(0x08 + character * 2, true),
     setUnlockedLevel(character, level) { view.setUint16(0x08 + character * 2, level, true); },
+    /** sub_8012F6C: the flash erased, so the browser keeps no save until the next write. */
+    erase() {
+      flash = null;
+      try { storage?.removeItem(SAVE_KEY); } catch { /* storage blocked */ }
+    },
+    /** CreateEmptySaveGame: the save in memory empty again. */
+    reset() { bytes.set(emptySave()); },
     /**
      * WriteSaveGame: nothing when the flash already holds the save; otherwise the save is marked, summed and
      * kept. Returns whether it was written, which takes WRITE_FRAMES.

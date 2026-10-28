@@ -33,6 +33,7 @@ export const KNOWN_VERSIONS = [
       chaoSpawns: 0x0B8570,
       credits: 0x6815B4,
       emeraldMessage: 0x6C5650,
+      optionsBackground: 0x6C5650,
     },
   },
 ];

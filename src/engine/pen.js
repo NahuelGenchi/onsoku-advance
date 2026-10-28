@@ -2,8 +2,8 @@
 // 0.625 px a frame between (d0 + 1) × 8 and (d0 + d2) × 8 px right of its spawn point, following the floor,
 // turning to face the way it goes at either end. Away from the ends, once it has walked 60 frames since its
 // last throw, it stops to throw a snowball when Sonic is less than 80 px away, and the snowball slides off along
-// the ground the way the penguin faces. The original makes no Pen in Ice Mountain on Easy; this game has no
-// difficulty setting.
+// the ground the way the penguin faces. The original makes no Pen in Ice Mountain on Easy, which the port
+// doesn't apply yet.
 //
 // While it throws it follows the floor twice a frame from the same place, so on a slope it moves twice as far
 // toward it, kept here.

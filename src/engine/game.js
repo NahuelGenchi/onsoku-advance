@@ -37,6 +37,7 @@ import { RUSH_BOOST_SE } from '../rom/rush.js';
 import { BOOST_MODE_SE } from '../rom/sa2boost.js';
 import { createExtraStage } from './extra.js';
 import { createClock } from './clock.js';
+import { createPauseMenu, PAUSE_PRIORITY } from './pause.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
@@ -71,7 +72,7 @@ const noEffects = () => ({ win0: false, win0h: 0, win0v: 0, winIn: 0, winOut: 0,
 
 const SILENT = {
   play() {}, playOrChange() {}, playPitched() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, fadeOut() {}, tempo() {}, invincibility() {},
-  drowning() {}, playerState() {}, stopAll() {}, musicOff() {}, musicState() {}, playSa2() {},
+  drowning() {}, playerState() {}, stopAll() {}, musicOff() {}, musicState() {}, playSa2() {}, pause() {}, continueAll() {},
 };
 
 /**
@@ -156,6 +157,11 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // fade to white (bldY), and the object window (objWindow, with the layers it shows: objWindowLayers 0x08
     // the background alone, 0 nothing but the backdrop)
     effects2d: null,
+    noPause: true,        // STAGE_FLAG__DISABLE_PAUSE_MENU: Start opens no pause menu
+    pauseGame: false,     // FLAGS_PAUSE_GAME, which the pause menu sets (pause.js)
+    paused: false,        // the game is paused (FLAGS_800, set from it at the end of each frame): only the pause
+                          // menu's task runs, and the screen keeps the act as it was
+    pauseSign: null,      // the pause menu's sign on the frames it shows it; only drawing reads it
   };
   let boostAnims = null;   // the particles' animations, numbered as the renderer's boost atlas has them
   let playerAnims = anims;   // Sonic's animations, with the tricks' once their art is read
@@ -186,6 +192,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   let drawShift = 0;   // how far right of the view the rest of this frame draws, after the act looped back
   let special = null;   // the special spring Sonic left the act on, after which the act stops
   let shiftX = 0, shiftY = 0;   // how far from the camera the layers are drawn with this frame's sprites are placed
+  let startHeld = false, startPressed = false;   // Start as the last frame read it, and pressed this frame (gPressedKeys)
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
   const addTask = entry => { if (entry) tasks.add(...entry); };
   const newRenderer = () => {
@@ -280,6 +287,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // brings the game over, with the act still running behind it; a continue left is used for it. In a
     // multiplayer mode he starts again where he started, and the stage goes on.
     lifeLost() {
+      state.noPause = true;
       if (mode) { mode.lifeLost(); return; }
       state.ringCount = 0;
       state.lives = (state.lives - 1) & 0xFF;
@@ -297,6 +305,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
     // the act's end has Sonic now (STAGE_FLAG__2: past the goal, or a beaten boss), for the optional Boost Mode
     get actOver() { return state.ringsStopped; },
     stageResults() {
+      state.noPause = true;
       state.results = createResults(act.results, { rings: state.ringCount, courseTime: state.courseTime, level: state.level });
       sound.play(state.level & 1 ? SONG.BOSS_CLEAR : SONG.ACT_CLEAR);
       sound.musicOff();
@@ -546,6 +555,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   // round, takes up the band the first act's results left on the screen. The tasks some acts add come after the
   // stage's own (acts.js), from his checkpoint's x or the act's start.
   function startCard() {
+    state.noPause = true;
     const extra = createActTasks(stage.level, (state.checkpoint ?? stage.spawn).x, state.spriteRow);
     for (const task of extra.tasks) tasks.add(task, 0x2000);
     state.spotlights = extra.spotlights;
@@ -703,7 +713,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
       // only the single-player game's card can be cut short
       if (runTitleCard(state.card, pressed && !mode)) return;
-      state.card = null; state.clockStopped = false; state.cardsShown = state.level;
+      state.card = null; state.clockStopped = false; state.cardsShown = state.level; state.noPause = false;
       state.cardOver = true;   // its last frame, which clears the blend it set
       if (mode) { firstCard = false; mode.cardEnd(); return; }
       state.hud = createHud(firstCard ? hudFlash : 1);
@@ -750,8 +760,11 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
         state.sprites.push({ frame, x, y, flipX: false, flipY: false, affine: null, order: 8, prio: 2, boost: true });
       });
     }],
-    // the stage clock, which also keeps this frame's gravity for the next (gPrevStageFlags)
+    // the stage clock, which also keeps this frame's gravity for the next (gPrevStageFlags); in the single-player
+    // game Start opens the pause menu (pause.js) from when the title card ends until a life is lost or the results
+    // start
     [0xFF00, () => {
+      if (!mode && !state.noPause && startPressed) tasks.add(createPauseMenu({ state, anims, sound, startPressed: () => startPressed }), PAUSE_PRIORITY);
       player.wasInverted = player.inverted;
       if (mode) mode.clock();
       else if (!state.clockStopped) tickClock();
@@ -822,6 +835,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   function step() {
     if (special || toTitle) return;
     input.poll?.();
+    startPressed = input.start && !startHeld; startHeld = input.start;
     state.frameCount = (state.frameCount + 1) >>> 0;
     if (loading) { loading = false; return; }
     if (ended) return;
@@ -831,9 +845,13 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       if (nextAct > 0) return;
     }
     frozen = null;
-    state.sprites = []; drawShift = 0; shiftX = 0; shiftY = 0;
-    state.blendOff = false;
-    tasks.run(ctx, madeBy);
+    // paused, the sprites stay as the last frame left them, and no task reads the buttons pressed
+    const paused = state.paused;
+    if (!paused) { state.sprites = []; state.blendOff = false; }
+    drawShift = 0; shiftX = 0; shiftY = 0; state.pauseSign = null;
+    tasks.run(ctx, madeBy, paused);
+    if (paused) input.jumpPressed = input.attackPressed = input.boostPressed = input.trickPressed = false;
+    state.paused = state.pauseGame;
     endFrame();
     if (state.water) endWaterFrame(state.water);
     if (madeBy >= 0) { madeBy = -1; loading = true; }

@@ -66,6 +66,11 @@ export function createSound() {
       /** A boss's music state for the music manager (gMusicManagerState.unk1) */
       musicState(value) { call('musicState', value); },
       stopAll() { call('allStop'); },
+      /** The pause menu's start (Task_PauseMenuInit): MPlayStop on every music player but `song`'s, then
+       *  m4aSongNumStart(song); the music manager rests until continueAll() */
+      pause(song) { call('pause', song); },
+      /** m4aMPlayAllContinue, as the pause menu closes: every music player goes on from where it stopped */
+      continueAll() { call('continueAll'); },
       /** Switches the music manager off until the next stage's music starts, as the act's results do */
       musicOff() { call('off'); },
     };

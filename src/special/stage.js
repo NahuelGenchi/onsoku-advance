@@ -34,6 +34,9 @@ import { stageData, stageTables } from './stages.js';
 import { createPlayer, createPlayerState, FLAG } from './player.js';
 import { createSpawner, createRings, createMessage, MESSAGE } from './objects.js';
 import { s16, div, I, clearShared } from './sprites.js';
+import { createPauseMenu, SIGN_Y } from './pause.js';
+import { ringsCounterRuns } from './hud.js';
+import { KEY } from '../gba/engine.js';
 
 // what the original keeps in IWRAM from one special stage to the next, as nothing sets it again: the character's
 // bob and sprite, the depths and matrices of the last frame and the animations loaded
@@ -63,7 +66,7 @@ export function createSpecialStage(ctx) {
     ...kept, chunks: new Uint16Array(16), music: null,
     // the count the rings counter blinks by starts at what its task's memory held (hud.js): at the stage's
     // start the line the fall's last streak was on (intro.js), and 0 for the counter after the checkpoint
-    // (player.js)
+    // (player.js), unless a pause menu was opened before it (pauseMenu)
     hudBlink: ctx.streaksLeft,
   };
   sp.music = createMusic(ctx);
@@ -156,8 +159,17 @@ function fadeOut(t) {
   else ctx.results(0);
 }
 
-// sub_802D680: Start opens the pause menu (CreatePauseMenu), which isn't ported yet; the act has none either
-function pauseMenu() {}
+// sub_802D680: Start opens the pause menu (pause.js), unless the stage is ending (gStageFlags 0x20) or a demo
+// plays (0x40). Opened while there is no rings counter (before the stage's first, or in the checkpoint's title
+// card), its task's memory is where the next counter's task is made, and its sign's y is left where the
+// counter's blink count is (hud.js); with the counter running, other tasks have used that memory by then.
+function pauseMenu(t) {
+  const ctx = t.data, sp = ctx.special, flags = sp.stageFlags;
+  if (!(flags & 0x20) && (ctx.engine.pressed & KEY.START) && !(flags & 0x40)) {
+    createPauseMenu(ctx);
+    if (!ringsCounterRuns(ctx)) sp.hudBlink = SIGN_Y;
+  }
+}
 
 // sub_8029B74: the layers, the tunnel and its task, and the stage's two palette animations
 function createTunnel(ctx) {

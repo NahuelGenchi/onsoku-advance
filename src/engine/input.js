@@ -1,7 +1,7 @@
 // Keyboard, touch and gamepad input folded into one set of held buttons plus press edges for A (jump),
 // B (attack), the optional Sonic Rush boost and the optional Sonic Advance 2 tricks (R). A button is held while
 // any of them holds it, so letting go on one doesn't drop it on another. Start and Select are for the screens
-// before the act.
+// before the act, and Start also pauses it (pause.js).
 
 const KEYS = {
   ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up',

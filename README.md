@@ -8,13 +8,13 @@ Nothing to install. Bring your own copy of the game; it never leaves your device
 
 <br>
 
-<a href="https://nahuelgenchi.github.io/sonic-advance-dreamport/"><img src="docs/assets/gameplay/hero.webp" width="736" alt="Sonic races through two loops in Neo Green Hill Zone, passes a checkpoint, grinds down a long rail collecting rings and speeds off past the flower beds"></a>
+<a href="https://dreamports.net/play/sonic-advance/"><img src="docs/assets/gameplay/hero.webp" width="736" alt="Sonic races through two loops in Neo Green Hill Zone, passes a checkpoint, grinds down a long rail collecting rings and speeds off past the flower beds"></a>
 
 <sub>Neo Green Hill Zone, act 1, in the optional widescreen view. Every clip on this page is a recording of Sonic Advance Dreamport itself.</sub>
 
 <br>
 
-<a href="https://nahuelgenchi.github.io/sonic-advance-dreamport/"><img src="docs/assets/play.svg" width="300" height="72" alt="Play in your browser"></a>
+<a href="https://dreamports.net/play/sonic-advance/"><img src="docs/assets/play.svg" width="300" height="72" alt="Play in your browser"></a>
 
 <br>
 
@@ -57,7 +57,7 @@ Open the page, choose your file and play, with a keyboard, an Xbox controller or
 
 ## Play in three steps
 
-1. **Open the game** at **[nahuelgenchi.github.io/sonic-advance-dreamport](https://nahuelgenchi.github.io/sonic-advance-dreamport/)** in a current desktop browser.
+1. **Open the game** at **[dreamports.net/play/sonic-advance](https://dreamports.net/play/sonic-advance/)** in a current desktop browser.
 2. **Add your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*), with its *Add* button, or drop it anywhere on the page. Sonic Advance 2 and Sonic Rush, below it, are for the optional [extras](#extras-you-can-switch-on). With *Remember on this device* ticked, they are ready the next time too.
 3. **Press Play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
 
@@ -314,7 +314,7 @@ The start screen works with the controller too: the d-pad or left stick moves be
 
 The original game's Chao Hunt, on its first multiplayer stage, for 2 to 4 players on one computer. Each player gets their own Game Boy Advance screen on the page. Three minutes on the clock, one Chao hidden in the stage: grab it, and knock whoever has it to take it from them. Whoever holds it when time runs out wins.
 
-To play, add `?level=14` to the game's address, for example [nahuelgenchi.github.io/sonic-advance-dreamport/?level=14](https://nahuelgenchi.github.io/sonic-advance-dreamport/?level=14), and `&players=3` or `&players=4` for more than two. The rules, the stage and its objects, the mystery item boxes, the music and the results screen are the original's, checked against the original running on linked emulators ([docs/ROM.md](docs/ROM.md#multiplayer-chao-hunt) has the details).
+To play, add `?level=14` to the game's address, for example [dreamports.net/play/sonic-advance/?level=14](https://dreamports.net/play/sonic-advance/?level=14), and `&players=3` or `&players=4` for more than two. The rules, the stage and its objects, the mystery item boxes, the music and the results screen are the original's, checked against the original running on linked emulators ([docs/ROM.md](docs/ROM.md#multiplayer-chao-hunt) has the details).
 
 | | Player 1 | Player 2 | Players 3 and 4 |
 | :--- | :--- | :--- | :--- |
@@ -363,7 +363,7 @@ Also on the way: the title screen's demos, the character select and the menu's o
 | [M2 — Stages and gameplay](https://github.com/NahuelGenchi/sonic-advance-dreamport/milestone/3) | Full stages with collision, rings, objects, enemies, sound and music | ![M2 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/sonic-advance-dreamport/3?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
 | [M3 — Release](https://github.com/NahuelGenchi/sonic-advance-dreamport/milestone/4) | A hosted build and versioned releases, with no game files | ![M3 issues closed](https://img.shields.io/github/milestones/progress/NahuelGenchi/sonic-advance-dreamport/4?style=flat-square&label=&color=4f86ff&labelColor=0b1240) |
 
-The game is [live on GitHub Pages](https://nahuelgenchi.github.io/sonic-advance-dreamport/); versioned releases are planned.
+The game is [live at dreamports.net](https://dreamports.net/play/sonic-advance/); versioned releases are planned.
 
 </details>
 
@@ -397,7 +397,7 @@ No. The page reads it inside your browser and never sends it anywhere. If you ti
 <summary><b>Which version of Sonic Advance works?</b></summary>
 <br>
 
-**Sonic Advance (USA)** is the tested version. Other versions are recognized from their cartridge header, and the game searches them for what it needs; the [asset viewer](https://nahuelgenchi.github.io/sonic-advance-dreamport/viewer.html) shows whether that worked. [docs/ROM.md](docs/ROM.md) has the list and how to help add a version.
+**Sonic Advance (USA)** is the tested version. Other versions are recognized from their cartridge header, and the game searches them for what it needs; the [asset viewer](https://dreamports.net/play/sonic-advance/viewer) shows whether that worked. [docs/ROM.md](docs/ROM.md) has the list and how to help add a version.
 
 </details>
 

@@ -423,7 +423,7 @@ Besides the save, it remembers which extras you've switched on and whether the w
 
 It's made for a current desktop browser, with a keyboard or a controller. On touch screens, on-screen buttons appear so you can play by touch.
 
-On an iPhone or iPad, *Add* opens a picker that shows all your files, not only ROMs, because iOS doesn't know the `.gba` and `.nds` file types. Choose the ROM there; the page checks which game it is.
+On an iPhone or iPad, *Add* opens Files with all your files to choose from, not only ROMs, because iOS doesn't know the `.gba` and `.nds` file types. Choose the ROM there; the page checks which game it is.
 
 </details>
 

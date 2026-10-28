@@ -5,6 +5,7 @@
 
 import { loadRememberedRom, rememberRom, forgetRom } from './rom-store.js';
 import { bindController } from './setup-controller.js';
+import { acceptRoms } from './rom-types.js';
 
 const MAX_BYTES = 512 * 1024 * 1024;   // the largest Nintendo DS cartridge; a Game Boy Advance one is 32 MB
 
@@ -95,7 +96,7 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
             <input type="checkbox" role="switch" data-extra="${i}">
             <span class="switch-track" aria-hidden="true"><span></span></span>
           </label></li>`).join('')}</ul>` : ''}
-        <input type="file" accept="${s.accept}" multiple hidden>
+        <input type="file" multiple hidden>
       </li>`;
   }
 
@@ -105,6 +106,7 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
   const rows = Object.fromEntries(slots.map(s => {
     const el = host.querySelector(`.rom[data-slot="${s.key}"]`);
     const q = sel => el.querySelector(sel);
+    acceptRoms(q('input[type=file]'), s.accept);
     return [s.key, {
       slot: s, el, token: 0, saved: false, about: '',
       input: q('input[type=file]'), status: q('.rom-status'), text: q('.rom-text'), detail: q('.rom-detail'),

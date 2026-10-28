@@ -5,6 +5,7 @@
 import './engine/cpucanvas.js';
 import { createRomSetup } from './ui/rom-setup.js';
 import { SA1_ROM, RUSH_ROM, SA2_ROM } from './ui/rom-store.js';
+import { acceptRoms } from './ui/rom-types.js';
 import { extractAssets } from './rom/extract.js';
 import { isSonicAdvance, RomError } from './rom/identify.js';
 import { Rom } from './rom/rom.js';
@@ -68,7 +69,7 @@ wideButton.addEventListener('click', () => { setWide(!wide); screen.focus(); });
 let asked = null;
 function ask(slot, accept, then) {
   asked = { slot, then };
-  romFile.accept = accept;
+  acceptRoms(romFile, accept);
   romFile.click();
 }
 romFile.addEventListener('change', async () => {

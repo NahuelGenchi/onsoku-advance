@@ -914,7 +914,7 @@ export function createRenderer(canvas, assets) {
   const backdrop = stage.backdrop ?? [0, 0, 0];
 
 
-  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, gameOver, bg, backLines, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, display, effects2d, blendOff }) {
+  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, gameOver, bg, backLines, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, display, effects2d, blendOff, pauseSign }) {
     const stops = gameOver?.endsNext ? SCROLL_STOPS_AT : Infinity;
     ctx.imageSmoothingEnabled = false;
     if (art && art !== boostArt) {
@@ -1050,6 +1050,9 @@ export function createRenderer(canvas, assets) {
     // wherever that is in the view.
     const blend = spotlights?.blend;
     if (blend) darkenOutside(blend, view.sx, view.sy);
+    // the pause menu's sign, in front of everything and out of any fade (pause.js), in the middle of the
+    // original screen
+    if (pauseSign) byPart(() => { for (const s of stack(pauseSign.map(recolour))) drawSprite(s.frame, s.x + ox, s.y + oy, s.flipX, s.flipY); });
     if (!titleCard) return;
     // the card's sprites are semi-transparent all together, and blending them at full weight over what's
     // behind keeps them out of the fade

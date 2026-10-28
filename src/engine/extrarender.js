@@ -117,15 +117,16 @@ export function createExtraRenderer(canvas, assets) {
   }
 
   function render(state) {
-    const { tick, view, sprites, windows, body, hud, card, display, scrollX, gameOver, hblank = true } = state;
+    const { tick, view, sprites, windows, body, hud, card, display, scrollX, gameOver, pauseSign, paused, hblank = true } = state;
     const W = parts.w, H = parts.h, ctx = parts.ctx;
     ctx.imageSmoothingEnabled = false;
     const vx = view.x, vy = view.y, ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1;
     // BG1: each line from 91 down scrolls by the offset the camera task wrote with this frame's stage time (when
-    // the HBlank interrupt sets it); its map is 256 px wide and repeats
+    // the HBlank interrupt sets it); its map is 256 px wide and repeats. While the game is paused the VBlank
+    // doesn't swap the offsets' two buffers, so the interrupt reads the ones written the frame before.
     // the run of lines from `start` that scroll alike over consecutive map rows goes in one go, which puts the
     // same pixels on the screen as a line at a time
-    const t = tick - 1;
+    const t = tick - (paused ? 2 : 1);
     let start = 0, first = 0, from = 0;
     const flush = end => {
       for (let x = 0, off = from; x < W; off = 0) {
@@ -163,6 +164,8 @@ export function createExtraRenderer(canvas, assets) {
       effects(display, objWindow, objTop, ox, oy);
       // the game over's words, countdown and fade, in front of everything (renderer.js)
       if (gameOver) parts.drawGameOver(gameOver, (display.bldCnt & 0xC0) === DARKEN);
+      // the pause menu's sign, in front of everything and out of the robot's effects (pause.js)
+      if (pauseSign) drawList(parts.stack(pauseSign), null, vx, vy, ox, oy);
       return;
     }
     const semi = card.sprites.length > 0 && (card.sprites[0].a0 & 0xC00) === 0x400;

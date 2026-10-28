@@ -10,12 +10,17 @@
 // in its main loop (EngineMainLoop). The original skips its keys and tasks for a frame when the V-blank's
 // copies run past the V-blank; the screens ported here never do, on the recordings they are checked against,
 // so that isn't modelled.
+//
+// The pause menu pauses the game (FLAGS_PAUSE_GAME): from the V-blank that sees it set, only the tasks that run
+// paused run (FLAGS_800, which each V-blank sets from it), and the V-blank leaves the OAM buffer, the H-blank
+// buffers and their copy as they are. The first such V-blank moves every OAM entry of that frame to the end of
+// OAM, where they stay behind what the tasks still show, until the V-blank after the game goes on again.
 
 import { REG, SCREEN_W, SCREEN_H } from './video.js';
 
 export const FLAGS = {
   UPDATE_BG_PALETTES: 0x1, UPDATE_OBJ_PALETTES: 0x2, HBLANK_COPY: 0x4, KEEP_HBLANK_BUFFER: 0x20,
-  PAUSED: 0x800, NO_RESET: 0x8000,
+  PAUSE_GAME: 0x400, PAUSED: 0x800, NO_RESET: 0x8000,
 };
 export const TASK = { INACTIVE: 0x1, DESTROY_DISABLED: 0x2, RUNS_PAUSED: 0x4 };
 // the bits of the GBA's key register
@@ -33,7 +38,7 @@ const s8 = v => (v << 24) >> 24;
 
 /**
  * The engine's state on `video` (createVideo), reading graphics from `rom` (rom.js). `sound` gets the songs the
- * tasks start (m4aSongNumStart).
+ * tasks start (m4aSongNumStart), and the pause menu's stopping and continuing of them.
  */
 export function createEngine(video, rom, sound) {
   // In IWRAM the sprites' colours (gObjPalette) come right after the H-blank buffers, and the window effects
@@ -43,6 +48,8 @@ export function createEngine(video, rom, sound) {
     rom, video,
     playSong: song => sound?.play(song),   // m4aSongNumStart
     stopSong: song => sound?.stop(song),   // m4aSongNumStop
+    pauseSongs: song => sound?.pause?.(song),   // the pause menu's start (Task_PauseMenuInit)
+    continueSongs: () => sound?.continueAll?.(),   // m4aMPlayAllContinue
     flags: 0, flagsPreVBlank: 0, frameCount: 0,
     // the RAM copies of the display registers (gDispCnt, gBgCntRegs, gBgScrollRegs as [x, y] per layer,
     // gBgAffineRegs for BG2 and BG3, gWinRegs: WIN0H, WIN1H, WIN0V, WIN1V, WININ, WINOUT, gBldRegs)
@@ -225,6 +232,7 @@ export function createEngine(video, rom, sound) {
   const orderStart = new Uint8Array(OAM_ORDERS).fill(0xFF), orderEnd = new Uint8Array(OAM_ORDERS).fill(0xFF);
   e.oamFreeIndex = 0;
   e.oamMalloc = oamMalloc;
+  let firstPaused = 0;   // gOamFirstPausedIndex: where the entries the pause moved to the end of OAM start
   /** OamMalloc: the index of a new entry of `order` (0 in front, 31 at the back) in oamMalloc, or -1 if OAM is full. */
   e.allocOam = order => {
     if (order > 31) order = 31;
@@ -245,6 +253,16 @@ export function createEngine(video, rom, sound) {
         dst++;
       }
     }
+    // paused, the entries between this frame's and the ones moved to the end are hidden; on the first frame
+    // paused, this frame's go to the end, last first, and the rest are hidden. Only the three attributes move:
+    // the matrices' parameters stay where they are.
+    const hide = i => e.oamBuffer.fill(0x200, i * 4, i * 4 + 3);
+    if (e.flags & FLAGS.PAUSED) for (let i = e.oamFreeIndex; i < firstPaused; i++) hide(i);
+    else if (e.flags & FLAGS.PAUSE_GAME) {
+      for (let k = 0; k < e.oamFreeIndex; k++) e.oamBuffer.copyWithin((OAM_ENTRIES - 1 - k) * 4, (e.oamFreeIndex - 1 - k) * 4, (e.oamFreeIndex - k) * 4 - 1);
+      firstPaused = OAM_ENTRIES - e.oamFreeIndex;
+      for (let i = 0; i < firstPaused; i++) hide(i);
+    } else firstPaused = 0;
     e.oamFreeIndex = 0;
     orderStart.fill(0xFF); orderEnd.fill(0xFF);
   }
@@ -279,6 +297,7 @@ export function createEngine(video, rom, sound) {
   const copyHBlankEntry = at => copyHBlankLine(e.hblankTarget, at, e.hblankSize);
   let hdma = null;   // this frame's H-blank DMA: where it starts reading
   let wide = { layers: e.wideLayers, sprites: [], windows: null, bars: false };   // what the widescreen view draws this frame by
+  let frozenWide = [];   // the sprites the pause moved to the end of OAM, for the widescreen view
 
   // --- keys (core.c: GetInput) ---------------------------------------------------------------------------------
   function readKeys() {
@@ -317,12 +336,16 @@ export function createEngine(video, rom, sound) {
       video.write(at + 12, a.y & 0xFFFF); video.write(at + 14, (a.y >> 16) & 0xFFFF);
     });
     if (e.flags & FLAGS.HBLANK_COPY) copyHBlankEntry(e.primary);
+    const paused = e.flags & FLAGS.PAUSED, pausing = !paused && e.flags & FLAGS.PAUSE_GAME;
     processOam();
     video.oam.set(e.oamBuffer);
     const shapes = e.wideWindows[e.primary ? 1 : 0], target = hdma?.target;
+    // as processOam orders them: paused, the ones moved to the end of OAM come after this frame's
+    const sprites = e.wideOam.sort((p, q) => p.order - q.order);
+    if (pausing) frozenWide = sprites;
     wide = {
       layers: e.wideLayers.slice(),
-      sprites: e.wideOam.sort((p, q) => p.order - q.order),   // as processOam orders them
+      sprites: paused ? [...sprites, ...frozenWide] : sprites,
       windows: target === REG.WIN0H ? [shapes[0], hdma.size === 4 ? shapes[1] : null] : target === REG.WIN1H ? [null, shapes[1]] : null,
       bars: e.wideBars,
     };
@@ -331,9 +354,14 @@ export function createEngine(video, rom, sound) {
     fillMaps();
     copyBackgrounds();
 
-    if (!(e.flags & FLAGS.KEEP_HBLANK_BUFFER)) e.primary = e.primary ? 0 : HBLANK_BUFFER;
-    e.flags &= ~FLAGS.HBLANK_COPY;
-    e.oamBuffer.fill(0x200);
+    // ClearOamBufferDma, which the original skips while the game is paused
+    if (!(e.flags & FLAGS.PAUSE_GAME)) {
+      if (!(e.flags & FLAGS.KEEP_HBLANK_BUFFER)) e.primary = e.primary ? 0 : HBLANK_BUFFER;
+      e.flags &= ~FLAGS.HBLANK_COPY;
+      e.oamBuffer.fill(0x200);
+    }
+    if (e.flags & FLAGS.PAUSE_GAME) e.flags |= FLAGS.PAUSED;
+    else e.flags &= ~FLAGS.PAUSED;
   }
 
   /** One frame: the keys, the tasks and the V-blank. Then draw() shows it. */

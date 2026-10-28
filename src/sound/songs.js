@@ -51,6 +51,7 @@ export const SONG = {
   TIMER: 139,              // SE_TIMER: the warning beep in the last 20 seconds
   RESULTS_COUNT: 140,      // SE_STAGE_RESULT_COUNTER: every fourth frame of the results' count
   RESULTS_DONE: 141,       // SE_STAGE_RESULT_COUNTER_DONE: the count is over
+  PAUSE: 142,              // SE_PAUSE_SCREEN: the pause menu opens
   BOSS_HIT: 143,           // SE_BOSS_HIT: also a skating stone breaking
   EXPLOSION: 144,          // SE_EXPLOSION: a boss is beaten
   IMPACT: 145,             // SE_IMPACT: the Egg Hammer Tank's hammer lands, as the Egg Press does, and the Egg Spider dropping an icicle

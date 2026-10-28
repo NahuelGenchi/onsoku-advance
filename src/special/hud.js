@@ -22,8 +22,9 @@ const zeroText = ctx => uiGraphics(ctx.rom, ctx.offsets.uiGraphics, UIGFX_FONT).
  * CreateSpecialStageUI: the counter's task, and its graphics (sub_8054068), through the title card's UI task. The
  * original never sets the blink's frame count (unk48), so it starts at whatever the task's memory held:
  * `ctx.special.hudBlink` here, 0 if not given: at a stage's start the line the fall's last streak was on (the
- * random numbers place the streaks), and 0 after the checkpoint, in the recordings. A count past 31 shows its first
- * 0 from a byte past the four glyphs, and then goes on from its value modulo 32.
+ * random numbers place the streaks), and 0 after the checkpoint, in the recordings; the pause sign's y when the
+ * pause menu was opened before the counter was made (stage.js). A count past 31 shows its first 0 from a byte
+ * past the four glyphs, and then goes on from its value modulo 32.
  */
 export function createSpecialStageUi(ctx) {
   const e = ctx.engine;
@@ -44,6 +45,9 @@ export function createSpecialStageUi(ctx) {
   load(UIGFX_FONT, SLOT_DIGITS, FONT_DIGITS * 32, DIGITS, 22 * 32, 6, 0xD);
   load(UIGFX_PANEL, SLOT_PANEL, 0, PANEL, 32 * 32, 10, 0xD);
 }
+
+/** Whether the rings counter's task runs: not before the title card has made it, nor in the checkpoint's. */
+export const ringsCounterRuns = ctx => ctx.engine.tasks().some(t => t.main === hudStep);
 
 // a count's three digits, 999 past it
 function digitsOf(n, out) {

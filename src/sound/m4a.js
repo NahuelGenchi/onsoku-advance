@@ -743,6 +743,8 @@ export function createM4A(rom, layout, io) {
     songStart(n) { const s = song(n); mplayStart(s.player, s.header); },
     /** song n's header address, to compare with a player's songHeader */
     songHeader(n) { return song(n).header; },
+    /** the number of the music player song n plays on */
+    songPlayer(n) { return players.indexOf(song(n).player); },
     /** MPlayStart with song n's header on player p instead of the song's own */
     playerStart(p, n) { mplayStart(players[p], song(n).header); },
     songStop(n) { const s = song(n); if (s.player.songHeader === s.header) mplayStop(s.player); },
@@ -760,6 +762,8 @@ export function createM4A(rom, layout, io) {
       if (P.songHeader !== s.header || (P.status & 0xFFFF) === 0 || (P.status & PAUSE)) mplayStart(P, s.header);
     },
     allStop() { for (const P of players) mplayStop(P); },
+    /** m4aMPlayAllContinue: every player that MPlayStop stopped goes on from where it was */
+    allContinue() { for (const P of players) P.status = (P.status & ~PAUSE) >>> 0; },
     immInit(p) {
       for (const T of players[p].tracks) if ((T.flags & EXIST) && (T.flags & TRACK_START)) clearTrack(T);
     },

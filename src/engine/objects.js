@@ -97,10 +97,12 @@ export function createTasks() {
       const at = list.findIndex(t => t.priority > priority);
       list.splice(at < 0 ? list.length : at, 0, task);
     },
-    // with `after`, only the tasks of a higher priority run, as on the frame a task of that priority makes the act
-    run(ctx, after = -1) {
+    // with `after`, only the tasks of a higher priority run, as on the frame a task of that priority makes the act;
+    // `paused`, only those that run while the game is paused (`runsPaused`, the pause menu's)
+    run(ctx, after = -1, paused = false) {
       for (let t = list.find(t => t.priority > after); t; t = next) {
         next = list[list.indexOf(t) + 1] ?? null;
+        if (paused && !t.runsPaused) continue;
         if (!t.run(ctx) && list.includes(t)) list.splice(list.indexOf(t), 1);
         if (next?.destroyed) next = list.find(u => u.priority > t.priority) ?? null;
       }

@@ -29,6 +29,7 @@ import {
 } from './supersonic.js';
 import { createSuperEggRobo, BOSS } from './eggrobo.js';
 import { SONG } from '../sound/songs.js';
+import { createPauseMenu, PAUSE_PRIORITY } from './pause.js';
 
 const START_LIVES = 3;
 const MAX_BRAKE_DUST = 20;     // CreateBrakingDustEffect's pool
@@ -46,7 +47,7 @@ const SAVE_FRAMES = 16;
 const SINE8 = a => SINE[a & 1023] >> 6;   // SIN_24_8
 
 const SILENT = {
-  play() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, playerState() {}, stopAll() {},
+  play() {}, playOn() {}, playStageMusic() {}, oneUp() {}, stop() {}, playerState() {}, stopAll() {}, pause() {}, continueAll() {},
 };
 
 /**
@@ -87,10 +88,15 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
     saving: 0,             // the frames the save game still takes before it
     continues,             // gUnknown_0300543C: a game over uses one to go on
     gameOver: null,        // the game over (gameover.js) once Super Sonic has lost his last life
+    noPause: true,         // STAGE_FLAG__DISABLE_PAUSE_MENU: Start opens no pause menu
+    pauseGame: false,      // FLAGS_PAUSE_GAME, which the pause menu sets (pause.js)
+    paused: false,         // the game is paused (FLAGS_800): only the pause menu's task runs (step)
+    pauseSign: null,       // the pause menu's sign on the frames it shows it; only drawing reads it
   };
   let viewW = SCREEN_W, viewH = SCREEN_H;
   state.view = viewOf(state.cam, viewW, viewH);
   let restart = null, toTitle = false, loading = false, cardPad = [], brakeDust = MAX_BRAKE_DUST, spawned = false;
+  let startHeld = false, startPressed = false;   // Start as the last frame read it, and pressed this frame
   const sparkles = new Set();
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
 
@@ -130,6 +136,7 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
     // robot running on behind it; a continue left is used for it. CreateGameOverScreen clears the blending and
     // the windows the robot's effects use.
     lifeLost() {
+      state.noPause = true;
       state.lives = (state.lives - 1) & 0xFF;
       if (state.lives !== 0) { restart = restartStage; tasks.stop(); return; }
       state.actStart = true;
@@ -226,7 +233,7 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
       return true;
     },
   };
-  function startCard() { state.card = createTitleCard(assets.titleCard); state.actStart = true; state.hud.sprites = []; }
+  function startCard() { state.card = createTitleCard(assets.titleCard); state.actStart = true; state.noPause = true; state.hud.sprites = []; }
 
   // the stage starts over after a lost life with 50 rings; its music starts again at once and loading takes the
   // whole next frame
@@ -299,7 +306,7 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
       cardPad = pad;
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
       if (runTitleCard(state.card, pressed)) return;
-      state.card = null; state.actStart = false;
+      state.card = null; state.actStart = false; state.noPause = false;
       player.moveState &= ~IGNORE_INPUT;
       state.hud = createHud();
       tasks.add(hudTask, HUD);
@@ -307,7 +314,12 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
     }],
     [PLAYER, null],
     [0x4000, () => { sound.playerState(false, false, !player.dead); }],
-    [0xFF00, () => { if (!state.actStart) state.courseTime++; state.tick++; }],
+    // the stage clock; Start opens the pause menu (pause.js) from when the title card ends until a life is lost
+    [0xFF00, () => {
+      if (!state.noPause && startPressed) tasks.add(createPauseMenu({ state, anims, sound, startPressed: () => startPressed }), PAUSE_PRIORITY);
+      if (!state.actStart) state.courseTime++;
+      state.tick++;
+    }],
   ];
   const playerTask = superSonicTask(player, w);
   for (const [priority, run] of STAGE_TASKS) {
@@ -318,6 +330,7 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
 
   function step() {
     input.poll?.();
+    startPressed = input.start && !startHeld; startHeld = input.start;
     if (state.ending) {
       if (state.saving > 0) state.saving--;
       else state.ending.step();
@@ -326,8 +339,13 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
     if (state.ended || toTitle) return;
     if (loading) { loading = false; return; }
     shown = { tick: state.tick, view: state.view, scrollX: state.scrollX, sprites: state.sprites, windows: state.windows, body: state.body, hud: { sprites: state.hud.sprites }, display: { ...state.display } };
-    state.sprites = []; state.windows = []; state.body = null;
-    tasks.run({});
+    // paused, the sprites stay as the last frame left them, and no task reads the buttons pressed
+    const paused = state.paused;
+    if (!paused) { state.sprites = []; state.windows = []; state.body = null; }
+    state.pauseSign = null;
+    tasks.run({}, -1, paused);
+    if (paused) input.jumpPressed = input.attackPressed = input.boostPressed = input.trickPressed = false;
+    state.paused = state.pauseGame;
     if (toTitle) { onTitle(); return; }
     if (restart) { const start = restart; restart = null; start(); }
   }

@@ -80,9 +80,10 @@ const SILENT = {
  * from; save, the save (save.js), which the act changes and writes as the original does, and which has the Chaos
  * Emeralds won so far and the time limit setting; startLevel, the level the game was started on (the course
  * select's, the level pick's); continues, the continues the player has, which it hands on;
- * onNextZone({ level, score, lives, seed }), called as the results of the last act decoded end, once the save is
- * written, to go on to the next zone's first act with what the game carries over; carry, those
- * { score, lives, seed, continues } to start with; levelPick, set when the act is started from the level pick (?level=N);
+ * onNextZone({ level, score, lives, seed, continues, frameCount }), called as the results of the last act decoded
+ * end, once the save is written, to go on to the next zone's first act with what the game carries over; carry,
+ * those { score, lives, seed, continues, frameCount } to start with; levelPick, set when the act is started from
+ * the level pick (?level=N);
  * onTitle(), called when a game over sends the game back to its start (the SEGA logo), after which the act does
  * nothing more.
  *
@@ -607,9 +608,13 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
       state.results = null;
       tasks.stop();
       sound.stopAll();
+      // the next zone's game starts on the act's first frame, so the frame the loading takes is counted here
       const next = assets.acts[state.level + 1] ? () => { startNextAct(); loading = true; } : () => {
         ended = true;
-        options.onNextZone?.({ level: state.level + 1, score: state.score, lives: state.lives, seed: state.seed, continues: state.continues });
+        options.onNextZone?.({
+          level: state.level + 1, score: state.score, lives: state.lives, seed: state.seed, continues: state.continues,
+          frameCount: (state.frameCount + 1) >>> 0,
+        });
       };
       if (save.write()) { saving = WRITE_FRAMES; afterSave = next; } else restart = next;
       return false;
@@ -843,15 +848,15 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   // card, and the original spends the next frame loading it. The checkpoint then goes back to the one he had
   // passed, and the special springs are plain until the act starts over (unk99[1]). The course time, the
   // stage clock, the rings, the last checkpoint passed and the next freed animal are what they were when he
-  // left; the score, the lives and the game's random numbers what the special stage leaves.
-  function comeBack({ level, score, lives, courseTime, seed, act }) {
+  // left; the score, the lives, the game's random numbers and the frame counter what the special stage leaves.
+  function comeBack({ level, score, lives, courseTime, seed, frameCount = state.frameCount, act }) {
     while (state.level < level) startNextAct();
     Object.assign(player, createPlayer({ x: act.spring.x - 16, y: act.spring.y - 16, spinDashSpeeds: assets.physics.spinDashSpeeds }));
     player.plainSprings = true;
     const checkpoint = act.checkpoint && { ...act.checkpoint };
     if (courseTime >= MAX_COURSE_TIME && checkpoint) checkpoint.time = 0;
     Object.assign(state, {
-      score, lives, courseTime, seed, tick: act.stageTime, ringCount: act.rings, animal: act.animal,
+      score, lives, courseTime, seed, frameCount, tick: act.stageTime, ringCount: act.rings, animal: act.animal,
       checkpoint, checkpointIndex: act.checkpointIndex, cam: newCamera(),
     });
     ctx.view = state.view = viewOf(state.cam, viewW, viewH);
@@ -951,14 +956,15 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
 /**
  * What the act hands the special stage (options.onSpecialStage) when Sonic leaves it on the special spring at
  * `spring`, and gets back to start again from (options.resume): { level, character, score, lives, courseTime,
- * emeralds, continues, seed (gPseudoRandom, which the special stage goes on with), act }, where `act` is what
- * only the act reads: the spring, the checkpoint he had (gSpecialStageReturnX and Y, with its course time, or
- * null for the act's start), the last checkpoint passed (gBossIndex), the stage clock (gStageTime), the rings
- * and the next freed animal.
+ * emeralds, continues, seed (gPseudoRandom, which the special stage goes on with), frameCount (gFrameCount,
+ * which it counts on), act }, where `act` is what only the act reads: the spring, the checkpoint he had
+ * (gSpecialStageReturnX and Y, with its course time, or null for the act's start), the last checkpoint passed
+ * (gBossIndex), the stage clock (gStageTime), the rings and the next freed animal.
  */
 function handOver(state, spring, { level = 0, emeralds = 0, continues = 0 }) {
   return {
     level, character: 0, score: state.score, lives: state.lives, courseTime: state.courseTime, emeralds, continues, seed: state.seed,
+    frameCount: state.frameCount,
     act: {
       spring, checkpoint: state.checkpoint, checkpointIndex: state.checkpointIndex, stageTime: state.tick, rings: state.ringCount,
       animal: state.animal,
@@ -974,6 +980,7 @@ export function specialSpringStart(assets, options = {}) {
   const spring = assets.stage.interactables.find(e => e.kind === SPECIAL_SPRING);
   if (!spring) return null;
   return handOver({
-    score: 0, lives: START_LIVES, courseTime: 0, seed: 0, checkpoint: null, checkpointIndex: 0, tick: 0, ringCount: 0, animal: 0,
+    score: 0, lives: START_LIVES, courseTime: 0, seed: 0, frameCount: START_FRAME_COUNT, checkpoint: null, checkpointIndex: 0,
+    tick: 0, ringCount: 0, animal: 0,
   }, { x: spring.x, y: spring.y }, { ...options, level: assets.stage.level });
 }

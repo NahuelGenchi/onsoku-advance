@@ -45,7 +45,7 @@ function backgroundOffset(line, tick, cameraX) {
 const STILL = line => line >= 40 && line < 88;
 // The frame before the game over hands over, its last task stops the copy that scrolls each line while the frame
 // is being drawn, about this far down (in the recordings, where little else runs then): the lines below keep the
-// scroll of the line above.
+// scroll of the line above. While the save is written after it, every line keeps that scroll.
 const SCROLL_STOPS_AT = 24;
 // Angel Island's background (StageBgUpdate_Zone5Acts12) stands still, and Egg Rocket's clouds (BG0, in front of
 // it at the same priority) scroll left a pixel every 4 frames of the stage clock. They are blended over what is
@@ -450,6 +450,16 @@ export function createRenderer(canvas, assets) {
       if (w.affine) drawAffine(index, w.affine.x + ox, w.affine.y + oy, { rotation: 0, scaleX: w.affine.scaleX, scaleY: 256, double: false });
       else drawSprite(index, ox + 128 + Math.round((w.x - 128) * (W - ox - 64) / 176), w.y + oy, false);
     }
+  }
+
+  // The time over's TIME and OVER (timeover.js), in front of the act at priority 0, TIME in front of OVER, in the
+  // colours under water below the water line, and its fade on the whole screen, them and the HUD too. The
+  // widescreen view keeps them to its middle and stretches their way in from its right edge.
+  function drawTimeOver(to) {
+    const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1;
+    const x = ox + 120 + Math.round((to.x - 120) * (W - ox - 60) / 180);
+    byPart(() => { for (const name of ['gameOverRight', 'timeOverLeft']) drawSprite(anims[name].frames[0][0], x, 60 + oy, false); });
+    if (to.bldY) darken(to.bldY);
   }
 
   // the title card's sprites from their OAM attributes; they have priority 0 and the lowest OAM orders, so
@@ -914,8 +924,8 @@ export function createRenderer(canvas, assets) {
   const backdrop = stage.backdrop ?? [0, 0, 0];
 
 
-  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, gameOver, bg, backLines, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, display, effects2d, blendOff, pauseSign }) {
-    const stops = gameOver?.endsNext ? SCROLL_STOPS_AT : Infinity;
+  function render({ tick, rings, ringsStopped, sprites, terrain, palettes, objPalette, view, cam, hud: hudState, card: titleCard, results: actResults, gameOver, timeOver, bg, backLines, showCollision, rushFx, rushArt, shake, boostArt: art, spotlights, spriteRow, cardOver, water, display, effects2d, blendOff, pauseSign }) {
+    const stops = gameOver?.endsNext || gameOver?.saving ? SCROLL_STOPS_AT : Infinity;
     ctx.imageSmoothingEnabled = false;
     if (art && art !== boostArt) {
       if (!boostSheets.has(art)) boostSheets.set(art, new WeakMap());
@@ -945,7 +955,7 @@ export function createRenderer(canvas, assets) {
     // below it and repeats its top line above it. Where the act has looped back, it scrolls on from where it was:
     // on the frame it loops back, with the camera where it was before.
     const ox = (W - SCREEN_W) >> 1, oy = (H - SCREEN_H) >> 1, cx = vx + ox - view.wrapped;
-    const ice = stage.zone === ICE_MOUNTAIN ? iceMountainScroll(stage, cx, vy + oy, tick - 1, tick - 1) : null;
+    const ice = stage.zone === ICE_MOUNTAIN ? iceMountainScroll(stage, cx, vy + oy, tick - 1, cam.bgUpdates) : null;
     const under = split < H ? { line: split, colors: underColors(stage, water, palettes) } : null;
     if (ix) {
       loadPalette(palettes);
@@ -966,7 +976,7 @@ export function createRenderer(canvas, assets) {
         };
         for (let line = 0; line < H; line++) {
           const bgLine = Math.min(Math.max(line - oy, 0), background.height - 1);
-          const scrollLine = Math.min(bgLine, stops - 1), isStill = STILL(scrollLine);
+          const scrollLine = gameOver?.saving ? stops - 1 : Math.min(bgLine, stops - 1), isStill = STILL(scrollLine);
           const o = isStill ? 0 : mod(backgroundOffset(scrollLine, tick - 1, cx) - ox, bgW);
           if (line > start && isStill === still && o === off && bgLine === first + line - start) continue;
           flush(line);
@@ -1035,6 +1045,7 @@ export function createRenderer(canvas, assets) {
     byPart(below => drawHud(hudState.sprites, gameOver?.hudPalette ? over.hudSheet : below ? hud.under : hud.sheet, view.clip ?? undefined));
     drawAll(1, s => (s.prio ?? 0) < 1 && s.order < HUD_ORDER);
     if (gameOver) drawGameOver(gameOver);
+    if (timeOver) drawTimeOver(timeOver);
     if (effects2d?.darkness) darkenSpans(effects2d.darkness.y, effects2d.darkness.spans, ox, oy);
     if (effects2d?.fade) brightenAll(effects2d.fade);
     if (display) brighten(display);

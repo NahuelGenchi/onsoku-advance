@@ -12,7 +12,8 @@ const div = (a, b) => Math.trunc(a / b);   // the BIOS's Div rounds toward zero
 
 /**
  * Where the background and the snow start (their scroll registers) for the original screen at camera (x, y)
- * on stage time `time`, and the snow's animation frame after `updates` calls of the update.
+ * on stage time `time`, and the snow's animation frame after `updates` calls of the update since the act (re)started
+ * (UpdateBgAnimationTiles on the snow layer, which CreateStageBg_Zone4 makes anew each time).
  */
 export function iceMountainScroll(stage, x, y, time, updates) {
   return {

@@ -22,8 +22,8 @@ const BOOSTER_DEPART_MAX_Y = 5568;       // EGG_ROCKET_BOOSTER_DEPART_MAX_Y: the
 const MIDDLE_DEPART_MAX_Y = 3264;        // EGG_ROCKET_MIDDLE_DEPART_MAX_Y: and after the second
 const SEPARATIONS = { 2: 58 * 96 - 1, 3: 34 * 96 - 1 };   // the world row each separation splits the rocket at
 const COUNTDOWN = 5 * 3600;              // TIME(5, 0)
-// the camera's unk50 flags the background reads: stopped (the time over's banner sets it, once that is
-// built), space next, the sky scrolling
+// the camera's unk50 flags the background reads: stopped (the time over sets it once its fade starts), space
+// next, the sky scrolling
 const BG_STOPPED = 0x2000, BG_SPACE = 0x4000, BG_SCROLLING = 0x8000;
 
 // the walls the widescreen view doesn't show past (cam.arena, camera.js viewOf): once the rocket is off, the
@@ -33,9 +33,9 @@ const walls = cam => { cam.arena = { minX: cam.minX, maxX: cam.maxX + SCREEN_W, 
 /**
  * What the act adds to the stage: init() is StageInit_Zone6Act1's part after its palette animations and song,
  * on each start of the act; background(cam) is StageBgUpdate_Zone6Act1, after each camera update, with the
- * camera's position, shake included. `state.bg` is what it leaves for drawing: BG3's map screen `base`, its
- * size (`tall`: 256 × 512, else 256 × 256) and scroll, and BG0 once it is on; `state.backLines` the back
- * layer's split during a separation.
+ * camera's position, shake included; stopBackground() stops it, as the time over does. `state.bg` is what it
+ * leaves for drawing: BG3's map screen `base`, its size (`tall`: 256 × 512, else 256 × 256) and scroll, and BG0
+ * once it is on; `state.backLines` the back layer's split during a separation.
  */
 export function createEggRocket({ state, world }) {
   let bg;
@@ -52,6 +52,7 @@ export function createEggRocket({ state, world }) {
       if (i > 2) { bg.flags = (bg.flags | BG_SPACE) & ~BG_SCROLLING; setMaxY(MIDDLE_DEPART_MAX_Y); world.countDown(COUNTDOWN); }
       if (i > 0) walls(cam);
     },
+    stopBackground() { bg.flags |= BG_STOPPED; },
     background(cam) {
       if (bg.flags & BG_STOPPED) return;
       const t = state.tick, i = state.checkpointIndex, down = -(t * 2) & 0x1FF;

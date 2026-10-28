@@ -35,6 +35,9 @@ export function createCamera(p, terrain) {
     // the act's animated tiles, which the camera's map layer counts (animDelayCounter and animFrameCounter), and
     // the step the screen shows (stage.js animateStageTiles)
     tiles: { delay: 0, frame: 0, shown: 0 },
+    // how many times it has updated the zone's background since it was made, as the act's background is made
+    // with it (CreateStageBg); Ice Mountain's snow counts its tiles' animation from it
+    bgUpdates: 0,
     // a boss's arena, { minX, maxX, minY, maxY }, its walls in the act, from when a boss starts closing the bounds
     // in on it (bosses.js, or the boss's own code) until they open again (null); only the widescreen view reads it
     arena: null,

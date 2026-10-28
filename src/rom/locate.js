@@ -120,6 +120,26 @@ export function findChaoSpawns(rom) {
   return null;
 }
 
+// the Options menu's background (gUnknown_086CC774, 086CC794 and 086CC834): its 16 colours, its 5 tiles and its
+// 32 × 20 map, one after the other; the map's rows start with tiles 0, 1 and 2 over and over, and it uses no other
+// tiles than those five, unflipped or flipped, in palette row 0
+const OPTIONS_TILES = 0x20, OPTIONS_MAP = 0xC0, OPTIONS_MAP_ENTRIES = 32 * 20, OPTIONS_TILE_COUNT = 5;
+
+/** The Options menu's background: where its colours start, its tiles and map after them. */
+export function findOptionsBackground(rom) {
+  for (let at = 0; at + OPTIONS_MAP + OPTIONS_MAP_ENTRIES * 2 <= rom.size; at += 4) {
+    const map = at + OPTIONS_MAP;
+    if (rom.u32(map) !== 0x10000 || rom.u32(map + 4) !== 0x00000002 || rom.u32(map + 8) !== 0x20001) continue;
+    let ok = true;
+    for (let i = 0; i < OPTIONS_MAP_ENTRIES && ok; i++) {
+      const v = rom.u16(map + i * 2);
+      ok = (v & 0xF3FF) < OPTIONS_TILE_COUNT;
+    }
+    if (ok) return at;
+  }
+  return null;
+}
+
 /** Offsets for this ROM: the known ones when the checksum matches, otherwise a search. */
 export function locateTables(rom, known) {
   if (known) return { ...known.offsets, searched: false };
@@ -148,6 +168,7 @@ export function locateTables(rom, known) {
     characterAnims: findCharacterAnims(rom),
     specialIntro: findSpecialIntro(rom),
     specialClouds: findSpecialClouds(rom),
+    optionsBackground: findOptionsBackground(rom),
   };
   const missing = Object.entries(offsets).filter(([, v]) => v === null).map(([k]) => k);
   // only the multiplayer stages need it

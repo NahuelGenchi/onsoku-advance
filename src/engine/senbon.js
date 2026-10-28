@@ -3,8 +3,8 @@
 // (d0 + 1) × 8 and (d0 + d2 - 1) × 8 px right of its spawn point, turning at either end. Away from the ends,
 // when Sonic is up to 80 px ahead of it, it stops and puts out its spikes for 60 frames, then walks on and
 // doesn't do it again for 120 frames spent walking between the ends. With its spikes out it can't be
-// destroyed, and touching their box hurts Sonic. (The original leaves it out on Secret Base's harder
-// difficulty, which this game doesn't have.)
+// destroyed, and touching their box hurts Sonic. (The original leaves it out of Secret Base on Easy,
+// which the port doesn't apply yet.)
 
 import { startAnim, animate } from './objects.js';
 import { I, TILE, data, gone, sprite, sonicX } from './enemies.js';

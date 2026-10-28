@@ -4,7 +4,8 @@
 // character select would: after Game Start on the main menu.
 //
 // The original starts the logos only with a saved game; a new one starts with the language screen first,
-// which isn't built either, so this always starts as with a save.
+// which isn't built either, so this always starts as with a save. The Options menu (options.js) changes the save
+// and writes it.
 
 import { createVideo, SCREEN_W, SCREEN_H } from '../gba/video.js';
 import { createEngine, KEY } from '../gba/engine.js';
@@ -25,16 +26,17 @@ export function keysOf(input) {
 
 /**
  * Starts the logos on `canvas`. `rom` is the ROM (rom.js), `offsets` where its tables are (locate.js), `input`
- * the player's buttons and `sound` the sound engine (audio.js). `play()` is called once the act is to start.
+ * the player's buttons, `sound` the sound engine (audio.js) and `save` the save (engine/save.js), which the
+ * Options menu changes. `play()` is called once the act is to start.
  * Returns { stop, step, draw, setView }: setView(w, h) draws a widescreen view of w × h from then on (the
  * original 240 × 160 is the default); step() and draw() are for checking, a frame at a time.
  */
-export function createFrontEnd(canvas, rom, offsets, input, sound, play) {
+export function createFrontEnd(canvas, rom, offsets, input, sound, save, play) {
   const video = createVideo();
-  const engine = createEngine(video, rom, { play: song => sound.play(song), stop: song => sound.stop(song) });
+  const engine = createEngine(video, rom, { play: song => sound.play(song), stop: song => sound.stop(song), stopAll: () => sound.stopAll() });
   let done = false;
   const ctx = {
-    engine, tilemaps: offsets.tilemaps, sprites: spriteTables(rom, offsets.spriteTables),
+    engine, tilemaps: offsets.tilemaps, sprites: spriteTables(rom, offsets.spriteTables), offsets, save,
     introGraphics: offsets.introGraphics, introTables: offsets.introTables,
     intro: () => createIntro(ctx),
     title: playMusic => createTitleScreen(ctx, playMusic),

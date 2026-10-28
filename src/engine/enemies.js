@@ -140,9 +140,9 @@ function piece(x, y, ctx) {
   };
 }
 
-// Buzzer (buzzer.c): a wasp that flies back and forth at 1 px a frame and, once per leg, stops to shoot at
-// Sonic when he is in a wedge below it on the side it faces. Its animation steps before it decides, so a
-// change shows on the next frame. Absent on Easy in the original; this game has no difficulty setting.
+// Buzzer (buzzer.c): a wasp that flies back and forth at 1 px a frame and, once per leg, stops to shoot at Sonic
+// when he is in a wedge below it on the side it faces. Its animation steps before it decides, so a change shows on
+// the next frame. Absent from Neo Green Hill on Easy in the original, which the port doesn't apply yet.
 function buzzer(e, slot, anims, ctx0) {
   const { d0, d2 } = data(e), s = makeSprite('buzzerFly');
   let vx = -256, off = 0, shot = false, t = 0, state = 'patrol';
@@ -373,7 +373,7 @@ function kerokero(e, slot, anims) {
 // turns round at each end in 14 frames, standing still. When Sonic is within 80 px in front of it and between
 // 32 px above and 8 px below it, it shoots its tongue for 31 frames: the tongue's box hurts him. It then has
 // to walk 60 frames before it can shoot again, counted only away from the ends. It follows the ground. Absent
-// from Angel Island on Easy in the original; this game has no difficulty setting. The original never sets that
+// from Angel Island on Easy in the original, which the port doesn't apply yet. The original never sets that
 // count when it makes the Leon (unk4E): it starts with whatever the memory held, which delays or prevents the
 // first shot; this game starts it at 0. The tongue's box stays set after the shot, so it hurts again from the
 // first frame of the next one, where it was then.

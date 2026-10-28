@@ -163,7 +163,7 @@ export function createEggHammerTank(e, slot, anims, ctx) {
   // (unk9B), a frame count (unk98), whether the hammer is on the ground in the last phase (unk9C), the tank's
   // offsets from its spawn point in 1/256 px (qUnk8C, qUnk90) and the beaten tank's fall speed (qUnk9E)
   let swing = 0, speed = -4, hits = 0, flash = 0, count = 0, grounded = 0, qx = 0, qy = 0, fall = 0;
-  // (the hard difficulty starts it at two hits; this game plays the normal one)
+  // (on Easy the original starts it at two hits, which the port doesn't apply yet)
   // the pivot the arms and the hammer hang from, on the screen: gSpriteTransformRotation, X and Y
   const pivot = { rotation: 0, x: 0, y: 0 };
   const arms = [];

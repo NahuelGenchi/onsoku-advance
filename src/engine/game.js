@@ -41,6 +41,7 @@ import { createExtraStage } from './extra.js';
 import { createClock } from './clock.js';
 import { createPauseMenu, PAUSE_PRIORITY } from './pause.js';
 import { openSave, saveActCleared, WRITE_FRAMES } from './save.js';
+import { playerControls } from './input.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
 const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
@@ -78,8 +79,8 @@ const SILENT = {
  * The act on `canvas`. `options`: onSpecialStage(game), called the frame a special spring sends Sonic out of the
  * act, after which it stops; resume, such a `game` as the special stage hands it back, to start the act again
  * from; save, the save (save.js), which the act changes and writes as the original does, and which has the Chaos
- * Emeralds won so far and the time limit setting; startLevel, the level the game was started on (the course
- * select's, the level pick's); continues, the continues the player has, which it hands on;
+ * Emeralds won so far, the time limit setting and the button layout; startLevel, the level the game was started on
+ * (the course select's, the level pick's); continues, the continues the player has, which it hands on;
  * onNextZone({ level, score, lives, seed, continues, frameCount }), called as the results of the last act decoded
  * end, once the save is written, to go on to the next zone's first act with what the game carries over; carry,
  * those { score, lives, seed, continues, frameCount } to start with; levelPick, set when the act is started from
@@ -92,12 +93,15 @@ const SILENT = {
  * the controls (`input(held)`), the stage's clock (`clock()`), what he sends the others at the end of his frame
  * (`send()`), and what the camera centres on (`follow()`).
  */
-export function createGame(canvas, assets, input, sound = SILENT, options = {}) {
+export function createGame(canvas, assets, buttons, sound = SILENT, options = {}) {
   // the extra stage runs its own player and stage (extra.js)
-  if (assets.stage.extra) return createExtraStage(canvas, assets, input, sound, options);
+  if (assets.stage.extra) return createExtraStage(canvas, assets, buttons, sound, options);
   const { spinDashSpeeds } = assets.physics;
   const mode = options.mode ?? null;
   const save = options.save ?? openSave(null);
+  // the jump and attack buttons as the save's button setting has them (ApplyGameStageSettingsAndStart); the
+  // continue screen reads A and B themselves
+  const input = playerControls(buttons, save.btnConfig);
   const timeLimit = !save.timeLimitDisabled;
   // the animations, and which colours their palette loads last left in each row of the sprite palette (animator.js)
   const anims = { ...assets.sprites.anims, objPalette: new Array(16).fill(-1) };
@@ -669,7 +673,7 @@ export function createGame(canvas, assets, input, sound = SILENT, options = {}) 
   // back to its start, this frame when the save was up to date.
   const gameOverTask = {
     run() {
-      const a = input.jumpPressed, b = input.attackPressed;
+      const a = buttons.jumpPressed, b = buttons.attackPressed;
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
       const end = runGameOver(state.gameOver, sound, a, b);
       if (!end) return true;

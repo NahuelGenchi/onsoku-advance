@@ -31,6 +31,7 @@ import { createSuperEggRobo, BOSS } from './eggrobo.js';
 import { SONG } from '../sound/songs.js';
 import { createPauseMenu, PAUSE_PRIORITY } from './pause.js';
 import { openSave, saveActCleared, saveMoonCleared, WRITE_FRAMES } from './save.js';
+import { playerControls } from './input.js';
 
 const START_LIVES = 3;
 const MAX_BRAKE_DUST = 20;     // CreateBrakingDustEffect's pool
@@ -56,13 +57,16 @@ const SILENT = {
  * The Moon Zone, with the same interface as createGame (game.js). On the true ending's 30th frame
  * `stageResults({ rings, courseTime, level })` puts up the results' tally (#69's), and `onCredits()` is called
  * on the frame the staff credits take over from the ending. `save`, `startLevel`, `continues`, `carry` and
- * `onTitle()` are createGame's: the save, which the robot's defeat and the game over write, the level the game was
- * started on, the continues the game has, what the game carries over from X Zone (GameStageStart keeps the score,
- * the lives and the random numbers; without it, the course select's start: no score, three lives, the random
- * numbers from 0), and what a game over without a continue does once it is done.
+ * `onTitle()` are createGame's: the save, which the robot's defeat and the game over write and whose button
+ * layout the controls follow, the level the game was started on, the continues the game has, what the game
+ * carries over from X Zone (GameStageStart keeps the score, the lives and the random numbers; without it, the
+ * course select's start: no score, three lives, the random numbers from 0), and what a game over without a
+ * continue does once it is done.
  */
-export function createExtraStage(canvas, assets, input, sound = SILENT, { stageResults, onCredits = () => {}, save = openSave(null), startLevel = 0, continues = 0, carry = null, onTitle = () => {} } = {}) {
+export function createExtraStage(canvas, assets, buttons, sound = SILENT, { stageResults, onCredits = () => {}, save = openSave(null), startLevel = 0, continues = 0, carry = null, onTitle = () => {} } = {}) {
   const difficulty = save.difficultyLevel;
+  // the jump and attack buttons as the save's button setting has them; the continue screen reads A and B themselves
+  const input = playerControls(buttons, save.btnConfig);
   const { anims } = assets.sprites;
   const stage = assets.stage, terrain = createTerrain(stage.collision);
   const bodyAnims = { roboBody: stage.extra.body.anim };
@@ -279,7 +283,7 @@ export function createExtraStage(canvas, assets, input, sound = SILENT, { stageR
   // back to its start
   const gameOverTask = {
     run() {
-      const a = input.jumpPressed, b = input.attackPressed;
+      const a = buttons.jumpPressed, b = buttons.attackPressed;
       input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false;
       const go = state.gameOver, end = runGameOver(go, sound, a, b);
       if (end) {

@@ -4,6 +4,7 @@
 export const SONG = {
   INTRO: 1,                // MUS_INTRO
   TITLE_FANFARE: 2,        // MUS_TITLE_FANFARE
+  OPTIONS: 11,             // MUS_OPTIONS: the Options menu (Scrap Brain Zone's remix)
   VS_WIN: 7,               // MUS_007: the multiplayer results screen when this player won,
   VS_LOSE: 8,              // MUS_008: lost,
   VS_DRAW: 9,              // MUS_009: or drew
@@ -23,6 +24,7 @@ export const SONG = {
   SPECIAL_STAGE_WIN: 47,   // MUS_047: the results with it
   SEGA_RING: 102,          // SE_RING: Sonic Team's logo
   SELECT: 106,             // SE_SELECT: Start on the title screen, a choice in the menu
+  RETURN: 107,             // SE_RETURN: back out of a choice in the Options menu
   MENU_CURSOR: 108,        // SE_MENU_CURSOR_MOVE
   SPIN: 109,               // SE_SPIN_ATTACK: spin dash start and revs, rolling, the combo's first hit
   SPIN_DASH_RELEASE: 110,

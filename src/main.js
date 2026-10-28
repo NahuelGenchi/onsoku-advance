@@ -230,7 +230,7 @@ function start(buffer, assets) {
   const leaving = specialTest && specialSpringStart(assets, { emeralds: save.chaosEmeralds, continues });
   if (leaving) { enterSpecialStage(assets, leaving); return; }
   if (debug) { play(assets); return; }
-  front = createFrontEnd(screen, rom, assets.info.offsets, input, sound, () => { front = null; play(assets); });
+  front = createFrontEnd(screen, rom, assets.info.offsets, input, sound, save, () => { front = null; play(assets); });
   fitScreen();
   screen.focus();
 }
@@ -310,7 +310,7 @@ async function nextZone({ level, ...carry }) {
 // and the continues it gives are kept
 function enterSpecialStage(assets, handover) {
   game?.stop(); game = null;
-  specialStage = createSpecialStageRun(screen, rom, assets.info.offsets, input, sound, handover, back => {
+  specialStage = createSpecialStageRun(screen, rom, assets.info.offsets, input, sound, { ...handover, btnConfig: save.btnConfig }, back => {
     specialStage = null;
     save.chaosEmeralds = back.emeralds;
     continues = back.continues;

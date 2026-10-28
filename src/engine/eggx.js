@@ -42,7 +42,7 @@ export function eggX(e, slot, anims, ctx) {
     x: 0, y: 0,          // unk8C, unk8E: where it is this frame, with the bob
     bobAngle: 0,         // unk90
     timer: 120,          // unk92
-    hits: 0,             // unk94 (2 to start with on the hard difficulty, which the engine doesn't have)
+    hits: 0,             // unk94 (2 to start with on Easy, which the port doesn't apply yet)
     flash: 0,            // unk95: the frames left of a hit's flash and of the time it can't be hit
     armed: 0,            // unk98: set once it has risen in, which lets its arm hurt
     phase: 0,            // unk99

@@ -28,6 +28,21 @@ export const PLAYER_KEYS = [
   {}, {},
 ];
 
+const SWAPPED = { jump: 'attack', attack: 'jump', jumpPressed: 'attackPressed', attackPressed: 'jumpPressed' };
+
+/**
+ * SetPlayerControls: the jump and attack buttons as the game reads them, from `input` (A jumps and B attacks), or
+ * with A and B swapped when the save's button setting is REVERSE (btnConfig 1). The swapped buttons are a view of
+ * `input`: what is pressed or cleared on one is on the other.
+ */
+export function playerControls(input, btnConfig) {
+  if (btnConfig !== 1) return input;
+  return new Proxy(input, {
+    get: (target, key) => target[SWAPPED[key] ?? key],
+    set: (target, key, value) => { target[SWAPPED[key] ?? key] = value; return true; },
+  });
+}
+
 /** The connected controllers in the browser's order. */
 export const connectedPads = () => [...(navigator.getGamepads?.() ?? [])].filter(p => p?.connected);
 

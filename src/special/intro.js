@@ -107,6 +107,8 @@ function introFall(t) {
     const word = { ctx, unk30: 0, s: sprite(ctx, 0xC80, { anim: ANIM_WORD, variant: 0 }, 120, 120, 0) };
     intro.wordTask = e.createTask(wordStep, word, 0x2120);
     updateSprite(e, ctx.sprites, word.s);
+    // the rings counter's task is later made in this memory, and its blink count is the last streak's line (hud.js)
+    ctx.streaksLeft = intro.streaksTask.data.ys[15];
     e.destroyTask(intro.streaksTask);
     intro.fallTask.main = boardStep;
     t.main = introBoard;

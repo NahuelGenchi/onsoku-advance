@@ -62,8 +62,9 @@ export function createSpecialStage(ctx) {
     checkpoint: { kind: 0, timer: 0, blend: 0 }, bg: { x: 0, y: 0, frame: 0, unk13: 0 }, stageFlags: 0,
     ...kept, chunks: new Uint16Array(16), music: null,
     // the count the rings counter blinks by starts at what its task's memory held (hud.js): at the stage's
-    // start what the fall's streaks left there, and 0 for the counter after the checkpoint (player.js)
-    hudBlink: 99,
+    // start the line the fall's last streak was on (intro.js), and 0 for the counter after the checkpoint
+    // (player.js)
+    hudBlink: ctx.streaksLeft,
   };
   sp.music = createMusic(ctx);
   // (the original also takes Sonic's speed shoes away here; the act gives him a new start when he comes back)

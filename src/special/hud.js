@@ -21,9 +21,9 @@ const zeroText = ctx => uiGraphics(ctx.rom, ctx.offsets.uiGraphics, UIGFX_FONT).
 /**
  * CreateSpecialStageUI: the counter's task, and its graphics (sub_8054068), through the title card's UI task. The
  * original never sets the blink's frame count (unk48), so it starts at whatever the task's memory held:
- * `ctx.special.hudBlink` here, 0 if not given (99 at a stage's start, what the fall's streaks left there, and 0
- * after the checkpoint, in the recordings). A count past 31 shows its first 0 from a byte past the four glyphs,
- * and then goes on from its value modulo 32.
+ * `ctx.special.hudBlink` here, 0 if not given: at a stage's start the line the fall's last streak was on (the
+ * random numbers place the streaks), and 0 after the checkpoint, in the recordings. A count past 31 shows its first
+ * 0 from a byte past the four glyphs, and then goes on from its value modulo 32.
  */
 export function createSpecialStageUi(ctx) {
   const e = ctx.engine;

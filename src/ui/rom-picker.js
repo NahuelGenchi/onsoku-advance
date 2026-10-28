@@ -1,6 +1,7 @@
 // The "choose your ROM" card shared by the game and the asset viewer.
 
 import { loadRememberedRom, rememberRom, forgetRom } from './rom-store.js';
+import { acceptRoms } from './rom-types.js';
 
 const MAX_ROM_BYTES = 32 * 1024 * 1024;   // largest GBA cartridge
 
@@ -20,7 +21,7 @@ export function createRomPicker(host, { heading, intro, onRom }) {
         <strong>Choose your Sonic Advance ROM</strong>
         <span id="drop-hint">or drop the .gba file here</span>
       </div>
-      <input type="file" accept=".gba,.agb,.bin" hidden>
+      <input type="file" hidden>
       <label class="remember"><input type="checkbox" checked> Remember this ROM on this device</label>
       <p class="status" role="status" aria-live="polite"></p>
       <p class="privacy">Your ROM stays on this device. It is read by this page and, if you choose, kept in this browser only. <button type="button" class="link forget" hidden>Forget the saved ROM</button></p>
@@ -29,6 +30,7 @@ export function createRomPicker(host, { heading, intro, onRom }) {
   const $ = sel => host.querySelector(sel);
   const drop = $('.drop'), input = $('input[type=file]'), remember = $('.remember input');
   const status = $('.status'), cont = $('.continue'), forget = $('.forget');
+  acceptRoms(input, '.gba,.agb,.bin');
   let busy = false;
 
   function setStatus(text, kind = 'info') {

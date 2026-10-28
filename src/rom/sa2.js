@@ -25,14 +25,14 @@ export function isSa2(buffer) {
  */
 export function openSa2(buffer) {
   const rom = new Rom(buffer);
-  if (rom.size < 0x200 || rom.u8(0xB2) !== 0x96) throw new RomError('This file is not a Game Boy Advance ROM.');
+  if (rom.size < 0x200 || rom.u8(0xB2) !== 0x96) throw new RomError('this file is not a game boy advance rom.');
   const { title, code } = readHeader(rom);
   if (title !== TITLE || !code.startsWith(CODE)) {
-    throw new RomError(`This is not Sonic Advance 2 (its header says "${title}", ${code}).`);
+    throw new RomError(`this is not Sonic Advance 2 (its header says "${title}", ${code}).`);
   }
   const at = findSpriteTables(rom), players = findMusicPlayers(rom);
   if (at === null || players === null) {
-    throw new RomError('Unexpected data in the Sonic Advance 2 ROM: its sprite or sound tables are missing.');
+    throw new RomError('unexpected data in the Sonic Advance 2 rom: its sprite or sound tables are missing.');
   }
   return { rom, code, tables: spriteTables(rom, at), sound: { rom: buffer, layout: soundLayout(rom, players) } };
 }

@@ -2,6 +2,8 @@
 // optional extras take from, with the switches for those extras under it. A ROM is chosen on its row or dropped
 // on it, or dropped anywhere on the page, where it goes to the row of the game its header names. Each is read as
 // soon as it is chosen, and kept in this browser if the player wants, so Play starts the game straight away.
+// It is drawn like the dreamports.net launcher the game is opened from: its words in lowercase but for the games'
+// names, and its light or dark look.
 
 import { loadRememberedRom, rememberRom, forgetRom } from './rom-store.js';
 import { bindController } from './setup-controller.js';
@@ -23,6 +25,10 @@ const ICONS = {
 
 // the game's own page on dreamports.net, where the way back goes when the player didn't come from its menu
 const DREAMPORTS = 'https://dreamports.net/dreamports/sonic-advance-dreamport/';
+// the look picked in the launcher's settings, kept by dreamports.net in this browser: 'light', 'dark', or none,
+// when it follows the device
+const THEME_KEY = 'dreamports:theme';
+const darkDevice = matchMedia('(prefers-color-scheme: dark)');
 // whether the page before this one is the dreamports.net menu: a page of the same site outside the games, which
 // are under /play/
 function cameFromMenu() {
@@ -43,32 +49,33 @@ const drawn = () => new Promise(resolve => { requestAnimationFrame(() => setTime
  * Renders the screen into `host`. Each of `slots` is { key, store, title, platform, required, accept, claims(buffer),
  * read(buffer, progress), unload(), extras }: `claims` says whether a file's header names this game; `read` reads
  * the ROM and resolves to a line about it (its region), or throws with a message for the player, keeping the ROM
- * it had; `unload` lets go of that one; `extras` are its options, each { label, hint, key, get(), set(on), auto },
- * where `key` is the key that switches it in the game and `auto` turns it on when the ROM is chosen. `onPlay()`
- * starts the game once every required ROM is read.
+ * it had; `unload` lets go of that one; `extras` are its options, each { label, hint, keys, key, get(), set(on),
+ * auto }, where `hint` says what it does, `keys` (if any) the keys that use it, shown only to a keyboard, `key` is
+ * the key that switches it in the game and `auto` turns it on when the ROM is chosen. `onPlay()` starts the game
+ * once every required ROM is read.
  */
 export function createRomSetup(host, { heading, intro, slots, onPlay }) {
   host.innerHTML = `
     <div class="setup">
       <header class="setup-head">
-        <a class="setup-back" href="${DREAMPORTS}">${ICONS.back}<span>Back to dreamports</span></a>
-        <div class="setup-top">
-          <p class="setup-brand">音速 Sonic Advance Dreamport</p>
+        <div class="setup-bar">
+          <a class="setup-back" href="${DREAMPORTS}">${ICONS.back}<span>dreamports</span></a>
           <div class="pad" data-state="gone"><span class="pad-icon" aria-hidden="true"></span><span class="pad-note" role="status" aria-live="polite"></span></div>
         </div>
+        <p class="setup-brand">Sonic Advance Dreamport</p>
         <h1>${heading}</h1>
         <p class="setup-intro">${intro}</p>
       </header>
       <ul class="roms" aria-label="Your ROMs">${slots.map(row).join('')}</ul>
       <div class="setup-play">
-        <button type="button" class="play" disabled>${ICONS.play}<span>Play</span><kbd>Enter</kbd></button>
+        <button type="button" class="play" disabled><kbd>enter</kbd>${ICONS.play}<span>play</span></button>
         <p class="play-note" aria-live="polite"></p>
       </div>
       <footer class="setup-foot">
-        <label class="remember"><input type="checkbox" checked> Remember on this device</label>
-        <button type="button" class="link forget" hidden>Forget the saved ROMs</button>
+        <label class="remember"><input type="checkbox" checked> remember on this device</label>
+        <button type="button" class="link forget" hidden>forget the saved roms</button>
       </footer>
-      <div class="setup-drag" aria-hidden="true"><div>${ICONS.drop}<span>Drop your ROMs</span><small>Each one goes to its own game</small></div></div>
+      <div class="setup-drag" aria-hidden="true"><div>${ICONS.drop}<span>drop your roms</span><small>each one goes to its own game</small></div></div>
     </div>`;
 
   function row(s) {
@@ -81,20 +88,21 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
             <h2 id="${id}-title">${s.title}</h2>
             <p class="rom-detail" id="${id}-detail"></p>
           </div>
-          <button type="button" class="rom-add" aria-describedby="${id}-title ${id}-detail">Add</button>
+          <button type="button" class="rom-add${s.required ? ' needed' : ''}" aria-describedby="${id}-title ${id}-detail">add</button>
           <div class="rom-actions">
-            <button type="button" class="rom-change" aria-describedby="${id}-title">Change</button>
-            <button type="button" class="rom-remove" aria-label="Remove ${s.title}" title="Remove">×</button>
+            <button type="button" class="rom-change" aria-describedby="${id}-title">change</button>
+            <button type="button" class="rom-remove" aria-label="remove ${s.title}" title="remove">×</button>
           </div>
-          <span class="rom-bar" role="progressbar" aria-label="Reading ${s.title}"><span></span></span>
+          <span class="rom-bar" role="progressbar" aria-label="reading ${s.title}"><span></span></span>
         </div>
         <p class="rom-status" role="status" aria-live="polite"></p>
         ${s.extras.length ? `<ul class="rom-extras">${s.extras.map((e, i) => `
           <li><label class="switch">
-            <span class="switch-text"><span class="switch-label">${e.label}</span><span class="switch-hint">${e.hint}</span></span>
+            <span class="switch-text"><span class="switch-label">${e.label}</span><span class="switch-hint">${e.hint}${e.keys ? `<span class="switch-keys">, ${e.keys}</span>` : ''}</span></span>
             <kbd title="${e.key} switches it in the game">${e.key}</kbd>
             <input type="checkbox" role="switch" data-extra="${i}">
             <span class="switch-track" aria-hidden="true"><span></span></span>
+            <span class="switch-state" aria-hidden="true"></span>
           </label></li>`).join('')}</ul>` : ''}
         <input type="file" multiple hidden>
       </li>`;
@@ -113,6 +121,23 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
       extras: [...el.querySelectorAll('[data-extra]')],
     }];
   }));
+
+  // the launcher's look: the one picked in its settings, read again when the page comes back from the browser's
+  // history, else the device's. The browser's bar takes the page's colour while the screen shows, and the game's
+  // night blue again while the game does.
+  const barColour = document.querySelector('meta[name="theme-color"]'), gameColour = barColour?.content;
+  function paint() {
+    let theme = null;
+    try { theme = localStorage.getItem(THEME_KEY); } catch { /* storage blocked: the device's look */ }
+    if (theme === 'light' || theme === 'dark') host.dataset.theme = theme;
+    else delete host.dataset.theme;
+    const dark = theme ? theme === 'dark' : darkDevice.matches;
+    barColour?.setAttribute('content', host.hidden ? gameColour : dark ? '#050a24' : '#ffffff');
+  }
+  paint();
+  addEventListener('pageshow', paint);
+  darkDevice.addEventListener('change', paint);
+  new MutationObserver(paint).observe(host, { attributes: true, attributeFilter: ['hidden'] });
 
   // back to dreamports.net: from its menu, back in the browser's history, so the menu comes back as it was left
   $('.setup-back').addEventListener('click', e => {
@@ -145,8 +170,8 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
     const reading = all.some(c => c.el.dataset.state === 'reading');
     play.disabled = missing.length > 0 || reading;
     forget.hidden = !all.some(c => c.saved);
-    note.textContent = reading ? 'Reading…'
-      : missing.length ? `Add your ${list(missing.map(c => c.slot.title))} ROM to play.` : 'Ready to play.';
+    note.textContent = reading ? 'reading…'
+      : missing.length ? `add your ${list(missing.map(c => c.slot.title))} rom to play.` : 'ready to play.';
   }
   const list = items => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`);
 
@@ -155,7 +180,7 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
   async function load(c, buffer, name, { store = false, auto = false, saved = false } = {}) {
     const token = ++c.token, had = c.el.dataset.state === 'ready';
     say(c, '');
-    c.detail.textContent = 'Reading…';
+    c.detail.textContent = 'reading…';
     setState(c, 'reading');
     await drawn();
     try {
@@ -184,12 +209,12 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
   async function addFile(file, target, auto, alone) {
     const into = target && rows[target];
     const fail = error => { if (into) say(into, error, 'error'); else showNote(error); return { key: null, error }; };
-    if (file.size > MAX_BYTES) return fail(`${file.name} is too large to be a Game Boy Advance or Nintendo DS ROM.`);
+    if (file.size > MAX_BYTES) return fail(`${file.name} is too large to be a game boy advance or nintendo ds rom.`);
     const buffer = await file.arrayBuffer();
     const c = Object.values(rows).find(c => c.slot.claims(buffer)) ?? into;
     if (!c) return fail(`${file.name} isn't Sonic Advance, Sonic Advance 2 or Sonic Rush.`);
     const error = await load(c, buffer, file.name, { store: remember.checked, auto });
-    if (!error && alone && into && into !== c) say(into, `That was ${c.slot.title}, so it went to its own row.`);
+    if (!error && alone && into && into !== c) say(into, `that was ${c.slot.title}, so it went to its own row.`);
     return { key: c.slot.key, error };
   }
   function showNote(text) {
@@ -259,11 +284,11 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
       if (c.el.dataset.state === 'ready') setState(c, 'ready');
     }
     update();
-    note.textContent = 'The saved ROMs were removed from this browser. The ones above stay until you leave the page.';
+    note.textContent = 'the saved roms were removed from this browser. the ones above stay until you leave the page.';
   });
 
   bindController(host, {
-    blocked: el => say(rows[el.closest('.rom').dataset.slot], 'Your browser opens the file list only from the mouse or the keyboard. You can also drop the file here.'),
+    blocked: el => say(rows[el.closest('.rom').dataset.slot], 'your browser opens the file list only from the mouse or the keyboard. you can also drop the file here.'),
   });
 
   for (const c of Object.values(rows)) setState(c, 'empty');

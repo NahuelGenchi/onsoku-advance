@@ -174,7 +174,7 @@ export function locateTables(rom, known) {
   // only the multiplayer stages need it
   offsets.chaoSpawns = findChaoSpawns(rom);
   if (missing.length) {
-    throw new RomError(`This Sonic Advance ROM version is not supported yet (could not find: ${missing.join(', ')}).`);
+    throw new RomError(`this Sonic Advance rom version is not supported yet (could not find: ${missing.join(', ')}).`);
   }
   return { ...offsets, searched: true };
 }

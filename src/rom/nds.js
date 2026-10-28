@@ -63,7 +63,7 @@ export class NdsRom {
 
 /** LZ77 type 0x10 data (the DS BIOS's LZ77UnCompReadByCallback format), decompressed. */
 export function lz10(src, at = 0) {
-  if (src[at] !== 0x10) throw new Error('Unexpected data in the ROM: not LZ77 compressed.');
+  if (src[at] !== 0x10) throw new Error('unexpected data in the rom: not LZ77 compressed.');
   const size = src[at + 1] | (src[at + 2] << 8) | (src[at + 3] << 16);
   const out = new Uint8Array(size);
   let i = at + 4, o = 0;

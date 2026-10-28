@@ -15,6 +15,7 @@
 // - bldY: the brightness decrease on everything else (0 when none); black: the screen is all black
 // - hudPalette: on the frame the screen is made, the HUD shows the colours its graphics load over the font's
 // - endsNext: the game over ends on the next frame
+// - saving: it has ended, and the save is being written (WriteSaveGame): the screen keeps the last frame it showed
 
 import { SINE } from './trig.js';
 
@@ -211,11 +212,13 @@ function runCount(go, sound, a, b) {
  * starts over with the continue, 'title' when the game goes back to the start, otherwise null.
  */
 export function runGameOver(go, sound, a, b) {
+  // on the frame it ends, Task_8056AC8 turns the VBlank off to write the save, so nothing this frame sets is shown
+  const shown = { words: go.words, bandX: go.bandX, glyph: go.glyph };
   go.hudPalette = false;
   go.songAge++;
   go.words = []; go.bandX = null; go.glyph = null;
   const end = runScreen(go, sound);
-  if (end) return end;
+  if (end) { Object.assign(go, shown); go.saving = true; return end; }
   runBand(go);
   runFade(go);
   runCount(go, sound, a, b);

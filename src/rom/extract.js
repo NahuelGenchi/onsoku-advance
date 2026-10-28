@@ -352,8 +352,9 @@ export const EGG_SNAKE_ANIMATIONS = {
   661: { eggSnakeSpike: 0 }, 662: { eggSnakeClose: 0, eggSnakeOpen: 1, eggSnakeOpened: 2, eggSnakeHead: 3 },
   663: { eggSnakeLaser: 0 }, 664: { eggSnakeShot: 0 },
 };
-// GAME OVER and CONTINUE? (715): each word in two halves, drawn through the rotation hardware as they turn
-export const GAME_OVER_ANIMATIONS = { 715: { gameOverLeft: 0, gameOverRight: 1, continueLeft: 2, continueRight: 3 } };
+// GAME OVER and CONTINUE? (715): each word in two halves, drawn through the rotation hardware as they turn; and
+// TIME, which the time over puts in front of GAME OVER's right half
+export const GAME_OVER_ANIMATIONS = { 715: { gameOverLeft: 0, gameOverRight: 1, continueLeft: 2, continueRight: 3, timeOverLeft: 4 } };
 // the pause menu's sign (pause.js): PAUSE (718) over its background (720); both load their colours into row 6
 // of the sprite palette
 export const PAUSE_ANIMATIONS = { 718: { pause: 0 }, 720: { pauseBackground: 0 } };

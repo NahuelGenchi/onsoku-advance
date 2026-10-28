@@ -2,14 +2,13 @@
 // 0.625 px a frame between (d0 + 1) × 8 and (d0 + d2) × 8 px right of its spawn point, following the floor,
 // turning to face the way it goes at either end. Away from the ends, once it has walked 60 frames since its
 // last throw, it stops to throw a snowball when Sonic is less than 80 px away, and the snowball slides off along
-// the ground the way the penguin faces. The original makes no Pen in Ice Mountain on Easy, which the port
-// doesn't apply yet.
+// the ground the way the penguin faces. It isn't made in Ice Mountain on Easy.
 //
 // While it throws it follows the floor twice a frame from the same place, so on a slope it moves twice as far
 // toward it, kept here.
 
 import { startAnim, animate } from './objects.js';
-import { I, TILE, Div, s8, s16, COS, SIN, data, gone, sonicX, sonicY, sprite } from './enemies.js';
+import { I, TILE, Div, s8, s16, COS, SIN, data, gone, sonicX, sonicY, sprite, leftOutOnEasy } from './enemies.js';
 import { tileFloor, probeTile, PROBE_FLOOR } from './terrain.js';
 
 export const PEN = 20;
@@ -18,7 +17,8 @@ const SPEED = 160;          // 0.625 px, in 1/256 px
 const REST = 60;            // frames of walking before it can throw again
 const SNOWBALLS = 0x3000;   // the snowball's and its pieces' task priority
 
-export function pen(e, slot, anims) {
+export function pen(e, slot, anims, ctx) {
+  if (leftOutOnEasy(ctx, 3)) return null;
   const { d0, d2 } = data(e), s = sprite('penWalk', anims, { order: 18, prio: 2 });
   let q = 0, v = -SPEED, dy = 0, rest = 0, t = 0, throwing = false;
   return {

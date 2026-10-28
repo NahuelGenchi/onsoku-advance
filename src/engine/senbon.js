@@ -3,11 +3,10 @@
 // (d0 + 1) × 8 and (d0 + d2 - 1) × 8 px right of its spawn point, turning at either end. Away from the ends,
 // when Sonic is up to 80 px ahead of it, it stops and puts out its spikes for 60 frames, then walks on and
 // doesn't do it again for 120 frames spent walking between the ends. With its spikes out it can't be
-// destroyed, and touching their box hurts Sonic. (The original leaves it out of Secret Base on Easy,
-// which the port doesn't apply yet.)
+// destroyed, and touching their box hurts Sonic. Not made in Secret Base on Easy.
 
 import { startAnim, animate } from './objects.js';
-import { I, TILE, data, gone, sprite, sonicX } from './enemies.js';
+import { I, TILE, data, gone, sprite, sonicX, leftOutOnEasy } from './enemies.js';
 import { overlap } from './collide.js';
 
 export const SENBON = 5;
@@ -15,7 +14,8 @@ export const SENBON = 5;
 const STEP = 160;         // 0.625 px, in 1/256 px
 const SPIKES = 60, REST = 120, SIGHT = 80;
 
-export function senbon(e, slot, anims) {
+export function senbon(e, slot, anims, ctx) {
+  if (leftOutOnEasy(ctx, 1)) return null;
   const { d0, d2 } = data(e), s = sprite('senbonWalk', anims, { order: 18, prio: 2 });
   let q = 0, v = -STEP, spiky = false, t = 0, rest = 0;
   return {

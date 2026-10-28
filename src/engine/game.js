@@ -227,6 +227,9 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   const world = {
     // the level's number in the ROM's tables, and its zone (0 Neo Green Hill)
     get level() { return stage.level; }, get zone() { return stage.zone; },
+    // the save's difficulty (0 normal, 1 easy), which each enemy and boss reads as it is made; the multiplayer
+    // modes play normal (ApplyGameStageSettingsAndStart)
+    get difficulty() { return mode ? 0 : save.difficultyLevel; },
     get tick() { return state.tick; },
     get cameraY() { return Math.floor(state.cam.y); },
     // the camera and its bounds, which a boss's arena changes (bosses.js) and Sonic's edges follow

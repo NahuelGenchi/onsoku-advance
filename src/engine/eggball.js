@@ -79,6 +79,7 @@ export function eggBall(e, slot, anims, ctx0) {
     // hit four times, it is in a pinch (unk8C); nothing reads it
     pinch: false,
   };
+  if (world.difficulty !== 0) boss.hits = 2;   // Easy
   for (let i = 0; i < PIPES.length; i++) ctx0.add(pipe(i, x0, y0, boss), PIPE_PRIORITY);
   ctx0.add(setBossCamBounds(world.camera, y0 - 184, y0 + 16, x0 - 280, x0));
   world.musicState(MUSIC_BOSS);

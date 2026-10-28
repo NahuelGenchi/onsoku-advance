@@ -4,7 +4,7 @@
 // faster than 4 px a frame bounces the segments around it, and when the head is within two segments of that
 // one, it opens up: Eggman is exposed inside it for 480, 300, 180 or 90 frames, and hitting him from the air
 // counts. A hit makes the head sway faster for 120 frames. Bursts of three laser shots fly at Sonic every 600
-// frames, sooner with each hit. Eight hits beat it on normal: its spikes fly off, it falls through the arena,
+// frames, sooner with each hit. Eight hits beat it, six on Easy: its spikes fly off, it falls through the arena,
 // throwing debris, and after 60 frames on the floor below Eggman rises in the Egg Mobile, Sonic is held still
 // and then walks after him, and the act's results come (`world.stageResults`, the end-of-act flow).
 
@@ -27,7 +27,7 @@ const SEGMENTS = 9;
 // the tasks: the segments' manager, then each segment, the boss, its laser and its shots
 const MANAGER = 0x2000, SEGMENT = 0x2001, BOSS = 0x2100, LASER = 0x2200, SHOTS = 0x2300;
 const MUSIC_BOSS = 0x13, MUSIC_BOSS_OVER = 0x33;   // gMusicManagerState.unk1: boss song 3, and back to the act's
-const HITS = 8;                                  // unk9A past 7; easy starts it at 2
+const HITS = 8;                                  // unk9A past 7; Easy starts it at 2
 // the sway's speed after a hit, by the hits taken (gUnknown_084ACEE4), the frames to the next laser burst
 // (gUnknown_084ACEF6), and how long the head stays open, picked at random (gUnknown_084ACF08)
 const SWAY = [512, 512, 512, 512, 563, 614, 1536, 2304, 2304];
@@ -85,6 +85,7 @@ export function eggSnake(e, slot, anims, ctx0) {
     qx: 0x1000, qy: 0, vx: 0, vy: 0, angle: 0, speed: 0x200, accel: 0, target: 0, swayX: 0, swayY: 0,
     fallSpeed: 0, baseX: 0, baseY: 0,
   };
+  if (ctx0.world.difficulty !== 0) b.hits = 2;   // Easy
   const m = { mode: 0, bounced: 0, stoodOn: 0, rising: 0, after: 0, depth: 0, push: 0, frames: 0 };
   ctx0.add(setBossCamBounds(cam, y0 - 128, y0 + 32, x0 - 144, x0 + 176));
 

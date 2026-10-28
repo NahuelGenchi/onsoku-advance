@@ -52,7 +52,7 @@ The act ends at the rocket's top through the stage goal (kind 0, `stage_goal.c`)
 | 103 | Propeller | 515 | Only spins, at its spawn point, OAM order 18. Sprite flag 18 skips its script's palette load; in Egg Rocket the bank (11) already holds the same colours |
 | enemy 14 | Oct | | Waits until Sonic is within 120 px sideways, patrols at 0.75 px a frame, overshooting each end on a half sine over 30 frames, and drops a shot every 60 frames |
 
-The other kinds the act uses are shared with other zones and documented with them: gravity toggles (109) and flipped gravity, tubes (106, 110, 111), whirlwinds (90), square platforms (55), moving springs (81), iron balls (82), ferris wheels (91), breakable walls (114), wall bumpers (71), conveyor belts (69), the Mirror (enemy 12) and the Mole (enemy 15). Egg Rocket's own looks for them come from the ROM's per-level tables and `CreateEntity_` code:
+The other kinds the act uses are shared with other zones and documented with them: gravity toggles (109) and flipped gravity, tubes (106, 110, 111), whirlwinds (90), square platforms (55), moving springs (81), iron balls (82), ferris wheels (91), breakable walls (114), wall bumpers (71), conveyor belts (69), the Mirror (enemy 12, none on Easy) and the Mole (enemy 15). Egg Rocket's own looks for them come from the ROM's per-level tables and `CreateEntity_` code:
 
 | Object | Egg Rocket's look | Where the ROM picks it |
 | :--- | :--- | :--- |

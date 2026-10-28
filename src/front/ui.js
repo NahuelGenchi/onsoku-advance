@@ -16,16 +16,20 @@ const UI_ENTRY = 28;
 const s16 = v => (v << 16) >> 16;
 const div = (a, b) => Math.trunc(a / b);   // the BIOS division the original calls (Div)
 
+/** The task's ten slots, all 0. */
+export const createUiSlots = () => Array.from({ length: UI_GLYPH_SLOTS }, () => ({ unk0: 0, unk4: 0, unk8: 0, unk9: 0, unkA: 0, unkB: 0 }));
+
 /**
  * sub_80535FC: the task holding the stack and the slots, unless there is one. The original never sets the slots
- * when it makes the task, so they hold whatever its memory held; here they start at 0, which draws what the
- * recordings show on the one frame they are read before being set (the stage's title card, sub_805C448).
+ * when it makes the task, so they hold whatever its memory held: `slots`, for screens whose task is made in memory
+ * that keeps them from one time to the next (the special stages'), else 0. The recordings show them on the one
+ * frame they are read before being set (the stage's title card, sub_805C448): 0 the first time after power on.
  */
-export function createUiTask(e) {
+export function createUiTask(e, slots = createUiSlots()) {
   if (e.uiTask) return;
   const ui = {
     first: null, gfx: Array.from({ length: UI_GFX_SLOTS }, () => ({ next: null, graphics: { src: 0, dest: 0, size: 0 } })),
-    slots: Array.from({ length: UI_GLYPH_SLOTS }, () => ({ unk0: 0, unk4: 0, unk8: 0, unk9: 0, unkA: 0, unkB: 0 })),
+    slots,
   };
   e.uiTask = e.createTask(() => {}, ui, UI_TASK_PRIORITY, 0, () => { e.uiTask = null; });
   uiGfxStackInit(e);

@@ -8,8 +8,13 @@
 // into the results.
 
 import { createSprite, updateSprite, displaySprite } from '../gba/sprite.js';
-import { createUiTask, uiGfxStackInit, loadUiGfx, createFade, fadeStep, fadeShow } from '../front/ui.js';
+import { createUiTask, createUiSlots, uiGfxStackInit, loadUiGfx, createFade, fadeStep, fadeShow } from '../front/ui.js';
 import { SONG } from '../sound/songs.js';
+
+// the special stages' UI task is made in the same memory each time, and the acts between leave it alone, so its
+// slots start as the last stage left them (front/ui.js); the title card's band reads its slot on its first frame,
+// before loading it
+export const uiSlots = createUiSlots();
 
 const UIGFX_OPTIONS = 0x80;
 const ANIM_STREAK = 776, ANIM_WORD = 0x32B, ANIM_SMOKE = 0x2E0, ANIM_SPARKLE = 0x2FD;
@@ -56,7 +61,7 @@ function loadClouds(ctx) {
 
 // the screens' layer 0: the clouds picture, 296 lines down
 function setUpLayers(e) {
-  createUiTask(e);
+  createUiTask(e, uiSlots);
   uiGfxStackInit(e);
   e.dispCnt = 0x1140;
   e.bgCnt[0] = 0x9D86;

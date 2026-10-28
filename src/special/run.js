@@ -11,9 +11,10 @@
 //   ctx.results(arg)     sub_805D048, the results (results.js)
 //   ctx.back()           the act again (CreateGameStage at the spring)
 // `ctx.game` is what the act hands over and gets back: { level, character, score, lives, courseTime, emeralds (the
-// save's record of the Chaos Emeralds, a bit per stage), seed (gPseudoRandom), and what the act needs to come back
-// to the spring }. `ctx.special` holds the special stage's own globals once CreateSpecialStage has set them
-// (stage.js), `ctx.tables` the tables all the stages share (stages.js).
+// save's record of the Chaos Emeralds, a bit per stage), seed (gPseudoRandom), frameCount (gFrameCount, which the
+// engine counts on), and what the act needs to come back to the spring }. `ctx.special` holds the special stage's
+// own globals once CreateSpecialStage has set them (stage.js), `ctx.tables` the tables all the stages share
+// (stages.js).
 
 import { createVideo, SCREEN_W, SCREEN_H } from '../gba/video.js';
 import { createEngine } from '../gba/engine.js';
@@ -41,6 +42,8 @@ export function createSpecialStageRun(canvas, rom, offsets, input, sound, game, 
   });
   // every screen of the special stage is made for the original screen alone: the widescreen view is black around it
   engine.wideBars = true;
+  // gFrameCount goes on through the special stage, a frame each frame, and the act counts on from it
+  engine.frameCount = game.frameCount ?? 0;
   let finished = false;
   const ctx = {
     engine, rom, sound, game, special: null,
@@ -85,7 +88,7 @@ export function createSpecialStageRun(canvas, rom, offsets, input, sound, game, 
     let ran = false;
     for (let n = clock.steps(now); n > 0 && !finished; n--) { step(); ran = true; }
     if (ran) draw();
-    if (finished) { stop(); done(game); return; }
+    if (finished) { stop(); done({ ...game, frameCount: engine.frameCount }); return; }
     frame = requestAnimationFrame(loop);
   }
   function stop() { cancelAnimationFrame(frame); input.release(); sound.stopAll(); }

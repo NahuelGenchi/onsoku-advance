@@ -467,6 +467,8 @@ Two addresses skip ahead for testing: <http://localhost:8000/?debug> starts the 
 
 To see everything the extractor decodes, open <http://localhost:8000/viewer.html>: Sonic's, the springs' and the rings' animations playing with their original timing, the sprite atlas, Neo Green Hill Zone act 1 with its collision, and the zone's background.
 
+[`wrangler.jsonc`](wrangler.jsonc) sets up the copy that Cloudflare serves at `dreamports.net/play/sonic-advance/`. Its build copies only the committed pages, `src/`, `styles/` and the social preview picture into `dist/play/sonic-advance/`. To try that copy on your computer, commit your changes, run `npx wrangler dev` and open <http://localhost:8787/play/sonic-advance/>.
+
 ## Contributing
 
 Every change follows one trail: **issue → branch → milestone → pull request**.

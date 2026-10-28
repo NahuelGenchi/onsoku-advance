@@ -6,7 +6,7 @@
 
 export const X_ZONE = 12, THE_MOON = 13;
 export const ALL_EMERALDS = 0x7F;     // ALL_ZONE_CHAOS_EMERALDS: a bit per special stage
-const MOON_BEATEN = 15;               // CreateExtraStageResults' unlockedLevels[0]
+export const MOON_BEATEN = 15;               // CreateExtraStageResults' unlockedLevels[0]
 
 /**
  * Whether the extra stage opens: `character` (0 is Sonic), the `level` being played, the save's `emeralds` and

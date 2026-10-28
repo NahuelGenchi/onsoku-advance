@@ -489,7 +489,7 @@ When Sonic loses his last life (`HandleLifeLost`, `src/game/sa1/ui/game_over.c` 
 - **The countdown.** After 182 frames, a counter t runs from 0: digit `9 − t / 120` of UI graphics entry 32 (16 × 16 timer digits), each two seconds long. With t counted within its digit, from 0 to 20 it slides in from x 0 to 116 at y 91 (`t × 116 / 20`), from 21 to 80 it zooms through the rotation hardware, in a double-size box at (104, 83), from a scale of 493 down to 257 (`497 − 4 × (t − 20)`, the matrix `0x10000 / scale`), and from 81 to 119 it slides out to the right (`(t − 80) × 116 / 18 + 116`). When t reaches a whole number of 120s plus 60, the digit's voice plays: songs 215 (nine) to 224 (zero), from the table after the title card's texts. At t = 1200 the countdown ends.
 - **B** skips to the next digit at once (t to the next multiple of 120), and moves the band, the fade and the words on with it: the band's frame to `1200 − (10 − d) × 120` and the fade's and the words' to `1382 − (10 − d) × 120`, d the number of digits shown so far, the skipped one included. A B on the last digit ends the countdown at once.
 - **A** takes the continue: the countdown shows OK (UI graphics entry 33, 32 × 32) the same way, at y 84 and zooming at (88, 68), for 121 frames. Then the fade's frame goes to 1382 and the words' to 1464, so on the next frame the music stops, and on the one after it the act starts over. A works up to the countdown's last frame.
-- **The end.** The screen's last task makes the screen black (`bldY` 16) and waits for song 37 to end or the music to stop. Song 37 lasts 466 frames, which the extractor counts by playing it through the sound engine. On the frame it ends, the task writes the save (`WriteSaveGame`) with the VBlank interrupt off, which takes 14 frames in mGBA: the screen keeps the last frame it showed, with every line of the background at the scroll of line 23 (see the quirk below), and the game's frame counter (`gFrameCount`) doesn't count them. It then destroys every task: after A, `ApplyGameStageSettingsAndStart` starts the act over with 3 lives, a score of 0, the checkpoint, the animal and the stage clock back to 0, and the game's random numbers carrying on; it loads like any restart (see [Dying and the restart](#dying-and-the-restart)). Otherwise the game goes back to the SEGA logo.
+- **The end.** The screen's last task makes the screen black (`bldY` 16) and waits for song 37 to end or the music to stop. Song 37 lasts 466 frames, which the extractor counts by playing it through the sound engine. On the frame it ends, the task writes the save (`WriteSaveGame`, see [The save](#the-save)) with the VBlank interrupt off. When the save has changed since it was last written, that takes 14 frames in mGBA: the screen keeps the last frame it showed, with every line of the background at the scroll of line 23 (see the quirk below), and the game's frame counter (`gFrameCount`) doesn't count them. When it hasn't, it takes none. It then destroys every task: after A, `ApplyGameStageSettingsAndStart` starts the act over with 3 lives, a score of 0, the checkpoint, the animal and the stage clock back to 0, and the game's random numbers carrying on; it loads like any restart (see [Dying and the restart](#dying-and-the-restart)). Otherwise the game goes back to the SEGA logo.
 
 **Quirks the engine keeps.** On the frame the screen is made, its three graphics loads put the palette of entries 32 and 45 (eight colours a little different from the font's) in OBJ palette 6, and the HUD shows them for that one frame, until animation 715 loads the font's colours back. On the frame before the game over ends, its last task stops the copy that scrolls the background line by line while that frame is still being drawn, about 24 lines down: the background's lines below keep the scroll of the line above it, so the clouds and islands jump sideways for one frame.
 
@@ -500,8 +500,8 @@ When Sonic loses his last life (`HandleLifeLost`, `src/game/sa1/ui/game_over.c` 
 `Task_GameStage` (`0xFF00`) moves the course time on at the end of every frame the clock runs. When it passes 10:00 (36000 frames), or Egg Rocket's countdown reaches 0:00, the clock stops for good (`STAGE_FLAG__ACT_START`) and, with the time limit on, Sonic dies:
 
 - **The time-up.** His shield, invincibility and speed shoes end (`itemEffect` = 0), he is thrown up at 4.875 px a frame (2.625 under water), he dies (`MOVESTATE_DEAD`) and song 166 plays, not 119. In Egg Rocket the countdown's end also starts a random shake, up and down and sideways, that lasts until the act starts over (`CreateScreenShake(0x800, 8, 16, −1, …)`). He then falls and disappears as in any death ([Dying and the restart](#dying-and-the-restart)).
-- **The life.** When his task ends, `Task_PlayerHandleDeath` sees the time run out (past 10:00, or 0 with the countdown on) and takes `HandleDeath`'s way, not `HandleLifeLost`'s: he loses a life and keeps his rings. With no life left it is the [game over](#game-over-and-the-continue-screen), the HUD still showing the rings; the original also keeps the score in the save there, which waits for the save file ([#141](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/141)). Otherwise `CreateTimeOver` (`src/game/sa1/ui/time_over.c`) runs.
-- **The time limit** comes from the save (`timeLimitDisabled`, clear in a new save). With it off the clock still stops at 10:00, reading `9:59:99`, and Sonic plays on. The engine has the switch (`createGame`'s `timeLimit`) for the options menu ([#139](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/139)) and keeps it on.
+- **The life.** When his task ends, `Task_PlayerHandleDeath` sees the time run out (past 10:00, or 0 with the countdown on) and takes `HandleDeath`'s way, not `HandleLifeLost`'s: he loses a life and keeps his rings. With no life left it is the [game over](#game-over-and-the-continue-screen), the HUD still showing the rings; without a continue left, the save also keeps the score there if it is higher than its own (`unk420`, see [The save](#the-save)). Otherwise `CreateTimeOver` (`src/game/sa1/ui/time_over.c`) runs.
+- **The time limit** comes from the save (`timeLimitDisabled`, clear in a new save). With it off the clock still stops at 10:00, reading `9:59:99`, and Sonic plays on. The engine reads it from the save; only the Options menu ([#139](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/139)) turns it off.
 
 **The TIME OVER screen.** Nothing is destroyed: the act runs on behind it without Sonic, as behind the game over. `CreateTimeOver` turns the windows off (`DISPCNT` bits 13 to 15) and puts the colour blending in the brightness decrease's mode with nothing darkened yet, so the layers blended over others (Ice Mountain's snow, for one) are drawn as they are from then on. It makes two tasks: the words (`0x2220`) and a timer (`0x2200`), which runs first and counts its frames from 0.
 
@@ -642,9 +642,62 @@ Two levels have rules of their own. In Ice Mountain act 2 (level 7) a goal count
 
 ### The next act
 
-The screen keeps its last frame for 16 frames while the original saves and loads (as long as mGBA takes); act 2's music (song 13) starts 2 frames before its first frame. Sonic starts at (104, 684) with no rings, the course clock at 0 and no checkpoint; the score, the lives and the game's random numbers carry on. The first time act 2's title card plays, its white bar starts as the results' band (x −16, y 42) and drops 9 px a frame to y 126. In single player act 2's camera and Sonic stop 768 px short of its right edge (`StageInit_Zone1Act2`). Its boss is the Egg Hammer Tank (enemy kinds 21 and 22, see [The Egg Hammer Tank](#the-egg-hammer-tank)).
+The screen keeps its last frame while the original writes the save (`GoToNextLevel`, see [The save](#the-save)) and loads act 2: 16 frames when the save has changed since it was last written (14 of them the write's, in which the game's frame counter doesn't count), and 2 when it hasn't. Act 2's music (song 13) starts 2 frames before its first frame. Sonic starts at (104, 684) with no rings, the course clock at 0 and no checkpoint; the score, the lives and the game's random numbers carry on. The first time act 2's title card plays, its white bar starts as the results' band (x −16, y 42) and drops 9 px a frame to y 126. In single player act 2's camera and Sonic stop 768 px short of its right edge (`StageInit_Zone1Act2`). Its boss is the Egg Hammer Tank (enemy kinds 21 and 22, see [The Egg Hammer Tank](#the-egg-hammer-tank)).
 
 **How it was checked.** mGBA 0.10.5 recorded a run from act 1's first frame through the goal, the results and act 2's card into act 2. The engine matches Sonic, the camera, the rings, the score, the lives and the clocks on every frame compared (1762), and its frames match the screenshots pixel for pixel from the goal to 600 frames into act 2. 21 more recordings in act 2 cover the spikes and a death on them, the hiding spikes, both mini loops (one pressing A and B inside), the water bridge three ways and the bushes; the whole game matches all of them on every frame, and seven of them pixel for pixel, the splashes and the leaves included.
+
+### The save
+
+Sonic Advance keeps one save, `struct SaveGame` (`src/game/sa1/save.c`, and `CreateEmptySaveGame` in `src/game/game.c`): `0x430` bytes at `0x03005160` (`gLoadedSaveGame`), which the cartridge keeps in one of ten sectors of its flash memory. The port keeps the same bytes in the browser's local storage (`onsoku.save`, as base64), in [`src/engine/save.js`](../src/engine/save.js). Its fields in the USA ROM:
+
+| Offset | Field | What it holds |
+| :--- | :--- | :--- |
+| `0x000` | `security` | `0x4F524950` ("PIRO") once written |
+| `0x004` | `unk4` | 0 |
+| `0x008` | `unlockedLevels[4]` | by character, the level after the last one cleared; 15 once the Moon Zone is cleared |
+| `0x010` | `playerName[8]` | the name input's (not built yet) |
+| `0x018` | `difficultyLevel` | 0 normal, 1 easy |
+| `0x019` | `uiLanguage` | 0 Japanese, 1 English |
+| `0x01A` | `timeLimitDisabled` | 1 with the time limit off |
+| `0x01B` | `btnConfig` | 1 with A and B swapped |
+| `0x01C` | `chaosEmeralds` | a bit per special stage |
+| `0x020` | `timeRecords` | the three best course times by character and level, 36000 (10:00) when none |
+| `0x380` | `multiplayerScores[10]` | 16 bytes each: a player id, a name, wins, losses and draws |
+| `0x420` | `unk420` | a best score, 50000 in a new save |
+| `0x424` | `unk424` | 1 once the Moon Zone is cleared |
+| `0x428` | `score` | the rings every act's results have counted, which the Tiny Chao Garden spends |
+| `0x42C` | `checksum` | the sum of the 32-bit words before it |
+
+The decompilation builds the European ROM, whose struct has one more byte, `language` at `0x01A`, for its six languages. The USA ROM has no such byte, so `timeLimitDisabled`, `btnConfig` and `chaosEmeralds` are a byte earlier than the decompilation has them.
+
+**Reading it.** At power-on `SaveGameExists` takes the last sector with the security word and a right checksum. Without one, `CreateEmptySaveGame` makes a new save: normal difficulty, nothing cleared, the menus in English, the time limit on, every time record 10:00, the multiplayer names eight spaces with `0xFF` wins, and `unk420` 50000. Its security word and checksum stay 0 until it is first written. The port reads the save as the page opens. A save from an earlier version of the port, which kept only the Chaos Emeralds (`onsoku.emeralds`), becomes a new save with those emeralds, and the old key goes once the save is written.
+
+**Changing it.** The game changes the save in memory as it goes:
+
+- `CreateStageResults`, as an act's results start (and on the true ending's 30th frame): the act's rings go into `score`, and the act counts as cleared, `unlockedLevels` for the character going up to the level after it, unless the game is in its final stage (the test under [Opening the Moon](#the-moon-zone)).
+- A won special stage's results set its bit in `chaosEmeralds`. The port sets it as the special stage hands back, before anything could write the save.
+- `HandleDeath`, a time over on the last life with no continue left: `unk420` becomes the score, if that is higher.
+- `CreateExtraStageResults`, the Moon Zone's end: `unlockedLevels[0]` becomes 15 and `unk424` 1.
+- The Options menu, the language screen and the name input change their own settings. They aren't built yet ([#139](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/139), [#140](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/140)).
+
+**Writing it.** `WriteSaveGame` compares the save in memory with the sector it was read from or last written to, and does nothing when they are the same. Otherwise it erases the next sector but one, sets the security word and the checksum, and writes the next sector. In mGBA 0.10.5 that takes 14 frames with the interrupts off: the screen keeps its last frame, nothing runs, and the game's frame counter (`gFrameCount`) doesn't count them. The game writes it:
+
+- as an act's results end (`GoToNextLevel`), before it starts the next act (see [The next act](#the-next-act)). With the save up to date the next act starts on the results' last frame, 14 frames sooner;
+- as the game over ends (see [Game over and the continue screen](#game-over-and-the-continue-screen));
+- as the congratulations start, and as the Moon Zone ends (see [The Moon Zone](#the-moon-zone));
+- as the Options menu closes.
+
+To tell whether a write is needed, the port keeps the save as last written next to the one in memory, as the flash would. Where the browser's storage is blocked or full, the port goes on with the save in memory for as long as the page is open.
+
+**How it was checked.** mGBA 0.10.5 recorded the save's memory after every frame of nine runs, with the flash read in and written out:
+
+- power-on with an empty flash: the new save;
+- power-on with a save, then the Options menu: easy, the time limit off, A and B swapped, and closed;
+- Neo Green Hill act 1 into act 2 with 25 rings, the save written; and again with no rings and the save already up to date, so not written;
+- three game overs after a time up: the save written, up to date, and with a score of 60000, which `unk420` takes;
+- a special stage won ([#132](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/132)'s first run).
+
+These runs also showed where the USA ROM keeps the settings and the emeralds. The engine's save matches mGBA's `0x430` bytes on every frame of the two act runs and the three game overs. The same runs match the picture, the stage clock, the random numbers, the lives, the rings and the frame counter on every frame, through the frozen frames and into act 2 or back to the SEGA logo. `save.js` matches the other runs' bytes after each change and write. In Chrome 156 and Firefox 159 (headless, a new profile each), the page carried an earlier version's emeralds into a new save, wrote it at the act change and read it back after a reload. With its storage blocked, it played on into act 2 with the save in memory, and neither console showed an error from the game. A save that hasn't changed before the congratulations or the Moon Zone's results wasn't recorded; there the engine leaves out the write's 14 frames.
 
 ### The pause menu
 
@@ -729,7 +782,7 @@ A special spring sends Sonic out of the act into a special stage, and when the s
 
 The other acts' levels are given a stage too, but have no spring to reach it.
 
-**Coming back** (`sub_805D4F0`, in assembly in the decompilation): the act starts again as after a death but without losing a life (`CreateGameStage`), with Sonic 16 px up and left of the spring, which pushes him out to its side on the first frame (x 10886), and with its title card. The course time, the stage clock, the rings and the last checkpoint passed are what they were when he left; the score, the lives and the random numbers are what the special stage leaves. The special springs are then plain springs (`gPlayer.unk99[1]`) until the act starts over after a death. The Chaos Emeralds won are kept in the browser (`onsoku.emeralds` in local storage), a bit per stage, as the save keeps them (`chaosEmeralds`, `0x0300517C`).
+**Coming back** (`sub_805D4F0`, in assembly in the decompilation): the act starts again as after a death but without losing a life (`CreateGameStage`), with Sonic 16 px up and left of the spring, which pushes him out to its side on the first frame (x 10886), and with its title card. The course time, the stage clock, the rings and the last checkpoint passed are what they were when he left; the score, the lives and the random numbers are what the special stage leaves. The special springs are then plain springs (`gPlayer.unk99[1]`) until the act starts over after a death. The Chaos Emeralds won are kept in [the save](#the-save), a bit per stage (`chaosEmeralds`, `0x0300517C`): the stage's results set the bit, and the save is written with the next act's results.
 
 **The data.** All addresses are the USA ROM's file offsets.
 
@@ -1716,13 +1769,13 @@ The Moon Zone is the extra stage, level 13 (`LEVEL_INDEX(ZONE_7, ACT_THE_MOON)`,
 
 **The Super Egg Robo** (`boss_xtra_super_egg_robot.c`). Its body (animation 666) is an 8bpp background sprite drawn on the rotating background BG2. A background sprite's OAM tile numbers count whole 8bpp tiles, because `sub_80039E4` writes them straight into the background's map, and its frame goes into BG2's 256 × 256 texture with its left edge rounded down to a multiple of 16 and its top to a whole tile. The head, arms and legs are 18 sprites and a knee, each a task hanging from the one before it in its limb and turned by its own angle on top of its parent's. The hand eases toward the opposite of its *parent's* angle (`sub_8051604`'s assembly), not its own as the decompilation's C has it. The robot walks, raises an arm and swings it, digs with its hands (throwing up rocks), sweeps its laser over the ground and throws ring capsules. The laser's beam is window 0's triangle, brightened by 14/16; its edges are walked line by line by `sub_8006DB4`. Only a dash into the head hurts it: 8 hits on normal, 6 on easy, each flashing the head white for 32 frames inside the OBJ window. A capsule holds Super Sonic for 4 seconds, 20 frames less for each press of left or right.
 
-**The defeat.** The robot falls back spilling nuts and bolts. Two seconds after the last hit the screen fades to white, 1/16 every 4 frames. At 16/16, `CreateExtraStageResults` takes over: it stops the music and writes the save with interrupts off. Through mGBA 0.10.5 that takes 16 frames. For 14 of them the screen keeps the last frame with BG1's lower lines unscrolled (the HBlank interrupt is off), for one more with them scrolled again, and then the ending's white screen shows for two frames before its first frame runs.
+**The defeat.** The robot falls back spilling nuts and bolts. Two seconds after the last hit the screen fades to white, 1/16 every 4 frames. At 16/16, `CreateExtraStageResults` takes over: it stops the music and writes the save with interrupts off. Through mGBA 0.10.5 that takes 16 frames. For 14 of them the screen keeps the last frame with BG1's lower lines unscrolled (the HBlank interrupt is off), for one more with them scrolled again, and then the ending's white screen shows for two frames before its first frame runs. The 14 are the write's (see [The save](#the-save)): when the save hasn't changed since it was last written (the Moon cleared before), the engine leaves them out. That case wasn't recorded.
 
 **The game over on the Moon.** It is the same screen as in the acts, song 37 and the continue included, and a continue starts the Moon over with three lives. Behind it the robot goes on with its moves, and the laser shares the display registers with the screen's fade: each laser ends by turning window 0 off for 16 frames and then clearing BLDCNT, so on that one frame, every 114 frames while the robot repeats its moves, the screen isn't darkened. The HUD's face shares its palette row with Super Sonic, whose death animation (21) loads Sonic's own colours there on the frame after he dies, so from then on the face shows Sonic's. **How it was checked:** three mGBA 0.10.5 recordings, with one ring, one life and no continue or one poked into RAM: one goes to the SEGA logo, one lets the countdown run out and one presses A on the second digit and plays the Moon again. Each matched the engine's frames pixel for pixel.
 
 ## The true ending
 
-`CreateExtraStageResults` (`extra_stage_results.c`) sets the save's first unlocked level to 15. One main task (priority `0x2100`) then counts each scene's frames and runs the fades, and the sprites' tasks (`0x2120`) read its count. A fade (`sub_805423C`) works through window 1 over the whole screen. Its level goes up `0x80` a frame to `0x2000`, so it lasts 64 frames, and the brightness change is its level ÷ 512 sixteenths. A semi-transparent sprite is alpha-blended at full weight (BLDALPHA 16) instead, so the fades leave it alone.
+`CreateExtraStageResults` (`extra_stage_results.c`) sets the save's first unlocked level to 15 and `unk424` to 1 before it writes it. One main task (priority `0x2100`) then counts each scene's frames and runs the fades, and the sprites' tasks (`0x2120`) read its count. A fade (`sub_805423C`) works through window 1 over the whole screen. Its level goes up `0x80` a frame to `0x2000`, so it lasts 64 frames, and the brightness change is its level ÷ 512 sixteenths. A semi-transparent sprite is alpha-blended at full weight (BLDALPHA 16) instead, so the fades leave it alone.
 
 1. **The night scene**, coming in from white. Three 256-colour backgrounds share one palette: BG0 `0x8583`, BG1 `0x9E86` and BG2 `0x9B89`. On the 30th frame `CreateStageResults` puts up the tally (MUS_EXTRA_CLEAR, 36). It returns how long the scene lasts: the larger of the ring bonus and the time bonus ÷ 100, plus 75 + 285 frames. On that frame MUS_CUTSCENE_A_FEW_DAYS_LATER (39) starts, and four twinkles (731) come one after another, 16 frames each. A second later the three layers slide down by 85, 96 and 192 /256 px a frame, to 71, 80 and 160. 540 frames after the tally's end the scene fades to black.
 2. **"A few days later"** (783, semi-transparent) on black for 600 frames, then 64 more frames of black.
@@ -1749,13 +1802,13 @@ These are the decompilation's EU addresses less `0x7124`.
 - all four characters' unlocked levels are past 12;
 - and not both of: the first unlocked level is 15, and the course select started on level 12.
 
-[`src/engine/unlock.js`](../src/engine/unlock.js) has it as `theMoonOpens(…)`. Nothing calls it yet; `?level=13` starts the Moon Zone directly.
+[`src/engine/unlock.js`](../src/engine/unlock.js) has it as `theMoonOpens(…)`. The stage results' part of the save calls it ([`save.js`](../src/engine/save.js)); the way on after X Zone doesn't yet ([#133](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/133)). `?level=13` starts the Moon Zone directly.
 
 ## The normal ending
 
 Sonic's stage results after X Zone always end in `CreateCongratulationsAnimation` (`stage_results.c`); without all seven Chaos Emeralds the staff credits after it end in the closing message. Like the true ending's, the main task (priority `0x2100`) counts each scene's frames and changes what the sprites' tasks (`0x2120`) run, and they read its count. On the frame a task is made it doesn't run yet.
 
-**Starting it.** It writes the save with interrupts off, and the screen keeps the last frame meanwhile. The port holds it for 16 frames, the Moon Zone's save. It stops the music and starts MUS_CUTSCENE_TORNADO_RESCUE (38). The sky is the true ending's (BG0 `0x9D86`: 256 colours, character base 1, screen base 29, 256 × 512), coming in from white through window 1 at `0x80` a frame (see the fades under [The staff credits](#the-staff-credits)).
+**Starting it.** It writes the save with interrupts off, and the screen keeps the last frame meanwhile. The port holds it for 16 frames, the Moon Zone's save, or 2 when the save hasn't changed since it was last written (see [The save](#the-save)). It stops the music and starts MUS_CUTSCENE_TORNADO_RESCUE (38). The sky is the true ending's (BG0 `0x9D86`: 256 colours, character base 1, screen base 29, 256 × 512), coming in from white through window 1 at `0x80` a frame (see the fades under [The staff credits](#the-staff-credits)).
 
 The scenes (`Task_8065F5C` to `Task_8066520`), with the frame each one ends on:
 

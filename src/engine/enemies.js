@@ -66,6 +66,9 @@ export function sprite(name, anims, opts) {
 
 // the enemy record's data bytes: d0 and d1 signed, d2 and d3 not
 export const data = e => ({ d0: s8(e.d[0]), d1: s8(e.d[1]), d2: e.d[2], d3: e.d[3] });
+// the Buzzer, the Senbon, the Slot, the Pen, the Leon and the Mirror are each made only on Normal in one zone
+// (LEVEL_TO_ZONE: 0 Neo Green Hill … 5 Egg Rocket and Cosmic Angel): on Easy their makers make nothing there
+export const leftOutOnEasy = (ctx, zone) => ctx.world.zone === zone && ctx.world.difficulty !== 0;
 
 // Kiki (kiki.c): a monkey that climbs up and down its tree at 1 px a frame and throws a coconut on every
 // second visit to the top. Facing right, it is drawn 8 px to the left of where it collides.
@@ -142,8 +145,9 @@ function piece(x, y, ctx) {
 
 // Buzzer (buzzer.c): a wasp that flies back and forth at 1 px a frame and, once per leg, stops to shoot at Sonic
 // when he is in a wedge below it on the side it faces. Its animation steps before it decides, so a change shows on
-// the next frame. Absent from Neo Green Hill on Easy in the original, which the port doesn't apply yet.
+// the next frame. Not made in Neo Green Hill on Easy.
 function buzzer(e, slot, anims, ctx0) {
+  if (leftOutOnEasy(ctx0, 0)) return null;
   const { d0, d2 } = data(e), s = makeSprite('buzzerFly');
   let vx = -256, off = 0, shot = false, t = 0, state = 'patrol';
   if (sonicX(ctx0) >= e.x) { vx = 256; s.flipX = true; }
@@ -372,12 +376,12 @@ function kerokero(e, slot, anims) {
 // Leon (leon.c, Task_LeonInit at 0x0806E7C0 in the USA ROM): a chameleon that walks at 0.625 px a frame and
 // turns round at each end in 14 frames, standing still. When Sonic is within 80 px in front of it and between
 // 32 px above and 8 px below it, it shoots its tongue for 31 frames: the tongue's box hurts him. It then has
-// to walk 60 frames before it can shoot again, counted only away from the ends. It follows the ground. Absent
-// from Angel Island on Easy in the original, which the port doesn't apply yet. The original never sets that
-// count when it makes the Leon (unk4E): it starts with whatever the memory held, which delays or prevents the
-// first shot; this game starts it at 0. The tongue's box stays set after the shot, so it hurts again from the
-// first frame of the next one, where it was then.
-function leon(e, slot, anims) {
+// to walk 60 frames before it can shoot again, counted only away from the ends. It follows the ground. Not
+// made in Angel Island on Easy. The original never sets that count when it makes the Leon (unk4E): it starts
+// with whatever the memory held, which delays or prevents the first shot; this game starts it at 0. The tongue's
+// box stays set after the shot, so it hurts again from the first frame of the next one, where it was then.
+function leon(e, slot, anims, ctx0) {
+  if (leftOutOnEasy(ctx0, 4)) return null;
   const { d0, d2 } = data(e), s = sprite('leonWalk', anims);
   let vx = -160, off = 0, yoff = 0, t = 0, wait = 0, state = 'walk';
   return {

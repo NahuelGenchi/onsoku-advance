@@ -41,6 +41,7 @@ export function createEggPress(e, slot, anims, ctx) {
   // hits taken (unkAE), the frames left of a hit's flash (unkAF), the leap's turn (unkB0) and the beaten press's
   // fall (qUnkB2)
   let qx = 0, qy = 0, vx = 0, vy = 0, gravity = 0, count = 0, hits = 0, flash = 0, leaps = 0, fall = 0;
+  if (ctx.world.difficulty !== 0) hits = 2;   // Easy
   let phase = wait;
 
   // the original's ANIM_OVER flag: set by the update that ends a one-shot, cleared by the next one that starts

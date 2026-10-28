@@ -1,12 +1,12 @@
 // Cosmic Angel's Mirror (SAT-R decompilation, src/game/sa1/stage/enemies/mirror.c): a mirror on legs that walks
 // back and forth at 0.625 px a frame between d0 and d0 + d2 tiles from its spawn point. Walking, it can't be
 // hurt: touching it hurts Sonic, even while he attacks. Every 90 frames of walking it stops and turns to him for
-// 60 frames, and only then can it be destroyed; on the 20th it fires a shot level at 2 px a frame. On easy, zone
-// 6's mirrors aren't made; this game plays normal.
+// 60 frames, and only then can it be destroyed; on the 20th it fires a shot level at 2 px a frame. On Easy, zone
+// 6's mirrors aren't made.
 
 import { startAnim, animate } from './objects.js';
 import { overlap } from './collide.js';
-import { TILE, I, gone, sonicX, sonicY, sprite, data } from './enemies.js';
+import { TILE, I, gone, sonicX, sonicY, sprite, data, leftOutOnEasy } from './enemies.js';
 
 export const MIRROR = 12;
 const SPEED = 160;                 // Q(0.625)
@@ -32,7 +32,8 @@ function shot(x0, y, dir, anims) {
 }
 
 /** The Mirror (Task_Mirror, then Task_MirrorShoot). */
-export function mirror(e, slot, anims) {
+export function mirror(e, slot, anims, ctx) {
+  if (leftOutOnEasy(ctx, 5)) return null;
   const { d0, d2 } = data(e), s = sprite('mirror', anims);
   let off = 0, vx = -SPEED, frames = 0, rest = 0, shooting = false;
   return {

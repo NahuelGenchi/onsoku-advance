@@ -149,7 +149,7 @@ The goal is a game that behaves *exactly* like the original, not one that looks 
 - **The game's own sound.** The music and sound effects are played by a rebuilt copy of the cartridge's sound engine, whose output matches the original's byte for byte.
 - **Sharp pixels.** The game draws at the Game Boy Advance's own 240 × 160 and scales up in whole steps, so every pixel stays crisp on any screen.
 
-The game opens as the original does, with the SEGA and Sonic Team logos, the intro timed to its music, the title screen and the main menu. Game Start goes straight to the act, where the character select would start. Options opens the original Options menu: the difficulty, the time limit and the button layout, kept in the save, and Delete Game Data. Easy so far only changes the Super Egg Robo; its other effects, the menu's player data, sound test and language screens, and the main menu's other modes are next.
+The game opens as the original does, with the SEGA and Sonic Team logos, the intro timed to its music, the title screen and the main menu. Game Start goes straight to the act, where the character select would start. Options opens the original Options menu: the difficulty, the time limit and the button layout, kept in the save, and Delete Game Data. Easy works as in the original: six kinds of enemy stay out of one zone each, and every boss needs 2 fewer hits. The menu's player data, sound test and language screens, and the main menu's other modes are next.
 
 The act opens, and starts over after a lost life, with the original title card sliding in as the screen fades up from black. The original on-screen counters show your rings, score, time and lives. Let the clock reach 10:00 and Sonic is out of time: he loses a life, *TIME OVER* slides in and the act starts over (Egg Rocket's five-minute countdown runs out the same way). Lose your last life and it's **game over**; with a continue left, the continue screen counts down from 9: press jump to play the act again with three lives, or attack to count down faster.
 
@@ -356,7 +356,7 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 </tbody>
 </table>
 
-Also on the way: the title screen's demos, the character select, the menu's other modes, the Options menu's player data, sound test and language screens, Easy's effects beyond the Super Egg Robo, and the other three [Chao Hunt](#multiplayer-chao-hunt) stages.
+Also on the way: the title screen's demos, the character select, the menu's other modes, the Options menu's player data, sound test and language screens, and the other three [Chao Hunt](#multiplayer-chao-hunt) stages.
 
 <details>
 <summary><b>Milestones</b></summary>

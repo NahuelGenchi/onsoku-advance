@@ -44,6 +44,7 @@ export function eggSpider(e, slot, anims, ctx0) {
   const s = makeSprite('eggSpiderStill', { order: 22 }), s2 = makeSprite('eggSpiderEggman', { order: 21 });
   // offsets and speeds; the timer, the flash's and the drops' cooldowns, the hits taken and the phase (unk8C)
   const boss = { qx: 48 * 256, qy: 16 * 256, qvx: 0, qvy: 0, t: 120, flash: 0, rest: 0, hits: 0, phase: 0, target: 0, qvFall: 0 };
+  if (world.difficulty !== 0) boss.hits = 2;   // Easy
   ctx0.add(setBossCamBounds(world.camera, y0, y0 + SCREEN_H + 32, x0 - (SCREEN_W + 80), x0));
   // the colours under the water follow the stage's from now on (InitWaterPalettes as a task)
   ctx0.add({ run(ctx) { ctx.world.initWaterPalettes(); return true; } }, WATER_PALETTES);

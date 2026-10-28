@@ -257,7 +257,8 @@ export function createEntities(stage, anims, tasks) {
   for (const [list, spawn] of [
     [stage.interactables, interactables],
     [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
-    [stage.enemies, (s, ctx) => ENEMIES[s.e.kind]?.(s.e, s, anims, ctx) ?? standIn(s.e, s)],
+    // an enemy's maker may make nothing (some, on Easy)
+    [stage.enemies, (s, ctx) => (ENEMIES[s.e.kind] ?? standIn)(s.e, s, anims, ctx)],
   ]) {
     // each region keeps its interactables, then its item boxes, then its enemies
     for (const e of list) regions[e.rx + e.ry * regionsX].push(slot(e, spawn));

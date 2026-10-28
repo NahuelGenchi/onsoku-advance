@@ -3,7 +3,7 @@
 // bobs up to 20 px above that line and back down every 32 frames. Away from the ends, with Sonic's centre within
 // 16 px of its own across, it stops for 20 frames and drops a coin, then floats on and doesn't drop another for
 // 100 frames spent between the ends. Its sprite is a left half, drawn again mirrored for the right. In Casino
-// Paradise the original makes it only on Normal; the port doesn't apply Easy yet.
+// Paradise it is made only on Normal.
 //
 // The coin falls, gaining 40/256 px a frame each frame, and shatters on the floor or on touching Sonic: six
 // pieces fan out by the floor's angle at a random share of its speed, bounce, slow down, and go after 45
@@ -11,7 +11,7 @@
 // coin was.
 
 import { startAnim, animate } from './objects.js';
-import { I, TILE, Div, SIN, data, gone, s16, sonicX, sprite } from './enemies.js';
+import { I, TILE, Div, SIN, data, gone, s16, sonicX, sprite, leftOutOnEasy } from './enemies.js';
 import { tileFloor } from './terrain.js';
 
 export const SLOT = 9;
@@ -22,7 +22,8 @@ const REST = 100, DROP = 19;
 const FALL = 40;
 const PIECES = 6, LIFE = 45, BLINK = 30;
 
-export function slotMachine(e, slot, anims) {
+export function slotMachine(e, slot, anims, ctx) {
+  if (leftOutOnEasy(ctx, 2)) return null;
   const { d0, d2 } = data(e), s = sprite('slotWalk', anims);
   let q = 0, v = -STEP, phase = 0, rise = 0, t = 0, rest = 0, dropping = false;
   const show = (ctx, x, y) => {

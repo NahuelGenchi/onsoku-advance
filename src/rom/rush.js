@@ -37,7 +37,7 @@ function data(bytes, at) {
 export function decodeBacAnimation(bytes, anim) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const u16 = at => view.getUint16(at, true), s16 = at => view.getInt16(at, true), u32 = at => view.getUint32(at, true);
-  if (String.fromCharCode(bytes[0], bytes[1], bytes[2]) !== 'BAC') throw new RomError('unexpected data in the Sonic Rush rom: the boost effects are not a .bac file.');
+  if (String.fromCharCode(bytes[0], bytes[1], bytes[2]) !== 'BAC') throw new RomError('Unexpected data in the Sonic Rush ROM: the boost effects are not a .bac file.');
   const animHdr = u32(4), seq = u32(8), asm = u32(12), pal = u32(16), pix = u32(20);
   let at = u32(animHdr + 4 + anim * 8);
   const frames = [], starts = new Map();
@@ -63,10 +63,10 @@ export function decodeBacAnimation(bytes, anim) {
     } else if (id === 4) {
       const loop = starts.get(u32(body));
       return { frames: frames.map(toFrame), loop: loop ?? 0 };
-    } else throw new RomError(`unexpected data in the Sonic Rush rom: a .bac block of type ${id}.`);
+    } else throw new RomError(`Unexpected data in the Sonic Rush ROM: a .bac block of type ${id}.`);
     at += size;
   }
-  throw new RomError('unexpected data in the Sonic Rush rom: a .bac animation with no end.');
+  throw new RomError('Unexpected data in the Sonic Rush ROM: a .bac animation with no end.');
 }
 
 // a frame's entries with their pixels unpacked from 8×8 tiles, laid out row by row (1D mapping)
@@ -97,7 +97,7 @@ function soundTables(rom) {
     for (let at = 0; at + length * Type.BYTES_PER_ELEMENT <= bytes.length; at += Type.BYTES_PER_ELEMENT) {
       if (head.every((b, k) => bytes[at + k] === b)) return new Type(bytes.slice(at, at + length * Type.BYTES_PER_ELEMENT).buffer);
     }
-    throw new RomError('this Sonic Rush rom is missing the sound tables the boost needs.');
+    throw new RomError('This Sonic Rush ROM is missing the sound tables the boost needs.');
   };
   return {
     dBsq: find(arm7, [-723, -722, -721, -651], 128, Int16Array),
@@ -122,13 +122,13 @@ export function isRush(buffer) {
  */
 export function extractRush(buffer) {
   const rom = new NdsRom(buffer);
-  if (!isNds(rom)) throw new RomError('this file is not a nintendo ds rom.');
+  if (!isNds(rom)) throw new RomError('This file is not a Nintendo DS ROM.');
   const { title, code } = rom.header();
   if (title !== TITLE || !code.startsWith(CODE)) {
-    throw new RomError(`this is not Sonic Rush (its header says "${title}", ${code}).`);
+    throw new RomError(`This is not Sonic Rush (its header says "${title}", ${code}).`);
   }
   const boost = rom.file(BOOST_FILE), sound = rom.file(SOUND_FILE);
-  if (!boost || !sound) throw new RomError('this Sonic Rush rom is missing files the boost needs.');
+  if (!boost || !sound) throw new RomError('This Sonic Rush ROM is missing files the boost needs.');
   return {
     code,
     aura: decodeBacAnimation(boost, RUSH_AURA),

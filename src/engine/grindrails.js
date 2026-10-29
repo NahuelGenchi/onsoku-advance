@@ -3,10 +3,11 @@
 // layer from the ground around them. Kind 19, at a rail's top end, puts Sonic on that layer when his centre
 // is in its box while he moves right and isn't rising; he then grinds down it (player.js). Kind 20, at its
 // bottom end, throws him off: up as high as a jump from its right half, or higher, at 7 px a frame, from its
-// left half while jump is held. Neither checks its box's d0 and d1.
+// left half while jump is held. Neither checks its box's d0 and d1. They are Sonic's: with another character
+// their tasks do nothing, and stay.
 
 import { makeSprite, animate, offCam } from './objects.js';
-import { endAttack } from './player.js';
+import { endAttack, SONIC } from './player.js';
 import { PHYSICS as K } from './constants.js';
 import { SONG } from '../sound/songs.js';
 
@@ -35,7 +36,7 @@ export function createGrindRail(e, slot) {
   if (e.kind === GRIND_RAIL_START) return {
     run(ctx) {
       const p = ctx.player;
-      if (p.dead) return true;
+      if (p.character !== SONIC || p.dead) return true;
       if (inside(p) && !p.grinding && p.ysp >= 0 && p.xsp > 0) {
         p.xsp = Math.max(MIN_SPEED, p.xsp);
         p.grinding = true;
@@ -53,7 +54,7 @@ export function createGrindRail(e, slot) {
     priority: END,
     run(ctx) {
       const p = ctx.player;
-      if (p.dead) return true;
+      if (p.character !== SONIC || p.dead) return true;
       if (inside(p) && p.grinding) {
         const far = Math.floor(p.x) > e.x + (w >> 1);
         if (far || ctx.input.jump) {

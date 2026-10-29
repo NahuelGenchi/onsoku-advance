@@ -5,9 +5,9 @@
 // the score and the lives carried over. A special spring hands the game over to the special stage
 // (options.onSpecialStage), and the act starts again from what that hands back (options.resume).
 
-import { TICK_MS, CAMERA, PHYSICS, SCREEN_W, SCREEN_H, RUSH_BOOST, BOOST_MODE } from './constants.js';
+import { TICK_MS, CAMERA, PHYSICS, ANIMATION, SCREEN_W, SCREEN_H, RUSH_BOOST, BOOST_MODE } from './constants.js';
 import { makeAnimator, setAnim, tickAnim, frameOf, spritePalette } from './animator.js';
-import { createPlayer, stepPlayer, animatePlayer, hurt } from './player.js';
+import { createPlayer, stepPlayer, animatePlayer, hurt, SONIC, TAILS } from './player.js';
 import { createRushFx, startRushFx, stepRushFx } from './rushfx.js';
 import { createBoostFx, recordSonic, stepAfterimages, startBurst, stepBursts, particleAnims } from './boostmode.js';
 import { TRICK_FX_PRIORITY, createTrail, recordTrail, spinEffect, boundTrail } from './trickfx.js';
@@ -16,6 +16,7 @@ import { animateStageTiles } from './stage.js';
 import { createRenderer } from './renderer.js';
 import { createTerrain } from './terrain.js';
 import { createTasks, createEntities } from './objects.js';
+import { NO_TRACK } from './marbletrack.js';
 import { attackTest, projectileTest, defeatEffects } from './defeat.js';
 import { createRings } from './rings.js';
 import { createScatter } from './scatter.js';
@@ -34,6 +35,7 @@ import { createBossCapsule } from './capsule.js';
 import { SPECIAL_SPRING } from './specialspring.js';
 import { createEggRocket, EGG_ROCKET } from './eggrocket.js';
 import { screenShake, SCREEN_SHAKE, SHAKE } from './screenshake.js';
+import { arcTan2 } from './trig.js';
 import { SONG } from '../sound/songs.js';
 import { RUSH_BOOST_SE } from '../rom/rush.js';
 import { BOOST_MODE_SE } from '../rom/sa2boost.js';
@@ -111,7 +113,16 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   Object.assign(anims, act.anims);   // the act's own look for sprites its zone's acts draw differently
   let tasks = createTasks(), entities = createEntities(stage, anims, tasks), rings = createRings(stage.rings, anims);
   let palettes = stage.paletteAnimations.map(createPaletteAnimation);
-  const player = createPlayer({ ...(mode?.start ?? stage.spawn), spinDashSpeeds });
+  // the character the act was decoded for (gSelectedCharacter); the multiplayer modes play as Sonic
+  const character = mode ? SONIC : assets.character ?? SONIC;
+  // the player at (x, y), as InitializePlayer makes him, with Tails' tails from the start of their animation
+  // (AllocateCharacterMidAirGfx)
+  const newPlayer = ({ x, y }) => {
+    const p = createPlayer({ x, y, spinDashSpeeds, character, stopPropeller: () => sound.stop(SONG.TAILS_FLYING) });
+    if (character === TAILS) { p.tailsAnim = makeAnimator(); setAnim(p.tailsAnim, 'tailsSpin'); p.tailsShift = 0; }
+    return p;
+  };
+  const player = newPlayer(mode?.start ?? stage.spawn);
   const scatter = createScatter(anims);
   rings.reset(); scatter.reset();
   const state = {
@@ -279,10 +290,10 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
       return true;
     },
     // the frame Sonic dies the camera's target and the clock stop; the music plays on, but not invincibility's
-    // song or the drowning music, and drowning has its own sound
+    // song, the drowning music or Tails' propeller, and drowning has its own sound
     died(drowned) {
       state.cam.locked = true; state.clockStopped = true;
-      sound.stop(SONG.INVINCIBILITY); sound.stop(SONG.DROWNING);
+      sound.stop(SONG.INVINCIBILITY); sound.stop(SONG.DROWNING); sound.stop(SONG.TAILS_FLYING);
       sound.play(drowned ? SONG.DROWNED : SONG.LIFE_LOST);
     },
     // the act's water (water.js): its line, -1 without any; Sonic going in or out, the drowning countdown,
@@ -293,6 +304,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     drownCountdown(n) { addTask(drownCountdown(player, ctx.cam, n)); },
     drowningMusic() { sound.drowning(); },
     breathOut(x, y) { addTask(bubble(state.water, world, Math.round(x * 256), Math.round(y * 256), 0, false)); },
+    airBubble(x, y, dx, group) { addTask(bubble(state.water, world, x, y, dx, group)); },
     drowned() {
       addTask(bubble(state.water, world, Math.round(player.x * 256), Math.round((player.y - 12) * 256), 0, true));
       addTask(bubblesAfterDrowning(state.water, world, player, addTask));
@@ -335,7 +347,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     get actOver() { return state.ringsStopped; },
     stageResults() {
       state.noPause = true;
-      saveActCleared(save, { level: state.level, rings: state.ringCount, startLevel: options.startLevel ?? 0 });
+      saveActCleared(save, { level: state.level, rings: state.ringCount, character, startLevel: options.startLevel ?? 0 });
       state.results = createResults(act.results, { rings: state.ringCount, courseTime: state.courseTime, level: state.level });
       sound.play(state.level & 1 ? SONG.BOSS_CLEAR : SONG.ACT_CLEAR);
       sound.musicOff();
@@ -469,6 +481,9 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     spawnDashDust() { spawn('dash', 'dashDust', player.x, feetY(), player.facing > 0, player.inverted); },
     // the insta-shield's flash follows Sonic, facing the way he faced when it started
     spawnInstaShield() { spawn('shield', 'instaShieldFlash', player.x, centreY(), player.facing > 0); },
+    // the tail swipe's effect follows Tails, facing as he does (Player_Tails_InitGfx_TailSwipe)
+    spawnTailSwipe() { spawn('swipe', 'tailSwipeFx', player.x, centreY(), player.facing > 0, player.inverted); },
+    marbleTails() { if (character === TAILS) { player.marbleTails = makeAnimator(); setAnim(player.marbleTails, 'marbleTrackTails'); } },
   };
 
   // a sprite in this frame's list: `s` has frame, flipX, flipY, order (lower is in front) and prio (the
@@ -505,6 +520,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     }
     if (e.anim.done) return false;
     if (e.kind === 'shield') { e.x = player.x; e.y = centreY(); }
+    if (e.kind === 'swipe') { e.x = player.x; e.y = centreY(); e.flipX = player.facing > 0; e.flipY = player.inverted; }
     tickAnim(e.anim, anims);
     return true;
   }
@@ -574,10 +590,38 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
         const right = (player.facing > 0) !== inv, scale = player.scale, rotation = player.drawRotation;
         draw(s, player.x - (right ? 1 : 0), player.y, { rotation: inv ? (512 - rotation) & 1023 : rotation, scaleX: right ? -scale : scale, scaleY: scale, double: false });
       } else draw(s, player.x + (player.facing < 0 ? 1 : 0), player.y);
-      if (s.frame >= 0) state.sprites[state.sprites.length - 1].sonicRow = true;   // palette row 0, his
+      if (s.frame >= 0 && character === SONIC) state.sprites[state.sprites.length - 1].sonicRow = true;   // palette row 0, his
       if (fx && s.frame >= 0) fx.sonic = state.sprites[state.sprites.length - 1];
     }
     if (fx) state.sprites.push({ rush: 'trail', order: 16, prio });
+    if (character === TAILS) drawTails();
+  }
+
+  // Tails' tails (sub_8024F74): the way he moves is worked out each frame (w.tf.shift), straight ahead of him
+  // when he is still. Only while he is curled up (charState 5) are they shown, as a second sprite just behind
+  // him (OAM order 17) through the rotation hardware, turned that way and mirrored as his rotated frames are,
+  // and only then does their animation run, at half speed under water. They blink with him.
+  function drawTails() {
+    const vx = Math.round(player.xsp * 256), vy = Math.round(player.ysp * 256);
+    player.tailsShift = vx !== 0 || vy !== 0 ? ((arcTan2((vx << 16) >> 16, (vy << 16) >> 16) >> 8) + 0x40) & 0xFF : player.facing < 0 ? 0xC0 : 0x40;
+    if (player.marbleTails) drawMarbleTails();
+    if (player.state !== 'spin') return;
+    const a = player.tailsAnim;
+    a.speed = player.water ? ANIMATION.normalSpeed >> 1 : ANIMATION.normalSpeed;
+    tickAnim(a, playerAnims);
+    if (player.hidden || player.vanished) return;
+    const inv = player.inverted, right = (player.facing > 0) !== inv, rotation = player.tailsShift << 2;
+    draw({ frame: frameOf(a, playerAnims), order: 17, prio: 2 }, player.x - (right ? 1 : 0), player.y,
+      { rotation: inv ? (512 - rotation) & 1023 : rotation, scaleX: right ? -player.scale : player.scale, scaleY: player.scale, double: false });
+  }
+
+  // his tails in a marble track (Task_8047D04): from the entrance's 25th frame until he leaves the track, in his
+  // OAM order just behind him, turned the way he moves and shrunk as he is, never mirrored
+  function drawMarbleTails() {
+    if (player.state !== 'marbleTrack' || player.track === NO_TRACK) { player.marbleTails = null; return; }
+    tickAnim(player.marbleTails, playerAnims);
+    draw({ frame: frameOf(player.marbleTails, playerAnims), order: 16, prio: 2 }, player.x, player.y,
+      { rotation: player.tailsShift << 2, scaleX: player.scale, scaleY: player.scale, double: false });
   }
 
   // the title card (sub_80550F8) plays from the act's first frame and after each restart, holding Sonic and
@@ -632,7 +676,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   // (x, y), still and standing, the buttons he holds not counting as presses, on the back layer, with the
   // camera centred on him again and following him, and the music's tempo back to normal
   function respawn({ x, y }) {
-    Object.assign(player, createPlayer({ x, y, spinDashSpeeds: assets.physics.spinDashSpeeds }), { itemEffect: 0, confusion: 0 });
+    Object.assign(player, newPlayer({ x, y }), { itemEffect: 0, confusion: 0 });
     input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
     state.cam = newCamera();
     ctx.view = state.view = viewOf(state.cam, viewW, viewH);
@@ -646,7 +690,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   // which nothing runs.
   function restartAct() {
     const at = state.checkpoint ?? stage.spawn;
-    Object.assign(player, createPlayer({ x: at.x, y: at.y, spinDashSpeeds }));
+    Object.assign(player, newPlayer(at));
     if (state.courseTime >= MAX_COURSE_TIME && state.checkpoint) state.checkpoint.time = 0;
     state.checkpointTime = state.checkpoint?.time ?? 0; state.timerReversed = false;
     state.cam = newCamera();
@@ -705,7 +749,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     state.level++;
     act = assets.acts[state.level]; stage = act.stage; Object.assign(anims, act.anims);
     terrain = createTerrain(stage.collision);
-    Object.assign(player, createPlayer({ ...stage.spawn, spinDashSpeeds }));
+    Object.assign(player, newPlayer(stage.spawn));
     tasks = createTasks(); entities = createEntities(stage, anims, tasks); rings = createRings(stage.rings, anims);
     palettes = stage.paletteAnimations.map(createPaletteAnimation);
     rings.reset(); scatter.reset(); sparkles.clear();
@@ -858,7 +902,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   // left; the score, the lives, the game's random numbers and the frame counter what the special stage leaves.
   function comeBack({ level, score, lives, courseTime, seed, frameCount = state.frameCount, act }) {
     while (state.level < level) startNextAct();
-    Object.assign(player, createPlayer({ x: act.spring.x - 16, y: act.spring.y - 16, spinDashSpeeds: assets.physics.spinDashSpeeds }));
+    Object.assign(player, newPlayer({ x: act.spring.x - 16, y: act.spring.y - 16 }));
     player.plainSprings = true;
     const checkpoint = act.checkpoint && { ...act.checkpoint };
     if (courseTime >= MAX_COURSE_TIME && checkpoint) checkpoint.time = 0;
@@ -909,7 +953,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     if (madeBy >= 0) { madeBy = -1; loading = true; }
     if (restart) { const start = restart; restart = null; start(); }
     if (toTitle) { options.onTitle?.(); return; }
-    if (special) options.onSpecialStage?.(handOver(state, special, { level: state.level, emeralds: save.chaosEmeralds, continues: state.continues }));
+    if (special) options.onSpecialStage?.(handOver(state, special, { level: state.level, character, emeralds: save.chaosEmeralds, continues: state.continues }));
   }
 
   const show = () => { drawn = true; return frozen ? frozen.render(frozen.state) : render(state); };
@@ -935,19 +979,20 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
       render.resize(w, h);
       if (drawn) show();   // at once, as resizing the canvas clears it
     },
-    /** Turns the Sonic Rush boost on (with `art`, what rush.js read from the Sonic Rush ROM) or off. */
-    setRushBoost(on, art = state.rushArt) { state.rushArt = art; state.rush = on && !!art; input.setRush?.(state.rush); },
+    /** Turns the Sonic Rush boost on (with `art`, what rush.js read from the Sonic Rush ROM) or off; the extras are
+     *  Sonic's, and stay off for the other characters. */
+    setRushBoost(on, art = state.rushArt) { state.rushArt = art; state.rush = on && !!art && character === SONIC; input.setRush?.(state.rush); },
     /** Turns Boost Mode on (with `art`, what sa2boost.js read from the Sonic Advance 2 ROM) or off. */
     setBoostMode(on, art = state.boostArt) {
       if (art !== state.boostArt) boostAnims = art && particleAnims(art, assets.sprites.frames.length);
-      state.boostArt = art; state.boostMode = on && !!art;
+      state.boostArt = art; state.boostMode = on && !!art && character === SONIC;
       if (!state.boostMode) state.boostFx.bursts = [];
     },
     /** Turns Sonic Advance 2's tricks on (with `art`, what sa2tricks.js read from the Sonic Advance 2 ROM) or off.
      *  A trick under way plays out. */
     setSa2Tricks(on, art = state.trickArt) {
       if (art && art !== state.trickArt) playerAnims = { ...anims, ...art.anims };
-      state.trickArt = art; state.tricks = on && !!art; input.setTricks?.(state.tricks);
+      state.trickArt = art; state.tricks = on && !!art && character === SONIC; input.setTricks?.(state.tricks);
     },
     // the act's music starts with the act, as the stage's init does (StageInit_ZoneNActM); a multiplayer game
     // steps its GBAs together itself (`ownLoop` false)
@@ -968,9 +1013,9 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
  * (gSpecialStageReturnX and Y, with its course time, or null for the act's start), the last checkpoint passed
  * (gBossIndex), the stage clock (gStageTime), the rings and the next freed animal.
  */
-function handOver(state, spring, { level = 0, emeralds = 0, continues = 0 }) {
+function handOver(state, spring, { level = 0, character = SONIC, emeralds = 0, continues = 0 }) {
   return {
-    level, character: 0, score: state.score, lives: state.lives, courseTime: state.courseTime, emeralds, continues, seed: state.seed,
+    level, character, score: state.score, lives: state.lives, courseTime: state.courseTime, emeralds, continues, seed: state.seed,
     frameCount: state.frameCount,
     act: {
       spring, checkpoint: state.checkpoint, checkpointIndex: state.checkpointIndex, stageTime: state.tick, rings: state.ringCount,
@@ -989,5 +1034,5 @@ export function specialSpringStart(assets, options = {}) {
   return handOver({
     score: 0, lives: START_LIVES, courseTime: 0, seed: 0, frameCount: START_FRAME_COUNT, checkpoint: null, checkpointIndex: 0,
     tick: 0, ringCount: 0, animal: 0,
-  }, { x: spring.x, y: spring.y }, { ...options, level: assets.stage.level });
+  }, { x: spring.x, y: spring.y }, { ...options, level: assets.stage.level, character: assets.character ?? SONIC });
 }

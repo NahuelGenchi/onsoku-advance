@@ -41,15 +41,16 @@ function drawTiles(rom, img, x, y, tilesAt, wide, high, palette) {
  * The HUD's images on one sheet: { image, glyphs, ring, face }. glyphs[0–10] are white '0'–'9' and ':',
  * glyphs[11–21] the red ones; each rect is [x, y, w, h] on the sheet. The digits and the ring use the font's
  * palette (the HUD loads it into OBJ palette 6), or `fontPalette` in its place, the face its own (the same as
- * Sonic's). The face shares its palette with Sonic's sprite, so in the colours `facePalette` another sprite
- * loads there (Super Sonic's, in the Moon Zone) the sheet has it again as `faceSuper`.
+ * the character's). The face is `character`'s (0 Sonic, 1 Tails, 2 Knuckles, 3 Amy). It shares its palette
+ * with the character's sprite, so in the colours `facePalette` another sprite loads there (Super Sonic's, in the
+ * Moon Zone) the sheet has it again as `faceSuper`.
  */
-export function hudGraphics(rom, tableAt, facePalette = null, fontPalette = null) {
+export function hudGraphics(rom, tableAt, facePalette = null, fontPalette = null, character = 0) {
   const entry = i => ({
     tiles: rom.requirePtr(tableAt + i * ENTRY, `UI graphics ${i}`),
     palette: readColors(rom, rom.requirePtr(tableAt + i * ENTRY + 4, `UI palette ${i}`), 16),
   });
-  const font = entry(FONT), ring = entry(HUD_RING), face = entry(FACE_SONIC);
+  const font = entry(FONT), ring = entry(HUD_RING), face = entry(FACE_SONIC + character);
   if (fontPalette) font.palette = fontPalette;
   const image = new ImageData(2 * GLYPHS_PER_SET * 8 + 32 + 32, 32);
   const glyphs = [];

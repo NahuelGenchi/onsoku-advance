@@ -50,6 +50,11 @@ export const PHYSICS = {
   surfaceEffectDelay: 10,      // frames between two splashes at the water line
 };
 
+// Tails' flight (Player_Tails_InitFlying, Player_Tails_8047A3C): 240, counted down every other frame (8
+// seconds); a press lifts him 24/256 a frame for up to 31 frames while he rises slower than 0.75, and otherwise he
+// sinks by 8/256 a frame
+export const TAILS = { flyTime: 240, flyLift: 24 / 256, flyFall: 8 / 256, flyLiftFrames: 32, flyRiseMax: 0.75 };
+
 export const ANIMATION = {
   runSpeed: 4.5,               // walk animation below, figure-8 run at or above
   brakeTurnSpeed: 1.5,         // skid turns into the turn-after-braking animation below this

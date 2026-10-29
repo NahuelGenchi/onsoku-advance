@@ -4,7 +4,7 @@
 // Sonic is tested with plain rectangles around his centre; only an item box also looks at his attack box.
 
 import { scan, PROBE_WALL } from './terrain.js';
-import { land, standUp } from './player.js';
+import { land, standUp, TAILS } from './player.js';
 
 // what a test found, as the original's result bits
 export const LANDED = 0x8, FROM_BELOW = 0x10000, LEFT_FACE = 0x20000, RIGHT_FACE = 0x40000, PUSHING = 0x20;
@@ -174,9 +174,10 @@ export function gate(o, hb, p, terrain, attack = true) {
  * he was falling. In the air his body on its upper half, falling or level, breaks it too (LANDED) and bounces
  * him; rising into its lower half stops him under it (FROM_BELOW); beside it, it stops him moving into it.
  * On the ground nothing but the attack box counts. Under flipped gravity its halves swap, and rising into it
- * moves him by the original's sum with its sign turned, which doesn't put him beside it.
+ * moves him by the original's sum with its sign turned, which doesn't put him beside it. A flying Tails on its
+ * upper half is stood on it instead, as on a platform (on `terrain`), and breaks nothing.
  */
-export function itemBox(o, hb, p) {
+export function itemBox(o, hb, p, terrain) {
   let flags = 0;
   if (!hb || p.dead) return 0;
   const [px, py] = at(p);
@@ -189,6 +190,7 @@ export function itemBox(o, hb, p) {
   if (overlap(o.x, o.y, hb, px, py, b)) {
     const mid = o.y + ((hb[1] + hb[3]) >> 1);
     if (p.inverted ? py >= mid : py <= mid) {
+      if (p.character === TAILS && p.midAir !== 0) { platform(o, hb, p, terrain); return 0; }
       if (p.ysp >= 0) { flags |= LANDED; if (p.ysp > 0) p.ysp = -p.ysp; }
     } else if (p.ysp < 0) {
       p.ysp = 0;

@@ -50,6 +50,9 @@ const multiplayer = (() => { try { return levelInfo(firstLevel).multiplayer ?? f
 const players = multiplayer ? Math.min(4, Math.max(2, Number(params.get('players') ?? 2) | 0)) : 1;
 const seed = params.has('seed') ? Number(params.get('seed')) >>> 0 : DEFAULT_SEED;
 const chaoPlace = params.has('chao') ? (Number(params.get('chao')) | 0) & 7 : DEFAULT_CHAO_PLACE;
+// `?character=` plays as Sonic (0, the default) or Tails (1), until the character select is built; the
+// multiplayer stage is everyone as Sonic
+const character = multiplayer ? 0 : Math.min(1, Math.max(0, Number(params.get('character') ?? 0) | 0));
 const screens = document.getElementById('screens');
 
 const input = createInput();
@@ -241,7 +244,7 @@ const setup = createRomSetup(picker, {
       accept: '.gba,.agb,.bin', claims: isSonicAdvance,
       async read(buffer, progress) {
         if (buffer.byteLength > MAX_GBA_BYTES) throw new RomError('This file is too large to be a Game Boy Advance ROM.');
-        const assets = await extractAssets(buffer, progress, { level: firstLevel });
+        const assets = await extractAssets(buffer, progress, { level: firstLevel, character });
         sa1 = { buffer, assets };
         return `${assets.info.region} · ${assets.info.version ? 'tested version' : 'untested version'}`;
       },
@@ -355,7 +358,7 @@ function endGame(assets, from) {
 // act's is loaded)
 async function restartGame() {
   continues = 0;
-  const assets = sa1.assets.first === 0 ? sa1.assets : await extractAssets(sa1.buffer, () => {}, { level: 0 });
+  const assets = sa1.assets.first === 0 ? sa1.assets : await extractAssets(sa1.buffer, () => {}, { level: 0, character });
   start(sa1.buffer, assets);
 }
 
@@ -363,13 +366,13 @@ async function restartGame() {
 // lives and the random numbers carried over (GameStageStart). Past the zones this game has, the screen stays.
 async function nextZone({ level, ...carry }) {
   continues = carry.continues ?? continues;
-  // past X Zone the Moon Zone opens with all seven Chaos Emeralds (unlock.js; the ROM also wants every
-  // character to have cleared X Zone, and only Sonic is in this game); otherwise the normal ending comes
-  if (level === THE_MOON && save.chaosEmeralds !== ALL_EMERALDS) { queueMicrotask(() => endGame(playing, 'congratulations')); return; }
+  // past X Zone the Moon Zone opens for Sonic with all seven Chaos Emeralds (unlock.js; the ROM also wants every
+  // character to have cleared X Zone, which waits for the character select); otherwise the normal ending comes
+  if (level === THE_MOON && (character !== 0 || save.chaosEmeralds !== ALL_EMERALDS)) { queueMicrotask(() => endGame(playing, 'congratulations')); return; }
   const from = game;
   let assets;
   try {
-    assets = await extractAssets(sa1.buffer, () => {}, { level });
+    assets = await extractAssets(sa1.buffer, () => {}, { level, character });
   } catch (err) {
     console.warn(err);
     return;

@@ -17,8 +17,9 @@
 //   Otherwise it is solid.
 //
 // The entrance runs at priority 0x1900 + d3, the points at 0x2000 + d3, the drop at 0x2000 + d1 and the exit at
-// 0x2100 + d1, so a chain's objects run in its order. The ROM's teleport flag, which only multiplayer reads,
-// and the tail sprite the entrance makes for Tails on its 25th frame aren't kept.
+// 0x2100 + d1, so a chain's objects run in its order. On the entrance's 25th frame Tails gets his tails as a
+// sprite of their own, kept until he is off the track (game.js). The ROM's teleport flag, which only
+// multiplayer reads, isn't kept.
 
 import { makeSprite, animate, offCam } from './objects.js';
 import { platform, LANDED } from './collide.js';
@@ -33,6 +34,7 @@ export const NO_TRACK = 0x7F;
 const GRAVITY = 42 / 256;
 const LAUNCH = 5;
 const SMALL = 0xB0, FULL = 0x100, GROW = 4;   // his sprite's scale (unk80, unk82)
+const TAILS_FRAME = 25;   // the entrance's frame that gives Tails his tails (Player_Tails_InitGfxMarbleTrack)
 
 const Div = (a, b) => Math.trunc(a / b);
 const s16 = v => (v << 16) >> 16;
@@ -68,6 +70,7 @@ function entrance(e, slot, anims) {
           dropped += p.ysp;
           p.x = e.x + Div(across * n, frames);
           p.scale = Math.min(p.scale + GROW, FULL);
+          if (n === TAILS_FRAME) ctx.world.marbleTails();
           if (++n >= frames || Math.floor(dropped) > depth || (p.track !== NO_TRACK && p.track > step)) held = false;
           else {
             cancel(p);

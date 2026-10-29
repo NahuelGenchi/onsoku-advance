@@ -5,7 +5,9 @@
 // any enemy is.
 //
 // The original takes 48 px off its height every frame (Q(0.1875) where a pixel count was meant). It follows
-// the floor all the same, as the floor test makes up the difference in its first frames.
+// the floor all the same, as the floor test makes up the difference in its first frames. It leaves when its
+// spawn point is out of the display range and where it has rolled to is out of the camera's (the ROM's code,
+// Task_Pierrot.inc; the decompilation's C tests where it has rolled to both times).
 
 import { overlap } from './collide.js';
 import { animate } from './objects.js';
@@ -24,7 +26,7 @@ export function pierrot(e, slot, anims) {
       const p = ctx.player;
       q += v;
       const x = s16(e.x + I(q)), y = s16(e.y + yoff - 48);
-      if (gone(x, y, x, y, ctx.cam)) { slot.live = null; return false; }
+      if (gone(e.x, e.y, x, y, ctx.cam)) { slot.live = null; return false; }
       if (!p.dead) {
         if (s.boxes[1] && p.boxes[0] && overlap(x, y, s.boxes[1], sonicX(ctx), sonicY(ctx), p.boxes[0])) {
           if (p.curled) {

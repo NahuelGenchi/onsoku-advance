@@ -1,20 +1,23 @@
 // Ice Mountain's blocks of ice (SAT-R decompilation, src/game/sa1/stage/interactables/ice_block.c; the task is
 // at 0x080914F9 in the USA ROM). A block is solid like a boulder, and breaks the same ways, and also when
 // Sonic's attack box touches it while he is curled up or charging a spin dash, or when he lands on it curled
-// up, which stands him on it first: landing on one doesn't bounce him. Rolling into one still doesn't break
-// it, as the solid test stops him and stands him up first. It leaves a dust cloud and four pieces that spin
-// out and fall, and never comes back until the act starts over.
+// up, which stands him on it first: landing on one doesn't bounce him. Tails' attack box breaks it in flight
+// too. Rolling into one still doesn't break it, as the solid test stops him and stands him up first. It leaves
+// a dust cloud and four pieces that spin out and fall, and never comes back until the act starts over.
 
 import { makeSprite, animate, offCam } from './objects.js';
 import { platform, breaks, overlap, LANDED } from './collide.js';
 import { dustCloud } from './defeat.js';
 import { debris } from './boulders.js';
 import { SONG } from '../sound/songs.js';
+import { TAILS } from './player.js';
 
 export const ICE_BLOCK = 95;
 
-// the character states sub_8091E88 lets Sonic's attack box break it in: curled up (5) and the spin dash (6, 7)
+// the character states sub_8091E88 lets Sonic's attack box break it in: curled up (5) and the spin dash (6, 7);
+// and Tails' besides those, flying (53) and turning in flight (54)
 const CURLED_STATES = new Set(['spin', 'spinDash', 'spinDashRev']);
+const TAILS_STATES = new Set([...CURLED_STATES, 'fly', 'flyTurn']);
 
 /** The task for an ice block entity, or null when `e` is not one. */
 export function createIceBlock(e, slot, anims) {
@@ -27,7 +30,8 @@ export function createIceBlock(e, slot, anims) {
       if (!p.dead) {
         // landing on it curled up stands him on it first, so the landing doesn't bounce him
         const landed = p.state === 'spin' && (platform(o, hb, p, ctx.world.terrain) & LANDED) !== 0;
-        if (breaks(o, hb, p) || (CURLED_STATES.has(p.state) && p.boxes[1] && overlap(e.x, e.y, hb, Math.floor(p.x), Math.floor(p.y), p.boxes[1])) || landed) {
+        const attacks = p.character === TAILS ? TAILS_STATES : CURLED_STATES;
+        if (breaks(o, hb, p) || (attacks.has(p.state) && p.boxes[1] && overlap(e.x, e.y, hb, Math.floor(p.x), Math.floor(p.y), p.boxes[1])) || landed) {
           if (p.onObject === o) { p.onObject = null; p.air = true; }
           ctx.add(dustCloud(e.x, e.y));
           ctx.world.playSound(SONG.ENEMY_DEFEAT);

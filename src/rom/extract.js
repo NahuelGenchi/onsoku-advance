@@ -67,6 +67,28 @@ export const SONIC_ANIMATIONS = {
   // hanging from a hang bar, still (charState 35) and moving along it (36)
   hang: [41, 0], hangMove: [41, 1],
 };
+// Tails' own: flying, turning in flight and tired out (charStates 53, 54 and 55), swimming and turning under
+// water (57 and 58), the tail swipe (60) and its effect, and the extra sprite of his tails, as a spin shows it
+// and as a marble track does
+export const TAILS_ANIMATIONS = {
+  fly: [155, 0], flyTurn: [156, 0], flyTired: [157, 0], swim: [145, 0], swimTurn: [146, 0],
+  tailSwipe: [149, 0], tailSwipeFx: [777, 0], tailsSpin: [107, 1], marbleTrackTails: [138, 1],
+};
+// Sonic's own moves: his spin dash's rev, the air dash, the insta-shield, the B combo and grinding (the
+// others' grinding animations are empty)
+const SONIC_ONLY = new Set(['spinDashRev', 'airDash', 'instaShield', 'spinAttack', 'somersault', 'slide', 'slideEnd', 'backflip',
+  'grind', 'grindSteep', 'railJump']);
+
+/**
+ * The animations of `character` by name. The character state table (sCharStateAnimInfo) gives its first 43
+ * states relative to the character's first animation, `first` (gPlayerCharacterIdleAnims), so Sonic's names
+ * move by it, but his own moves; Tails' own come with them.
+ */
+export function characterAnimations(character, first) {
+  if (character === 0) return SONIC_ANIMATIONS;
+  const moved = Object.entries(SONIC_ANIMATIONS).filter(([name]) => !SONIC_ONLY.has(name)).map(([name, [anim, variant]]) => [name, [first + anim, variant]]);
+  return { ...Object.fromEntries(moved), ...TAILS_ANIMATIONS };
+}
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
   grindSparks: [749, 0],
@@ -132,7 +154,7 @@ export const ENEMY_ANIMATIONS = {
 // sparkles (752)
 export const ITEM_ANIMATIONS = {
   705: { itemBox: 0 },
-  706: { icon0: 0, icon4: 4, icon5: 5, icon6: 6, icon7: 7, icon8: 8, icon9: 9, icon10: 10 },
+  706: { icon0: 0, icon1: 1, icon2: 2, icon3: 3, icon4: 4, icon5: 5, icon6: 6, icon7: 7, icon8: 8, icon9: 9, icon10: 10 },
   750: { shield: 0 }, 751: { magneticShield: 0 }, 752: { stars: 0, starSparkle: 1 },
 };
 // Neo Green Hill's platforms: the thin one (463), which the falling and sinking ones and a ferris wheel's seat
@@ -402,12 +424,12 @@ export const MULTIPLAYER_ANIMATIONS = {
 // palette slot of their player's character, so with everyone Sonic in Sonic's
 const PLAYER_PALETTE = new Set(['chaoCounter', 'indicator']);
 // the animations drawn through the rotation hardware: Sonic walking and running (and thrown up by a bounce
-// block, and carried through a marble track), the boulders' and the ice blocks' debris, the Egg Ball's star disc, Secret Base's swinging
+// block, and carried through a marble track), Tails' tails in a spin and in a marble track, the boulders' and the ice blocks' debris, the Egg Ball's star disc, Secret Base's swinging
 // hook, the Egg Hammer Tank's arm, hammer and belt, and the capsule rising, its shell and the birds circling it, and the Egg Press's spring and base;
 // the skating stones' debris, and the bubbles Sonic lets out under water and the drowning countdown's numbers,
 // which grow to full size, and in the multiplayer modes the mystery item box growing and shrinking and the
 // arrows toward the opponents, and the game over's words; their frames also keep their OAM pieces as the hardware reads them
-const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge', 'swingingHook',
+const ROTATED = new Set(['walk', 'run', 'bounce', 'marbleTrack', 'tailsSpin', 'marbleTrackTails', 'rockDebrisSmall', 'rockDebrisLarge', 'iceShardsSmall', 'iceShardsLarge', 'swingingHook',
   'hammerTankArm', 'hammerTankHammer', 'hammerTankBelt0', 'hammerTankBelt1', 'hammerTankBelt2', 'hammerTankBelt3',
   'capsuleSmall', 'capsuleShell', 'animalRobin', 'animalParrot', 'eggPressSpring', 'eggPressBase', 'eggBallStarDisc',
   'stoneDebrisSmall', 'stoneDebrisLarge', 'iceStoneDebrisSmall', 'iceStoneDebrisLarge',
@@ -435,7 +457,7 @@ const MAX_ATLAS_PALETTES = 16;
  * the page draw the message before the next stage.
  * @returns {Promise<object>} { info, sprites: { atlas, frames, anims, tiles, sonic, alts }, hud: { sheet, glyphs, ring, face }, gameOver: { sheet, digits, ok, box, voices, hudSheet, song, songFrames }, acts, first, stage, titleCard, physics, sound }, where `acts[level]` is { level, stage, titleCard, results, anims } for each act decoded (`anims` the animations that act draws its own way), `first` the level asked for, and stage and titleCard are its; each act's stage is { level, zone, act, music, backgroundScroll, hudFlash, width, height, layers, atlas, collision, spawn, loop, interactables, layerToggles, rings, itemBoxes, enemies, entityRegions, paletteAnimations, background, backgroundHoles, backdrop, backgrounds }, its titleCard { sheet, slots, text } and its results { sheet, slots, text }
  */
-export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
+export async function extractAssets(buffer, onProgress = () => {}, { level = 0, character = 0 } = {}) {
   const info = levelInfo(level);
   const rom = new Rom(buffer);
   await onProgress('Checking the ROM…');
@@ -443,7 +465,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   await onProgress(id.known ? `Found ${id.known.name}.` : 'Unrecognized version, searching for the data…');
   const offsets = locateTables(rom, id.known);
 
-  await onProgress('Decoding Sonic…');
+  await onProgress(`Decoding ${['Sonic', 'Tails'][character]}…`);
   const tables = spriteTables(rom, offsets.spriteTables);
   // the zone's acts from `level` on, which share the zone's looks for the objects that differ by level
   // (the extra stage, the Moon Zone, is X Zone's act 2 but only ever comes on its own)
@@ -456,7 +478,8 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   const differs = [...new Set(actSprites.flatMap(Object.keys))]
     .filter(name => new Set(actSprites.filter(a => name in a).map(a => a[name].join())).size > 1);
   const own = (i, l) => differs.filter(name => name in actSprites[i]).map(name => [name, `${name}@${l}`]);
-  const sprites = extractSprites(rom, tables, water, Object.assign({}, ...actSprites,
+  const player = characterAnimations(character, rom.u16(offsets.characterAnims + character * 2));
+  const sprites = extractSprites(rom, tables, water, player, Object.assign({}, ...actSprites,
     ...levels.map((l, i) => Object.fromEntries(own(i, l).map(([name, key]) => [key, actSprites[i][name]]))),
     // the multiplayer modes' own (src/engine/chaohunt.js)
     info.multiplayer ? MULTIPLAYER_ANIMATIONS : {}));
@@ -467,8 +490,8 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
     acts[l] = {
       level: l,
       stage: extractStage(rom, offsets, tables, act),
-      titleCard: { ...sheet(titleCardGraphics(rom, offsets.uiGraphics, offsets.titleCard, l), act.water), level: l },
-      results: sheet(resultsGraphics(rom, offsets.uiGraphics, offsets.titleCard, l)),
+      titleCard: { ...sheet(titleCardGraphics(rom, offsets.uiGraphics, offsets.titleCard, l, character), act.water), level: l },
+      results: sheet(resultsGraphics(rom, offsets.uiGraphics, offsets.titleCard, l, character)),
       anims: Object.fromEntries(own(i, l).map(([name, key]) => [name, sprites.anims[key]])),
     };
     // the extra stage's robot body and the colours Super Sonic gives the HUD's face
@@ -482,9 +505,9 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
 
   return {
     info: { ...id.header, region: id.region, sha1: id.sha1, version: id.known?.name ?? null, offsets },
-    sprites, acts, first: level, stage: acts[level].stage, titleCard: acts[level].titleCard, physics: { spinDashSpeeds },
-    hud: extractHud(rom, offsets.uiGraphics, water, acts[level].stage.extra?.facePalette),
-    gameOver: extractGameOver(rom, offsets, acts[level].stage.extra?.facePalette),
+    sprites, acts, first: level, character, stage: acts[level].stage, titleCard: acts[level].titleCard, physics: { spinDashSpeeds },
+    hud: extractHud(rom, offsets.uiGraphics, water, acts[level].stage.extra?.facePalette, character),
+    gameOver: extractGameOver(rom, offsets, acts[level].stage.extra?.facePalette, character),
     // where the songs are; the sound engine reads them from the ROM itself
     sound: soundLayout(rom, offsets.musicPlayers),
     results: info.multiplayer ? extractResults(rom, offsets) : null,
@@ -507,11 +530,12 @@ function extractResults(rom, offsets) {
  * Every animation's frames on one atlas. In an act with `water` they are drawn a second time, on an atlas with
  * the same layout, in the colours under the water line: palette 423 in the water's colours, whatever palette
  * the animation loads above it (`under`), and a third time in their own colours in the water's (`underOwn`).
- * `levelSprites` { name: [anim, variant] } are the level's own looks for objects whose animation the ROM picks
- * by level; they replace the default of the same name.
+ * `player` are the player's character's animations (characterAnimations). `levelSprites` { name: [anim, variant] }
+ * are the level's own looks for objects whose animation the ROM picks by level; they replace the default of the
+ * same name.
  */
-function extractSprites(rom, tables, water, levelSprites = {}) {
-  const sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
+function extractSprites(rom, tables, water, player, levelSprites = {}) {
+  const playerPalette = animationPalette(rom, tables, player.idle[0]), sonicPalette = animationPalette(rom, tables, SONIC_ANIMATIONS.idle[0]);
   const springPalette = animationPalette(rom, tables, SPRING_ANIM);
   const yellowPalette = springPalette.slice();
   readColors(rom, tables.palettes + YELLOW_SPRING_PALETTE * 32, 16).forEach((c, i) => { yellowPalette[112 + i] = c; });
@@ -520,7 +544,7 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
   // the yellow springs are drawn from the next OBJ palette slot, which the extractor's palette has in this one
   const underYellow = under && [...under.slice(0, 112), ...under.slice(128, 144), ...under.slice(128)];
   const groups = [
-    { list: { ...SONIC_ANIMATIONS, ...EFFECT_ANIMATIONS }, palette: sonicPalette },
+    { list: { ...player, ...EFFECT_ANIMATIONS }, palette: playerPalette },
     { list: OBJECT_ANIMATIONS, palette: springPalette },
     { list: yellow, palette: yellowPalette, skipPalette: true, under: underYellow },
     { list: RING_ANIMATIONS, palette: animationPalette(rom, tables, RING_ANIMATIONS.ring[0]) },
@@ -621,10 +645,10 @@ function extractSprites(rom, tables, water, levelSprites = {}) {
   }));
   // a rotated frame's pieces go into the atlas after the frames, and its rect gets them as [x, y, w, h, atlasX, atlasY]
   const pieces = images.flatMap((image, i) => (image.pieces ?? []).map((p, k) => ({ img: p.img, frame: i, x: p.x, y: p.y, redraw: () => redraw(i).pieces[k].img })));
-  // Sonic's frames and his row of colours, for drawing them with colours written over (renderer.js), and in an
-  // act with water his row under water, for another game's Sonic drawn there
+  // the player's frames and Sonic's row of colours, for drawing Sonic with colours written over (renderer.js),
+  // and in an act with water his row under water, for another game's Sonic drawn there
   const sonic = {
-    frames: [...new Set(Object.keys(SONIC_ANIMATIONS).flatMap(name => anims[name].frames.map(f => f[0]).filter(i => i >= 0)))],
+    frames: [...new Set(Object.keys(player).flatMap(name => anims[name].frames.map(f => f[0]).filter(i => i >= 0)))],
     colors: sonicPalette.slice(0, 16), under: under ? under.slice(0, 16) : null,
   };
   // The renderer reads pixels back only from the rotated pieces and from Sonic's frames in the colours they show
@@ -837,8 +861,8 @@ function paletteVariants(base, animations, banks) {
 
 // The HUD and the title card, and in an act with water their sheets in its colours (`under`): the HUD's
 // palettes are the ones palette 423 has in their slots, and the card is coloured from its own while it shows.
-function extractHud(rom, tableAt, water, facePalette) {
-  const { image, ...rects } = hudGraphics(rom, tableAt, facePalette);
+function extractHud(rom, tableAt, water, facePalette, character) {
+  const { image, ...rects } = hudGraphics(rom, tableAt, facePalette, null, character);
   return { sheet: toCanvas(image), under: water ? toCanvas(tintImage(image, water.blend)) : null, ...rects };
 }
 
@@ -850,14 +874,14 @@ function sheet({ image, ...rest }, water = null) {
 // the game over's song (MUS_GAME_OVER): the screen waits for it to end before it leaves, so the sound engine
 // plays it through here, without sound, to count its frames
 const GAME_OVER_SONG = 37;
-function extractGameOver(rom, offsets, facePalette) {
+function extractGameOver(rom, offsets, facePalette, character) {
   const { image, palette, ...rest } = gameOverGraphics(rom, offsets.uiGraphics, offsets.titleCard);
   const engine = createM4A(rom.bytes, soundLayout(rom, offsets.musicPlayers), createApu());
   engine.songStart(GAME_OVER_SONG);
   const player = engine.players.find(p => p.songHeader === engine.songHeader(GAME_OVER_SONG));
   let songFrames = 0;
   do { engine.frame(); songFrames++; } while ((player.status & 0xFFFF) !== 0 && songFrames < 60 * 60);
-  return { sheet: toCanvas(image), ...rest, hudSheet: toCanvas(hudGraphics(rom, offsets.uiGraphics, facePalette, palette).image), song: GAME_OVER_SONG, songFrames };
+  return { sheet: toCanvas(image), ...rest, hudSheet: toCanvas(hudGraphics(rom, offsets.uiGraphics, facePalette, palette, character).image), song: GAME_OVER_SONG, songFrames };
 }
 
 function toCanvas(img) {

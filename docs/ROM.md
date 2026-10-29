@@ -414,7 +414,7 @@ Item boxes have their own grid, like the rings', with 3-byte records `x, y, kind
 | 6 | 5 rings | 2 |
 | 7 | 10 rings | 0 |
 
-The box is animation `705`, one frame with the hitbox (−13, −24, 13, 4). Its screen shows the prize's icon, animation `706` in variant 0 (Sonic's face, the 1-up), then 4 to 10 for kinds 1 to 7, drawn behind the box.
+The box is animation `705`, one frame with the hitbox (−13, −24, 13, 4). Its screen shows the prize's icon, animation `706` in variant 0 to 3 (the 1-up: the face of the character playing, 0 Sonic and 1 Tails, `gSelectedCharacter` added to 0), then 4 to 10 for kinds 1 to 7, drawn behind the box.
 
 How Sonic meets a box depends on his attack box (hitbox slot 1). The decompiled C reads his body box (slot 0) here, but the ROM reads slot 1:
 
@@ -1081,7 +1081,7 @@ In the one-game run, the special stage's run (`run.js`, with that run's keys) al
 
 Between them, the runs meet every kind of dash pad. The steps per stage, the emeralds, the score, the lives and the continues at the end of each are the same in the engine as in mGBA in every run. In Chrome 156 and Firefox 159 (headless, each with a new profile), one game from Neo Green Hill act 1 took the seven springs in turn, with the next act started the way a zone's end starts it (`nextZone`); the same steering program played each stage in the page, and every stage took the same frames and gave the same score as in mGBA. All seven emeralds were won (`onsoku.emeralds` 127), and the zone after X Zone (`nextZone` with level 13, as X Zone's results ask for it) was then the Moon Zone, not the congratulations. Neither console showed an error from the game; Chrome's one error was the missing `/favicon.svg`, which the site serves from outside this repository.
 
-**Only read in the code, not checked:** Tails, Knuckles and Amy in the special stage (their animations are the character's first animation plus the same numbers); the results after the goal's target was reached at the checkpoint (`unk0 == 2` with enough rings), which no run reached; Amy's hammer on the spring and the partner; the act again after stages 2 to 7, played in the browsers but not compared with mGBA's frames; a special stage after a real act's tally, boss or game over between two stages (the one-game run went from act to act by losing a life), which could leave other things in the memory the quirks above read.
+**Only read in the code, not checked:** Knuckles and Amy in the special stage (their animations are the character's first animation plus the same numbers; Tails' were checked, see [Tails](#tails)); the results after the goal's target was reached at the checkpoint (`unk0 == 2` with enough rings), which no run reached; Amy's hammer on the spring and the partner; the act again after stages 2 to 7, played in the browsers but not compared with mGBA's frames; a special stage after a real act's tally, boss or game over between two stages (the one-game run went from act to act by losing a life), which could leave other things in the memory the quirks above read.
 
 ### Start positions
 
@@ -1141,6 +1141,63 @@ A charge above 8.0 reads past the nine speeds into the alternate table that foll
 Walking, turning, braking and going idle after them, or after crouching or looking up, put Sonic's box back at its standing height (`PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 14)` in `Player_8044F7C`, `Player_8043970` and `Player_8043A2C`), which matters when something uncurled him without it, as Angel Island's waterfalls do.
 
 Other details the engine reproduces: rolling starts from any ground speed, a jump out of a roll has no air control until the insta-shield, the spin dash release frame doesn't move, the crouch and look-up animations play a short release before idling, and the brake dust appears with a random flip, at most 20 at a time. Facing left, the original draws Sonic 1px further right, except in the walk and run frames, which go through the rotation hardware.
+
+### Tails
+
+`?character=1` plays as Tails (`gSelectedCharacter` 1) until the character select is in; the multiplayer stages stay Sonic for everyone. The extractor then decodes his sprites in Sonic's place, his face for the HUD, the game over and the 1-up boxes, and his title cards and results ([`extract.js`](../src/rom/extract.js)). The engine is Sonic's, with Tails' own moves from `player_tails.c` ([`player.js`](../src/engine/player.js)).
+
+**His animations.** The character state table gives its first 43 states as numbers to add to the character's first animation (`gPlayerCharacterIdleAnims`, `0, 99, 199, 298`), so Tails' run is 104 where Sonic's is 5. Sonic's own moves (the spin dash's rev, the air dash, the insta-shield, the B combo and grinding) are left out: Tails' grinding animations are empty, and his spin dash revs in the spin dash's own animation. His own:
+
+| State | Animation |
+| :--- | ---: |
+| Flying (charState 53) | 155 |
+| Turning in flight (54) | 156 |
+| Tired out (55) | 157 |
+| Swimming (57) | 145 |
+| Turning under water (58) | 146 |
+| Tail swipe (60) | 149, its effect `777` |
+| His tails while curled up | 107, variant 1 |
+| His tails in a marble track | 138, variant 1 |
+
+**Flight** (`Player_Tails_InitFlying`, `Player_Tails_8047A3C`, `Player_Tails_8047990`). Jump pressed again in a jump, once the rise has slowed (where Sonic's insta-shield comes), uncurls him with his feet in place and gives him 240 of flight time, counted down on every other frame of the stage clock: 480 frames. That frame's gravity still pulls him; from the next one there is none. Each press while he rises slower than 0.75 px a frame lifts him 24/256 px a frame, for up to 31 frames or until he rises faster; otherwise he sinks by 8/256 px a frame. He stops at the camera's top edge. Left or right held against the way he faces turns him (the turn plays out once begun). The propeller's sound, song 120, is started again on each frame of flight; landing, an object that takes him and dying stop it, a hit doesn't. When the time is up he is tired out and only sinks. Under water the same flight is swimming, without the sound: the turn there is checked as the air's is, so it lasts one frame, and every 8th frame of the stage clock, one time in four, he lets out a bubble (`RandomlySpawnAirBubbles`), whose random offsets are taken off his 8.8 position as 1/256 px.
+
+**Tail swipe** (`sub_80480C4`, `sub_8048110`). B on the ground swipes, as Sonic's combo starts, but not while he revs a spin dash, pushes, or stands on a wall or the ceiling. The ground speed eases off by half the deceleration each frame, the animation's third frame plays song 121, and the effect follows him, facing as he does. When the animation ends he walks or stands.
+
+**His tails** (`sub_8024F74`). The direction he moves is worked out each frame from his speeds (`arcTan2`), straight ahead when he is still. Only while he is curled up (charState 5) are his tails drawn, as a second sprite just behind him (OAM order 17) through the rotation hardware, turned that way and mirrored as his rotated frames are; their animation runs only then, at half speed under water, and they blink with him. In a marble track the entrance's 25th frame gives him a sprite of them of its own (`Player_Tails_InitGfxMarbleTrack`, `Task_8047D04`, OAM order 16), turned the way he moves and shrunk as he is, never mirrored, until he is off the track.
+
+**Objects.** Most objects that take the player cancel the flight as they cancel Sonic's moves (`Player_TransitionCancelFlyingAndBoost`). Some have rules of their own for Tails:
+
+- An item box: flying, landing on its upper half stands him on it as on a platform, and breaks nothing (`Coll_Player_Itembox`). Its 1-up shows the face of the character playing (`706`, variant 0 plus `gSelectedCharacter`).
+- Wall poles and red flags: a flying Tails goes through them.
+- Bumpers: any of them throws a flying Tails off curled up, ending the flight; the wall bumper curls him up too.
+- Ice blocks: his attack box breaks them in flight (charStates 53 and 54) as well as curled up.
+- Grind rails are Sonic's: with another character their tasks do nothing, and stay.
+
+The Rush boost, Boost Mode and the SA2 tricks are Sonic's and do nothing for Tails. After X Zone he gets the normal ending: the Moon Zone opens for Sonic only.
+
+**How Tails was checked.** mGBA 0.10.5 with the USA ROM, from the character select with Tails picked and the level set, against the port's act from the same keys: every frame's picture, the clocks, the random numbers, the rings and the lives (the act harness of the zones above). One input pattern ran right, jumped, flew turning back and forth, swiped while running and rolled, over and over.
+
+| Run | What it covers | Frames | Differences |
+| :--- | :--- | ---: | :--- |
+| Neo Green Hill act 1, the start | the title card, his face on the HUD, standing | 500 | 0 |
+| Neo Green Hill act 1, his moves | flat ground, slopes, walls and pushing, the spin dash, springs, a hit, flight, turning in flight, tired out, the tail swipe | 1900 | 0 |
+| Secret Base act 1 | a hook rail, springs, flight | 2000 | only the background's, which Sonic's run has too |
+| Casino Paradise act 1 | springs, flight, Pierrot, a hit | 2000 | 0, once Pierrot leaves as the ROM's code has it (below) |
+| Ice Mountain act 1 | flight, tired out, braking | 2000 | frame 142, as for Sonic |
+| Ice Mountain act 1, under water (moved there by memory writes) | swimming, the bubbles he lets out, pushing | 2000 | frame 142, as for Sonic |
+| Angel Island act 1 | flight, braking, pushing | 2000 | 0 |
+| Egg Rocket | springs, the tail swipe, pushing | 2000 | the light's palette and a ring, as for Sonic |
+| Cosmic Angel | flight, a death and the restart | 2000 | frames 0–24 and a platform's sprite from 1132, as for Sonic, after which the run goes its own way |
+| Neo Green Hill act 2, the Egg Hammer Tank | flight, tired out, a death and the restart | 2600 | frames 0–24 and a coconut under the HUD (1246–1248), not his |
+| The same, steered by memory writes | the Egg Hammer Tank beaten | 2600 | frames 0–24 and 1-px edges of the rotated belt after the last hit (1358–1364, 1376–1381), not his |
+| Special stage 1, no keys after the spring | the fall, the stage, the checkpoint failed, the results | 3670 | 0, and the random numbers too |
+| Special stage 1, the rings set to 120 at frame 1500 | both targets passed, the emerald's scene, the results with it | 6472 | 0, and the random numbers too |
+
+In Chrome 156 and Firefox 159 (headless, each with a new profile), `?debug&character=1` jumped, flew, landed and swiped his tails in Neo Green Hill act 1, the same in both, with no error from the game in either console.
+
+**Pierrot**, met in the Casino Paradise run, leaves when its spawn point is out of the display range and where it has rolled to is out of the camera's: the ROM's code (`Task_Pierrot`) tests the spawn point for the first, where the decompilation's C tests where it has rolled to both times. This was wrong in the port for Sonic too.
+
+**Only read in the code, not checked:** turning under water; the marble track's tails (no run reached a marble track); the objects' own rules for Tails above (the item box's top in flight, the wall poles, red flags, bumpers, ice blocks and grind rails), and the 1-up's face; the goal, the tally and the results with his name; the game over and the continue screen with his face; the bosses but the Egg Hammer Tank, X Zone and the normal ending as Tails.
 
 ### Terrain
 
@@ -1529,7 +1586,7 @@ Level 5, `?level=5` in the address. Casino Paradise is zone 3 in the original's 
 - **Sonic's standing height.** `Player_8044F7C`, `Player_8043A2C` and `Player_8043970` call `PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 14)` whenever they set the walk, turn, brake or idle state. That changes nothing while Sonic already stands at full height. But after something uncurls him without moving him (a red flag's throw), he stays at a ball's height until the next of these, and the shift then moves him on a slope.
 - **Sonic's character states.** The table from character state to animation and variant is at `0x084A6F0C`.
 
-**Enemies.** Hanabii (8), Slot (9) and Pierrot (10, `pierrot.c`) are act 1's, in the table of Casino Paradise's enemies. More on Pierrot: Sonic curled up bouncing off its ball is moved by his ground speed against the way he faces, turned round and has his speeds reversed, so a rolling Sonic can be trapped in it (#56). Its code takes `Q(0.1875)`, 48, off its height where a pixel count seems meant; the floor test makes up for it in its first frames, off screen. Act 2's freed animals are the lion (440, sits), the peacock (439, hops) and the parrot (442, flies), from `sAnimsTrappedAnimals` (`0x08681154`).
+**Enemies.** Hanabii (8), Slot (9) and Pierrot (10, `pierrot.c`) are act 1's, in the table of Casino Paradise's enemies. More on Pierrot: Sonic curled up bouncing off its ball is moved by his ground speed against the way he faces, turned round and has his speeds reversed, so a rolling Sonic can be trapped in it (#56). Its code takes `Q(0.1875)`, 48, off its height where a pixel count seems meant; the floor test makes up for it in its first frames, off screen. It leaves when its spawn point is out of the display range and where it has rolled to is out of the camera's: the ROM's code (`Task_Pierrot`) tests the spawn point for the first, where the decompilation's C tests where it has rolled to both times. Act 2's freed animals are the lion (440, sits), the peacock (439, hops) and the parrot (442, flies), from `sAnimsTrappedAnimals` (`0x08681154`).
 
 **The Egg Ball** (enemy 24, `boss_3_egg_ball.c`, spawned at (7664, 2256)). The fight goes like this:
 - **The arena.** When its spawn point comes into range, the camera's bounds close in, a pixel a frame, on 280 px left of it to it, and 184 px above it to 16 px below it. The boss music starts (the music manager's state `0x10`). The spawn also sets the game's random numbers to `gFrameCount`, the frames since the GBA was switched on. That is 3838 on an act's first frame when it is started from the course select. The engine counts it from there, on into the next zone and through the special stages.

@@ -66,7 +66,8 @@ export function uiGraphics(rom, table, id) {
  * sub_80528AC: `gfx` = { tiles, tilesSize, layout, layoutSize, palette, paletteSize (bytes, ROM offsets), unk28
  * (the first palette row), unk2A (what to load: 1 the tiles, 0x10 the map, 4 the colours, and 8 for sprites),
  * unk2B (the slot), unk0 (the slot's layout, as uiGraphics gives it), and for a layer unk29 (the layer) and
- * uiGfxID, for sprites vramC (where the tiles go, a VRAM offset) }.
+ * uiGfxID, for sprites vramC (where the tiles go, a VRAM offset) }; `colours` (an array) in place of `palette` for
+ * colours a screen keeps in its own memory.
  * Every load sets slot unk2B's layout (a screen that doesn't use the slots may leave unk2B out). Sprite tiles go
  * to vramC and the colours to the sprites' palette, and the slot's first tile becomes vramC's. A layer's tiles go
  * to its character block, a tile in unless uiGfxID has 0x80, and its map to its screen block.
@@ -80,10 +81,11 @@ export function loadUiGfx(e, gfx) {
   };
   const slot = gfx.unk2B === undefined ? null : e.uiTask.data.slots[gfx.unk2B];
   if (slot) Object.assign(slot, gfx.unk0);
+  const colour = i => (gfx.colours ? gfx.colours[i] : e.rom.u16(gfx.palette + i * 2));
   if (gfx.unk2A & 0x8) {
     if (gfx.unk2A & 0x1) queue(gfx.tiles, gfx.vramC, gfx.tilesSize);
     if (gfx.unk2A & 0x4) {
-      for (let i = 0; i < gfx.paletteSize >> 1; i++) e.objPalette[(gfx.unk28 * 16 + i) & 0xFF] = e.rom.u16(gfx.palette + i * 2);
+      for (let i = 0; i < gfx.paletteSize >> 1; i++) e.objPalette[(gfx.unk28 * 16 + i) & 0xFF] = colour(i);
       e.flags |= 0x2;
     }
     slot.unk0 = (gfx.vramC - OBJ_VRAM) >> 5;
@@ -95,7 +97,7 @@ export function loadUiGfx(e, gfx) {
   if (gfx.unk2A & 0x1) queue(gfx.tiles, vram, gfx.tilesSize);
   if (gfx.unk2A & 0x10) queue(gfx.layout, layout, gfx.layoutSize);
   if (gfx.unk2A & 0x4) {
-    for (let i = 0; i < gfx.paletteSize >> 1; i++) e.bgPalette[(gfx.unk28 * 16 + i) & 0xFF] = e.rom.u16(gfx.palette + i * 2);
+    for (let i = 0; i < gfx.paletteSize >> 1; i++) e.bgPalette[(gfx.unk28 * 16 + i) & 0xFF] = colour(i);
     e.flags |= 0x1;
   }
 }
@@ -128,6 +130,24 @@ export function drawUiText(e, text, o, solid = false) {
   for (let i = 0; i < s16(o.unkE); i++) {
     const c = (a2 + (text(i) - GLYPH_BASE) * slot.unk4) & 0xFFFF;
     if (!putGlyph(e, o, order, a0, a1, c, s16(o.unkA) + i * step, s16(o.unkC))) break;
+    a1 = (a1 + step) & 0xFFFF;
+  }
+}
+
+/**
+ * sub_805321C and, with `behind`, sub_805345C: as sub_80530CC, but each glyph i goes to OAM order (o.unk8 + i) >> 3,
+ * and sub_805345C's are in priority 2, behind layers of priority 0 to 2.
+ */
+export function drawUiGlyphs(e, text, o, behind = false) {
+  if (!o.unk16 && !behind) throw new Error('sub_805321C: rows of text (unk16 = 0) are not ported.');
+  const slot = e.uiTask.data.slots[o.unk10];
+  const step = slot.unkA * 8;
+  const a0 = (slot.unk9 << 14) + (o.unkC & 0xFF);
+  let a1 = (slot.unk8 << 14) + (o.unkA & 0x1FF);
+  const a2 = (o.unk12 << 12) | (slot.unk0 & 0x3FF) | (behind ? 0x800 : 0);
+  for (let i = 0; i < s16(o.unkE); i++) {
+    const c = (a2 + (text(i) - GLYPH_BASE) * slot.unk4) & 0xFFFF;
+    if (!putGlyph(e, o, ((o.unk8 + i) >> 3) & 0xFF, a0, a1, c, s16(o.unkA) + i * step, s16(o.unkC))) break;
     a1 = (a1 + step) & 0xFFFF;
   }
 }
@@ -167,6 +187,22 @@ export function drawUiTextAffine(e, text, o) {
     const a1 = (slot.unk8 << 14) | (r8 << 9) | x;
     const a2 = (o.unk12 << 12) + slot.unk0 + slot.unk4 * (text(i) - GLYPH_BASE);
     if (!putGlyph(e, o, order, a0, a1, a2, s16(o.unkA) + ((slot.unkA * i) << 3), s16(o.unkC))) break;
+  }
+}
+
+/**
+ * sub_8052D64: as sub_8052C84, but always turned through affine parameters o.unk6, as solid double-size sprites.
+ */
+export function drawUiTextRotated(e, text, o) {
+  const slot = e.uiTask.data.slots[o.unk10];
+  setUiAffine(e, o.unk4 & 0xFFFF, s16(o.unk0), s16(o.unk2), o.unk6 & 0xFFFF);
+  const index = o.unk6 & 0xFFFF, order = ((o.unk8 & 0xFFFF) >> 3) & 0xFF;
+  const a0 = (slot.unk9 << 14) | 0x300 | (o.unkC & 0xFF);
+  const a2 = (o.unk12 << 12) | (slot.unk0 & 0x3FF);
+  for (let i = 0; i < s16(o.unkE); i++) {
+    const a1 = (slot.unk8 << 14) | (index << 9) | (((slot.unkA * i) << 3) + (o.unkA & 0xFFFF)) & 0x1FF;
+    const c = (a2 + (text(i) - GLYPH_BASE) * slot.unk4) & 0xFFFF;
+    if (!putGlyph(e, o, order, a0, a1, c, s16(o.unkA) + ((slot.unkA * i) << 3), s16(o.unkC))) break;
   }
 }
 

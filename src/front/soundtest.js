@@ -26,7 +26,7 @@ import { createM4A } from '../sound/m4a.js';
 import { createApu } from '../sound/apu.js';
 import { soundLayout } from '../rom/sound.js';
 import { SINE } from '../engine/trig.js';
-import { createUiTask, uiGfxStackInit, uiGraphics, loadUiGfx, drawUiText, createFade, fadeStep, fadeShow } from './ui.js';
+import { createUiTask, uiGfxStackInit, uiGraphics, loadUiGfx, drawUiGlyphs, createFade, fadeStep, fadeShow } from './ui.js';
 import { createOptionsMenu } from './options.js';
 
 const OBJ_VRAM = 0x10000;
@@ -305,11 +305,10 @@ function wordsTask(t) {
   displaySprite(e, test.ctx.sprites, s);
 }
 
-// sub_805FC88: the song's number from 1, its digits 10 px apart and centred on the star (sub_805321C, one glyph
-// at a time)
+// sub_805FC88: the song's number from 1, its digits 10 px apart and centred on the star, one glyph at a time
 function numberTask(t) {
   const { test, o } = t.data, e = test.ctx.engine, n = (test.song + 1) & 0xFF;
-  const digit = d => drawUiText(e, () => d + 0x20, o, true);
+  const digit = d => drawUiGlyphs(e, () => d + 0x20, o);
   let left = 0;
   o.unkC = 0x52;
   if (n > 99) {

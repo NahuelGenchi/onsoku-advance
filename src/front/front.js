@@ -17,11 +17,14 @@ import { createClock } from '../engine/clock.js';
 
 // a GBA frame: 280896 cycles of its 16.78 MHz clock, the rate the music plays at
 export const GBA_FRAME_MS = 280896 / 16777216 * 1000;
+// the frames after power-on before the game counts them
+const STARTUP_FRAMES = 6;
 
 // what the player holds (engine/input.js), as the GBA's buttons
 export function keysOf(input) {
   return (input.jump ? KEY.A : 0) | (input.attack ? KEY.B : 0) | (input.start ? KEY.START : 0) | (input.select ? KEY.SELECT : 0)
-    | (input.right ? KEY.RIGHT : 0) | (input.left ? KEY.LEFT : 0) | (input.up ? KEY.UP : 0) | (input.down ? KEY.DOWN : 0);
+    | (input.right ? KEY.RIGHT : 0) | (input.left ? KEY.LEFT : 0) | (input.up ? KEY.UP : 0) | (input.down ? KEY.DOWN : 0)
+    | (input.r ? KEY.R : 0) | (input.l ? KEY.L : 0);
 }
 
 /**
@@ -33,7 +36,10 @@ export function keysOf(input) {
  */
 export function createFrontEnd(canvas, rom, offsets, input, sound, save, play) {
   const video = createVideo();
-  const engine = createEngine(video, rom, { play: song => sound.play(song), stop: song => sound.stop(song), stopAll: () => sound.stopAll() });
+  const engine = createEngine(video, rom, sound);
+  // gFrameCount: VBlankIntr, which counts it, starts with GameInit, and the GBA (mGBA) is still starting up for the
+  // first 6 frames after power-on
+  engine.frameCount = -STARTUP_FRAMES;
   let done = false;
   const ctx = {
     engine, tilemaps: offsets.tilemaps, sprites: spriteTables(rom, offsets.spriteTables), offsets, save,

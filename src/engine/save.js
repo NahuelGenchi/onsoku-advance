@@ -7,15 +7,17 @@
 //
 // Its fields, by offset, as the USA ROM has them (the decompilation's struct has a language byte at 0x01A, for the
 // European version's six, which the USA ROM doesn't have, so the three fields after it are a byte earlier):
-// - 0x000 security: "PIRO" once written (a flash sector without it is empty); 0x004 unk4
+// - 0x000 security: "PIRO" once written (a flash sector without it is empty); 0x004 unk4: the frame count when
+//   the name was last changed, which the multiplayer link sends as the player's id
 // - 0x008 unlockedLevels: by character, how far they have got (the level after the last one cleared)
-// - 0x010 playerName; 0x018 difficultyLevel (0 normal, 1 easy); 0x019 uiLanguage (0 Japanese, 1 English);
+// - 0x010 playerName: six characters of the UI font (0x20 to 0x89) and two unused; 0x018 difficultyLevel (0 normal, 1 easy); 0x019 uiLanguage (0 Japanese, 1 English);
 //   0x01A timeLimitDisabled; 0x01B btnConfig (1: A and B swapped)
 // - 0x01C chaosEmeralds: a bit per special stage
 // - 0x020 timeRecords: the three best course times by character and level, 10:00 when none
 // - 0x380 multiplayerScores: ten of a player id, a name, wins, losses and draws
 // - 0x420 unk420: a best score, which only a time-up game over with no continue raises (HandleDeath)
-// - 0x424 unk424: set once the Moon Zone is cleared; 0x425 to 0x427 unused
+// - 0x424 unk424: set once the Moon Zone is cleared; 0x425 to 0x427 unk425 to unk427: the player's own
+//   multiplayer wins, losses and draws
 // - 0x428 score: the rings every act's results have counted, the Tiny Chao Garden's to spend
 // - 0x42C checksum: the sum of the 32-bit words before it
 
@@ -87,6 +89,12 @@ export function openSave(storage = browserStorage()) {
   }
   return {
     bytes,
+    get unk4() { return view.getUint32(0x04, true); },
+    set unk4(v) { view.setUint32(0x04, v >>> 0, true); },
+    /** The name's eight bytes, as a view into the save. */
+    playerName: bytes.subarray(0x10, 0x18),
+    /** The ten multiplayer records, 16 bytes each, as a view into the save. */
+    multiplayerScores: bytes.subarray(0x380, 0x420),
     get difficultyLevel() { return bytes[0x18]; },
     set difficultyLevel(v) { bytes[0x18] = v; },
     get uiLanguage() { return bytes[0x19]; },
@@ -101,6 +109,9 @@ export function openSave(storage = browserStorage()) {
     set unk420(v) { view.setUint32(0x420, v >>> 0, true); },
     get unk424() { return bytes[0x424]; },
     set unk424(v) { bytes[0x424] = v; },
+    get unk425() { return bytes[0x425]; },
+    get unk426() { return bytes[0x426]; },
+    get unk427() { return bytes[0x427]; },
     get score() { return view.getUint32(0x428, true); },
     set score(v) { view.setUint32(0x428, v >>> 0, true); },
     unlockedLevel: character => view.getUint16(0x08 + character * 2, true),

@@ -5,6 +5,7 @@ export const SONG = {
   INTRO: 1,                // MUS_INTRO
   TITLE_FANFARE: 2,        // MUS_TITLE_FANFARE
   CHARACTER_SELECTION: 3,  // MUS_CHARACTER_SELECTION: the Options menu stops it as it opens the sound test
+  VS_RECORD: 10,           // MUS_VS_RECORD: the player data's VS record
   OPTIONS: 11,             // MUS_OPTIONS: the Options menu (Scrap Brain Zone's remix)
   VS_WIN: 7,               // MUS_007: the multiplayer results screen when this player won,
   VS_LOSE: 8,              // MUS_008: lost,
@@ -23,6 +24,7 @@ export const SONG = {
   CHAOS_EMERALD: 45,       // MUS_CHAOS_EMERALD: the emerald's scene
   SPECIAL_STAGE_LOSE: 46,  // MUS_SPECIAL_STAGE_RESULT_LOSE: the results without the emerald
   SPECIAL_STAGE_WIN: 47,   // MUS_047: the results with it
+  PLAYER_DATA: 48,         // MUS_PLAYER_DATA: the player data menu and the name input
   SEGA_RING: 102,          // SE_RING: Sonic Team's logo
   SELECT: 106,             // SE_SELECT: Start on the title screen, a choice in the menu
   RETURN: 107,             // SE_RETURN: back out of a choice in the Options menu

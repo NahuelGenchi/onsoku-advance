@@ -25,37 +25,11 @@ a { color: #9cc3ff; }
 button { font: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-/* ROM picker */
+/* the start screen's section */
 .picker { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
 .picker[hidden] { display: none; }
-.picker-card {
-  width: min(520px, 100%); padding: 32px 28px; border-radius: var(--radius);
-  background: var(--panel); border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
-  backdrop-filter: blur(6px);
-}
-.eyebrow { margin: 0 0 6px; font: 600 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
-.picker-card h1 { margin: 0 0 8px; font-size: clamp(26px, 5vw, 34px); line-height: 1.15; }
-.intro { margin: 0 0 22px; color: var(--muted); }
-.continue {
-  display: block; width: 100%; margin-bottom: 12px; padding: 14px 18px; border: 0; border-radius: 12px; cursor: pointer;
-  background: var(--accent); color: #1a1300; font-weight: 700; text-align: center;
-}
-.continue[hidden] { display: none; }
-.continue:hover { filter: brightness(1.06); }
-.drop {
-  display: grid; justify-items: center; gap: 4px; padding: 26px 16px; border-radius: 12px; cursor: pointer; text-align: center;
-  border: 2px dashed var(--line); background: rgba(5, 10, 36, .45); color: var(--ink); transition: border-color .15s, background .15s;
-}
-.drop svg { color: var(--blue); }
-.drop span { color: var(--muted); font-size: 14px; }
-.drop:hover, .drop.over { border-color: var(--accent); background: rgba(255, 210, 63, .07); }
-.remember { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; color: var(--muted); font-size: 14px; }
-.status { min-height: 1.5em; margin: 14px 0 0; font-size: 14px; color: var(--muted); }
-.status[data-kind="error"] { color: var(--error); }
-.privacy { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .link { padding: 0; border: 0; background: none; color: #9cc3ff; text-decoration: underline; cursor: pointer; }
 .link[hidden] { display: none; }
-.busy .drop, .busy .continue { opacity: .55; pointer-events: none; }
 
 /* the game's ROM setup: a row for each of the three ROMs, with their extras under them, then Play. It is drawn
    like the dreamports.net launcher the game opens from, at its sizes: all in Monocraft, a pixel font nine of its
@@ -63,7 +37,7 @@ button { font: inherit; }
    frames with their corner pixels left out. Light or dark, as the launcher is. */
 @font-face { font-family: Monocraft; font-display: swap; src: url(fonts/Monocraft.woff2) format("woff2"); }
 
-.picker:has(> .setup) {
+.picker:has(> .setup), .assets {
   /* light: white paper, dark blue ink, light blue fills, a deeper blue for what's light blue on paper */
   --page: #fff; --glow: radial-gradient(900px 560px at 50% 0, #ddefff, rgba(221, 239, 255, 0) 80%);
   --paper: #fff; --hover: #eef7ff; --line: #cde3f8; --sky: #8fd1ff; --blue: #1a4fb0;
@@ -75,7 +49,7 @@ button { font: inherit; }
 }
 /* dark: the launcher's night blue, when the device is dark and the launcher wasn't set to light, or it was set to dark */
 @media (prefers-color-scheme: dark) {
-  .picker:not([data-theme="light"]):has(> .setup) {
+  .picker:not([data-theme="light"]):has(> .setup), .assets:not([data-theme="light"]) {
     --page: #050a24; --glow: radial-gradient(1200px 600px at 50% -10%, #1a3cb8 0%, rgba(26, 60, 184, 0) 60%);
     --paper: #0b1240; --hover: #121b4f; --line: #263a66; --blue: #7aa7ff;
     --ink: #eef4ff; --dim: #a9b8e6; --faint: rgba(169, 184, 230, .6);
@@ -84,7 +58,7 @@ button { font: inherit; }
     color-scheme: dark;
   }
 }
-.picker[data-theme="dark"]:has(> .setup) {
+.picker[data-theme="dark"]:has(> .setup), .assets[data-theme="dark"] {
   --page: #050a24; --glow: radial-gradient(1200px 600px at 50% -10%, #1a3cb8 0%, rgba(26, 60, 184, 0) 60%);
   --paper: #0b1240; --hover: #121b4f; --line: #263a66; --blue: #7aa7ff;
   --ink: #eef4ff; --dim: #a9b8e6; --faint: rgba(169, 184, 230, .6);
@@ -100,7 +74,8 @@ button { font: inherit; }
 }
 .setup :focus-visible, .pad-nav .pad-at { outline: 2px solid var(--blue); outline-offset: 4px; }
 /* a pixel frame, 2 px with the corner pixels left out */
-.setup :is(.setup-back, .roms, .rom-add, .play, kbd, .switch-track, .remember input, .setup-drag > div, .pad) {
+.setup :is(.setup-back, .roms, .rom-add, .play, kbd, .switch-track, .remember input, .setup-drag > div, .pad),
+.assets :is(.setup-back, .assets-part, .switch-track, .assets-choose) {
   box-shadow: 0 -2px var(--frame), 0 2px var(--frame), -2px 0 var(--frame), 2px 0 var(--frame);
 }
 /* a key, as the launcher draws one; touch screens have none to press, so it shows only with a mouse */
@@ -121,7 +96,7 @@ button { font: inherit; }
 .setup-back:active { transform: translateY(2px); }
 .setup-back svg { width: 14px; height: 14px; }
 .setup-brand { margin: 0; color: var(--blue); font-size: 13.5px; line-height: 20px; }
-.setup h1 { margin: 4px 0 0; font-size: 24px; font-weight: normal; line-height: 32px; }
+.setup h1, .assets h1 { margin: 4px 0 0; font-size: 24px; font-weight: normal; line-height: 32px; }
 .setup-intro { margin: 8px 0 0; color: var(--dim); }
 
 /* the controller badge: in with a note while an Xbox controller is connected; off, with a note, then out once
@@ -417,24 +392,40 @@ button { font: inherit; }
   .touch .start { bottom: calc(var(--edge) + var(--pad) / 2 - 40px); }
 }
 
-/* asset viewer */
-.viewer { width: min(1100px, 100%); margin: 0 auto; padding: 32px 16px 64px; }
-.viewer[hidden] { display: none; }
-.viewer header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 20px; }
-.viewer h1 { margin: 0; font-size: 28px; }
-.viewer h2 { margin: 32px 0 12px; font-size: 18px; }
-.viewer .note { color: var(--muted); font-size: 14px; }
-.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; padding: 18px 20px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
-.facts dt { color: var(--muted); }
-.facts dd { margin: 0; font-family: var(--mono); font-size: 14px; overflow-wrap: anywhere; }
-.sheet { max-width: 100%; overflow-x: auto; padding: 12px; border-radius: 12px; background: #6aa384; border: 1px solid var(--line); }
-.sheet canvas { display: block; image-rendering: pixelated; }
-.toggle { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; }
-.anims { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-.anim { padding: 10px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); text-align: center; }
-.anim canvas { display: block; margin: 0 auto 6px; image-rendering: pixelated; background: #6aa384; border-radius: 8px; }
-.anim b { display: block; font-size: 14px; }
-.anim small { display: block; white-space: nowrap; color: var(--muted); font-family: var(--mono); }
+/* the asset viewer (src/ui/assets-view.js), drawn like the start screen: each part on the launcher's paper in a
+   pixel frame, the sprites and the act on its sky blue, the wide ones in boxes that scroll */
+.assets[hidden] { display: none; }
+.assets-page {
+  --frame: var(--line);
+  width: min(1100px, 100%); margin: 0 auto; font: 15px/20px Monocraft, var(--mono); color: var(--ink);
+  font-variant-ligatures: none; font-synthesis: none; -webkit-font-smoothing: antialiased;
+}
+.assets-body { display: grid; gap: 22px; }
+.assets-part { min-width: 0; margin: 2px; padding: 14px 16px 16px; background: var(--paper); }
+.assets-part h2 { margin: 0 0 12px; font-size: inherit; font-weight: normal; line-height: inherit; }
+.assets-note, .assets-status { margin: 0 0 12px; color: var(--dim); font-size: 13.5px; line-height: 20px; }
+.assets-status:empty { display: none; }
+.assets-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-size: 13.5px; }
+.assets-facts dt { color: var(--dim); }
+.assets-facts dd { margin: 0; overflow-wrap: anywhere; }
+.assets-anims { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 2px; background: var(--line); border: 2px solid var(--line); }
+.assets-anim { margin: 0; padding: 10px; background: var(--paper); text-align: center; }
+.assets-anim canvas { display: block; width: 100%; max-width: 128px; margin: 0 auto 8px; aspect-ratio: 1; background: var(--sky); image-rendering: pixelated; }
+.assets-anim b { display: block; font-weight: normal; font-size: 13.5px; overflow-wrap: anywhere; }
+.assets-anim small { display: block; color: var(--dim); font-size: 12px; }
+.assets-sheet { max-width: 100%; max-height: 70vh; overflow: auto; background: var(--sky); }
+.assets-sheet canvas { display: block; image-rendering: pixelated; }
+.assets .switch { grid-template-columns: minmax(0, 1fr) auto; margin: 0 0 12px; }
+.assets-choose {
+  --frame: var(--sky); display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; margin: 2px 0 0;
+  border: 0; background: var(--sky); color: #0a1738; font: inherit; cursor: pointer;
+}
+.assets-choose:hover { --frame: var(--act); background: var(--act); color: var(--on-act); }
+.assets :focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+@media (max-width: 520px) {
+  .assets-facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .assets-facts dd { margin-bottom: 8px; }
+}
 
 /* the unlock popup (src/achievements/popup.js) in a layer over the game's screen, which it comes in from the edge of:
    its pixels are `--dot` CSS px each, and its sizes and places (`--h`, `--margin`, `--trophy-x` …) come from popup.js;

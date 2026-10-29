@@ -8,6 +8,7 @@
 // Mode starts its sideways speed limit drops, then recovers, as Sonic Advance 2's does.
 
 import { SCREEN_W, SCREEN_H, CAMERA as C, RUSH_BOOST as R, BOOST_MODE as B } from './constants.js';
+import { KNUCKLES } from './player.js';
 
 const centreY = p => Math.floor(p.y);
 // how far the widescreen view slides in a frame into a boss's arena and out of it (viewOf)
@@ -54,15 +55,21 @@ function clamp(cam) {
 }
 
 // hold up or down while standing still for 120 frames, then pan 2px per frame, the other way under flipped
-// gravity (Player_8044750, Player_80447D8); ease back otherwise
+// gravity (Player_8044750, Player_80447D8), as Knuckles does floating on water with up held; ease back otherwise.
+// Knuckles' frames from a glide to its end ease it once more (sub_8048980), 2 down or 4 up, and climbing up or down
+// once more again (Player_8047280); his jump off the water leaves it as it is (p.lookEase).
 function updateLook(cam, p) {
+  if (p.lookEase === 'still') return;
   const easeBack = () => { cam.look -= Math.sign(cam.look) * Math.min(Math.abs(cam.look), C.lookStep); };
-  const looking = (p.state === 'lookUp' ? -C.lookUp : p.state === 'crouch' && p.gsp === 0 ? C.lookDown : 0) * (p.inverted ? -1 : 1);
-  if (!looking) { cam.lookDelay = C.lookDelay; easeBack(); return; }
-  if (cam.lookDelay === 0 || --cam.lookDelay === 0) {
+  const up = p.state === 'lookUp' || p.state === 'waterFloatUp';
+  const looking = (up ? -C.lookUp : p.state === 'crouch' && p.gsp === 0 ? C.lookDown : 0) * (p.inverted ? -1 : 1);
+  if (!looking) { cam.lookDelay = C.lookDelay; easeBack(); }
+  else if (cam.lookDelay === 0 || --cam.lookDelay === 0) {
     if (looking < 0 && cam.look + cam.shiftY > looking) cam.look -= C.lookStep;
     if (looking > 0 && cam.look + cam.shiftY < looking) cam.look += C.lookStep;
   } else easeBack();
+  if (p.lookEase === 'glide' || p.lookEase === 'glide2') cam.look += cam.look > 0 ? -2 : cam.look < 0 ? 4 : 0;
+  if (p.lookEase === 'glide2') easeBack();
 }
 
 const q8 = v => Math.round(v * 256);
@@ -126,7 +133,9 @@ export function updateCamera(cam, p, follow = p) {
   else if (dx < -C.deadZoneX) cam.x += Math.max(-maxX, dx + C.deadZoneX);
   if (cam.boostSpeedX < C.maxSpeedX << 8) cam.boostSpeedX += B.cameraStep;
 
-  cam.deadY = p.air ? Math.min(C.airDeadZoneY, cam.deadY + 4) : Math.max(0, cam.deadY - 4);
+  // Knuckles floating on the water counts as on the ground
+  const air = p.air && !(p.character === KNUCKLES && p.midAir === 9);
+  cam.deadY = air ? Math.min(C.airDeadZoneY, cam.deadY + 4) : Math.max(0, cam.deadY - 4);
   const dy = cam.targetY - cam.y;
   if (dy > cam.deadY) cam.y += Math.min(cam.speedY, dy - cam.deadY);
   else if (dy < -cam.deadY) cam.y += Math.max(-cam.speedY, dy + cam.deadY);

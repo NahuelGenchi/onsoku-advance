@@ -6,6 +6,7 @@
 // - the entrance (kind 67), a chute he drops into from above: landing on it while on no track takes him in,
 //   with his step set to its d3; he falls with gravity, moved across d1 px over d0 frames, until d0 frames
 //   have gone, he has dropped more than d2 px, or a later step has him. His sprite grows from 0xB0 to full size.
+//   Knuckles climbing (but not down) passes it, except that more than 12 px below it, it stops him 23 px under.
 // - the direction points (65): reaching within 8 px across and 10 down of one moves him d0 × 8 px across and
 //   d1 × 8 down over d2 frames, in a straight line, as step d3. One that ends with no later step to take him
 //   lets him go there, standing still.
@@ -22,8 +23,8 @@
 // multiplayer reads, isn't kept.
 
 import { makeSprite, animate, offCam } from './objects.js';
-import { platform, LANDED } from './collide.js';
-import { endAttack } from './player.js';
+import { platform, LANDED, FROM_BELOW } from './collide.js';
+import { endAttack, climbing } from './player.js';
 import { setOffsetY } from './sensors.js';
 import { SPRITE_OFFSET_Y } from './constants.js';
 import { s8 } from './trig.js';
@@ -80,7 +81,10 @@ function entrance(e, slot, anims) {
           }
         } else {
           const x = p.x;
-          if (p.track === NO_TRACK && platform(o, o.boxes[0], p, ctx.world.terrain) & LANDED) {
+          if (climbing(p) && p.state !== 'climbDown') {
+            // Knuckles climbing up past it: more than 12 px below its point it is solid, stopping him 23 px under
+            if (p.y > e.y + 12 && platform(o, o.boxes[0], p, ctx.world.terrain) & FROM_BELOW) p.y = e.y + 23;
+          } else if (p.track === NO_TRACK && platform(o, o.boxes[0], p, ctx.world.terrain) & LANDED) {
             n = 0; dropped = 0;
             cancel(p);
             p.onObject = null;

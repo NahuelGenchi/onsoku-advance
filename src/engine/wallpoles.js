@@ -3,11 +3,12 @@
 // kind 44, sticking out of a wall to its right, and kind 45, flipped, to its left. Whenever Sonic's body
 // touches one's box, at any speed, on the ground or in the air, it catches him: he hangs from it for 14
 // frames, bobbing down and swinging up, and is thrown straight up at 7.5 px a frame, keeping the X speed he
-// came with. It takes him again once its swing animation is over. A flying Tails goes through it.
+// came with. It takes him again once its swing animation is over. A flying Tails goes through it, as does
+// Knuckles while he glides, climbs or floats.
 
 import { makeSprite, startAnim, animate, offCam } from './objects.js';
 import { overlap } from './collide.js';
-import { endAttack, standUp, TAILS } from './player.js';
+import { endAttack, standUp, TAILS, KNUCKLES } from './player.js';
 import { SONG } from '../sound/songs.js';
 
 export const WALL_POLE_LEFT = 44, WALL_POLE_RIGHT = 45;
@@ -27,7 +28,7 @@ export function createWallPole(e, slot, anims) {
   // it tests the box its last animation frame set, before stepping the animation; none yet on its first frame
   function catches(p) {
     if (p.dead || !o.boxes[0] || !overlap(e.x, e.y, o.boxes[0], Math.floor(p.x), Math.floor(p.y), [-SOX, -p.offsetY, SOX, p.offsetY])) return false;
-    if (p.character === TAILS && p.midAir !== 0) return false;
+    if ((p.character === TAILS || p.character === KNUCKLES) && p.midAir !== 0) return false;
     // Player_TransitionCancelFlyingAndBoost; his speeds and whether he is in the air stay as they were
     endAttack(p); p.pushing = false;
     p.carried = true;

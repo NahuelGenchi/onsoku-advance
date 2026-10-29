@@ -437,7 +437,7 @@ The prize comes on the 60th frame after the break, from the box's task:
 | Speed shoes | 1200 frames, and the music at twice its tempo |
 | Rings | 5, 10, or a random 1, 5, 10, 20, 30 or 40, with song 117. Passing a multiple of 100 gives a life. |
 
-**The shields and the stars** are tasks after the music manager (`0x4001`) and follow Sonic's centre. They take turns on screen by the stage clock: a shield on the frames with its bit 1 set, the stars on the others. A shield is hidden while Sonic is invincible, and is drawn over him, hiding him on its frames. Every 8th frame of the stage clock the stars leave a sparkle (`752` variant 1) up to 15 px from Sonic, in a direction and at a distance from two draws of the game's random numbers. The sparkle stays where it appeared and plays once.
+**The shields and the stars** are tasks after the music manager (`0x4001`) and follow Sonic's centre. They take turns on screen by the stage clock: a shield on the frames with its bit 1 set, the stars on the others. A shield is hidden while Sonic is invincible, and is drawn over him, hiding him on its frames. Sonic's effects (brake dust, the spin dash's dust) are tasks at `0x4001` too, made as they appear, so one made after a shield is drawn behind it. Every 8th frame of the stage clock the stars leave a sparkle (`752` variant 1) up to 15 px from Sonic, in a direction and at a distance from two draws of the game's random numbers. The sparkle stays where it appeared and plays once.
 
 **A shield takes a hit.** Sonic is knocked back as usual and the shield goes, but he keeps his rings. The hit's song 119 is cut off by the hazard's own sound when it has one (song 171 for spikes).
 
@@ -459,7 +459,7 @@ A hit with rings throws Sonic up at 3.0 and away at 1.5 px a frame, against the 
 
 ### Dying and the restart
 
-Sonic dies when a hit finds him without rings (thrown up at 3.0), when he falls out of the bottom of the act (thrown up at a jump's speed) or when the course time runs out (song 166 in place of 119 below; see [Time over](#time-over)). On that frame the camera's target and the stage clock stop, his speed across goes to 0 while his ground speed is kept, a push ends (so he doesn't show the push animation as he falls), song 119 plays and the music plays on. His blink timer is set to 2, counts down once and stays at 1. He then falls through everything, in front of the front layer, until his centre is 240 px below the top of the screen. He disappears there, and 61 frames later his task ends, the ring count goes to 0 and he loses a life. Losing the last one brings the [game over](#game-over-and-the-continue-screen). After a time-up the rings are kept, and with a life left the [time over](#time-over) comes before the act starts over.
+Sonic dies when a hit finds him without rings (thrown up at 3.0), when he falls out of the bottom of the act (thrown up at a jump's speed) or when the course time runs out (song 166 in place of 119 below; see [Time over](#time-over)). On that frame the camera's target and the stage clock stop, his speed across goes to 0 while his ground speed is kept, a shield and invincibility end (`itemEffect` = 0), a push ends (so he doesn't show the push animation as he falls), song 119 plays and the music plays on. His blink timer is set to 2, counts down once and stays at 1. He then falls through everything, in front of the front layer, until his centre is 240 px below the top of the screen. He disappears there, and 61 frames later his task ends, the ring count goes to 0 and he loses a life. Losing the last one brings the [game over](#game-over-and-the-continue-screen). After a time-up the rings are kept, and with a life left the [time over](#time-over) comes before the act starts over.
 
 Losing a life with lives left destroys every task, so nothing after Sonic runs on that frame, and loads the act again (`CreateGameStage`): the act's music starts from its beginning on that same frame (`StageInit_Zone1Act1`). The original then spends the whole next frame loading, and nothing runs. On the frame after, the act starts over with its rings, enemies and objects back: the ring count goes to 0, and the score, the stage clock and the last checkpoint passed carry on. Sonic starts where the last checkpoint passed put him, or at the act's start without one. The course time goes back to what it was when he passed that checkpoint, or to 0 without one (and to 0 if it had reached 10:00). The new camera starts with Sonic centred, not yet kept inside the act (x = −16 at act 1's start). Its task's first frame only sets it going, so it starts moving on the second frame.
 
@@ -1187,7 +1187,7 @@ The Rush boost, Boost Mode and the SA2 tricks are Sonic's and do nothing for Tai
 | Ice Mountain act 1, under water (moved there by memory writes) | swimming, the bubbles he lets out, pushing | 2000 | frame 142, as for Sonic |
 | Angel Island act 1 | flight, braking, pushing | 2000 | 0 |
 | Egg Rocket | springs, the tail swipe, pushing | 2000 | the light's palette and a ring, as for Sonic |
-| Cosmic Angel | flight, a death and the restart | 2000 | frames 0–24 and a platform's sprite from 1132, as for Sonic, after which the run goes its own way |
+| Cosmic Angel | flight, a death and the restart | 2000 | frames 0–24 and a platform's sprite from 1132, as for Sonic, after which the run goes its own way (the platforms' look, since fixed: see [Knuckles](#knuckles)) |
 | Neo Green Hill act 2, the Egg Hammer Tank | flight, tired out, a death and the restart | 2600 | frames 0–24 and a coconut under the HUD (1246–1248), not his |
 | The same, steered by memory writes | the Egg Hammer Tank beaten | 2600 | frames 0–24 and 1-px edges of the rotated belt after the last hit (1358–1364, 1376–1381), not his |
 | Special stage 1, no keys after the spring | the fall, the stage, the checkpoint failed, the results | 3670 | 0, and the random numbers too |
@@ -1198,6 +1198,73 @@ In Chrome 156 and Firefox 159 (headless, each with a new profile), `?debug&chara
 **Pierrot**, met in the Casino Paradise run, leaves when its spawn point is out of the display range and where it has rolled to is out of the camera's: the ROM's code (`Task_Pierrot`) tests the spawn point for the first, where the decompilation's C tests where it has rolled to both times. This was wrong in the port for Sonic too.
 
 **Only read in the code, not checked:** turning under water; the marble track's tails (no run reached a marble track); the objects' own rules for Tails above (the item box's top in flight, the wall poles, red flags, bumpers, ice blocks and grind rails), and the 1-up's face; the goal, the tally and the results with his name; the game over and the continue screen with his face; the bosses but the Egg Hammer Tank, X Zone and the normal ending as Tails.
+
+### Knuckles
+
+`?character=2` plays as Knuckles (`gSelectedCharacter` 2), as `?character=1` does Tails. His first animation is 199, so his run is 204, and of Sonic's own moves he keeps only the spin dash's rev. His moves come from `player_knuckles.c` ([`player.js`](../src/engine/player.js)). His own:
+
+| State | Animation |
+| :--- | ---: |
+| Gliding (charState 62) | 260 |
+| Turning round in a glide (66–69) | 261, variants 0–3 by how far round |
+| Gliding under water (81) | 245 |
+| Dropping from a glide (63), landing from the drop (64) | 263, variants 0 and 1 |
+| Sliding on after a glide (65) | 262 |
+| Grabbing a wall (70) | 264 |
+| Climbing: still (71), up (72), down (73) | 265, variants 2, 0 and 1 |
+| Pulling himself onto a ledge (74), on its top (75) | 265, variants 3 and 4 |
+| Punches (76, 77) | 249, variants 0 and 1 |
+| Third punch (78), uppercut (79) | 250, variants 0 and 1; the uppercut's flame 250 variant 3 |
+| Floating on water (82), looking up there (83) | 269, 271; the splash `782` |
+
+**The glide** (`Player_Knuckles_InitGlide`, `sub_8048980`, `sub_8048230`). Jump pressed again in a jump, once the rise has slowed, uncurls him with his feet 6 px from his centre and his centre where it is, slows his fall by 1.5, and sends him at 3 px a frame the way he faces (1.5 under water). He speeds up by 6/256 a frame up to 3, then while he glides straight by 3/256 (9/256 with speed shoes) up to 18; under water he slows by 9/256 (12/256 with speed shoes) down to 3. His fall eases toward 0.5 by 24/256 a frame. Left or right held against his heading turns him round 2/256 of a turn a frame, and a turn begun goes on to its end. Under water the glide is swimming, with Tails' bubbles. Letting go of jump drops him with a quarter of his X speed and his feet 14 px from his centre. Touching down on flat ground he slides on, slowing by 24/256 a frame while jump is held, with brake dust every 4th frame; a drop or a slide ends in a crouch that holds left and right for 15 frames. Touching down on a steep slope stands him up. While he glides the camera's look up or down eases back.
+
+**Walls** (`sub_8048650`, `sub_80486E8`). A glide into a wall grabs it when the wall is flat for his height and there is ground at its foot, and otherwise he drops. On the wall, up climbs at 0.75 px a frame (0.5 under water, twice that with speed shoes) while the wall reaches his head, and pulls him onto the ledge where it ends unless a ceiling is 9 px over him; down climbs while the wall reaches his feet, and stands him up on the ground. Off the wall's end, or on an object, he drops. Jump leaps off it curled up, 2.625 px a frame up and 3 away.
+
+**Punches** (`sub_8048ADC`, `sub_8048C3C`, `sub_8048B38`). B on the ground punches, as Sonic's combo starts, but not while he revs a spin dash, pushes, or stands on a wall or the ceiling: each punch adds 3 to his speed and slows him by 96/256 a frame, and B during the first two queues the next, which starts when the one before ends, the second with song 126 and the third with 127. With none queued he stands, stopped. The third becomes an uppercut when there are at least 4 px of room above him: 2 px a frame up from the surface (1 under water) and 2 forward, with its flame. Otherwise he stops as on landing.
+
+**Floating** (`Player_Knuckles_SwimFloat_8048D74`). Going into the water not rising, he floats, uncurled, with a splash: under water he rises by 24/256 a frame up to 1, and at 4 px under the line he stops there with his breath back and the drowning music stopped. Up looks up, down lets him sink, and a jump from there goes half as high. While he floats the camera keeps him as if he stood on the ground (`camera.c`).
+
+**Objects.** As for Tails, most objects that take him cancel his moves. Some have rules of their own for Knuckles:
+
+- Bumpers and the wall bumper throw him off curled up while he glides, climbs or floats, as they do a flying Tails; wall poles and red flags let him through then.
+- Ice blocks break under his glide, the drop and the slide as they do under a spin, but not while he swims.
+- A lying flipper is a platform while he climbs (not down), and landing on it so throws him off curled up its way. A carousel does nothing to him while he climbs.
+- A run wheel is a platform while he climbs; a moving spring bumped from below or the side curls him up; a skating stone and a marble track's entrance stop him under them while he climbs, unless he climbs away from them.
+- Neo Green Hill's waterfalls don't pull a climbing Knuckles down; Angel Island's stop a glide into a walk, and B pressed in the air there stops his speed across.
+- Floating during the Egg Spider's fight he holds down, as the boss's script holds the pad; the Egg Press's stomp hurts him on the ground or sliding from a glide.
+
+Grind rails, the Rush boost, Boost Mode and the SA2 tricks are Sonic's, and after X Zone he gets the normal ending, as Tails does.
+
+**How Knuckles was checked.** As Tails was (above): mGBA 0.10.5 with the USA ROM, from the character select with Knuckles picked and the level set, against the port's act from the same keys, every frame's picture, the clocks, the random numbers, the rings and the lives. One input pattern ran, jumped, glided, pressed up, down or B at the end of the glide, punched three times and turned round every fourth time.
+
+| Run | What it covers | Frames | Differences |
+| :--- | :--- | ---: | :--- |
+| Neo Green Hill act 1, the start | the title card, his face on the HUD, standing | 280 | 0 |
+| Neo Green Hill act 1, his moves | the punches, the uppercut and its flame, the glide, the drop, the slide and the landing | 1180 | 0 |
+| Neo Green Hill act 1, the pattern | flat ground, slopes, walls, springs, turning in a glide | 2080 | 0 |
+| Secret Base act 1 | grabbing walls, climbing up and down | 2080 | only the background's and the screen's left edge, which Sonic's run has too |
+| Casino Paradise act 1 | the pattern | 2080 | 0 |
+| Casino Paradise act 2 | climbing onto a ledge; jump on a wall the ROM doesn't leap from either | 880, 680 | frames 0–24, as for Sonic |
+| Ice Mountain act 1 | a punch breaking an ice block | 2080 | 0 |
+| Ice Mountain act 1, under water in two places (moved there by memory writes) | swimming, floating, a slide from a glide, drowning with a shield | 2280 each | frame 361, the water line's strip at the top of the screen, and once a sprite's edge wrapping at the top-left corner, not his |
+| Angel Island act 1 | the pattern | 2080 | 0, with the Leon's count set to 0 by a memory write (see [the Leon](#angel-islands-enemies)) |
+| Egg Rocket | a leap off a wall, a long climb up, a climb down | 680, 1780, 1780 | 0 |
+| Cosmic Angel | the pattern, landing on a ferris wheel's seat from a drop | 2380 | frames 0–24 |
+| Neo Green Hill act 2, the Egg Hammer Tank (moved there by memory writes) | the fight, a death and the restart | 2280 | frames 0–24 |
+| Special stage 1, no keys after the spring | the fall, the stage, the checkpoint failed, the results | 3670 | 0, and the random numbers too |
+| Special stage 1, the rings set to 120 at frame 1500 | both targets passed, the emerald's scene, the results with it | 6480 | 0, and the random numbers too |
+
+In Chrome 156 and Firefox 159 (headless, each with a new profile), `?debug&character=2` jumped, glided, dropped, landed and punched in Neo Green Hill act 1, the same in both, with no error from the game in either console.
+
+Four things were wrong in the port for every character, and Knuckles' runs found them:
+
+- **Cosmic Angel's platforms** (`sPlatformThinAnims`, `sPlatformCrumblingAnims`, `sBounceBlockAnims` and the ferris wheels' `gUnknown_086CEE2C`, all 598, 602 and 601 there) had Neo Green Hill's and Egg Rocket's looks, and with them their boxes, and Egg Rocket's ferris wheel seats were Neo Green Hill's (517 in the ROM). This was the "platform's sprite" Sonic's and Tails' Cosmic Angel runs went their own way after.
+- **The effects** (brake dust, the spin dash's dust, the uppercut's flame, the float's splash) are tasks of their own at `0x4001`, made as they appear, so one made after a shield runs after it and is drawn behind it in OAM order 8. The port drew them all in front.
+- **Dying** sets `itemEffect` to 0: a shield and invincibility go, as at the time-up.
+- **Ice Mountain's ice blocks** break into pieces placed as the boulder's are (above), the scale halved and rounded down first, so on an odd scale the pieces sit a pixel nearer the middle. The port multiplied by the whole scale.
+
+**Only read in the code, not checked:** the objects' own rules for Knuckles above, but the ice block's (no run reached a bumper, a wall pole, a flipper, a carousel, a run wheel, a moving spring, a skating stone, a marble track, a waterfall, the Egg Spider or the Egg Press with him); the uppercut under water; climbing with speed shoes; the float's look up; the angle a wall gives him where the wall search finds none, which the original reads from a stack byte the search leaves unset (here his angle stays as it was); the goal, the tally and the results with his name; the game over and the continue screen with his face; the bosses but the Egg Hammer Tank, X Zone and the normal ending as Knuckles.
 
 ### Terrain
 

@@ -6,12 +6,14 @@
 // frame; standing still or running back lets it roll back, and pulls him back with it a quarter pixel a
 // frame faster every frame, up to 9 px a frame. Off it, it rolls back to its start, 12/256 px a frame faster
 // every frame. It is solid when he isn't on it; landing on it gives him its speed, and jumping off it keeps
-// at most 1.125 px a frame of his speed across.
+// at most 1.125 px a frame of his speed across. Knuckles climbing it finds it only solid, and while he stands on
+// it climbing it doesn't move.
 
 import { makeSprite, startAnim, animate, offCam, offDisplay } from './objects.js';
 import { platform, LANDED } from './collide.js';
 import { SINE } from './trig.js';
 import { SONG } from '../sound/songs.js';
+import { climbing } from './player.js';
 
 export const RUN_WHEEL = 86;
 const TRAVEL = 4320;   // d2's unit of travel, in 1/256 px
@@ -45,7 +47,9 @@ export function createRunWheel(e, slot, anims) {
 
   // Sonic not on it (sub_808EA80): it is solid, and rolls back
   function free(p, world) {
-    if (!p.dead && platform(o, o.boxes[0], p, world.terrain) & LANDED) {
+    // Knuckles climbing it finds it only solid
+    if (!p.dead && climbing(p)) platform(o, o.boxes[0], p, world.terrain);
+    else if (!p.dead && platform(o, o.boxes[0], p, world.terrain) & LANDED) {
       last = 0; count = 0;
       p.gsp = speed / 256;
       p.carried = false;
@@ -63,6 +67,8 @@ export function createRunWheel(e, slot, anims) {
   // Sonic on it (sub_808EC84): he runs on the spot on its top, and drives it
   function driven(p, world) {
     if (p.state === 'hurt' || p.dead) { p.onObject = null; return; }
+    // Knuckles climbing it finds it only solid, and it doesn't move
+    if (climbing(p)) { platform(o, o.boxes[0], p, world.terrain); return; }
     p.y = o.y + o.boxes[0][1] - p.offsetY;
     if (p.air || p.attack !== 0) {
       count = 0;

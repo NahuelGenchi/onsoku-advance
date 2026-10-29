@@ -55,6 +55,21 @@ export const PHYSICS = {
 // sinks by 8/256 a frame
 export const TAILS = { flyTime: 240, flyLift: 24 / 256, flyFall: 8 / 256, flyLiftFrames: 32, flyRiseMax: 0.75 };
 
+// Knuckles' moves (player_knuckles.c). The glide starts at 3 (1.5 under water), slowing his fall by 1.5; it
+// speeds up by 6/256 a frame up to 3, then by 3/256 (9/256 with speed shoes) up to 18 while he glides straight,
+// and under water slows by 9/256 (12/256) a frame down to 3; his fall eases toward 0.5 by 24/256 a frame. Letting
+// go keeps a quarter of his X speed. Sliding on after a glide slows by 24/256 a frame. He climbs at 0.75 (0.5
+// under water, twice that with speed shoes) and jumps off a wall 2.625 up and 3 away. Each punch adds 3, slowing by
+// 96/256 a frame, and the uppercut adds 2 up (1 under water) and 2 forward. Floating on water, he rises by 24/256
+// a frame up to 1. A drop or a slide ends with 15 frames without left and right.
+export const KNUCKLES = {
+  glideSpeed: 3, glideSlow: 1.5, glideAccel: 6 / 256, glideStraightAccel: 3 / 256, glideShoesAccel: 6 / 256, glideMax: 18,
+  glideWaterDecel: 9 / 256, glideWaterShoesDecel: 3 / 256, glideFall: 0.5, glideFallStep: 24 / 256, glideOffsetY: 6,
+  slideFriction: 24 / 256, climbSpeed: 0.75, climbWaterSpeed: 0.5, wallJumpY: 2.625, wallJumpX: 3,
+  punchSpeed: 3, punchFriction: 96 / 256, uppercutUp: 2, uppercutWaterUp: 1, uppercutForward: 2,
+  floatRise: 24 / 256, floatMaxRise: 1, landLock: 15,
+};
+
 export const ANIMATION = {
   runSpeed: 4.5,               // walk animation below, figure-8 run at or above
   brakeTurnSpeed: 1.5,         // skid turns into the turn-after-braking animation below this

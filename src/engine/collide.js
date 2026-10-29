@@ -4,7 +4,7 @@
 // Sonic is tested with plain rectangles around his centre; only an item box also looks at his attack box.
 
 import { scan, PROBE_WALL } from './terrain.js';
-import { land, standUp, TAILS } from './player.js';
+import { land, standUp, TAILS, KNUCKLES } from './player.js';
 
 // what a test found, as the original's result bits
 export const LANDED = 0x8, FROM_BELOW = 0x10000, LEFT_FACE = 0x20000, RIGHT_FACE = 0x40000, PUSHING = 0x20;
@@ -22,6 +22,9 @@ export function overlap(x0, y0, a, x1, y1, b) {
 const body = p => [-SOX, -p.offsetY, SOX, p.offsetY];
 const flank = p => [-(SOX + 5), 1 - p.offsetY, SOX + 5, p.offsetY - 1];
 const at = p => [Math.floor(p.x), Math.floor(p.y)];
+// Knuckles gliding or sliding on after a glide stays in the air on an object, his speeds as they were: his own
+// step stands him up on it (sub_800C934, Coll_Player_PlatformCrumbling)
+const gliding = p => p.character === KNUCKLES && (p.midAir === 1 || p.midAir === 3);
 
 // onto the top of the box or out below it, keeping the subpixel (sub_800C934). The position moves before
 // the speed is checked, so a rising Sonic in the box's top half is put on top and keeps rising. Under flipped
@@ -42,9 +45,13 @@ function vertical(o, hb, p, rect, stoodHere, res) {
   if (p.ysp < 0) return false;
   p.ysp = 0;
   if (steep) p.gsp = 0;
-  p.onObject = o; p.air = false;
+  p.onObject = o;
+  if (!gliding(p)) p.air = false;
   res.flags |= LANDED;
-  if (!stoodHere) { land(p); p.gsp = p.xsp; p.rotation = 0; }
+  if (!stoodHere) {
+    if (!gliding(p)) { land(p); p.gsp = p.xsp; }
+    p.rotation = 0;
+  }
   return true;
 }
 
@@ -107,8 +114,12 @@ export function platformTop(o, x, y, hb, p) {
     // he is put on top by the height he had before landing stood him up: landing curled, he ends up 5 px
     // into it until the next frame
     const oy = p.offsetY;
-    p.onObject = o; p.air = false;
-    if (!stoodHere) { land(p); p.gsp = p.xsp; p.rotation = 0; }
+    p.onObject = o;
+    if (!gliding(p)) p.air = false;
+    if (!stoodHere) {
+      if (!gliding(p)) { land(p); p.gsp = p.xsp; }
+      p.rotation = 0;
+    }
     p.ysp = 0;
     p.y = (p.inverted ? ob + oy : ot - oy) + (p.y - Math.floor(p.y));
     return LANDED;

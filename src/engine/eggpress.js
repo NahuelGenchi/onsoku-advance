@@ -3,7 +3,8 @@
 // the arena, 300 px wide and ending at the spawn point, and the boss music starts. 121 frames later the press
 // drops in 60 px left of its spawn point, lands, and Eggman laughs. Then it hops at Sonic over and over: each
 // hop takes 72 frames to reach where he stood, and after its fourth hit, every fourth jump is a leap off the top
-// of the screen that follows Sonic and lands on him, shaking the screen and hurting him unless he is in the air.
+// of the screen that follows Sonic and lands on him, shaking the screen and hurting him unless he is in the air
+// (sliding from a glide counts as on the ground).
 // A jump into the top of the press hits it; it flashes white and can't be hit again for 32 frames; it moves
 // faster with each hit. The eighth hit beats it: the spring and the base fly off, the press drops to the floor
 // and bounces, and for about 4 seconds it throws debris and explosions every 8 frames. Then Eggman flies off
@@ -198,7 +199,8 @@ export function createEggPress(e, slot, anims, ctx) {
       phase = stomp;
       c.world.playSound(SONG.IMPACT);
       c.add(screenShake(0x800, 0x40, 0x100, -1, SHAKE.VERTICAL), SCREEN_SHAKE);
-      if (!p.air) {
+      // on the ground, or Knuckles sliding from a glide (charState 65)
+      if (!p.air || p.state === 'glideSlide') {
         c.world.damage();
         startAnim(s2, 'eggPressEggmanLaugh'); s2.over = false;
       }

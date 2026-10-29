@@ -46,6 +46,7 @@ import { openSave, saveActCleared, WRITE_FRAMES } from './save.js';
 import { playerControls } from './input.js';
 
 const MAX_BRAKE_DUST = 20;   // the original keeps a pool of 20 brake dust clouds
+const EFFECTS = 0x4001;      // the priority of Sonic's effects' tasks, as of the item boxes' (ITEM_TASKS)
 const MAX_RING_SPARKLES = 8;   // with 8 sparkles showing, a ring is still counted but makes no sparkle or sound
 const START_LIVES = 3;
 const ITEM_TIME = 1200;   // invincibility and speed shoes last 20 seconds
@@ -225,10 +226,20 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   };
   let render = newRenderer();
 
+  // an effect is a task of its own at 0x4001, made as it appears, so it runs after Sonic and after the item
+  // tasks made before it (a shield in front of it on OAM order 8); it first runs in the frame that makes it
   function spawn(kind, name, x, y, flipX, flipY = false) {
     const e = { kind, anim: makeAnimator(), x, y, flipX, flipY };
-    setAnim(e.anim, name);   // first ticked by updateEffect() in the same step
+    setAnim(e.anim, name);
     state.effects.push(e);
+    tasks.add({
+      run() {
+        if (!state.effects.includes(e)) return false;
+        if (!updateEffect(e)) { state.effects.splice(state.effects.indexOf(e), 1); return false; }
+        if (!e.hidden) draw({ frame: frameOf(e.anim, anims), flipX: e.flipX, flipY: e.flipY, order: 8, prio: e.prio ?? 2 }, e.x, e.y);
+        return true;
+      },
+    }, EFFECTS);
     return e;
   }
   // his feet, above his centre under flipped gravity
@@ -483,6 +494,10 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     spawnInstaShield() { spawn('shield', 'instaShieldFlash', player.x, centreY(), player.facing > 0); },
     // the tail swipe's effect follows Tails, facing as he does (Player_Tails_InitGfx_TailSwipe)
     spawnTailSwipe() { spawn('swipe', 'tailSwipeFx', player.x, centreY(), player.facing > 0, player.inverted); },
+    // Knuckles' uppercut flame follows him the same way (Player_Knuckles_InitGfx_UppercutFlame)
+    spawnUppercutFlame() { spawn('swipe', 'uppercutFlame', player.x, centreY(), player.facing > 0, player.inverted); },
+    // and his splash floating on water, while he floats there (Player_Knuckles_InitGfx_FloatSplash)
+    spawnFloatSplash() { spawn('splash', 'floatSplash', player.x, centreY(), player.facing > 0); },
     marbleTails() { if (character === TAILS) { player.marbleTails = makeAnimator(); setAnim(player.marbleTails, 'marbleTrackTails'); } },
   };
 
@@ -521,6 +536,15 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     if (e.anim.done) return false;
     if (e.kind === 'shield') { e.x = player.x; e.y = centreY(); }
     if (e.kind === 'swipe') { e.x = player.x; e.y = centreY(); e.flipX = player.facing > 0; e.flipY = player.inverted; }
+    // Knuckles' splash (Task_KnucklesFloatSplash): gone once he stops floating, 4 px above his centre at his sprite's
+    // priority, shown while his centre is less than 6 px under the water line
+    if (e.kind === 'splash') {
+      if (player.state !== 'waterFloat') return false;
+      const level = world.waterLevel;
+      e.x = Math.floor(player.x); e.y = Math.floor(player.y) - 4; e.flipX = player.facing > 0;
+      e.prio = player.front ? 1 : player.prio;
+      e.hidden = !(level >= 0 && Math.floor(player.y) - 6 < level);
+    }
     tickAnim(e.anim, anims);
     return true;
   }
@@ -814,7 +838,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
       firstCard = false;
       tasks.add(hudTask, 0x2180);
     }],
-    // Sonic's task has ended at the game over or the time over; his effects run on
+    // Sonic's task has ended at the game over or the time over (his effects' tasks run on)
     [0x3000, () => {
       if (!state.gameOver && !state.timeOver) {
         const held = state.card !== null ? CARD_INPUT : player.ignoreInput ? player.heldInput ?? NO_INPUT : mode ? mode.input(input) : input;
@@ -829,8 +853,6 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
         if (mode) mode.send();
         else drawSonic();
       }
-      state.effects = state.effects.filter(updateEffect);
-      for (const e of state.effects) draw({ frame: frameOf(e.anim, anims), flipX: e.flipX, flipY: e.flipY, order: 8, prio: 2 }, e.x, e.y);
     }],
     // the music manager: invincibility's song and an extra life's 1-up jingle in place of the act's music
     // (synth.js runs it, with what it reads of Sonic)

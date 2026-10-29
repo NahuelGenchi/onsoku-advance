@@ -5,7 +5,8 @@
 //   is held curled up on its slope, half a pixel down for each pixel out from the pivot, rolling out at
 //   0.3125 px a frame, with his controls taken; a jump press flips him off, the faster the farther out he
 //   is, at -1984/256 px a frame up less 1/16 px for each pixel out, and 1/8 px across for each. Rolling off
-//   its end lets him go at 1 px a frame. From below it holds him under it.
+//   its end lets him go at 1 px a frame. From below it holds him under it. Knuckles climbing into it finds it
+//   solid, except climbing down, and standing on it that way curls him up in the air facing along it.
 // - the standing flipper (56) is solid; walking or rolling into it from below its pivot bats him back the way
 //   he came at 10 px a frame.
 // - the small blue flipper (73) is part of a marble track, as step d1: taking him from an earlier step, it
@@ -18,7 +19,7 @@
 
 import { makeSprite, startAnim, animate, offCam } from './objects.js';
 import { overlap, platform, LANDED } from './collide.js';
-import { endAttack } from './player.js';
+import { endAttack, climbing } from './player.js';
 import { setOffsetY } from './sensors.js';
 import { SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y } from './constants.js';
 import { s8 } from './trig.js';
@@ -32,7 +33,6 @@ const BAT = 10;
 const BLUE_THROW = -3216 / 256, GRAVITY = 42 / 256, BLUE_ART = 24;
 
 const s16 = v => (v << 16) >> 16;
-
 // Coll_Player_Entity_Intersection: his body's box against the flipper's
 function touches(s, x, y, p) {
   return !p.dead && s.boxes[0] && overlap(x, y, s.boxes[0], Math.floor(p.x), Math.floor(p.y), [-SOX, -p.offsetY, SOX, p.offsetY]);
@@ -68,7 +68,18 @@ function lying(e, slot, anims) {
         p.jumpPressed = false; noPresses(input);
         p.ignoreInput = true;
       };
-      if (touches(o, e.x, e.y, p)) {
+      if (touches(o, e.x, e.y, p) && climbing(p)) {
+        // climbing into it: it is only solid, unless he climbs down, and standing on it curls him up in the air
+        if (p.state !== 'climbDown') {
+          platform(o, o.boxes[0], p, ctx.world.terrain);
+          if (p.onObject === o) {
+            cancel(p);
+            p.state = 'spin'; p.curled = true;
+            p.onObject = null; p.air = true;
+            p.facing = left ? -1 : 1;
+          }
+        }
+      } else if (touches(o, e.x, e.y, p)) {
         if (p.ysp >= 0 && p.y < e.y + 19 && p.air) {
           if (input.jumpPressed && holding) {
             holding = false;

@@ -4,12 +4,12 @@
 // its spawn point until Sonic lands on it, then slides off with him standing on it, gathering speed downhill:
 // to the left when d1 is set, to the right otherwise. Where the ground drops away it leaps (Ice Mountain's
 // drops) and falls; it lands d0 times and goes on, and breaks on the landing after that, or when it runs into
-// a wall ahead of it on its right, throwing Sonic up.
+// a wall ahead of it on its right, throwing Sonic up. Knuckles climbing past a waiting one never rides it.
 
 import { makeSprite, animate, offCam, offDisplay } from './objects.js';
-import { skatingStone, platformTop, overlap, LANDED } from './collide.js';
+import { skatingStone, platformTop, overlap, LANDED, FROM_BELOW } from './collide.js';
 import { scan, probeTile, PROBE_FLOOR, PROBE_WALL } from './terrain.js';
-import { endAttack } from './player.js';
+import { endAttack, climbing } from './player.js';
 import { setOffsetY } from './sensors.js';
 import { SINE } from './trig.js';
 import { SONG } from '../sound/songs.js';
@@ -58,7 +58,13 @@ export function createSkatingStone(e, slot, anims, ctx) {
   function wait(ctx) {
     const p = ctx.player, cam = ctx.cam;
     sx = s16(e.x - cam.x); sy = s16(e.y - cam.y);
-    if (!p.dead && (skatingStone(o, o.boxes[0], p) & LANDED)) {
+    if (!p.dead && climbing(p)) {
+      // Knuckles climbing: below its point it is solid unless he climbs down, and stops him 6 px under it; above,
+      // unless he climbs up
+      if (p.y > e.y) {
+        if (p.state !== 'climbDown' && skatingStone(o, o.boxes[0], p) & FROM_BELOW) p.y = e.y + 6;
+      } else if (p.state !== 'climbUp') skatingStone(o, o.boxes[0], p);
+    } else if (!p.dead && (skatingStone(o, o.boxes[0], p) & LANDED)) {
       // he is put in the air 44 px above its spawn point, standing; he lands on it as it slides
       p.onObject = null; p.air = true; p.jumped = false; p.curled = false; p.airLock = false;
       setOffsetY(p, 14);

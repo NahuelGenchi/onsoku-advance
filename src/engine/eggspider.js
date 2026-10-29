@@ -13,6 +13,7 @@ import { tileFloor, LAYER_BACK } from './terrain.js';
 import { screenShake, SCREEN_SHAKE } from './screenshake.js';
 import { SONG } from '../sound/songs.js';
 import { SCREEN_W, SCREEN_H } from './constants.js';
+import { KNUCKLES } from './player.js';
 import { HIT_ENEMY, HIT_PLAYER, bossHit, setBossCamBounds, preBossCameraPan, bossDebris, bossPart, eggMobileEscape } from './bosses.js';
 
 const I = v => v >> 8;
@@ -38,6 +39,10 @@ function setVariant(s, name) {
   else startAnim(s, name);
 }
 
+// what his held controls stay at: nothing, or down for Knuckles floating on the water (animation 269)
+const HOLD_DOWN = { left: false, right: false, up: false, down: true, jump: false, attack: false, boost: false, trick: false,
+  jumpPressed: false, attackPressed: false, boostPressed: false, trickPressed: false };
+
 /** CreateEntity_EggSpider: the boss's task and the arena's camera bounds; Sonic's controls are held. */
 export function eggSpider(e, slot, anims, ctx0) {
   const x0 = e.x, y0 = e.y, world = ctx0.world, p0 = ctx0.player;
@@ -50,6 +55,7 @@ export function eggSpider(e, slot, anims, ctx0) {
   ctx0.add({ run(ctx) { ctx.world.initWaterPalettes(); return true; } }, WATER_PALETTES);
   p0.gsp = 0;
   p0.ignoreInput = true;
+  p0.heldInput = p0.character === KNUCKLES && p0.state === 'waterFloat' ? HOLD_DOWN : null;
   world.scatter.ceilings = true;
 
   const pos = () => [x0 + I(boss.qx), y0 + I(boss.qy)];

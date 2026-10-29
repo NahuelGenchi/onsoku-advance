@@ -7,11 +7,12 @@
 // a frame in his spring somersault, and plays its launch animation. Its sides push him out on their own,
 // 8 px of slack each way, and set him on the terrain when that puts him in it. Two quirks of the original are
 // kept: while he is in the spring somersault (from any spring) its sides don't move him, and whenever he
-// pushes against anything but its block, it stops his pushing and sets him walking.
+// pushes against anything but its block, it stops his pushing and sets him walking. Knuckles climbing into
+// its block from below or from a side lets go of the wall, curled up in the air.
 
 import { makeSprite, startAnim, animate, offCam, offDisplay } from './objects.js';
-import { platform, overlap, PUSHING } from './collide.js';
-import { endAttack } from './player.js';
+import { platform, overlap, PUSHING, FROM_BELOW, LEFT_FACE, RIGHT_FACE } from './collide.js';
+import { endAttack, climbing } from './player.js';
 import { scan, PROBE_FLOOR } from './terrain.js';
 import { SINE } from './trig.js';
 import { SONG } from '../sound/songs.js';
@@ -65,6 +66,8 @@ export function createMovingSpring(e, slot, anims) {
     side(p, ctx.world.terrain);
     const r = platform(o, o.boxes[0], p, ctx.world.terrain);
     if (p.state === 'spring') p.x = x;
+    // Knuckles climbing into it from below or a side lets go of the wall, curled up in the air
+    if (r & (FROM_BELOW | LEFT_FACE | RIGHT_FACE) && climbing(p)) { endAttack(p); p.state = 'spin'; p.curled = true; p.air = true; }
     if (!(r & PUSHING) && p.pushing) { p.pushing = false; endAttack(p); p.state = 'walk'; }
     return thrown;
   }

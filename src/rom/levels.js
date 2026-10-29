@@ -99,22 +99,27 @@ export const LEVELS = {
   // 10; the act's only, so its zone keeps act 1's index. Its background and its launch and stage separations
   // are eggrocket.js's. Picked from the course select, the HUD's task data lands on memory holding 0 (hud.js). The breakable wall is 596 (gUnknown_080BB544); zone 6 act 1's square
   // platforms are 518 and, long, 519, and zone 6's moving spring 582 (their CreateEntity_). Its thin platform (sPlatformThinAnims), crumbling platform (sPlatformCrumblingAnims) and
-  // bounce block (sBounceBlockAnims) are its own, and so is its trampoline (505, CreateEntity_Trampoline)
+  // bounce block (sBounceBlockAnims) are its own, its ferris wheels' seats are its thin platform (gUnknown_086CEE2C), and so is its trampoline (505, CreateEntity_Trampoline)
   10: { name: 'Egg Rocket Zone', zone: 5, act: 0, paletteAnimations: [839, 840, 841, 842], music: 22,
     backgroundScroll: 'eggRocket', hudFlash: 0,
     sprites: {
-      thinPlatform: [517, 0], crumblingPlatform: [513, 0], bounceBlock: [507, 0], trampoline: [505, 0], trampolineBounce: [505, 1],
+      thinPlatform: [517, 0], crumblingPlatform: [513, 0], bounceBlock: [507, 0], ferrisSeat: [517, 0], trampoline: [505, 0], trampolineBounce: [505, 1],
       breakableWall: [596, 0], squarePlatform: [518, 0], squarePlatformLong: [519, 0], movingSpring: [582, 1], movingSpringLaunch: [582, 0],
     },
   },
   // StageInit_Zone6Act2: eight palette animations, each cycling one row of the background palette, and
   // MUS_COSMIC_ANGEL. StageBgUpdate_Zone6Act2 scrolls the background (backgrounds.js). The HUD's task data lands
   // on memory the menus last used, which holds 90 when the act is picked from the course select (hud.js). Zone 6
-  // act 2's square platforms are 599 and, long, 600, and zone 6's moving spring 582 (their CreateEntity_)
+  // act 2's square platforms are 599 and, long, 600, and zone 6's moving spring 582 (their CreateEntity_). Its thin and
+  // falling platforms and its ferris wheels' seats are 598 (sPlatformThinAnims, gUnknown_086CEE2C), its crumbling
+  // platform 602 (sPlatformCrumblingAnims) and its bounce block 601 (sBounceBlockAnims)
   11: {
     name: 'Cosmic Angel Zone', zone: 5, act: 1, paletteAnimations: [829, 830, 831, 850, 851, 848, 846, 847], music: 23,
     backgroundScroll: 'cosmicAngel', hudFlash: 90,
-    sprites: { squarePlatform: [599, 0], squarePlatformLong: [600, 0], movingSpring: [582, 1], movingSpringLaunch: [582, 0] },
+    sprites: {
+      thinPlatform: [598, 0], ferrisSeat: [598, 0], crumblingPlatform: [602, 0], bounceBlock: [601, 0],
+      squarePlatform: [599, 0], squarePlatformLong: [600, 0], movingSpring: [582, 1], movingSpringLaunch: [582, 0],
+    },
   },
   // StageInit_Zone7Act1: only its song. StageBgUpdate_Zone7Act1 scrolls the background as a whole (backgrounds.js).
   // Picked from the course select, the HUD's zero-ring flash starts from the 90 the menus left in its task's

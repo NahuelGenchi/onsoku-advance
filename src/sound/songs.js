@@ -43,6 +43,8 @@ export const SONG = {
   TAILS_FLYING: 120,       // SE_TAILS_PROPELLER_FLYING: Tails' flight, started again on each of its frames
   TAIL_SWIPE: 121,         // SE_TAILS_TAIL_SWIPE
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
+  PUNCH_2: 126,            // SE_126: Knuckles' second punch
+  PUNCH_3: 127,            // SE_127: and his third
   GOAL: 135,               // SE_GOAL: Sonic passes the goal signpost
   CAPSULE_LANDS: 136,      // SE_136: the boss capsule lands
   CAPSULE_OPENS: 137,      // SE_137: Sonic lands on its switch

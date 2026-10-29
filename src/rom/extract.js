@@ -74,20 +74,32 @@ export const TAILS_ANIMATIONS = {
   fly: [155, 0], flyTurn: [156, 0], flyTired: [157, 0], swim: [145, 0], swimTurn: [146, 0],
   tailSwipe: [149, 0], tailSwipeFx: [777, 0], tailsSpin: [107, 1], marbleTrackTails: [138, 1],
 };
-// Sonic's own moves: his spin dash's rev, the air dash, the insta-shield, the B combo and grinding (the
-// others' grinding animations are empty)
-const SONIC_ONLY = new Set(['spinDashRev', 'airDash', 'instaShield', 'spinAttack', 'somersault', 'slide', 'slideEnd', 'backflip',
+// Knuckles' own (charStates 62 to 84): gliding, turning round in a glide, gliding under water, dropping from it
+// and landing, sliding on after it, grabbing a wall, climbing (still, up and down) and onto a ledge, the punches
+// and the uppercut, floating on water (and looking up there), and the uppercut's flame and the float's splash
+export const KNUCKLES_ANIMATIONS = {
+  glide: [260, 0], glideTurn0: [261, 0], glideTurn1: [261, 1], glideTurn2: [261, 2], glideTurn3: [261, 3], swim: [245, 0],
+  glideDrop: [263, 0], dropLand: [263, 1], glideSlide: [262, 0], wallGrab: [264, 0],
+  climb: [265, 2], climbUp: [265, 0], climbDown: [265, 1], ledgeClimb: [265, 3], ledgeTop: [265, 4],
+  punch1: [249, 0], punch2: [249, 1], punch3: [250, 0], uppercut: [250, 1], waterFloat: [269, 0], waterFloatUp: [271, 0],
+  uppercutFlame: [250, 3], floatSplash: [782, 0],
+};
+// Sonic's own moves: the air dash, the insta-shield, the B combo and grinding (the others' grinding animations
+// are empty), and his spin dash's rev, which Knuckles has too
+const SONIC_ONLY = new Set(['airDash', 'instaShield', 'spinAttack', 'somersault', 'slide', 'slideEnd', 'backflip',
   'grind', 'grindSteep', 'railJump']);
+const OWN = { 1: TAILS_ANIMATIONS, 2: KNUCKLES_ANIMATIONS };
 
 /**
  * The animations of `character` by name. The character state table (sCharStateAnimInfo) gives its first 43
  * states relative to the character's first animation, `first` (gPlayerCharacterIdleAnims), so Sonic's names
- * move by it, but his own moves; Tails' own come with them.
+ * move by it, but his own moves; the character's own come with them.
  */
 export function characterAnimations(character, first) {
   if (character === 0) return SONIC_ANIMATIONS;
-  const moved = Object.entries(SONIC_ANIMATIONS).filter(([name]) => !SONIC_ONLY.has(name)).map(([name, [anim, variant]]) => [name, [first + anim, variant]]);
-  return { ...Object.fromEntries(moved), ...TAILS_ANIMATIONS };
+  const moved = Object.entries(SONIC_ANIMATIONS).filter(([name]) => !SONIC_ONLY.has(name) && (name !== 'spinDashRev' || character === 2))
+    .map(([name, [anim, variant]]) => [name, [first + anim, variant]]);
+  return { ...Object.fromEntries(moved), ...OWN[character] };
 }
 export const EFFECT_ANIMATIONS = {
   brakeDust: [748, 0], dashDust: [746, 0], dashDustBig: [747, 0], instaShieldFlash: [50, 1],
@@ -465,7 +477,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0, 
   await onProgress(id.known ? `Found ${id.known.name}.` : 'Unrecognized version, searching for the data…');
   const offsets = locateTables(rom, id.known);
 
-  await onProgress(`Decoding ${['Sonic', 'Tails'][character]}…`);
+  await onProgress(`Decoding ${['Sonic', 'Tails', 'Knuckles'][character]}…`);
   const tables = spriteTables(rom, offsets.spriteTables);
   // the zone's acts from `level` on, which share the zone's looks for the objects that differ by level
   // (the extra stage, the Moon Zone, is X Zone's act 2 but only ever comes on its own)

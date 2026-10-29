@@ -47,6 +47,7 @@ export function createEngine(video, rom, sound) {
   const e = {
     rom, video,
     playSong: song => sound?.play(song),   // m4aSongNumStart
+    playSongOrChange: song => sound?.playOrChange?.(song),   // m4aSongNumStartOrChange
     stopSong: song => sound?.stop(song),   // m4aSongNumStop
     pauseSongs: song => sound?.pause?.(song),   // the pause menu's start (Task_PauseMenuInit)
     continueSongs: () => sound?.continueAll?.(),   // m4aMPlayAllContinue
@@ -144,8 +145,9 @@ export function createEngine(video, rom, sound) {
   let lagging = 0;
   /**
    * The screen update at the end of this frame (its V-blank's copies, as the main loop makes them after
-   * VBlankIntrWait) is too much for one frame: the next `frames` frames do nothing, and the tasks run again after
-   * them. The engine doesn't count the CPU's time, so a screen that takes it this way says so.
+   * VBlankIntrWait) is too much for one frame: the next `frames` frames do nothing but count (VBlankIntr still
+   * runs), and the tasks run again after them. The engine doesn't count the CPU's time, so a screen that takes it
+   * this way says so.
    */
   e.lag = frames => { lagging = frames; };
   /** The tasks in the list's order, for checking. */
@@ -157,24 +159,24 @@ export function createEngine(video, rom, sound) {
 
   // --- copies to VRAM --------------------------------------------------------------------------------------------
   /** ADD_TO_GRAPHICS_QUEUE: `gfx` ({ src, dest, size }, src a ROM offset and dest a VRAM offset) is copied in
-   *  the next V-blank, as it is then. */
+   *  the next V-blank, as it is then; with `ram` (a Uint8Array), src is an offset in it instead. */
   e.queueGraphics = gfx => { gfxQueue[gfxIndex] = gfx; gfxIndex = (gfxIndex + 1) % GFX_QUEUE; };
   /** Drops what the queues hold, as screens do when they start. */
   e.clearQueues = () => { gfxCursor = gfxIndex; bgCursor = bgIndex; };
   e.queueBackground = bg => { bgQueue[bgIndex] = bg; bgIndex = (bgIndex + 1) % BG_QUEUE; };
 
-  // DmaCopy16 of `bytes` bytes from the ROM into VRAM
-  function copy16(src, dest, bytes) {
+  // DmaCopy16 of `bytes` bytes from the ROM (or `from`) into VRAM
+  function copy16(src, dest, bytes, from) {
     const n = bytes & ~1;
-    video.vram.set(rom.bytes.subarray(src, src + n), dest);
+    video.vram.set((from ?? rom.bytes).subarray(src, src + n), dest);
   }
   // ProcessVramGraphicsCopyQueue: 1 KB at a time, each entry's size counted down to 0
   function copyGraphics() {
     while (gfxCursor !== gfxIndex) {
       const g = gfxQueue[gfxCursor];
       for (let offset = 0; g.size > 0; offset += COPY_CHUNK) {
-        if (g.size > COPY_CHUNK) { copy16(g.src + offset, g.dest + offset, COPY_CHUNK); g.size -= COPY_CHUNK; }
-        else { copy16(g.src + offset, g.dest + offset, g.size); g.size = 0; }
+        if (g.size > COPY_CHUNK) { copy16(g.src + offset, g.dest + offset, COPY_CHUNK, g.ram); g.size -= COPY_CHUNK; }
+        else { copy16(g.src + offset, g.dest + offset, g.size, g.ram); g.size = 0; }
       }
       gfxCursor = (gfxCursor + 1) % GFX_QUEUE;
     }
@@ -388,6 +390,7 @@ export function createEngine(video, rom, sound) {
   e.run = () => {
     if (lagging) {
       lagging--;
+      e.frameCount++;
       return;
     }
     if (stall) {

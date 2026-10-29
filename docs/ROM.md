@@ -609,7 +609,7 @@ Turning it on or off (<kbd>V</kbd>) re-fits the view at once. It was checked on 
 
 **The screen.** Layer 0 is the background, grey and white checks: its colours, 5 tiles and 32 × 20 map are one block in the ROM (`0x6C5650` in the USA ROM, found by its map's first entries in other versions). On top of it OPTIONS scrolls left along a blue bar at the top, a pixel a frame, and under that come the eight items, 16 lines apart from line 38: PLAYER DATA, LEVEL, TIME UP, SOUND TEST, LANGUAGE, BUTTON CONFIG., DELETE GAME DATA and END. The cursor (animation 857) points at the chosen item, which is drawn 5 px further right, lit (sprite palette row 1) while it is in use. The values are at x 220: LEVEL's NORMAL or EASY, TIME UP's ON or OFF, the language, and BUTTON CONFIG.'s NORMAL or REVERSE. The items and the values are animation 863 in English and 866 in Japanese, and the title 864 or 865, by the save's language. The USA ROM shows the language as variant 10 of that animation, ENGLISH, where the European one shows one of its six languages.
 
-**Choosing.** Up and Down move the cursor, wrapping round at both ends, with the cursor sound (song 108) and the main menu's key repeat. A on LEVEL, TIME UP or BUTTON CONFIG. plays the select sound and lights the item. Left and Right then set it with the cursor sound, straight into the save in memory: Left gives EASY, OFF and NORMAL, Right NORMAL, ON and REVERSE. A or B plays the select sound and puts the item down. A on SOUND TEST plays the select sound and fades the menu out to black over 32 frames, its music going on. Then `OptionsSelectSoundTest` stops song 3, the character select's music, which isn't playing, so the Options music plays on into the [sound test](#the-sound-test).
+**Choosing.** Up and Down move the cursor, wrapping round at both ends, with the cursor sound (song 108) and the main menu's key repeat. A on LEVEL, TIME UP or BUTTON CONFIG. plays the select sound and lights the item. Left and Right then set it with the cursor sound, straight into the save in memory: Left gives EASY, OFF and NORMAL, Right NORMAL, ON and REVERSE. A or B plays the select sound and puts the item down. A on PLAYER DATA plays the select sound and fades the menu out to black over 32 frames; then the [player data menu](#player-data) starts. A on SOUND TEST does the same, its music going on. Then `OptionsSelectSoundTest` stops song 3, the character select's music, which isn't playing, so the Options music plays on into the [sound test](#the-sound-test).
 
 **Delete Game Data.** A on it plays the select sound and asks DELETE ALL DATA? (animation 877) over the menu, with NO chosen. Left and Right choose YES or NO with the cursor sound. Window 1 covers the choice, and inside it the brightness goes up by 12 sixteenths (`BLDCNT` `0x3FBF`). A on NO, or B, plays the return sound (song 107) and goes back to the menu. A on YES plays the select sound and asks REALLY?, NO chosen again, and there A on NO or B goes back to the first question. A on YES stops all sound and erases the flash (`sub_8012F6C`). In mGBA that takes one frame with the interrupts off, in which nothing runs and the screen keeps its last frame. On the next frame the save in memory is a new one (`CreateEmptySaveGame`) with the old language kept, the question goes, and the menu plays the select sound and starts its music again.
 
@@ -626,7 +626,7 @@ Turning it on or off (<kbd>V</kbd>) re-fits the view at once. It was checked on 
 
 **Not built yet.**
 
-- *PLAYER DATA and LANGUAGE:* A on them does nothing. The original plays the select sound and fades out to their screens, as it does for SOUND TEST.
+- *LANGUAGE:* A on it does nothing. The original plays the select sound and fades out to the language screen, as it does for SOUND TEST.
 - *Chao Hunt* doesn't read the button setting.
 
 **How it was checked.** mGBA 0.10.5 recorded two runs from power-on with a save, dumping VRAM, palette RAM, OAM, the display registers and the picture after every frame, and the flash at the end. Two more, with the same keys, dumped the sound engine's state.
@@ -699,6 +699,46 @@ The engine's VRAM, palette RAM, OAM, display registers and picture match the rec
 
 In Chrome 156 and Firefox 159 (headless, a new profile each), the page played run A's keys from power-on with the same save stored. At five frames, the waving, song 1, the kiss after 39, the menu back and the main menu, both browsers drew the screen pixel for pixel as mGBA did, and neither console showed an error from the game.
 
+### Player data
+
+Three screens from the Options menu's PLAYER DATA. The menu is `CreatePlayerDataMenu` and its task (`src/game/sa1/menus/player_data.c`), ported in [`src/front/playerdata.js`](../src/front/playerdata.js). The VS record is `CreateVsRecord` and its two tasks (`src/game/sa1/ui/vs_record.c`), in [`src/front/vsrecord.js`](../src/front/vsrecord.js). The name input is `CreatePlayerNameInputMenu`, `sub_8058830` and `Task_80595DC` (`src/game/sa1/ui/player_name_input_menu.c`), in [`src/front/nameinput.js`](../src/front/nameinput.js). The decompilation has the name input's two tasks and the VS record's list only in assembly, so those were ported from it. In the USA ROM the menu's functions sit `0x4C` bytes before the decompilation's European ones, as the Options menu's do (`sub_8011C94` at `0x08011C48`). The VS record's and the name input's sit `0x34` bytes before (`Task_8060874` at `0x08060840`, `sub_8058830` at `0x080587FC`, `Task_80595DC` at `0x080595A8`).
+
+**Opening.** A on PLAYER DATA in the [Options menu](#the-options-menu) plays the select sound and fades the menu out to black over 32 frames. The player data menu is then set up black and starts its own song (48), which takes the Options music's player. It fades in from black over 32 frames.
+
+**The menu.** Layer 0 is a picture: its colours, `0xBA0` bytes of tiles and two 32 × 20 maps, the English one first, in one block `0x5C0` bytes after the Options menu's background (`0x6C5C10` in the USA ROM). Down its left are NAME, VS RECORD and OK (animation 868, or 869 in Japanese, variants 1, 0 and 2) at x 25 and y 65, 89 and 129. The cursor (857) sits at x 9, 2 lines above the chosen item, and the chosen item is drawn 5 px further right. Right of NAME, in a box, is the player's name: six glyphs of the UI font (UI graphics 0, sprite palette row 1) from x 159, 8 px apart, at y 60, and lowercase letters 8 px lower. As the menu opens, any byte of the name outside the font's 106 characters (`0x20`–`0x89`) becomes a space in the save in memory.
+
+**Choosing.** Once the fade-in is done, Up and Down move the cursor, wrapping round at both ends, with the cursor sound and the main menu's key repeat. A plays the select sound and B the return sound, and either fades the menu out to black over 32 frames. Then A opens the name input or the VS record, or on OK the Options menu, and B the Options menu. The Options menu starts as it does from the main menu, with its music and the cursor on PLAYER DATA. The player data menu always starts with the cursor on NAME.
+
+**The VS record.** It stops song 48 and plays its own (10). Each layer is a picture chosen by the language, its colours, tiles and map one after the other in a block of four from `0x6847B0` in the USA ROM: the Japanese frame (`0x7C0` bytes of tiles), the English frame (`0x940`), the Japanese list (`0x620`) and the English list (`0x600`). The frame is layer 0. The list is layer 1 under it, a 32 × 32 map scrolled with the rows. It fades in from black over 32 frames.
+
+- *At the top* are the player's name, from x 27 at y 32, and their own multiplayer wins, losses and draws (the save's `0x425`, `0x426` and `0x427`). A count of 10 or more is two digits. A count under 2 has a glyph past the font's characters (`0x8A`) over the label's plural, and in English the losses add a sprite (animation 872) at (152, 32): with counts of 12, 1 and 0 the English screen reads 12 WINS, 1 LOSE and 0 DRAW.
+- *The list* holds the ten records of the save's `multiplayerScores`, by most wins. The sort reads wins as signed bytes, so a record without a player (wins `0xFF`) comes last, and each swap moves all but a record's last byte. Each row shows the name from x 60 and the wins, losses and draws, two digits each, at x 128, 160 and 192, beside the rank and the W, L and D of the list's map; a record without a player shows no name and 0 wins. The rows are 16 lines apart, nine of them drawn from y 56, as sprites behind layer 0, so they scroll out under the frame. Lowercase letters are drawn 8 px lower, as in the menu.
+- *Up and Down,* held, scroll the list a pixel a frame, from 0 to 66 px. An arrow (animation 745) at x 233 shows at y 70 while the list can go up, and flipped at y 138 while it can go down.
+- *B,* once the fade-in is three quarters done, plays the return sound twice on the same frame and turns the fade round from where it is. When the screen is three quarters dark again, the screen ends: layers 1 and 2 are cleared in the next V-blank and the player data menu starts, black.
+
+**The name input.** It sets layers 1 and 2 up, keeps song 48 playing (`m4aSongNumStartOrChange`) and fades in from black over 32 frames. Layer 2 is a picture, UI graphics `0x23` with a 32 × 20 map. Layer 1 is the character grid, UI graphics `0x24` with a 32 × 32 map, scrolled. The maps are one block `0xD00` bytes after the sound test's background map (`0x67DC38` in the USA ROM): the picture's, the grid's at `0x1000` and the grid's with its cells lit at `0x1800`. A table at `0x681340` holds the character in each grid cell, then each character's first tile from `0x20`, and the two cursors' glyphs.
+
+- *The grid* is eight rows of ten cells, six rows in view: capitals, lowercase letters, digits, punctuation and symbols, and on the bottom row ←, → and END in the last three cells. Above it, a bar holds the name, each character two rows of two tiles of layer 1, copied every frame into the rows above the ones in view. A cursor mark (UI graphics `0x26`) bobs under the bar at the place the next character goes.
+- *The cursor* on the grid pulses, swelling and shrinking over 33 frames through the rotation hardware (matrix 2). The d-pad moves it with the cursor sound. A held direction repeats from its 16th frame, then every 5. Left and Right wrap round the row. Down past the sixth row in view scrolls the grid a row, and past the last row it goes back to the first. Up does the same the other way. The cell under the cursor is lit, except on a frame a key is pressed or when the name's place is past its sixth character.
+- *A,* with the select sound, puts the character at the name's place and moves the place on, writing over what was there. On ← and → it moves the place back or on instead, → as far as just past the sixth character. On END it fades the screen out over 32 frames, unless the name is all spaces. L and R move the place too, with no sound, R only as far as the sixth character.
+- *Start,* or A that takes the place past the sixth character, moves the cursor to END, scrolling the grid when the bottom row is out of view.
+- *B* takes out the character before the place, with the return sound: the characters after it close up and a space goes in at the end. With A and B pressed together, neither does anything.
+- *The glow:* the grid's colours (UI graphics `0x25`) are dimmed and brightened every frame, between 18 and 31 thirty-seconds of their own, along a sine that goes round in 47 frames.
+- *The end.* On the 61st frame after END, the bar's characters go into the save's `playerName`. If the name changed, `unk4` takes the game's frame count (`gFrameCount`), every sound stops and the save is written, which takes 14 frames (see [The save](#the-save)). Then layers 1 and 2 are cleared in the next V-blank and the player data menu starts, with its song from the start. With the game in mode 2, which only the multiplayer menu sets, the original goes to the multiplayer menu instead; that menu isn't built.
+
+**The frame count.** The original counts `gFrameCount` in its V-blank interrupt (`VBlankIntr`), which `GameInit` turns on. In mGBA 0.10.5 the count is 0 up to frame 6 and counts every frame from frame 6's V-blank, so frame f (f ≥ 6) runs with f − 6. That includes the title screen's late frame on the way back from a menu, whose V-blank comes while the main loop is still busy. Only flash writes, with the interrupts off, stop it. The engine leaves the front end's first 6 frames uncounted and counts late frames.
+
+**How it was checked.** mGBA 0.10.5 recorded four runs of the USA ROM from power-on with a save. Each dumped VRAM, palette RAM, OAM, the display registers, the picture and IWRAM after every frame, and the flash at the end. Start on 800 skips the intro, Start on 960 opens the main menu, A on Options on 1080 and A on PLAYER DATA on 1200.
+
+- *Run 1,* English, with a save holding six records and own counts of 12, 1 and 0: Down in the menu's fade-in, the cursor round both ends, the VS record, B in its fade-in, the list scrolled to its end and back, B out, then OK and B to the main menu.
+- *Run 2,* Japanese, with three records and own counts of 5, 10 and 13: the VS record, the list scrolled down, B out, then OK and B to the main menu.
+- *Run 3,* with a blank name: the name input, Start and A on END with the name still blank, characters added after moves, Right and Down held with their repeats and wrap, a sixth character taking the cursor to END, END and the save written; then the name input again, Start and END with the name unchanged, so no write, and B out to the main menu.
+- *Run 4,* with a blank name: B with nothing to take out, Start, A on END with a blank name, A on → twice and on ← past the start, L and R past both ends, B, each direction held round the grid, two characters after a gap, END and the save written.
+
+The engine's VRAM, palette RAM, OAM, display registers, picture and save match the recording's on every frame of the four runs, from 1150 to their ends, the frame count written into `unk4` included. The port's last write is byte for byte the flash's latest sector. The exceptions are the ones the Options menu's checks already show: the main menu's first two frames back from the Options menu, and 341 bytes of sprite tiles nothing draws (see [The sound test](#the-sound-test)). Run 2 was compared up to the main menu, which the port draws in English (see [The game's start](#the-games-start)). Before it, VRAM differs where the Japanese main menu left tiles (from `0xC00F`, and sprite tiles from `0x13280`), which nothing in these screens draws.
+
+In Chrome 156 and Firefox 159 (headless, a new profile each), the page played runs 1, 2 and 4 from power-on with the same saves stored, run 4's L and R on the keyboard's <kbd>Q</kbd> and <kbd>E</kbd>. At 21 frames across the three screens, both browsers drew the screen pixel for pixel as mGBA did, and neither console showed an error from the game.
+
 ### Title card
 
 The title card (`sub_80550F8`, task `0x2100` at `0x08055425` in the USA ROM) plays when the act starts and every time it starts over. It makes six tasks (`0x2120`), one per piece of the card, and passes them its frame count each frame; they run right after it. Each piece is a row of sprites at background priority 0, so the card is in front of every layer and sprite. Its graphics come from the UI graphics table (see [HUD](#hud)):
@@ -751,18 +791,19 @@ Sonic Advance keeps one save, `struct SaveGame` (`src/game/sa1/save.c`, and `Cre
 | Offset | Field | What it holds |
 | :--- | :--- | :--- |
 | `0x000` | `security` | `0x4F524950` ("PIRO") once written |
-| `0x004` | `unk4` | 0 |
+| `0x004` | `unk4` | the game's frame count (`gFrameCount`) when the name last changed, which the multiplayer link sends as the player's id; 0 in a new save |
 | `0x008` | `unlockedLevels[4]` | by character, the level after the last one cleared; 15 once the Moon Zone is cleared |
-| `0x010` | `playerName[8]` | the name input's (not built yet) |
+| `0x010` | `playerName[8]` | the player's name, six characters of the UI font (`0x20`–`0x89`) and two unused bytes, set by the [name input](#player-data) |
 | `0x018` | `difficultyLevel` | 0 normal, 1 easy |
 | `0x019` | `uiLanguage` | 0 Japanese, 1 English |
 | `0x01A` | `timeLimitDisabled` | 1 with the time limit off |
 | `0x01B` | `btnConfig` | 1 with A and B swapped |
 | `0x01C` | `chaosEmeralds` | a bit per special stage |
 | `0x020` | `timeRecords` | the three best course times by character and level, 36000 (10:00) when none |
-| `0x380` | `multiplayerScores[10]` | 16 bytes each: a player id, a name, wins, losses and draws |
+| `0x380` | `multiplayerScores[10]` | 16 bytes each: a player id, a name, wins, losses and draws, which the [VS record](#player-data) lists |
 | `0x420` | `unk420` | a best score, 50000 in a new save |
 | `0x424` | `unk424` | 1 once the Moon Zone is cleared, which adds three songs to the [sound test](#the-sound-test) |
+| `0x425` | `unk425`, `unk426`, `unk427` | the player's own multiplayer wins, losses and draws, which the VS record shows |
 | `0x428` | `score` | the rings every act's results have counted, which the Tiny Chao Garden spends |
 | `0x42C` | `checksum` | the sum of the 32-bit words before it |
 
@@ -777,14 +818,16 @@ The decompilation builds the European ROM, whose struct has one more byte, `lang
 - `HandleDeath`, a time over on the last life with no continue left: `unk420` becomes the score, if that is higher.
 - `CreateExtraStageResults`, the Moon Zone's end: `unlockedLevels[0]` becomes 15 and `unk424` 1.
 - The [Options menu](#the-options-menu) sets the difficulty, the time limit and the button setting, and its Delete Game Data makes the save a new one, keeping the language.
-- The language screen and the name input change their own settings. They aren't built yet ([#139](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/139), [#140](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/140)).
+- The [name input](#player-data) sets `playerName`, and `unk4` when the name changes.
+- The language screen changes its own setting. It isn't built yet ([#140](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/140)).
 
 **Writing it.** `WriteSaveGame` compares the save in memory with the sector it was read from or last written to, and does nothing when they are the same. Otherwise it erases the next sector but one, sets the security word and the checksum, and writes the next sector. In mGBA 0.10.5 that takes 14 frames with the interrupts off: the screen keeps its last frame, nothing runs, and the game's frame counter (`gFrameCount`) doesn't count them. The game writes it:
 
 - as an act's results end (`GoToNextLevel`), before it starts the next act (see [The next act](#the-next-act)). With the save up to date the next act starts on the results' last frame, 14 frames sooner;
 - as the game over ends (see [Game over and the continue screen](#game-over-and-the-continue-screen));
 - as the congratulations start, and as the Moon Zone ends (see [The Moon Zone](#the-moon-zone));
-- as the Options menu closes (see [The Options menu](#the-options-menu)).
+- as the Options menu closes (see [The Options menu](#the-options-menu));
+- as the name input closes with the name changed (see [Player data](#player-data)).
 
 Delete Game Data erases the flash instead (`sub_8012F6C`), which mGBA does in one frame with the interrupts off; the port removes `onsoku.save` from the browser's storage, and the next write stores the new save.
 
@@ -1095,10 +1138,12 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Intro | 1 | 0 | The intro starts; it stops when the intro is skipped, and otherwise ends on its own on the title screen |
 | SEGA's ring | 102 | 3 | Sonic Team's logo has closed up |
 | Title screen | 2 | 0 | The title screen opens after the logos' fade or the intro is skipped |
-| Select | 106 | 2 | Start on the title screen, A on Game Start or Options; in the Options menu, A on a setting, on Delete Game Data, on SOUND TEST or on END, A or B putting a setting down, A on YES, and the menu again after the delete |
-| Menu cursor | 108 | 2 | Up or Down in the main menu and the Options menu, and each repeat; Left or Right on a setting or a question |
-| Options | 11 | 0 | The Options menu opens, again after Delete Game Data, and again back from the sound test |
-| Return | 107 | 2 | B or END in the Options menu, A on NO or B at its questions, and B leaving the sound test |
+| Select | 106 | 2 | Start on the title screen, A on Game Start or Options; in the Options menu, A on a setting, on Delete Game Data, on PLAYER DATA, on SOUND TEST or on END, A or B putting a setting down, A on YES, and the menu again after the delete; A in the player data menu and in the name input |
+| Menu cursor | 108 | 2 | Up or Down in the main menu, the Options menu and the player data menu, and each repeat; Left or Right on a setting or a question; each move in the name input |
+| Options | 11 | 0 | The Options menu opens, again after Delete Game Data, and again back from the sound test and the player data menu |
+| Player data | 48 | 0 | The [player data menu](#player-data) opens; the name input keeps it on |
+| VS record | 10 | 0 | The VS record opens |
+| Return | 107 | 2 | B or END in the Options menu, A on NO or B at its questions, B leaving the sound test, the player data menu or the VS record (twice there, on one frame), and B taking a character out in the name input |
 | The sound test's songs | its list | 0, 1 | A in the [sound test](#the-sound-test) |
 | Boss fight | 29 | 0 | Started and stopped at once as Game Start or Options leaves the menu, which stops the title's music |
 | Neo Green Hill Zone act 1 | 12 | 0 | The act starts, and starts over after a life is lost |

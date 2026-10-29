@@ -124,6 +124,7 @@ export function findChaoSpawns(rom) {
 // 32 × 20 map, one after the other; the map's rows start with tiles 0, 1 and 2 over and over, and it uses no other
 // tiles than those five, unflipped or flipped, in palette row 0
 const OPTIONS_TILES = 0x20, OPTIONS_MAP = 0xC0, OPTIONS_MAP_ENTRIES = 32 * 20, OPTIONS_TILE_COUNT = 5;
+const OPTIONS_BACKGROUND_SIZE = OPTIONS_MAP + 0x500;
 
 /** The Options menu's background: where its colours start, its tiles and map after them. */
 export function findOptionsBackground(rom) {
@@ -160,11 +161,69 @@ export function findSoundTest(rom) {
   return { songs: null, map: null };
 }
 
+// the VS record's pictures (gUnknown_0868B8D4 on): its frame and its list, each Japanese then English, one after
+// the other, each its 16 colours, its tiles and its map; each map uses every one of its tiles, unflipped or flipped,
+// the frames' in palette row 0 and the lists' in row 1. [tiles, map, palette row], in bytes
+const VS_RECORD_PICTURES = [[0x7C0, 0x500, 0], [0x940, 0x500, 0], [0x620, 0x580, 1], [0x600, 0x580, 1]];
+const PICTURE_COLOURS = 0x20;
+
+/** The VS record's pictures: where the first one's colours start. */
+export function findVsRecordBackgrounds(rom) {
+  const starts = [];
+  let size = 0;
+  for (const [tiles, map] of VS_RECORD_PICTURES) { starts.push(size); size += PICTURE_COLOURS + tiles + map; }
+  const fits = (at, [tiles, map, row]) => {
+    const count = tiles >> 5, layout = at + PICTURE_COLOURS + tiles;
+    let max = 0;
+    for (let i = 0; i < map >> 1; i++) {
+      const v = rom.u16(layout + i * 2), tile = v & 0x3FF;
+      if (v >> 12 !== row || tile >= count) return false;
+      max = Math.max(max, tile);
+    }
+    return max === count - 1;
+  };
+  // the lists first: a stretch of zeros fails their palette row at once
+  const order = [2, 3, 0, 1];
+  for (let at = 0; at + size <= rom.size; at += 4) {
+    if (order.every(k => fits(at + starts[k], VS_RECORD_PICTURES[k]))) return at;
+  }
+  return null;
+}
+
+// the name input's maps (gUnknown_08684D3C on): the grid's 32 × 20 in palette row 0 with tiles up to 640, then
+// 0x1000 bytes on the list's and its lit cells'; they follow the sound test's background map and 0x500 bytes more
+const NAME_INPUT_AFTER_SOUND_TEST = 0xD00, NAME_INPUT_GRID = 32 * 20, NAME_INPUT_TILES = 640;
+
+/** The name input's maps, after the sound test's background map (`soundTestMap`), if they are there. */
+export function findNameInputMaps(rom, soundTestMap) {
+  if (soundTestMap === null) return null;
+  const at = soundTestMap + NAME_INPUT_AFTER_SOUND_TEST;
+  let max = 0;
+  for (let i = 0; i < NAME_INPUT_GRID; i++) {
+    const v = rom.u16(at + i * 2);
+    if (v >> 12 !== 0 || (v & 0x3FF) > NAME_INPUT_TILES) return null;
+    max = Math.max(max, v & 0x3FF);
+  }
+  return max === NAME_INPUT_TILES ? at : null;
+}
+
+// the name input's characters (gUnknown_08688444): its grid's eight rows of ten, by row, from A to Z, '.', ',', the
+// middle dot and '-'; after it the tile of each character, from ' '
+const NAME_INPUT_FIRST_CHARS = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ.,'].map(c => c.charCodeAt(0)).concat(0x6A, 0x2D);
+
+/** The name input's characters. */
+export function findNameInputChars(rom) {
+  for (let at = 0; at + NAME_INPUT_FIRST_CHARS.length <= rom.size; at += 4) {
+    if (NAME_INPUT_FIRST_CHARS.every((c, i) => rom.u8(at + i) === c)) return at;
+  }
+  return null;
+}
+
 /** Offsets for this ROM: the known ones when the checksum matches, otherwise a search. */
 export function locateTables(rom, known) {
   if (known) return { ...known.offsets, searched: false };
   const tilemaps = findTilemaps(rom), collision = findCollision(rom, tilemaps), interactables = findInteractables(rom);
-  const soundTest = findSoundTest(rom);
+  const soundTest = findSoundTest(rom), optionsBackground = findOptionsBackground(rom);
   const offsets = {
     spriteTables: findSpriteTables(rom),
     tilemaps, collision,
@@ -189,9 +248,14 @@ export function locateTables(rom, known) {
     characterAnims: findCharacterAnims(rom),
     specialIntro: findSpecialIntro(rom),
     specialClouds: findSpecialClouds(rom),
-    optionsBackground: findOptionsBackground(rom),
+    optionsBackground,
+    // the player data menu's picture follows the Options menu's
+    playerDataBackground: optionsBackground === null ? null : optionsBackground + OPTIONS_BACKGROUND_SIZE,
     soundTestSongs: soundTest.songs,
     soundTestBackground: soundTest.map,
+    vsRecordBackgrounds: findVsRecordBackgrounds(rom),
+    nameInputMaps: findNameInputMaps(rom, soundTest.map),
+    nameInputChars: findNameInputChars(rom),
   };
   const missing = Object.entries(offsets).filter(([, v]) => v === null).map(([k]) => k);
   // only the multiplayer stages need it

@@ -43,9 +43,9 @@ export function paint(img, x, y, tiles, first, wide, high, palette) {
 }
 
 /**
- * The card for `level` (0 is Neo Green Hill act 1) and Sonic: { image, slots, text }. Each slot has the OAM
- * shape and size of its sprites, their width and height in pixels, and its glyphs' [x, y] on the sheet; text
- * maps each piece to its glyph numbers.
+ * The card for `level` (0 is Neo Green Hill act 1) and `character` (0 Sonic, 1 Tails): { image, slots, text }.
+ * Each slot has the OAM shape and size of its sprites, their width and height in pixels, and its glyphs' [x, y]
+ * on the sheet; text maps each piece to its glyph numbers.
  */
 export function titleCardGraphics(rom, uiAt, cardAt, level = 0, character = 0) {
   const entry = i => {

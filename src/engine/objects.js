@@ -256,7 +256,7 @@ export function createEntities(stage, anims, tasks) {
   const interactables = (s, ctx) => interactable(s.e, s, anims, ctx, stage.level, stage.zone);
   for (const [list, spawn] of [
     [stage.interactables, interactables],
-    [stage.itemBoxes, s => createItemBox(s.e, s, anims)],
+    [stage.itemBoxes, (s, ctx) => createItemBox(s.e, s, anims, ctx.player?.character)],
     // an enemy's maker may make nothing (some, on Easy)
     [stage.enemies, (s, ctx) => (ENEMIES[s.e.kind] ?? standIn)(s.e, s, anims, ctx)],
   ]) {

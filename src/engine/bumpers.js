@@ -18,6 +18,8 @@
 // - the wall bumper (71) is part of the scenery: while his centre is in its area, d2 × 8 px across and d3 × 8
 //   down, it throws him every frame at 5 px a frame across (right when d0 is odd, else left) and 7 up, or 6
 //   down when d0 is 3 or more, without curling him up.
+// - a flying Tails stops flying as any of them throws him, curled up (charState 5), and the wall bumper curls
+//   him up too.
 //
 // Each frame of the shake moves it by the sine table's values for 1/8 of a turn more; the last two read
 // past the table's end, where the ROM has 1 and 482 for their cosines, so they don't move it across.
@@ -25,6 +27,7 @@
 import { makeSprite, animate, offCam, offDisplay } from './objects.js';
 import { overlap } from './collide.js';
 import { BALL_SPRITE_OFFSET_Y } from './constants.js';
+import { endAttack, TAILS } from './player.js';
 import { SINE, s8, octantAngle } from './trig.js';
 import { SONG } from '../sound/songs.js';
 
@@ -50,9 +53,18 @@ function touches(s, x, y, p) {
   return !p.dead && s.boxes[0] && overlap(x, y, s.boxes[0], Math.floor(p.x), Math.floor(p.y), [-SOX, -p.offsetY, SOX, p.offsetY]);
 }
 
+// a flying Tails stops flying (Player_TransitionCancelFlyingAndBoost), curled up
+function stopFlying(p) {
+  if (p.character !== TAILS || p.midAir === 0) return false;
+  endAttack(p);
+  p.state = 'spin';
+  return true;
+}
+
 // thrown off: in the air and curled up, with his ball's height; it isn't a jump, so letting go of the button
 // doesn't cut it short, and he can steer
 function throwOff(p) {
+  stopFlying(p);
   p.onObject = null; p.air = true;
   p.jumped = false;                // MOVESTATE_100
   p.curled = true;
@@ -130,6 +142,7 @@ function wallBumper(e, slot) {
         p.jumped = false; p.air = true; p.airLock = false;
         p.xsp = dir & 1 ? 5 : -5;
         p.ysp = dir < 3 ? -7 : 6;
+        if (stopFlying(p)) { p.curled = true; p.offsetY = BALL_SPRITE_OFFSET_Y; }
       }
       if (offDisplay(e.x, e.y, ctx.cam)) { slot.live = null; return false; }
       return true;

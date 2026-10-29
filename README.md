@@ -136,6 +136,10 @@ Hit it at speed and Sonic races up and around its curved wall.
 
 Act 1 also has its loops, springs, spikes, grind rails, speed boosters, checkpoints, a trampoline, swinging, falling and crumbling platforms, bounce blocks, boulders, waterfalls, an incline ramp and a forced slide, all working as in the original.
 
+### Playing as Tails
+
+Until the character select is in, add `?character=1` to the game's address to play as Tails, for example [dreamports.net/play/sonic-advance/?character=1](https://dreamports.net/play/sonic-advance/?character=1). Press jump again in a jump and he flies for eight seconds, each press lifting him, and swims the same way under water. The attack button swipes his tails on the ground. His moves, sprites, sounds, title cards, results and face on the HUD and the 1-up boxes are the original's, checked frame by frame against the original in an act of every zone, under water, against a boss and in the special stages ([docs/ROM.md](docs/ROM.md#tails)). Grind rails are Sonic's and do nothing for Tails, as on the cartridge, and so are the [extras](#extras-you-can-switch-on), which do nothing for him even when switched on. After X Zone Tails gets the normal ending: the Moon Zone is Sonic's.
+
 ## True to the cartridge
 
 <div align="center">
@@ -290,6 +294,8 @@ compared with the original in [docs/ROM.md](docs/ROM.md#sonic-advance-2-tricks).
 | **Jump** | <kbd>Z</kbd> or <kbd>Space</kbd> | <kbd>A</kbd> |
 | **Insta-shield** | <kbd>Z</kbd> again in a jump, once the rise slows | <kbd>A</kbd> again |
 | **Mid-air dash** | Tap <kbd>←</kbd> <kbd>←</kbd> or <kbd>→</kbd> <kbd>→</kbd> in a jump | Tap left twice or right twice |
+| **Tails: fly**, or swim under water, each press lifting him | <kbd>Z</kbd> again in a jump, then again | <kbd>A</kbd> again, then again |
+| **Tails: tail swipe** | <kbd>X</kbd> on the ground | <kbd>B</kbd> or <kbd>X</kbd> |
 | **Attack:** spin, then kick, then slide or backflip | <kbd>X</kbd>, <kbd>X</kbd>, then <kbd>X</kbd> or <kbd>Z</kbd> | <kbd>B</kbd> or <kbd>X</kbd> (only <kbd>B</kbd> with the Rush boost on), again, then again or <kbd>A</kbd> |
 | **Crouch**, or **roll** while moving | <kbd>↓</kbd> | Down |
 | **Spin dash** | <kbd>↓</kbd> + <kbd>Z</kbd> | Down + <kbd>A</kbd> |
@@ -364,7 +370,7 @@ Here's the road through the rest of the game. Each step has its own issue, so yo
 </tbody>
 </table>
 
-Also on the way: the title screen's demos, the character select, the menu's other modes, and the other three [Chao Hunt](#multiplayer-chao-hunt) stages.
+Also on the way: the title screen's demos, the character select, Knuckles and Amy (Tails is in, at `?character=1`), the menu's other modes, and the other three [Chao Hunt](#multiplayer-chao-hunt) stages.
 
 <details>
 <summary><b>Milestones</b></summary>
@@ -487,7 +493,7 @@ cd sonic-advance-dreamport
 python -m http.server 8000
 ```
 
-Then open <http://localhost:8000>, add your ROMs and press *Play*. To start another act, add its number in the game's level list: <http://localhost:8000/?level=2> is Secret Base Zone act 1.
+Then open <http://localhost:8000>, add your ROMs and press *Play*. To start another act, add its number in the game's level list: <http://localhost:8000/?level=2> is Secret Base Zone act 1. Add `&character=1` to play as Tails.
 
 Two addresses skip ahead for testing: <http://localhost:8000/?debug> starts the act straight away, without the logos and the intro, and <http://localhost:8000/?special> starts Special Stage 1 as soon as the ROM is read, as if Sonic had just left act 1 on its special spring. When the stage ends, the act picks up again from that spring. With the level of another act that has a special spring it starts that act's stage instead: <http://localhost:8000/?special&level=3> is Special Stage 2, from Secret Base Zone act 2.
 

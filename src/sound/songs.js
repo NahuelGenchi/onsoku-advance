@@ -40,6 +40,8 @@ export const SONG = {
   RING: 117,               // SE_RING_COPY: what the ring manager and the ring sparkle play
   RINGS_LOST: 118,         // SE_RINGS_LOST: the rings scatter
   LIFE_LOST: 119,          // SE_LIFE_LOST: Sonic dies
+  TAILS_FLYING: 120,       // SE_TAILS_PROPELLER_FLYING: Tails' flight, started again on each of its frames
+  TAIL_SWIPE: 121,         // SE_TAILS_TAIL_SWIPE
   SOMERSAULT: 121,         // SE_TAILS_TAIL_SWIPE, which Sonic's somersault kick reuses
   GOAL: 135,               // SE_GOAL: Sonic passes the goal signpost
   CAPSULE_LANDS: 136,      // SE_136: the boss capsule lands

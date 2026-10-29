@@ -24,12 +24,12 @@ const offDisplay = (wx, wy, cam) => wx > cam.x + 368 || wx < cam.x - 128 || wy >
 
 /**
  * The box at item box record `e` (kind, x, y) for objects.js. It calls ctx.world.prize(kind) when the prize
- * is given.
+ * is given. A 1-up shows the face of `character`, the one playing.
  */
-export function createItemBox(e, slot, anims) {
+export function createItemBox(e, slot, anims, character = 0) {
   // the box is what Sonic stands on, at its spawn point plus the hop's offset
   const box = { ...makeSprite('itemBox', { order: 18 }), x: e.x, y: e.y };
-  const icon = makeSprite(`icon${ICON[e.kind]}`, { order: 19 });
+  const icon = makeSprite(`icon${ICON[e.kind] + (e.kind === ONE_UP ? character : 0)}`, { order: 19 });
   animate(box, anims); animate(icon, anims);
   let dy = 0, vy = 0, hopping = false, phase = 'whole', n = 0;
   return {
@@ -57,7 +57,7 @@ export function createItemBox(e, slot, anims) {
       // the optional Rush boost's box breaks it, shaking the screen
       const boosted = !!p.boostBox && !p.dead && overlap(box.x, box.y, box.boxes[0], Math.floor(p.x), Math.floor(p.y), p.boostBox);
       const solid = !boosted && (p.onObject === box || !p.boxes[1]);
-      const res = boosted ? 0 : solid ? platform(box, box.boxes[0], p, ctx.world.terrain) : boxTest(box, box.boxes[0], p);
+      const res = boosted ? 0 : solid ? platform(box, box.boxes[0], p, ctx.world.terrain) : boxTest(box, box.boxes[0], p, ctx.world.terrain);
       if (boosted) ctx.world.shake();
       if (res & FROM_BELOW) { vy = HOP_SPEED; hopping = true; }
       else if (!solid && (boosted || res & (LANDED | PUSHING))) {

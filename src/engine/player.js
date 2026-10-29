@@ -1,9 +1,10 @@
-// Sonic's movement and animation state, one call per 1/60 s frame, in the order the original runs it.
+// The player's movement and animation state, one call per 1/60 s frame, in the order the original runs it.
 // `state` is the original's character state (charState): it picks the animation, and some animations
-// hand over to the next state when they end. (x, y) is Sonic's centre; on the ground he moves along the
-// surface's angle (`rotation`, 256 steps per turn) at ground speed `gsp`.
+// hand over to the next state when they end. (x, y) is the player's centre; on the ground he moves along the
+// surface's angle (`rotation`, 256 steps per turn) at ground speed `gsp`. Sonic and Tails share the moves but
+// their own: Sonic's mid-air moves and B combo (player_sonic.c), Tails' flight and tail swipe (player_tails.c).
 
-import { PHYSICS as K, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R, BOOST_MODE as B, SA2_TRICKS as T, SCREEN_W, SCREEN_H } from './constants.js';
+import { PHYSICS as K, TAILS as F, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R, BOOST_MODE as B, SA2_TRICKS as T, SCREEN_W, SCREEN_H } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
 import { groundSensors, wallPush, airCollision, clearance, setOffsetY, actAngle } from './sensors.js';
 import { LAYER_BACK, scan, PROBE_FLOOR } from './terrain.js';
@@ -15,6 +16,10 @@ import { SA2_SE } from '../rom/sa2tricks.js';
 export const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
 const HISTORY = 16;
 const SOX = 6;   // spriteOffsetX, half his width
+// the characters (CHARACTER_SONIC and CHARACTER_TAILS)
+export const SONIC = 0, TAILS = 1;
+// the tail swipe's frame whose commands play its sound (animCmd_PlaySoundEffect)
+const SWIPE_SOUND_FRAME = 2;
 
 // states: idle | walk | turn | brake | crouch | crouchEnd | lookUp | lookUpEnd | spinDash | spinDashRev |
 //         spin (jump, roll) | instaShield | airDash | spinAttack | somersault | slide | slideEnd | backflip |
@@ -29,8 +34,12 @@ const SOX = 6;   // spriteOffsetX, half his width
 //         and, with Sonic Advance 2's tricks on, that game's: trickUp | trickUpRise | trickUpFall (Hop Jump) |
 //         trickForward | trickForwardSpin | trickFall (Humming Top) | trickBack | trickBackFlip (Back Star) |
 //         bound | boundDive | boundRise (Bound)
-export function createPlayer({ x, y, spinDashSpeeds }) {
+// Tails' own: fly | flyTurn | flyTired (in flight, turning, and tired out) | swim | swimTurn (flying under
+//         water) | tailSwipe
+// `stopPropeller()` stops the sound of Tails' flight (game.js).
+export function createPlayer({ x, y, spinDashSpeeds, character = SONIC, stopPropeller = () => {} }) {
   return {
+    character,         // SONIC or TAILS
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
     rotation: 0,       // angle of the surface he is on, decaying toward 0 in the air
     rotA: 0, rotB: 0,  // the last angles the two ground sensors saw (the original's unk28/unk29)
@@ -45,8 +54,12 @@ export function createPlayer({ x, y, spinDashSpeeds }) {
     airLock: false,    // jumped out of a roll: no air control until the insta-shield
     spinDashing: false, dashAccel: 0,
     offsetY: SPRITE_OFFSET_Y,
-    midAir: 0,         // mid-air move used this jump: 1 insta-shield, 2 dash
-    attack: 0, attackNext: 0,   // step of the B-button combo, and the move queued after the somersault
+    midAir: 0,         // mid-air move used this jump (unk61): 1 insta-shield, 2 dash; Tails' flight, 2–31 rising after
+                       // a press and 1 otherwise
+    attack: 0, attackNext: 0,   // step of the B-button combo, and the move queued after the somersault (unk62 and
+                                // unk63); 1 in Tails' tail swipe
+    flyTime: 0,        // Tails: frames of flight left, counted down every other frame (flyingDuration)
+    stopPropeller,
     idleT: K.boredDelay, anim: makeAnimator(), spinDashSpeeds,
     animRestart: false, // an object asked for his animation to start over
     boxes: [null, null], // his sprite's hitboxes: 0 his body, 1 the attack box of the moves that destroy enemies
@@ -208,7 +221,8 @@ function tryJump(p, c, world) {
   return true;
 }
 
-// spin dash: starts from a crouch with jump, revs with jump, releases when down is let go
+// spin dash: starts from a crouch with jump, revs with jump, releases when down is let go; only Sonic has a
+// rev's animation
 function trySpinDash(p, c, world) {
   if (!p.spinDashing) {
     if (p.state !== 'crouch' || !c.jumpPressed) return false;
@@ -234,7 +248,8 @@ function trySpinDash(p, c, world) {
   if (c.jumpPressed) {
     // each rev replays the spin sound, raised by the decayed charge in semitones
     world.playSoundPitched(SONG.SPIN, a & ~0x7F);
-    p.state = 'spinDashRev'; a = Math.max(a + K.dashRev, K.dashRevMin);
+    if (p.character === SONIC) p.state = 'spinDashRev';
+    a = Math.max(a + K.dashRev, K.dashRevMin);
   }
   p.dashAccel = a;
   return true;
@@ -409,8 +424,30 @@ function attackStep(p, c, world) {
   return true;
 }
 
-/** Ends the combo, the mid-air moves, the spin dash and a trick (also Player_TransitionCancelFlyingAndBoost). */
-export function endAttack(p) { p.attack = 0; p.attackNext = 0; p.midAir = 0; p.jumped = false; p.spinDashing = false; p.halfPipe = false; p.trick = null; }
+/**
+ * Ends the combo, the mid-air moves, the spin dash and a trick (also Player_TransitionCancelFlyingAndBoost), and
+ * stops the sound of Tails' flight, unless `keepPropeller`.
+ */
+export function endAttack(p, keepPropeller = false) {
+  p.attack = 0; p.attackNext = 0; p.midAir = 0; p.jumped = false; p.spinDashing = false; p.halfPipe = false; p.trick = null;
+  if (p.character === TAILS && !keepPropeller) p.stopPropeller();
+}
+
+// Tails' tail swipe on the ground (sub_80480C4): as Sonic's combo, not while he revs a spin dash, pushes, or
+// stands on a wall or the ceiling; its first frame is his whole frame. Its effect comes with it.
+function trySwipe(p, c, world) {
+  const floor = (p.rotation + 0x40) & 0xFF;
+  if (p.spinDashing || p.pushing || floor === 0 || floor >= 0x80 || !c.attackPressed) return false;
+  p.attack = 1; p.state = 'tailSwipe';
+  world.spawnTailSwipe();
+  return true;
+}
+
+// the swipe's frames (sub_8048110): the ground speed eases off by half the deceleration
+function swipeStep(p) {
+  p.gsp = toward0(p.gsp, rules(p).deceleration * pace(p) / 2);
+  alongSurface(p);
+}
 
 // jumping off a grind rail (sub_8044434), if there are at least 4 px of room that way on the layer he came
 // from, back on which he lands: straight up from the rail as fast as a jump, keeping his X speed
@@ -564,7 +601,7 @@ function boostModeState(p, world) {
 export function enterBoostMode(p) { p.boostMode = true; }
 
 // on the frame a jump or a B move starts nothing else runs; while revving a spin dash Sonic stays put but
-// still follows the ground (Player_Sonic_80473AC)
+// still follows the ground (Player_Sonic_80473AC, and Player_Tails_8047BA0, which has no rails)
 function groundStep(p, c, world, input) {
   const t = world.terrain;
   if (p.curled) {
@@ -586,10 +623,11 @@ function groundStep(p, c, world, input) {
     boostWalkStep(p, c, world);
   } else if (p.attack !== 0) {
     slope(p);
-    attackStep(p, c, world);
+    if (p.character === TAILS) swipeStep(p);
+    else attackStep(p, c, world);
     wallPush(p, t, true);   // the rolling check: a wall stops the combo's moves without starting a push
   } else {
-    if (attackStep(p, c, world)) return;
+    if (p.character === TAILS ? trySwipe(p, c, world) : attackStep(p, c, world)) return;
     if (trySpinDash(p, c, world)) { bounds(p, world); followGround(p, t); return; }
     if (tryJump(p, c, world)) return;
     slope(p);
@@ -613,20 +651,27 @@ function airStep(p, c, world) {
     return;
   }
 
-  // double-tap dash, only while curled up (sub_8047714)
-  if (p.curled && p.jumped && p.midAir === 0) {
+  // Sonic's double-tap dash, only while curled up (sub_8047714)
+  if (p.character === SONIC && p.curled && p.jumped && p.midAir === 0) {
     const tap = doubleTap(p);
     if (tap) { p.midAir = 2; p.state = 'airDash'; p.xsp += (q8(topSpeed(p)) >> 2) / 256 * tap; p.ysp = 0; world.playSound(SONG.AIR_DASH); }
   }
 
-  // jump cap, or the insta-shield once the rise has slowed (Player_8044670)
-  if (p.jumped) {
+  // jump cap, or once the rise has slowed Sonic's insta-shield or Tails' flight (Player_8044670); in flight,
+  // its own step instead (Player_Tails_8047A3C)
+  const flying = p.character === TAILS && p.midAir !== 0 && !p.curled;
+  if (flying) flyStep(p, c, world);
+  else if (p.jumped) {
     const cap = rules(p).jumpReleaseCap;
     if (p.ysp < -cap) { if (!c.jump) p.ysp = -cap; }
     else if (p.midAir === 0 && c.jumpPressed) {
-      p.airLock = false; p.midAir = 1; p.state = 'instaShield';
-      world.playSound(SONG.INSTA_SHIELD);
-      world.spawnInstaShield();
+      p.airLock = false; p.midAir = 1;
+      if (p.character === TAILS) startFlying(p, world);
+      else {
+        p.state = 'instaShield';
+        world.playSound(SONG.INSTA_SHIELD);
+        world.spawnInstaShield();
+      }
     }
   } else if (!p.forcedRoll && p.ysp < -K.riseCap) p.ysp = -K.riseCap;
 
@@ -639,9 +684,66 @@ function airStep(p, c, world) {
 
   bounds(p, world);
   move(p);
-  p.ysp += rules(p).gravity;
+  if (!flying) p.ysp += rules(p).gravity;
   tumble(p);
   airCollision(p, world.terrain, () => land(p));
+}
+
+// Tails takes off (Player_Tails_InitFlying), uncurling with his feet in place, with 8 seconds of flight; this
+// frame's gravity still pulls him
+function startFlying(p, world) {
+  if (p.curled) uncurl(p);
+  p.flyTime = F.flyTime;
+  flightState(p, world);
+}
+
+// a frame of flight (Player_Tails_8047A3C): the time runs down every other frame; a press lifts him while he
+// rises slower than 0.75, until 31 frames have lifted him or he rises faster, and otherwise he sinks. He stops at
+// the camera's top edge.
+function flyStep(p, c, world) {
+  if ((world.tick & 1) !== 0 && p.flyTime !== 0) p.flyTime--;
+  if (p.midAir !== 1) {
+    if (p.ysp >= -F.flyRiseMax) {
+      p.ysp -= F.flyLift;
+      if (++p.midAir === F.flyLiftFrames) p.midAir = 1;
+    } else p.midAir = 1;
+  } else {
+    if (c.jumpPressed && p.ysp >= -F.flyRiseMax && p.flyTime !== 0) p.midAir = 2;
+    p.ysp += F.flyFall;
+  }
+  const top = world.camera.minY;
+  if (p.y < top) { p.y = top; if (p.ysp < 0) p.ysp = 0; }
+  flightState(p, world);
+}
+
+// how he flies (Player_Tails_8047990): tired out once the time is up; under water swimming, turning while left
+// or right is held against the way he faces, and letting bubbles out; in the air flying the same way, with the
+// propeller's sound going. A turn in the air plays out once begun; the water's turn is checked as the air's is,
+// as in the original, so it lasts one frame, and a turn from the air goes on in the water.
+function flightState(p, world) {
+  const held = p.held[0], against = ((held & LEFT) !== 0 && p.facing > 0) || ((held & RIGHT) !== 0 && p.facing < 0);
+  if (p.flyTime === 0) {
+    p.state = 'flyTired';
+    world.stopSound(SONG.TAILS_FLYING);
+  } else if (p.water) {
+    if (against) p.state = 'swimTurn';
+    else if (p.state !== 'flyTurn') p.state = 'swim';
+    swimBubbles(p, world);
+    world.stopSound(SONG.TAILS_FLYING);
+  } else {
+    if (against) p.state = 'flyTurn';
+    else if (p.state !== 'flyTurn') p.state = 'fly';
+    world.playSoundOrChange(SONG.TAILS_FLYING);
+  }
+}
+
+// RandomlySpawnAirBubbles: on every 8th frame of the stage clock, one time in four, a bubble at his centre,
+// moving with him, small or a group. The original's random offsets, up to 15 px across and 8 px up or down, are
+// taken off his 8.8 position, so they move it by as many 1/256 px.
+function swimBubbles(p, world) {
+  if (world.tick % 8 !== 0 || (world.random() & 0x300) !== 0) return;
+  const dx = (world.random() & 0xF00) >> 8, dy = ((world.random() & 0xF00) >> 8) - 8;
+  world.airBubble(q8(p.x) - (p.facing > 0 ? -dx : dx), q8(p.y) - dy, q8(p.xsp), (world.random() & 0x100) !== 0);
 }
 
 // the angle he left the ground at eases back to upright; off a bounce block he tumbles the way he faces
@@ -843,7 +945,7 @@ export function hurt(p, terrain) {
   p.ysp = -K.hurtSpeedY;
   if (p.water) { p.xsp = (q8(p.xsp) >> 1) / 256; p.ysp = (q8(p.ysp) >> 1) / 256; }
   p.onObject = null; p.air = true; p.pushing = false;
-  endAttack(p);
+  endAttack(p, true);   // Tails' propeller goes on
   p.airLock = false;
   p.state = 'hurt';
   uncurl(p);   // the feet stay put
@@ -863,7 +965,7 @@ export function knockAside(p, xsp, ysp) {
   p.invulnerable = K.invulnerable;
   p.xsp = xsp; p.ysp = ysp;
   p.onObject = null; p.air = true; p.pushing = false;
-  endAttack(p);
+  endAttack(p, true);   // as a hit, Tails' propeller goes on
   p.airLock = false;
   p.state = 'hurt';
   uncurl(p);
@@ -893,10 +995,10 @@ function deadStep(p, world) {
 }
 
 /**
- * Advances the player one frame. `world` provides tick, cameraY, terrain, died(drowned), lifeLost(), spawnDashDust(),
- * spawnInstaShield(), freezeCamera(), playSound(song), stopSound(song) and playSoundPitched(song, pitch), the
- * water's waterLevel, surfaceSplash(x), drownCountdown(n), drowningMusic(), drowned(), breathOut(x, y) and
- * random(), for the Rush boost
+ * Advances the player one frame. `world` provides tick, cameraY, camera, terrain, died(drowned), lifeLost(),
+ * spawnDashDust(), spawnInstaShield(), spawnTailSwipe(), freezeCamera(), playSound(song), playSoundOrChange(song),
+ * stopSound(song) and playSoundPitched(song, pitch), the water's waterLevel, surfaceSplash(x), drownCountdown(n),
+ * drowningMusic(), drowned(), breathOut(x, y), airBubble(x, y, dx, group) (8.8) and random(), for the Rush boost
  * rush (its setting) and boosted(), for Boost Mode boostMode (its setting), ringCount, boostModeStarted()
  * and actOver (true once the act's end has taken Sonic's controls; absent before an act can end), and for
  * Sonic Advance 2's tricks tricks (their setting), trickScore(points), playSa2(song) and
@@ -1044,6 +1146,12 @@ function afterAnimation(p, world) {
     case 'crouchEnd': p.state = p.gsp !== 0 ? 'walk' : 'idle'; break;
     case 'lookUpEnd': p.state = 'idle'; break;
     case 'turn': case 'breathe': p.state = 'walk'; break;
+    case 'flyTurn': p.state = 'fly'; break;
+    case 'swimTurn': p.state = 'swim'; break;
+    case 'tailSwipe':
+      p.attack = 0; p.attackNext = 0; p.chain = 0;
+      p.state = p.gsp !== 0 ? 'walk' : 'idle';
+      break;
     case 'spring': case 'springPeak': p.state = 'springFall'; break;
     case 'spinAttack': case 'slideEnd':
       endAttack(p); p.state = p.gsp !== 0 ? 'walk' : 'idle'; break;
@@ -1085,10 +1193,11 @@ function choose(p, name, restart = false) {
 }
 
 // steps his animation; the hitboxes set before a frame take effect when it appears, and stay until the
-// script sets them again
-function stepAnim(p, anims) {
+// script sets them again, and the tail swipe's commands play its sound
+function stepAnim(p, anims, world) {
   const i = p.anim.i, ended = tickAnim(p.anim, anims);
   const f = p.anim.i !== i && anims[p.anim.name].frames[p.anim.i];
+  if (f && p.anim.name === 'tailSwipe' && p.anim.i === SWIPE_SOUND_FRAME) world.playSound(SONG.TAIL_SWIPE);
   if (f?.[2]) for (const [slot, box] of Object.entries(f[2])) if (slot < 2) p.boxes[slot] = flipBox(box, p.facing > 0, p.inverted);
   // it keeps the order a frame sets (animCmd_SetOamOrder) after the animation
   if (f?.[3] !== undefined) p.order = f[3];
@@ -1108,7 +1217,7 @@ export function animatePlayer(p, input, anims, world) {
   p.animRestart = false;
   if (p.state === 'brake' && world.tick % 4 === 0) world.spawnBrakeDust();
   for (let guard = 0; guard < 4; guard++) {
-    if (!stepAnim(p, anims)) break;
+    if (!stepAnim(p, anims, world)) break;
     const before = p.state;
     afterAnimation(p, world);
     if (p.state === before) break;

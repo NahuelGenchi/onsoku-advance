@@ -107,7 +107,7 @@ export function createMysteryBox(e, slot, anims, ctx) {
           res = platform(box, box.boxes[0], p, ctx.world.terrain);
           if (res & FROM_BELOW) { vy = HOP_SPEED; falling = true; }
         } else {
-          res = boxTest(box, box.boxes[0], p);
+          res = boxTest(box, box.boxes[0], p, ctx.world.terrain);
           if (res & FROM_BELOW) { vy = HOP_SPEED; falling = true; }
           else if (res & (LANDED | PUSHING)) {
             if (p.onObject === box) { p.onObject = null; p.pushing = false; p.air = true; }

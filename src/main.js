@@ -132,7 +132,7 @@ opacitySlider.addEventListener('pointermove', e => { if (e.pointerType === 'touc
 // the achievements, kept in this browser (store.js): each new one shows its popup over the game, and the settings
 // open the list of them
 const achievements = openAchievements();
-const unlockPopup = createUnlockPopup(stage, screen);
+const unlockPopup = createUnlockPopup(stage, screen, () => sound);
 const achievementsButton = document.getElementById('achievements-open');
 const achievementsPanel = createAchievementsPanel(stage, achievements, () => screen.focus());
 function showAchievementCount() {

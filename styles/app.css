@@ -443,20 +443,20 @@ kbd {
 .anim small { display: block; white-space: nowrap; color: var(--muted); font-family: var(--mono); }
 
 /* the unlock popup (src/achievements/popup.js) in a layer over the game's screen, which it comes in from the edge of:
-   its pixels are `--dot` CSS px each, the box at the top right with the trophy and the text at Palmaris's places in
-   it, and a light that sweeps over it once */
+   its pixels are `--dot` CSS px each, and its sizes and places (`--h`, `--margin`, `--trophy-x` …) come from popup.js;
+   a light sweeps over it once */
 .unlock-layer { position: fixed; z-index: 4; overflow: hidden; pointer-events: none; }
 .unlock {
-  position: absolute; top: calc(var(--dot) * 4); right: calc(var(--dot) * 4);
-  width: calc(var(--dot) * var(--w)); height: calc(var(--dot) * 16);
+  position: absolute; top: calc(var(--dot) * var(--margin)); right: calc(var(--dot) * var(--margin));
+  width: calc(var(--dot) * var(--w)); height: calc(var(--dot) * var(--h));
   filter: drop-shadow(0 calc(var(--dot) * 1) calc(var(--dot) * 2) rgba(0, 0, 0, .4));
   will-change: transform;
 }
 .unlock-box { position: absolute; inset: 0; overflow: hidden; background: var(--box); }
 .unlock canvas { position: absolute; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-.unlock-trophy { left: calc(var(--dot) * 4); top: calc(var(--dot) * 3); }
-.unlock-strip { position: absolute; top: 0; bottom: 0; left: calc(var(--dot) * 20); right: 0; overflow: hidden; }
-.unlock-text { left: 0; top: calc(var(--dot) * 4); }
+.unlock-trophy { left: calc(var(--dot) * var(--trophy-x)); top: calc(var(--dot) * var(--trophy-y)); }
+.unlock-strip { position: absolute; top: 0; bottom: 0; left: calc(var(--dot) * var(--text-x)); right: 0; overflow: hidden; }
+.unlock-text { left: 0; top: calc(var(--dot) * var(--text-y)); }
 .unlock-shine {
   position: absolute; z-index: 1; top: 0; bottom: 0; left: 0; width: calc(var(--dot) * 14);
   background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .55) 50%, transparent 80%);
@@ -491,13 +491,11 @@ kbd {
 .ach-close:hover { background: var(--hover); color: var(--ink); }
 .achievements :focus-visible { outline: 2px solid var(--blue); outline-offset: 0; }
 .ach-list { margin: 0; padding: 0; list-style: none; }
-.ach { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 0 14px; padding: 14px 16px; }
+.ach { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; gap: 0 14px; padding: 14px 16px; }
 .ach + .ach { border-top: 2px solid var(--line); }
 .ach canvas { width: 24px; height: 20px; image-rendering: pixelated; image-rendering: crisp-edges; }
 .ach h3 { margin: 0; font-size: inherit; font-weight: normal; line-height: inherit; }
 .ach p { margin: 4px 0 0; color: var(--dim); font-size: 13.5px; line-height: 20px; }
-.ach-points { color: var(--dim); font-size: 13.5px; white-space: nowrap; }
-.ach:not([data-earned]) :is(h3, .ach-points) { color: var(--faint); }
-.ach[data-earned] .ach-points { color: var(--blue); }
+.ach:not([data-earned]) h3 { color: var(--faint); }
 @keyframes ach-in { from { opacity: 0; transform: translateY(8px) scale(.97); } }
 @media (prefers-reduced-motion: reduce) { .achievements[open] { animation: none; } }

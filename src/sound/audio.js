@@ -112,5 +112,7 @@ export function createSound() {
 
     get muted() { return muted; },
     set muted(value) { muted = value; post({ type: 'gain', value: muted ? 0 : GAIN }); },
+    /** The page's AudioContext once the engine has started, for sounds of the page's own (the unlock chime) */
+    get context() { return ctx; },
   };
 }

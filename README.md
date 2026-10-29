@@ -292,11 +292,11 @@ compared with the original in [docs/ROM.md](docs/ROM.md#sonic-advance-2-tricks).
 
 ## Achievements
 
-Earn achievements as you play. When you earn one, a small popup drops in at the top right of the game, the way RetroAchievements' do, and unfolds to show a gold trophy with the achievement's name and points in pixel art. It's dark or light to match your Dreamports look, or your device's when you haven't picked one. Open *Achievements* in the settings to see them all, with the date you earned each one.
+Earn achievements as you play. When you earn one, a small popup drops in at the top right of the game, the way RetroAchievements' do, and unfolds to show a gold trophy and the achievement's name in pixel art, with a short chime (off while the sound is). It's dark or light to match your Dreamports look, or your device's when you haven't picked one. Open *Achievements* in the settings to see them all, with the date you earned each one.
 
-| Achievement | How to earn it | Points |
-| :--- | :--- | :--- |
-| Hundred Rings | Hold 100 rings at once | 5 |
+| Achievement | How to earn it |
+| :--- | :--- |
+| Hundred Rings | Hold 100 rings at once |
 
 Your achievements are kept in this browser for now. Once Dreamports has accounts, you'll be able to claim them there.
 

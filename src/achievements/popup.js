@@ -1,17 +1,20 @@
-// The unlock popup, as Palmaris draws it (its docs/POPUP.md): one line, 16 of its pixels tall, a 12×10 gold trophy
-// 4 pixels from the left and 3 from the top, then "Title (points)" in its 5×7 font from x 20, with 4 pixels after
-// the last letter, in Palmaris's near-black and #EEEEEE when the look is dark and the other way round when it is
-// light, the trophy gold in both. Its pixels are half the game's (at least 2 CSS px), so it sits small in the game's
-// top-right corner, 4 of them from the edges, and it moves as RetroArch's achievement popup does with its anchor
-// top right (gfx/widgets/gfx_widget_achievement_popup.c): the trophy's square drops in from the top edge of the
-// game's screen, the box unfolds to the left to show the title, a light sweeps over it, and after 4 s it folds back
-// and goes up again, each move 330 ms with an ease-out-quad, 5.32 s in all. Unlocks that come while one is up
-// wait their turn.
+// The unlock popup, drawn as Palmaris draws it (its docs/POPUP.md), with more room around the trophy and the title:
+// one line, 20 of its pixels tall, a 12×10 gold trophy 6 pixels from the left and 5 from the top, then the title in
+// its 5×7 font 6 pixels after the trophy, with 7 pixels after the last letter, in Palmaris's near-black and #EEEEEE
+// when the look is dark and the other way round when it is light, the trophy gold in both. Its pixels are half the
+// game's (at least 2 CSS px), so it sits small in the game's top-right corner, 8 of them from the edges. It moves as
+// RetroArch's achievement popup does with its anchor top right (gfx/widgets/gfx_widget_achievement_popup.c): the
+// trophy's square drops in from the top edge of the game's screen, the box unfolds to the left to show the title, a
+// light sweeps over it, and after 4 s it folds back and goes up again, each move 330 ms with an ease-out-quad, 5.32 s
+// in all, as a short chime plays (chime.js). Unlocks that come while one is up wait their turn.
 
 import { font, trophy, GLYPH_W, CELL_W, CELL_H, TROPHY_W, TROPHY_H } from './pixels.js';
 import { isDark } from '../ui/theme.js';
+import { playChime } from './chime.js';
 
-const H = 16, TEXT_X = 20, PAD = 3, MARGIN = 4;
+// the box's height, the trophy's and the title's places in it, the room after the title, and the gap to the screen's
+// edges, in the popup's pixels
+const H = 20, TROPHY_X = 6, TROPHY_Y = 5, TEXT_X = 24, TEXT_Y = 6, PAD = 6, MARGIN = 8;
 // RetroArch's: MSG_QUEUE_ANIMATION_DURATION and CHEEVO_NOTIFICATION_DURATION, and EASING_OUT_QUAD
 const MOVE = 330, HOLD = 4000, SHOWN = 4 * MOVE + HOLD;
 const OUT_QUAD = 'cubic-bezier(.25, .46, .45, .94)';
@@ -20,9 +23,7 @@ const GOLD = { G: '#ffc510', S: '#b57308', L: '#ffffa5' };
 const LOOKS = { dark: { box: '#191919', ink: '#eeeeee' }, light: { box: '#eeeeee', ink: '#191919' } };
 const still = matchMedia('(prefers-reduced-motion: reduce)');
 
-const text = a => `${a.title} (${a.points})`;
-// the box's width in the game's pixels: the text's cells after the trophy, the last cell's blank column and the
-// padding after it
+// the box's width in its pixels: the title's cells after the trophy, the last cell's blank column and the room after it
 export const boxWidth = line => TEXT_X + CELL_W * line.length + PAD;
 
 /** Draws the trophy on `ctx` at (x, y), one canvas pixel to its pixel, in `colours` (gold if not given). */
@@ -56,11 +57,14 @@ const canvasOf = (cls, w, h) => {
 
 /**
  * Returns { show(achievement) } for popups over `screen` (the game's canvas, its pixels `screen.width` across),
- * in a layer added to `host` that covers the game's screen, so they come in from its edge.
+ * in a layer added to `host` that covers the game's screen, so they come in from its edge; `sound()` gives the
+ * game's sound (audio.js) for the chime.
  */
-export function createUnlockPopup(host, screen) {
+export function createUnlockPopup(host, screen, sound = () => null) {
   const layer = document.createElement('div');
   layer.className = 'unlock-layer';
+  const geometry = { h: H, margin: MARGIN, 'trophy-x': TROPHY_X, 'trophy-y': TROPHY_Y, 'text-x': TEXT_X, 'text-y': TEXT_Y };
+  for (const [name, value] of Object.entries(geometry)) layer.style.setProperty(`--${name}`, value);
   const said = document.createElement('p');
   said.className = 'unlock-said';
   said.setAttribute('role', 'status');
@@ -77,7 +81,7 @@ export function createUnlockPopup(host, screen) {
   }
 
   async function run(a) {
-    const line = text(a), w = boxWidth(line), look = LOOKS[isDark() ? 'dark' : 'light'];
+    const line = a.title, w = boxWidth(line), look = LOOKS[isDark() ? 'dark' : 'light'];
     const el = document.createElement('div');
     el.className = 'unlock';
     el.style.setProperty('--w', w);
@@ -95,7 +99,8 @@ export function createUnlockPopup(host, screen) {
     const dot = place();
     addEventListener('resize', place);
     layer.append(el);
-    said.textContent = `Achievement unlocked: ${a.title}, ${a.points} points`;
+    said.textContent = `Achievement unlocked: ${a.title}`;
+    playChime(sound());
 
     const at = ms => ms / SHOWN, timing = { duration: SHOWN, fill: 'both' };
     if (still.matches) {

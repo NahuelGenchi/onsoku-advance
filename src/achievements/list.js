@@ -2,7 +2,7 @@
 // shipped, as the accounts keep what was earned by it.
 
 export const ACHIEVEMENTS = [
-  { id: 'hundred-rings', title: 'Hundred Rings', description: 'Hold 100 rings at once', points: 5 },
+  { id: 'hundred-rings', title: 'Hundred Rings', description: 'Hold 100 rings at once' },
 ];
 
 export const achievement = id => ACHIEVEMENTS.find(a => a.id === id);

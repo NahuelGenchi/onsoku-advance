@@ -1,5 +1,5 @@
 // The achievements, opened from the settings: each with its trophy, gold once earned, its name, what earns it,
-// when it was earned and its points, drawn like the dreamports.net launcher, light or dark as it is. The close
+// and when it was earned, drawn like the dreamports.net launcher, light or dark as it is. The close
 // button, Esc, a click outside it or B on a controller closes it.
 
 import { drawTrophy } from './popup.js';
@@ -42,7 +42,6 @@ export function createAchievementsPanel(host, store, onClose = () => {}) {
           <h3>${escape(a.title)}</h3>
           <p>${escape(a.description)}${a.earned ? `<span class="ach-when"> · ${day.format(a.earned)}</span>` : ''}</p>
         </div>
-        <span class="ach-points">${a.points} pts</span>
       </li>`).join('');
     list.querySelectorAll('canvas').forEach((c, i) => drawTrophy(c.getContext('2d'), 0, 0, all[i].earned ? undefined : LOCKED));
   }

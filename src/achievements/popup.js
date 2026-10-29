@@ -1,16 +1,20 @@
-// The unlock popup, as Palmaris draws it (its docs/POPUP.md): one line, 16 of
-// the game's pixels tall, a 12×10 gold trophy 4 pixels from the left and 3 from the top, then "Title (points)" in
-// its 5×7 font from x 20, with 4 pixels after the last letter. It is drawn at the game's own pixel size, centred
-// 8 pixels above the bottom of the game's screen, in Palmaris's near-black and #EEEEEE when the look is dark and
-// the other way round when it is light, the trophy gold in both. It grows out of the trophy, a light sweeps over
-// it, and after 5.3 s, as long as Palmaris keeps one up, it folds back into the trophy and goes. Unlocks that come
-// while one is up wait their turn.
+// The unlock popup, as Palmaris draws it (its docs/POPUP.md): one line, 16 of its pixels tall, a 12×10 gold trophy
+// 4 pixels from the left and 3 from the top, then "Title (points)" in its 5×7 font from x 20, with 4 pixels after
+// the last letter, in Palmaris's near-black and #EEEEEE when the look is dark and the other way round when it is
+// light, the trophy gold in both. Its pixels are half the game's (at least 2 CSS px), so it sits small in the game's
+// top-right corner, 4 of them from the edges, and it moves as RetroArch's achievement popup does with its anchor
+// top right (gfx/widgets/gfx_widget_achievement_popup.c): the trophy's square drops in from the top edge of the
+// game's screen, the box unfolds to the left to show the title, a light sweeps over it, and after 4 s it folds back
+// and goes up again, each move 330 ms with an ease-out-quad, 5.32 s in all. Unlocks that come while one is up
+// wait their turn.
 
 import { font, trophy, GLYPH_W, CELL_W, CELL_H, TROPHY_W, TROPHY_H } from './pixels.js';
 import { isDark } from '../ui/theme.js';
 
-const H = 16, TROPHY_X = 4, TROPHY_Y = 3, TEXT_X = 20, TEXT_Y = 4, PAD = 3, MARGIN = 8;
-const SHOWN = 5300;
+const H = 16, TEXT_X = 20, PAD = 3, MARGIN = 4;
+// RetroArch's: MSG_QUEUE_ANIMATION_DURATION and CHEEVO_NOTIFICATION_DURATION, and EASING_OUT_QUAD
+const MOVE = 330, HOLD = 4000, SHOWN = 4 * MOVE + HOLD;
+const OUT_QUAD = 'cubic-bezier(.25, .46, .45, .94)';
 // Palmaris's colours, its 5-bit ones at 8 bits: the box, the title, and the trophy's gold, shade and light
 const GOLD = { G: '#ffc510', S: '#b57308', L: '#ffffa5' };
 const LOOKS = { dark: { box: '#191919', ink: '#eeeeee' }, light: { box: '#eeeeee', ink: '#191919' } };
@@ -52,21 +56,23 @@ const canvasOf = (cls, w, h) => {
 
 /**
  * Returns { show(achievement) } for popups over `screen` (the game's canvas, its pixels `screen.width` across),
- * added to `host`.
+ * in a layer added to `host` that covers the game's screen, so they come in from its edge.
  */
 export function createUnlockPopup(host, screen) {
+  const layer = document.createElement('div');
+  layer.className = 'unlock-layer';
   const said = document.createElement('p');
   said.className = 'unlock-said';
   said.setAttribute('role', 'status');
-  host.append(said);
+  host.append(layer, said);
   let queue = Promise.resolve();
 
-  function place(el, w) {
+  // the layer over the game's screen, and the popup's pixel: half the game's, on whole device pixels
+  function place() {
     const r = screen.getBoundingClientRect(), dpr = devicePixelRatio || 1;
-    const dot = r.width / screen.width, snap = v => Math.round(v * dpr) / dpr;
-    el.style.setProperty('--dot', `${dot}px`);
-    el.style.left = `${snap(r.left + (r.width - w * dot) / 2)}px`;
-    el.style.top = `${snap(r.bottom - (H + MARGIN) * dot)}px`;
+    Object.assign(layer.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+    const dot = Math.max(2, Math.round(r.width / screen.width / 2 * dpr) / dpr);
+    layer.style.setProperty('--dot', `${dot}px`);
     return dot;
   }
 
@@ -81,61 +87,47 @@ export function createUnlockPopup(host, screen) {
     const cup = canvasOf('unlock-trophy', TROPHY_W, TROPHY_H), words = canvasOf('unlock-text', CELL_W * line.length, CELL_H);
     drawTrophy(cup.getContext('2d'));
     drawText(words.getContext('2d'), line, 0, 0, look.ink);
-    box.append(words, cup);
-    let dot = place(el, w);
-    const follow = () => { dot = place(el, w); };
-    addEventListener('resize', follow);
-    host.append(el);
+    // the title in its own strip after the trophy, clipped there as it comes in, as RetroArch's scissor does
+    const strip = document.createElement('div');
+    strip.className = 'unlock-strip';
+    strip.append(words);
+    box.append(strip, cup);
+    const dot = place();
+    addEventListener('resize', place);
+    layer.append(el);
     said.textContent = `Achievement unlocked: ${a.title}, ${a.points} points`;
 
     const at = ms => ms / SHOWN, timing = { duration: SHOWN, fill: 'both' };
     if (still.matches) {
       await el.animate([{ opacity: 0 }, { opacity: 1, offset: at(200) }, { opacity: 1, offset: at(SHOWN - 300) }, { opacity: 0 }], timing).finished;
     } else {
-      // the box opens from the trophy's square to its whole width, and closes back into it
-      const shut = `inset(0 ${(w - TEXT_X) * dot}px 0 0)`, open = 'inset(0 0 0 0)';
-      const out = 'cubic-bezier(.2, .9, .25, 1)', back = 'cubic-bezier(.55, 0, .75, .2)';
-      const lift = MARGIN * dot;
+      // slide_v, then unfold with slide_h, the hold, fold with slide_h, and slide_v back: folded, the box shows only
+      // the trophy's square, kept at the right; unfolding, the title comes from half its width to the left
+      const folded = (w - TEXT_X) * dot, up = -(MARGIN + H) * dot, half = -CELL_W * line.length * dot / 2;
+      const steps = [0, MOVE, 2 * MOVE, 2 * MOVE + HOLD, 3 * MOVE + HOLD, SHOWN];
+      const frames = values => values.map((v, k) => ({ ...v, offset: at(steps[k]), easing: OUT_QUAD }));
       await Promise.all([
-        el.animate([
-          { opacity: 0, transform: `translateY(${lift}px) scale(.82)`, easing: 'cubic-bezier(.25, 1.5, .5, 1)' },
-          { opacity: 1, transform: 'none', offset: at(420) },
-          { opacity: 1, transform: 'none', offset: at(5000), easing: back },
-          { opacity: 0, transform: `translateY(${lift / 2}px) scale(.9)` },
-        ], timing).finished,
-        box.animate([
-          { clipPath: shut },
-          { clipPath: shut, offset: at(320), easing: out },
-          { clipPath: open, offset: at(820) },
-          { clipPath: open, offset: at(4650), easing: 'cubic-bezier(.6, 0, .4, 1)' },
-          { clipPath: shut, offset: at(5000) },
-          { clipPath: shut },
-        ], timing).finished,
-        cup.animate([
-          { transform: 'scale(0) rotate(-25deg)', easing: 'cubic-bezier(.3, 1.6, .5, 1)' },
-          { transform: 'scale(0) rotate(-25deg)', offset: at(120) },
-          { transform: 'scale(1.3) rotate(8deg)', offset: at(460), easing: 'ease-in-out' },
-          { transform: 'none', offset: at(700) },
-          { transform: 'none', offset: at(4900), easing: back },
-          { transform: 'scale(.4)' },
-        ], timing).finished,
-        words.animate([
-          { opacity: 0, transform: `translateX(${-CELL_W * dot}px)` },
-          { opacity: 0, transform: `translateX(${-CELL_W * dot}px)`, offset: at(430), easing: out },
-          { opacity: 1, transform: 'none', offset: at(900) },
-          { opacity: 1, transform: 'none', offset: at(4600) },
-          { opacity: 0, offset: at(4850) },
-          { opacity: 0 },
-        ], timing).finished,
+        el.animate(frames([
+          { transform: `translate(${folded}px, ${up}px)` }, { transform: `translate(${folded}px, 0)` }, { transform: 'none' },
+          { transform: 'none' }, { transform: `translate(${folded}px, 0)` }, { transform: `translate(${folded}px, ${up}px)` },
+        ]), timing).finished,
+        box.animate(frames([
+          { clipPath: `inset(0 ${folded}px 0 0)` }, { clipPath: `inset(0 ${folded}px 0 0)` }, { clipPath: 'inset(0)' },
+          { clipPath: 'inset(0)' }, { clipPath: `inset(0 ${folded}px 0 0)` }, { clipPath: `inset(0 ${folded}px 0 0)` },
+        ]), timing).finished,
+        words.animate(frames([
+          { transform: `translateX(${half}px)` }, { transform: `translateX(${half}px)` }, { transform: 'none' },
+          { transform: 'none' }, { transform: `translateX(${half}px)` }, { transform: `translateX(${half}px)` },
+        ]), timing).finished,
         box.firstChild.animate([
           { transform: 'translateX(-100%)' },
-          { transform: 'translateX(-100%)', offset: at(850), easing: 'cubic-bezier(.4, 0, .2, 1)' },
-          { transform: `translateX(${w * dot}px)`, offset: at(1650) },
+          { transform: 'translateX(-100%)', offset: at(2 * MOVE + 150), easing: 'cubic-bezier(.4, 0, .2, 1)' },
+          { transform: `translateX(${w * dot}px)`, offset: at(2 * MOVE + 950) },
           { transform: `translateX(${w * dot}px)` },
         ], timing).finished,
       ]);
     }
-    removeEventListener('resize', follow);
+    removeEventListener('resize', place);
     el.remove();
   }
 

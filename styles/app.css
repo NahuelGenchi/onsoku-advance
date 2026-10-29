@@ -442,17 +442,21 @@ kbd {
 .anim b { display: block; font-size: 14px; }
 .anim small { display: block; white-space: nowrap; color: var(--muted); font-family: var(--mono); }
 
-/* the unlock popup (src/achievements/popup.js), drawn in the game's own pixels, `--dot` CSS px each: the box,
-   the trophy and the text at Palmaris's places in it, and a light that sweeps over it once */
+/* the unlock popup (src/achievements/popup.js) in a layer over the game's screen, which it comes in from the edge of:
+   its pixels are `--dot` CSS px each, the box at the top right with the trophy and the text at Palmaris's places in
+   it, and a light that sweeps over it once */
+.unlock-layer { position: fixed; z-index: 4; overflow: hidden; pointer-events: none; }
 .unlock {
-  position: fixed; z-index: 4; width: calc(var(--dot) * var(--w)); height: calc(var(--dot) * 16); pointer-events: none;
-  filter: drop-shadow(0 calc(var(--dot) * 1) calc(var(--dot) * 3) rgba(0, 0, 0, .45));
-  will-change: transform, opacity;
+  position: absolute; top: calc(var(--dot) * 4); right: calc(var(--dot) * 4);
+  width: calc(var(--dot) * var(--w)); height: calc(var(--dot) * 16);
+  filter: drop-shadow(0 calc(var(--dot) * 1) calc(var(--dot) * 2) rgba(0, 0, 0, .4));
+  will-change: transform;
 }
 .unlock-box { position: absolute; inset: 0; overflow: hidden; background: var(--box); }
 .unlock canvas { position: absolute; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
 .unlock-trophy { left: calc(var(--dot) * 4); top: calc(var(--dot) * 3); }
-.unlock-text { left: calc(var(--dot) * 20); top: calc(var(--dot) * 4); }
+.unlock-strip { position: absolute; top: 0; bottom: 0; left: calc(var(--dot) * 20); right: 0; overflow: hidden; }
+.unlock-text { left: 0; top: calc(var(--dot) * 4); }
 .unlock-shine {
   position: absolute; z-index: 1; top: 0; bottom: 0; left: 0; width: calc(var(--dot) * 14);
   background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .55) 50%, transparent 80%);

@@ -21,6 +21,8 @@ const TRICK_PAD_BUTTONS = [5];
 const DPAD = { up: 12, down: 13, left: 14, right: 15 };
 const DEAD_ZONE = 0.5;
 const XBOX = /xbox|xinput|045e|microsoft/i;   // the names browsers give Microsoft's controllers
+const SETTINGS_COMBO = [8, 9];                 // View + Menu (Select + Start) together open the settings, not the game's
+const COMBO_WAIT = 4;                          // steps a controller's Start or Select waits for the other to join it
 
 // the multiplayer modes' two players on one keyboard: the first on WASD with F to jump and G to attack, the
 // second on the arrows with . to jump and / to attack; the players after them play with controllers
@@ -47,6 +49,9 @@ export function playerControls(input, btnConfig) {
 
 /** The connected controllers in the browser's order. */
 export const connectedPads = () => [...(navigator.getGamepads?.() ?? [])].filter(p => p?.connected);
+
+/** Whether `pad` holds View and Menu together, which open or close the settings; the game sees neither then. */
+export const holdsSettingsCombo = pad => SETTINGS_COMBO.every(i => pad.buttons[i]?.pressed);
 
 /** Whether an Xbox controller is connected. */
 export const xboxConnected = () => connectedPads().some(p => XBOX.test(p.id));
@@ -77,6 +82,8 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
   const held = { keys: {}, pad: {}, touch: {} };   // what each source holds; the pad's is read once a step by poll()
   const touched = new Set();            // the on-screen controller's buttons a finger is on, by their standard numbers
   let padFresh = true;                  // after a release, what the pad still holds comes back without a press
+  const spent = new Set();              // Start and Select held for the settings: the game doesn't see them until let go
+  const waiting = {};                   // Start or Select just pressed alone: the steps left before the game sees it
 
   function set(button, quiet) {
     const down = !!(held.keys[button] || held.pad[button] || held.touch[button]);
@@ -138,7 +145,9 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
     if (!input.enabled) return;
     touchSync();
     const now = {};
+    let combo = false;
     for (const pad of pads()) {
+      combo ||= holdsSettingsCombo(pad);
       padHolds(i => pad.buttons[i]?.pressed, now);
       // the left stick, and the d-pad of a pad the browser doesn't map to the standard layout (axes 6 and 7)
       for (const [x, y] of pad.mapping === 'standard' ? [[0, 1]] : [[0, 1], [6, 7]]) {
@@ -151,6 +160,17 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
     }
     const quiet = padFresh;
     padFresh = false;
+    // View + Menu are the settings' (settings-pad.js), so a pad's Start or Select reaches the game a few steps late,
+    // in case the other is on its way; held together, neither reaches it until let go
+    for (const b of ['start', 'select']) {
+      if (combo) { spent.add(b); delete waiting[b]; }
+      if (!now[b]) spent.delete(b);
+      if (spent.has(b)) { now[b] = false; continue; }
+      if (now[b] && !held.pad[b] && !quiet) waiting[b] ??= COMBO_WAIT;
+      if (!(b in waiting)) continue;
+      if (now[b] && waiting[b] > 0) { waiting[b]--; now[b] = false; }
+      else { delete waiting[b]; now[b] = true; }   // waited long enough, or let go first: the game gets its press
+    }
     for (const b of BUTTONS) {
       if (!!held.pad[b] === !!now[b]) continue;
       held.pad[b] = !!now[b];

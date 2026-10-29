@@ -59,7 +59,7 @@ Open the page, choose your file and play, with a keyboard, an Xbox controller or
 
 1. **Open the game** at **[dreamports.net/play/sonic-advance](https://dreamports.net/play/sonic-advance/)** in a current desktop browser.
 2. **Add your Sonic Advance file**, the `.gba` file copied from your cartridge (called a *ROM*), with its *Add* button, or drop it anywhere on the page. Sonic Advance 2 and Sonic Rush, below it, are for the optional [extras](#extras-you-can-switch-on). With *Remember on this device* ticked, they are ready the next time too.
-3. **Press Play.** The [controls](#controls) are below, and <kbd>H</kbd> shows them during the game.
+3. **Press Play.** The [controls](#controls) are below, and *Controls* in the game's settings lists the keys.
 
 The arrow at the top left of the start screen goes back to the [dreamports.net](https://dreamports.net/) menu. The start screen is drawn like that menu, and is light or dark as the menu is: as your device is set, unless you picked a look in the menu's settings.
 
@@ -171,7 +171,7 @@ Four optional additions on top of the original game. All are off until you turn 
 <img src="docs/assets/gameplay/widescreen.webp" width="736" alt="The original 240 by 160 screen, outlined in the middle of a wider frame; the widescreen view then fades in around it, showing more of the loop and the grind rail">
 </div>
 
-See more of the act around the original screen, up to 368 × 208, filling the window at the same whole-step scale. The outline marks the Game Boy Advance's screen: the game plays exactly as it does there. Press <kbd>V</kbd> or use the *Widescreen* button in the help panel.
+See more of the act around the original screen, up to 368 × 208, filling the window at the same whole-step scale. The outline marks the Game Boy Advance's screen: the game plays exactly as it does there. Press <kbd>V</kbd> or use the *Widescreen* switch in the settings.
 
 Past the original screen, the view only shows what the game really has there. In an act that is more of the act, as far as the original's camera can go: the view stays inside the act's edges and inside a boss's arena. Where the original has nothing more to show, the view is black, like the frame around the Game Boy Advance's screen: beside an arena narrower than the view, and either side of a screen made for 240 × 160 alone. A picture's edge is never stretched or repeated to fill the space.
 
@@ -217,7 +217,7 @@ drawn, and Sonic Advance's own sprites behind Sonic count as background when the
 
 ### Sonic Advance 2 Boost Mode
 
-Boost Mode from *Sonic Advance 2*. Keep running flat out and Sonic breaks into an even faster run, with a burst of sparks and a trail of afterimages in Sonic Advance 2's light-blue boost colours. The more rings he carries, the sooner it kicks in; a hit, or slowing down, ends it. Press <kbd>B</kbd> or use the *Boost Mode* button in the help panel to turn it on. With the Rush boost on as well, the afterimages also follow Sonic while he boosts.
+Boost Mode from *Sonic Advance 2*. Keep running flat out and Sonic breaks into an even faster run, with a burst of sparks and a trail of afterimages in Sonic Advance 2's light-blue boost colours. The more rings he carries, the sooner it kicks in; a hit, or slowing down, ends it. Press <kbd>B</kbd> or use the *Boost Mode* switch in the settings to turn it on. With the Rush boost on as well, the afterimages also follow Sonic while he boosts.
 
 Its look and sound are Sonic Advance 2's own, so it also needs your **Sonic Advance 2 ROM** (`.gba`). Add it on the start screen, next to Sonic Advance 2, which turns Boost Mode and the tricks on, or it's asked for the first time you turn Boost Mode on in the game. Like the Sonic Advance file, it's read and kept on your device only. Its rules were read from Sonic Advance 2 (USA), with the help of SAT-R's work on that game, and checked in an emulator.
 
@@ -350,8 +350,8 @@ Your achievements are kept in this browser for now. Once Dreamports has accounts
 | **In the name input:** move over the characters, add the one picked, take one out; move along the name; jump to END, then <kbd>Z</kbd> to finish | Arrows, <kbd>Z</kbd> or <kbd>Space</kbd>, <kbd>X</kbd>; <kbd>Q</kbd> <kbd>E</kbd> (the Game Boy Advance's L and R); <kbd>Enter</kbd> | D-pad or left stick, <kbd>A</kbd>, <kbd>B</kbd>; <kbd>LB</kbd> <kbd>RB</kbd>; <kbd>Menu</kbd> |
 | **Continue screen:** continue, or skip to the next number | <kbd>Z</kbd> or <kbd>Space</kbd>, or <kbd>X</kbd> | <kbd>A</kbd>, or <kbd>B</kbd> or <kbd>X</kbd> |
 | **Select** | <kbd>Backspace</kbd> | <kbd>View</kbd> |
-| Close the achievements | <kbd>Esc</kbd> | <kbd>B</kbd> |
-| Help panel on or off | <kbd>H</kbd> | |
+| Close the achievements or the controls | <kbd>Esc</kbd> | <kbd>B</kbd> |
+| Settings open or closed; move between them, pick one | <kbd>H</kbd>, <kbd>Esc</kbd> closes them; arrows, <kbd>Enter</kbd> | <kbd>View</kbd> + <kbd>Menu</kbd> held together (the game sees neither then), <kbd>B</kbd> closes them; d-pad or left stick, <kbd>A</kbd> |
 | Sound on or off | <kbd>M</kbd> | |
 | Widescreen view on or off | <kbd>V</kbd> | |
 | Rush boost on or off | <kbd>R</kbd> | |
@@ -359,13 +359,15 @@ Your achievements are kept in this browser for now. Once Dreamports has accounts
 | SA2 tricks on or off | <kbd>T</kbd> | |
 | Show the collision (for checking the level) | <kbd>C</kbd> | |
 
+The settings are behind the button in the top-left corner of the game, each with its switch, and a click anywhere else closes them. While they're open, or the achievements or the controls opened from them, the game waits, music and all, and goes on from the same frame once they close. With a keyboard, *Controls* in them lists the keys.
+
 Other controllers that your browser maps to the Xbox layout work the same way. Press a button once after the page loads so the browser notices the controller; on the start screen, a small controller badge lights up while an Xbox controller is connected, and fades and leaves when it's unplugged.
 
-On a phone or tablet, an Xbox controller's buttons are drawn around the game, partly see-through, and do what the controller column above says: the d-pad bottom left, <kbd>A</kbd> <kbd>B</kbd> <kbd>X</kbd> <kbd>Y</kbd> bottom right, <kbd>LT</kbd> <kbd>LB</kbd> and <kbd>RB</kbd> <kbd>RT</kbd> above them, and *Select* (<kbd>View</kbd>) under the settings button and *Start* (<kbd>Menu</kbd>) top right, or both between the d-pad and the diamond with the screen held upright. <kbd>Y</kbd>, <kbd>LT</kbd> and <kbd>RT</kbd> have nothing to do yet. Slide your thumb around the d-pad to change direction without lifting it; between two arms holds both. The buttons step aside while a controller is connected and come back once it's unplugged. The settings button in the top-left corner always stays: it opens the help panel's settings, each with its switch, plus an *Opacity* slider for how solid the buttons are, and a touch anywhere else closes them. Held sideways, the game fills the screen's height; held upright, it sits above the buttons. Where the screen is too wide or too square for the buttons to fit beside the game, the ones that cover it let more of it show through.
+On a phone or tablet, an Xbox controller's buttons are drawn around the game, partly see-through, and do what the controller column above says: the d-pad bottom left, <kbd>A</kbd> <kbd>B</kbd> <kbd>X</kbd> <kbd>Y</kbd> bottom right, <kbd>LT</kbd> <kbd>LB</kbd> and <kbd>RB</kbd> <kbd>RT</kbd> above them, and *Select* (<kbd>View</kbd>) under the settings button and *Start* (<kbd>Menu</kbd>) top right, or both between the d-pad and the diamond with the screen held upright. <kbd>Y</kbd>, <kbd>LT</kbd> and <kbd>RT</kbd> have nothing to do yet. Slide your thumb around the d-pad to change direction without lifting it; between two arms holds both. The buttons step aside while a controller is connected and come back once it's unplugged. The settings button in the top-left corner always stays, and on a touch screen its settings have an *Opacity* slider for how solid the buttons are in place of *Controls*. Held sideways, the game fills the screen's height; held upright, it sits above the buttons. Where the screen is too wide or too square for the buttons to fit beside the game, the ones that cover it let more of it show through.
 
 With *BUTTON CONFIG.* set to *REVERSE* in the Options menu, jump and attack swap places in the acts, the Moon Zone, the special stages and Chao Hunt, as on the cartridge: <kbd>X</kbd> (<kbd>B</kbd> on the controller) jumps and <kbd>Z</kbd> or <kbd>Space</kbd> (<kbd>A</kbd>) attacks. The menus, the continue screen and Chao Hunt's results screen keep them as they are.
 
-The start screen works with the controller too: the d-pad or left stick moves between its links, buttons and switches, <kbd>A</kbd> presses the one picked, and <kbd>Menu</kbd> starts the game, like <kbd>Enter</kbd> on the keyboard. Browsers open the file list only from the mouse or the keyboard, so add the ROM files that way, or drop them on the page.
+The start screen works with the controller too: the d-pad or left stick moves between its links, buttons and switches, <kbd>A</kbd> presses the one picked, <kbd>Menu</kbd> starts the game, like <kbd>Enter</kbd> on the keyboard, and <kbd>B</kbd> goes back. Opened from *Your ROMs* in the settings, the start screen's back arrow, <kbd>Esc</kbd> or <kbd>B</kbd> goes back to the game where you left it, and *Play* starts a new one. Browsers open the file list only from the mouse or the keyboard, so add the ROM files that way, or drop them on the page.
 
 ## Multiplayer: Chao Hunt
 

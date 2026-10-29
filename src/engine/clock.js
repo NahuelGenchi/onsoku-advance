@@ -16,6 +16,12 @@ const LATE = 0.25;           // a frame this much longer or shorter than the dis
 const LEARN = 0.05;          // how much each frame moves the learnt frame time
 const RELEARN = 8;           // after this many late frames in a row, the display has changed: learn it again
 
+// while the page holds the game (its settings are open), every clock runs no steps, and counts on from where it
+// let go, with nothing owed
+let holding = false;
+/** Holds every clock (`on`), or lets them go on. */
+export function holdClocks(on) { holding = on; }
+
 export function createClock(stepMs, { snap = false } = {}) {
   let last = 0, pending = 0, period = 0, late = 0;
   return {
@@ -23,6 +29,7 @@ export function createClock(stepMs, { snap = false } = {}) {
     reset(now = performance.now()) { last = now; pending = 0; period = 0; late = 0; },
     /** How many steps the display frame at `now` runs. */
     steps(now) {
+      if (holding) { last = now; return 0; }
       let ms = Math.min(MAX_FRAME_MS, now - last);
       last = now;
       if (snap && ms > 0) {

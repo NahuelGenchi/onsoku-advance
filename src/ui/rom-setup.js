@@ -49,9 +49,10 @@ const drawn = () => new Promise(resolve => { requestAnimationFrame(() => setTime
  * it had; `unload` lets go of that one; `extras` are its options, each { label, hint, keys, key, get(), set(on),
  * auto }, where `hint` says what it does, `keys` (if any) the keys that use it, shown only to a keyboard, `key` is
  * the key that switches it in the game and `auto` turns it on when the ROM is chosen. `onPlay()` starts the game
- * once every required ROM is read.
+ * once every required ROM is read. `onBack()` takes the way back first, and says whether it did (while the game
+ * waits behind the screen, it goes back to the game).
  */
-export function createRomSetup(host, { heading, intro, slots, onPlay }) {
+export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = () => false }) {
   host.innerHTML = `
     <div class="setup">
       <header class="setup-head">
@@ -133,9 +134,13 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
   darkDevice.addEventListener('change', paint);
   new MutationObserver(paint).observe(host, { attributes: true, attributeFilter: ['hidden'] });
 
-  // back to dreamports.net: from its menu, back in the browser's history, so the menu comes back as it was left
-  $('.setup-back').addEventListener('click', e => {
-    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !cameFromMenu()) return;
+  // back to dreamports.net: from its menu, back in the browser's history, so the menu comes back as it was left;
+  // or back to the game, when it waits behind the screen
+  const back = $('.setup-back');
+  back.addEventListener('click', e => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (onBack()) { e.preventDefault(); return; }
+    if (!cameFromMenu()) return;
     e.preventDefault();
     history.back();
   });
@@ -302,6 +307,12 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
     add, restored,
     /** Shows the extras as they are now (they can also be changed in the game). */
     refresh() { for (const c of Object.values(rows)) setState(c, c.el.dataset.state); },
+    /** Names the way back: to the game waiting behind the screen (`game`), or to Dreamports. */
+    backTo(game) {
+      const label = game ? 'Back to the game' : 'Back to Dreamports';
+      back.setAttribute('aria-label', label);
+      back.title = label;
+    },
     focus() { (play.disabled ? host.querySelector('.rom[data-state="empty"] .rom-add') : play)?.focus(); },
   };
 }

@@ -7,7 +7,7 @@
 
 import { TICK_MS, CAMERA, PHYSICS, ANIMATION, SCREEN_W, SCREEN_H, RUSH_BOOST, BOOST_MODE } from './constants.js';
 import { makeAnimator, setAnim, tickAnim, frameOf, spritePalette } from './animator.js';
-import { createPlayer, stepPlayer, animatePlayer, hurt, SONIC, TAILS } from './player.js';
+import { createPlayer, stepPlayer, animatePlayer, hurt, SONIC, TAILS, KNUCKLES } from './player.js';
 import { createRushFx, startRushFx, stepRushFx } from './rushfx.js';
 import { createBoostFx, recordSonic, stepAfterimages, startBurst, stepBursts, particleAnims } from './boostmode.js';
 import { TRICK_FX_PRIORITY, createTrail, recordTrail, spinEffect, boundTrail } from './trickfx.js';
@@ -34,6 +34,7 @@ import { ITEM_TASKS, shieldTask, starsTask, magneticRing } from './items.js';
 import { createBossCapsule } from './capsule.js';
 import { SPECIAL_SPRING } from './specialspring.js';
 import { createEggRocket, EGG_ROCKET } from './eggrocket.js';
+import { X_ZONE } from './unlock.js';
 import { screenShake, SCREEN_SHAKE, SHAKE } from './screenshake.js';
 import { arcTan2 } from './trig.js';
 import { SONG } from '../sound/songs.js';
@@ -53,6 +54,15 @@ const ITEM_TIME = 1200;   // invincibility and speed shoes last 20 seconds
 const RANDOM_RING_PRIZES = [1, 5, 10, 20, 30, 40];   // ItemBox_RingAmountTable
 const SPEED_UP_TEMPO = 0x200, NORMAL_TEMPO = 0x100;
 const MAX_COURSE_TIME = 10 * 3600;
+// the achievements an act's results earn (achievements/list.js): a zone's, on its last act's, and the X Zone's
+// for the character that clears it
+const ZONE_CLEARS = {
+  1: 'neo-green-hill', 3: 'secret-base', 5: 'casino-paradise', 7: 'ice-mountain', 9: 'angel-island', 10: 'egg-rocket',
+  11: 'cosmic-angel', [X_ZONE]: 'x-zone',
+};
+const X_ZONE_CLEARS = { [TAILS]: 'tails-clear', [KNUCKLES]: 'knuckles-clear' };
+const FAST_ACT = 3600;   // under a minute on the clock
+const MANY_LIVES = 10;
 // what an act's stage init (StageInit_ZoneNActM) sets up besides its music (levels.js): in single player how
 // far short of the act's right edge the camera and Sonic stop, by level (Neo Green Hill act 2 keeps its boss's
 // arena out)
@@ -133,6 +143,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     ringCount: 0, lives: START_LIVES, score: 0, courseTime: 0, clockStopped: false, hud: createHud(), showCollision: false,
     continues: options.continues ?? 0,   // gUnknown_0300543C: a game over uses one to go on
     gameOver: null,       // the game over (gameover.js) once Sonic has lost his last life
+    hits: 0,              // the hits and lives lost since the act started, for the achievements (none in the original)
     timeOver: null,       // the time over (timeover.js) once the time limit has cost him a life, while he has one left
     checkpointTime: 0,    // gCheckpointTime: counts up with the clock even while the course time counts down
     timerReversed: false, // STAGE_FLAG__TIMER_REVERSED: the course time counts down, to a time over at 0
@@ -213,6 +224,9 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   // and the screen keeps its frame, and what comes after it
   let saving = 0, afterSave = null;
   let ended = false;  // past the last act built so far, the screen keeps its last frame
+  // for the achievements: the hits taken when the boss's arena last closed in (-1 before one has), whether it is
+  // closed, and whether Sonic has had ten lives
+  let arenaHits = -1, inArena = false, manyLives = false;
   let frozen = null;  // until then, the last act's last frame, which the screen keeps: { render, state }
   let drawShift = 0;   // how far right of the view the rest of this frame draws, after the act looped back
   let special = null;   // the special spring Sonic left the act on, after which the act stops
@@ -291,6 +305,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     // blinking from the last hit
     damage() {
       if (!hurt(player, terrain)) return false;
+      state.hits++;
       if (player.shield) {
         sound.play(SONG.LIFE_LOST);
         player.shield = null;
@@ -332,6 +347,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     lifeLost() {
       state.noPause = true;
       if (mode) { mode.lifeLost(); return; }
+      state.hits++;
       const timeUp = timeLimit && (state.courseTime > MAX_COURSE_TIME || (state.timerReversed && state.courseTime === 0));
       if (!timeUp) state.ringCount = 0;
       state.lives = (state.lives - 1) & 0xFF;
@@ -360,6 +376,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     stageResults() {
       state.noPause = true;
       saveActCleared(save, { level: state.level, rings: state.ringCount, character, startLevel: options.startLevel ?? 0 });
+      actCleared();
       state.results = createResults(act.results, { rings: state.ringCount, courseTime: state.courseTime, level: state.level });
       sound.play(state.level & 1 ? SONG.BOSS_CLEAR : SONG.ACT_CLEAR);
       sound.musicOff();
@@ -410,7 +427,9 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
       if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) state.lives = (state.lives + 1) & 0xFF;
     },
     // a boss is beaten at (x, y): it leaves the capsule that ends the act (CreateBossCapsule)
-    bossDefeated(x, y) { tasks.add(createBossCapsule(x, y, anims, state.level >> 1), 0x2000); },
+    bossDefeated(x, y) { tasks.add(createBossCapsule(x, y, anims, state.level >> 1), 0x2000); world.bossBeaten(); },
+    // a boss is beaten, for the achievements: without a hit since its arena closed in, Untouched
+    bossBeaten() { if (arenaHits === state.hits) options.achieve?.('flawless-boss'); },
     // the capsule opens: the clock and the rings stop as at the goal (STAGE_FLAG__ACT_START and STAGE_FLAG__2)
     stopStage() { state.clockStopped = true; state.ringsStopped = true; },
     // Mecha Knuckles' arena: rising scattered rings bounce off ceilings too, until the act starts over
@@ -556,6 +575,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     state.ringCount = (before + n) & 0xFFFF;
     if (Math.floor(state.ringCount / 100) !== Math.floor(before / 100)) { state.lives = (state.lives + 1) & 0xFF; extraLife = true; }
     if (state.ringCount >= 100) options.achieve?.('hundred-rings');
+    if (state.ringCount >= 200) options.achieve?.('two-hundred-rings');
   }
   // a ring taken, with CreateCollectRingEffect: it leaves a sparkle with the ring sound, alternating sides with
   // the count's parity: odd ones on the second sound effect player to the left, even ones on the first to
@@ -737,7 +757,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   // ApplyGameStageSettingsAndStart, after a continue: three lives, no score, and the act from its start as at the
   // game's (GameStageStart), its stage clock from 0 too
   function continueAct() {
-    state.lives = START_LIVES; state.score = 0; state.checkpoint = null; state.checkpointIndex = 0; state.tick = 0;
+    state.lives = START_LIVES; state.score = 0; state.checkpoint = null; state.checkpointIndex = 0; state.tick = 0; state.hits = 0;
     restartAct();
   }
 
@@ -783,8 +803,9 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
       tick: 0, terrain, tasks, rings, cam: newCamera(), effects: [], sprites: [], ringCount: 0, courseTime: 0,
       clockStopped: false, hud: createHud(), animal: 0, palettes: palettes.map(a => a.shown), checkpointIndex: 0,
       checkpoint: null, goalReached: false, ringsStopped: false, card: null, results: null, rushFx: createRushFx(), shake: -1, display: noEffects(),
-      boostFx: createBoostFx(player), trail: createTrail(), water: createWater(stage.water), cardOver: false,
+      boostFx: createBoostFx(player), trail: createTrail(), water: createWater(stage.water), cardOver: false, hits: 0,
     });
+    arenaHits = -1;
     ctx.view = state.view = viewOf(state.cam, viewW, viewH);
     render = newRenderer();
     addStageTasks();
@@ -931,11 +952,31 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     const checkpoint = act.checkpoint && { ...act.checkpoint };
     if (courseTime >= MAX_COURSE_TIME && checkpoint) checkpoint.time = 0;
     Object.assign(state, {
-      score, lives, courseTime, seed, frameCount, tick: act.stageTime, ringCount: act.rings, animal: act.animal,
+      score, lives, courseTime, seed, frameCount, tick: act.stageTime, ringCount: act.rings, animal: act.animal, hits: act.hits ?? 0,
       checkpoint, checkpointIndex: act.checkpointIndex, cam: newCamera(),
     });
     ctx.view = state.view = viewOf(state.cam, viewW, viewH);
     loading = true;
+  }
+
+  // the act's results, for the achievements: its zone's when it is the zone's last act (and the X Zone's for Tails
+  // and Knuckles), Not a Scratch without a hit or a life lost in it, and Under a Minute on the clock counting up
+  function actCleared() {
+    const earn = options.achieve;
+    if (!earn) return;
+    if (ZONE_CLEARS[state.level]) earn(ZONE_CLEARS[state.level]);
+    if (state.level === X_ZONE && X_ZONE_CLEARS[character]) earn(X_ZONE_CLEARS[character]);
+    if (state.hits === 0) earn('perfect-act');
+    if (!state.timerReversed && state.courseTime < FAST_ACT) earn('fast-act');
+  }
+
+  // the end of a frame, for the achievements: a boss's arena closing in counts the hits from there, and ten lives
+  // earn Life Collector
+  function watchFrame() {
+    const arena = !!state.cam?.arena;
+    if (arena && !inArena) arenaHits = state.hits;
+    inArena = arena;
+    if (!manyLives && state.lives >= MANY_LIVES && options.achieve) { manyLives = true; options.achieve('extra-lives'); }
   }
 
   // the VBlank copy of the sprite palette, on the frames a script loaded colours into it
@@ -973,6 +1014,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     if (paused) input.jumpPressed = input.attackPressed = input.boostPressed = input.trickPressed = false;
     state.paused = state.pauseGame;
     endFrame();
+    watchFrame();
     if (state.water) endWaterFrame(state.water);
     if (madeBy >= 0) { madeBy = -1; loading = true; }
     if (restart) { const start = restart; restart = null; start(); }
@@ -1035,7 +1077,8 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
  * emeralds, continues, seed (gPseudoRandom, which the special stage goes on with), frameCount (gFrameCount,
  * which it counts on), act }, where `act` is what only the act reads: the spring, the checkpoint he had
  * (gSpecialStageReturnX and Y, with its course time, or null for the act's start), the last checkpoint passed
- * (gBossIndex), the stage clock (gStageTime), the rings and the next freed animal.
+ * (gBossIndex), the stage clock (gStageTime), the rings and the next freed animal, and the hits taken in the act so
+ * far (for the achievements).
  */
 function handOver(state, spring, { level = 0, character = SONIC, emeralds = 0, continues = 0 }) {
   return {
@@ -1043,7 +1086,7 @@ function handOver(state, spring, { level = 0, character = SONIC, emeralds = 0, c
     frameCount: state.frameCount,
     act: {
       spring, checkpoint: state.checkpoint, checkpointIndex: state.checkpointIndex, stageTime: state.tick, rings: state.ringCount,
-      animal: state.animal,
+      animal: state.animal, hits: state.hits,
     },
   };
 }

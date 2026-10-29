@@ -484,7 +484,10 @@ kbd {
   margin: 2px; max-height: calc(100dvh - 40px); overflow: auto; background: var(--paper);
   box-shadow: 0 -2px var(--line), 0 2px var(--line), -2px 0 var(--line), 2px 0 var(--line);
 }
-.ach-head { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; border-bottom: 2px solid var(--line); }
+.ach-head {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px;
+  border-bottom: 2px solid var(--line); background: var(--paper);
+}
 .ach-head h2 { flex: 1; margin: 0; font-size: inherit; font-weight: normal; line-height: inherit; }
 .ach-count { color: var(--dim); font-size: 13.5px; }
 .ach-close { width: 34px; height: 34px; padding: 0; border: 0; background: none; color: var(--dim); font: inherit; cursor: pointer; }

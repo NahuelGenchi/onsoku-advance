@@ -12,6 +12,7 @@ import { createUiTask, uiGfxStackInit, uiGraphics, loadUiGfx, drawUiText, drawUi
 import { uiSlots } from './intro.js';
 import { SINE } from '../engine/trig.js';
 import { SONG } from '../sound/songs.js';
+import { ALL_EMERALDS } from '../engine/unlock.js';
 
 const OBJ_VRAM = 0x10000;
 const EMERALD_BONUS = 10000, LIFE_EVERY = 50000;
@@ -38,7 +39,8 @@ const scaled = fields => line({ unk0: 0x100, unk2: 0, unk4: 0, unkA: 0x39, unkC:
  * sub_805D048: the results, `arg` 1 after the emerald's scene and 0 otherwise (which picks the stripe's picture;
  * the emerald itself is won by having the stage's target, ctx.special.collected >= ctx.special.target). Updates
  * ctx.game: the emerald's bit in `emeralds`, `score`, `lives` (one more for each 50000 points passed) and
- * `continues` (gUnknown_0300543C, the continues the player has).
+ * `continues` (gUnknown_0300543C, the continues the player has). An emerald won calls `ctx.game.achieve(id)`, the
+ * page's, for the achievements.
  */
 export function createResults(ctx, arg) {
   const e = ctx.engine, { game, special } = ctx;
@@ -52,6 +54,9 @@ export function createResults(ctx, arg) {
     bonus = EMERALD_BONUS;
     if ((game.emeralds >> ctx.stageIndex) & 1) had = 1;
     else game.emeralds = (game.emeralds | (1 << ctx.stageIndex)) & 0xFF;
+    // for the achievements: any emerald won, and all seven held
+    game.achieve?.('first-emerald');
+    if ((game.emeralds & ALL_EMERALDS) === ALL_EMERALDS) game.achieve?.('all-emeralds');
   } else e.playSong(SONG.SPECIAL_STAGE_LOSE);
   const emeralds = game.emeralds & 0xFF, rings = special.collected & 0xFFFF;
   const continues = (special.extra + had) & 0xFF;

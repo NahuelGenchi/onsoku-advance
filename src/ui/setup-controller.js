@@ -26,7 +26,7 @@ export function bindController(host, { blocked }) {
     if (on === (was === 'on')) return;
     clearTimeout(timer);
     badge.dataset.state = on ? 'on' : 'off';
-    note.textContent = on ? 'controller on' : 'controller off';
+    note.textContent = on ? 'Controller on' : 'Controller off';
     badge.classList.add('noting');
     timer = setTimeout(() => {
       badge.classList.remove('noting');

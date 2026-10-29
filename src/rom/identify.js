@@ -29,11 +29,11 @@ export function isSonicAdvance(buffer) {
  */
 export async function identify(rom) {
   if (rom.size < 0x200 || rom.u8(0xB2) !== 0x96) {
-    throw new RomError('this file is not a game boy advance rom.');
+    throw new RomError('This file is not a Game Boy Advance ROM.');
   }
   const header = readHeader(rom);
   if (header.title !== GAME_TITLE || !(header.code in GAME_CODES)) {
-    throw new RomError(`this is a game boy advance rom, but not Sonic Advance (its header says "${header.title}", ${header.code}).`);
+    throw new RomError(`This is a Game Boy Advance ROM, but not Sonic Advance (its header says "${header.title}", ${header.code}).`);
   }
   const sha1 = await sha1Hex(rom.buffer);
   const known = KNOWN_VERSIONS.find(v => v.sha1 === sha1) ?? null;

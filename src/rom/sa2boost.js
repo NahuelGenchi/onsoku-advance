@@ -12,7 +12,7 @@ export const BOOST_MODE_SE = 221;   // its start sound (SE_221)
 // the particles' two variants: a two-frame loop, and the one that plays out and ends
 export const PARTICLE_ANIMATIONS = { boostParticles: 0, boostParticlesEnd: 1 };
 
-const unexpected = what => new RomError(`unexpected data in the Sonic Advance 2 rom: ${what}.`);
+const unexpected = what => new RomError(`Unexpected data in the Sonic Advance 2 ROM: ${what}.`);
 
 // the particles' frames, each drawn once, and their animations with indices into those frames
 function particles(rom, tables) {

@@ -329,7 +329,7 @@ Earn achievements as you play. When you earn one, a small popup drops in at the 
 | Guardian | Clear the X Zone as Knuckles |  |
 | Chao Hunter | Win a Chao Hunt |  |
 
-The game is **Beaten** once you have the 8 marked ✓, every zone and the X Zone, with any character, and **Mastered** once you have all 32. Each gets its own popup, and the achievements list shows how close you are.
+The game is **Beaten** once you have the 8 marked ✓, every zone and the X Zone, with any character, and **Mastered** once you have all 32. Each gets its own popup. In the achievements list, press *Beaten* or *Mastered* to see only what that status needs and how close you are.
 
 A no-hit achievement counts from the moment the boss's arena closes in, and starts over if you lose a life and fight it again.
 

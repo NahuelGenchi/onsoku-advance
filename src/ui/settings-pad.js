@@ -1,15 +1,16 @@
-// The game's settings with a controller, or the arrow keys: Y opens and closes them, as H does; while they are open
-// the d-pad, the left stick or the arrows move between them, A presses the one picked, left and right move the
-// Opacity slider, and B closes them. In a dialog opened from them the d-pad scrolls it (B closes it, dialog.js).
+// The game's settings with a controller, or the arrow keys: View + Menu (Select + Start) held together open and close
+// them, as H does, and the game sees neither button meanwhile (input.js); while they are open the d-pad, the left
+// stick or the arrows move between them, A presses the one picked, left and right move the Opacity slider, and B
+// closes them. In a dialog opened from them the d-pad scrolls it, and B or View + Menu close it (B in dialog.js).
 
-import { connectedPads } from '../engine/input.js';
+import { connectedPads, holdsSettingsCombo } from '../engine/input.js';
 import { padsHeld, toward, REPEAT_AFTER, REPEAT_EVERY } from './pad-nav.js';
 
 const SCROLL = 60;   // px a dialog scrolls each step
 
 /**
  * Binds the settings in `panel` (the help panel, whose `.actions` hold them). `canOpen()` says whether the game
- * shows, so Y may open them; `show(open)` opens or closes them; `dialog()` is the dialog open over the game, if any.
+ * shows, so View + Menu may open them; `show(open)` opens or closes them; `dialog()` is the dialog open over the game, if any.
  */
 export function bindSettingsPad(panel, { canOpen, show, dialog }) {
   const items = () => [...panel.querySelectorAll('.actions > :is(button, a, label)')]
@@ -62,20 +63,22 @@ export function bindSettingsPad(panel, { canOpen, show, dialog }) {
   // the pads, read each frame; a button acts as it goes down, A as it's let go, so what it opens or shows doesn't
   // find it still held, and a button already down when they open does nothing
   const held = new Set(), since = {};
-  let armedA = false;
+  let armedA = false, comboBefore = false;
   function read(time) {
     requestAnimationFrame(read);
     const pads = connectedPads();
-    if (!pads.length) { held.clear(); return; }
+    if (!pads.length) { held.clear(); comboBefore = false; return; }
     const now = padsHeld(pads), down = b => now.has(b) && !held.has(b);
+    const combo = pads.some(holdsSettingsCombo), toggle = combo && !comboBefore;
+    comboBefore = combo;
     const d = dialog();
     if (d) {
-      if (down('y')) d.close();
+      if (toggle) d.close();
     } else if (!panel.hidden) {
-      if (down('b') || down('y')) show(false);
+      if (down('b') || toggle) show(false);
       if (down('a')) armedA = true;
       if (!now.has('a') && armedA) { armedA = false; const el = current(); if (el) target(el).click(); }
-    } else if (down('y') && canOpen()) {
+    } else if (toggle && canOpen()) {
       open();
     }
     if (d || !panel.hidden) {

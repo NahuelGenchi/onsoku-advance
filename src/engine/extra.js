@@ -61,9 +61,10 @@ const SILENT = {
  * layout the controls follow, the level the game was started on, the continues the game has, what the game
  * carries over from X Zone (GameStageStart keeps the score, the lives and the random numbers; without it, the
  * course select's start: no score, three lives, the random numbers from 0), and what a game over without a
- * continue does once it is done.
+ * continue does once it is done. `achieve(id)` is createGame's too: the robot's defeat earns Super Sonic, and
+ * Untouched without a hit since the stage last started.
  */
-export function createExtraStage(canvas, assets, buttons, sound = SILENT, { stageResults, onCredits = () => {}, save = openSave(null), startLevel = 0, continues = 0, carry = null, onTitle = () => {} } = {}) {
+export function createExtraStage(canvas, assets, buttons, sound = SILENT, { stageResults, onCredits = () => {}, save = openSave(null), startLevel = 0, continues = 0, carry = null, onTitle = () => {}, achieve = () => {} } = {}) {
   const difficulty = save.difficultyLevel;
   // the jump and attack buttons as the save's button setting has them; the continue screen reads A and B themselves
   const input = playerControls(buttons, save.btnConfig);
@@ -109,6 +110,7 @@ export function createExtraStage(canvas, assets, buttons, sound = SILENT, { stag
   // the frames the game over's save still takes (WRITE_FRAMES), in which nothing else runs and the screen keeps
   // its frame, and what comes after it
   let saving = 0, afterSave = null;
+  let hits = 0;   // the hits Super Sonic has taken since the stage started, for the achievements
   let startHeld = false, startPressed = false;   // Start as the last frame read it, and pressed this frame
   const sparkles = new Set();
   const random = () => (state.seed = (Math.imul(state.seed, 0x196225) + 0x3C6EF35F) >>> 0);
@@ -126,6 +128,8 @@ export function createExtraStage(canvas, assets, buttons, sound = SILENT, { stag
     get tick() { return state.tick; },
     cam: { x: 0, y: 0 },
     get display() { return state.display; },
+    // the robot hit Super Sonic (eggrobo.js), for the achievements
+    hit() { hits++; },
     priority: PLAYER,
     robo: null,
     input() {
@@ -178,6 +182,8 @@ export function createExtraStage(canvas, assets, buttons, sound = SILENT, { stag
       state.ended = true;
       saveMoonCleared(save);
       const written = save.write();
+      achieve('true-ending');
+      if (hits === 0) achieve('flawless-boss');
       if (!stage.extra.ending) { onCredits(); return; }
       const results = r => { saveActCleared(save, { ...r, startLevel }); stageResults?.(r); };
       state.ending = createTrueEnding(anims, sound, { rings: state.ringCount, courseTime: state.courseTime, language: save.uiLanguage, stageResults: results, onCredits });
@@ -265,7 +271,7 @@ export function createExtraStage(canvas, assets, buttons, sound = SILENT, { stag
     state.view = viewOf(state.cam, viewW, viewH);
     tasks.reset(); scatter.reset(); sparkles.clear(); resetSparkles();
     Object.assign(state, { ringCount: START_RINGS, courseTime: 0, sprites: [], windows: [], body: null, display: freshDisplay() });
-    w.robo = null; spawned = false; brakeDust = MAX_BRAKE_DUST;
+    w.robo = null; spawned = false; brakeDust = MAX_BRAKE_DUST; hits = 0;
     startCard();
     sound.playStageMusic(stage.music);
     loading = true;

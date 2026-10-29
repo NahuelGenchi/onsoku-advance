@@ -182,6 +182,7 @@ export function eggDrillster(e, slot, anims, ctx) {
           const escape = eggMobileEscape(b.x, b.y);
           ctx.add(escape, escape.priority);
           ctx.world.musicState(MUSIC_END);
+          ctx.world.bossBeaten();
           for (const [dx, dy] of [[16, -16], [-16, -16], [20, 16], [-20, 16]]) {
             const ex = explosion(ctx, (b.x + dx) << 8, (b.y + dy) << 8);
             ctx.add(ex, ex.priority);

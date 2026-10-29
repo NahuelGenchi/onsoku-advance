@@ -49,7 +49,7 @@ function ease(part, target, speed) {
 function hurts(s, x, y, w) {
   const p = w.player, b = p.sprite.boxes[0];
   if (!s.boxes[1] || !b || p.dead || !overlap(x, y, s.boxes[1], I(p.qx), I(p.qy), b)) return false;
-  hurtSuperSonic(p, w);
+  if (hurtSuperSonic(p, w)) w.hit();
   return true;
 }
 function struck(s, x, y, w) {

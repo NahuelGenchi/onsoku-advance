@@ -24,6 +24,9 @@ import { THE_MOON, ALL_EMERALDS } from './engine/unlock.js';
 import { openSave } from './engine/save.js';
 import { levelInfo } from './rom/levels.js';
 import { startMultiplayer, DEFAULT_SEED, DEFAULT_CHAO_PLACE } from './multiplayer.js';
+import { openAchievements } from './achievements/store.js';
+import { createUnlockPopup } from './achievements/popup.js';
+import { createAchievementsPanel } from './achievements/panel.js';
 
 const picker = document.getElementById('picker');
 const stage = document.getElementById('stage');
@@ -125,6 +128,27 @@ opacitySlider.addEventListener('pointerdown', e => {
   slideTo(e);
 });
 opacitySlider.addEventListener('pointermove', e => { if (e.pointerType === 'touch' && opacitySlider.hasPointerCapture(e.pointerId)) slideTo(e); });
+
+// the achievements, kept in this browser (store.js): each new one shows its popup over the game, and the settings
+// open the list of them
+const achievements = openAchievements();
+const unlockPopup = createUnlockPopup(stage, screen, () => sound);
+const achievementsButton = document.getElementById('achievements-open');
+const achievementsPanel = createAchievementsPanel(stage, achievements, () => screen.focus());
+function showAchievementCount() {
+  const all = achievements.list();
+  achievementsButton.querySelector('.count').textContent = ` ${all.filter(a => a.earned).length}/${all.length}`;
+}
+showAchievementCount();
+achievements.onUnlock(a => {
+  unlockPopup.show(a);
+  showAchievementCount();
+  achievementsPanel.refresh();
+});
+achievementsButton.addEventListener('click', () => {
+  if (touchScreen.matches) showSettings(false);
+  achievementsPanel.open();
+});
 
 // the sound, also M on a keyboard
 function showSound() { showSetting(soundButton, !sound.muted); }
@@ -326,6 +350,7 @@ function play(assets, resume = null, carry = null) {
     // after the true ending, the staff credits; called from inside a step, so the game changes once that
     // frame is over
     onCredits: () => queueMicrotask(() => endGame(assets, 'credits')),
+    achieve: id => achievements.unlock(id),
   });
   playing = assets;
   fitScreen();

@@ -326,6 +326,7 @@ kbd {
   }
   .help .actions > :first-child { border-top: 0; }
   .help .actions :disabled { color: rgba(169, 184, 230, .6); }
+  .help .actions .count { color: #a9b8e6; }
   .help .actions [aria-pressed]::after {
     content: ""; flex: none; width: 32px; height: 16px; margin: 2px;
     background: linear-gradient(rgba(169, 184, 230, .6), rgba(169, 184, 230, .6)) 2px 2px / 12px 12px no-repeat, #263a66;
@@ -418,8 +419,8 @@ kbd {
 /* sideways the settings have room for two columns, not for one long one */
 @media (pointer: coarse) and (orientation: landscape) {
   .help { width: min(664px, calc(100vw - 2 * var(--edge) - 64px)); }
-  .help .actions { grid-template: repeat(4, auto) / 1fr 1fr; grid-auto-flow: column; column-gap: 24px; }
-  .help .actions > :nth-child(5 of :is(button, a, label)) { border-top: 0; }
+  .help .actions { grid-template: repeat(5, auto) / 1fr 1fr; grid-auto-flow: column; column-gap: 24px; }
+  .help .actions > :nth-child(6 of :is(button, a, label)) { border-top: 0; }
 }
 
 /* asset viewer */
@@ -440,3 +441,61 @@ kbd {
 .anim canvas { display: block; margin: 0 auto 6px; image-rendering: pixelated; background: #6aa384; border-radius: 8px; }
 .anim b { display: block; font-size: 14px; }
 .anim small { display: block; white-space: nowrap; color: var(--muted); font-family: var(--mono); }
+
+/* the unlock popup (src/achievements/popup.js) in a layer over the game's screen, which it comes in from the edge of:
+   its pixels are `--dot` CSS px each, and its sizes and places (`--h`, `--margin`, `--trophy-x` …) come from popup.js;
+   a light sweeps over it once */
+.unlock-layer { position: fixed; z-index: 4; overflow: hidden; pointer-events: none; }
+.unlock {
+  position: absolute; top: calc(var(--dot) * var(--margin)); right: calc(var(--dot) * var(--margin));
+  width: calc(var(--dot) * var(--w)); height: calc(var(--dot) * var(--h));
+  filter: drop-shadow(0 calc(var(--dot) * 1) calc(var(--dot) * 2) rgba(0, 0, 0, .4));
+  will-change: transform;
+}
+.unlock-box { position: absolute; inset: 0; overflow: hidden; background: var(--box); }
+.unlock canvas { position: absolute; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+.unlock-trophy { left: calc(var(--dot) * var(--trophy-x)); top: calc(var(--dot) * var(--trophy-y)); }
+.unlock-strip { position: absolute; top: 0; bottom: 0; left: calc(var(--dot) * var(--text-x)); right: 0; overflow: hidden; }
+.unlock-text { left: 0; top: calc(var(--dot) * var(--text-y)); }
+.unlock-shine {
+  position: absolute; z-index: 1; top: 0; bottom: 0; left: 0; width: calc(var(--dot) * 14);
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .55) 50%, transparent 80%);
+  mix-blend-mode: overlay;
+}
+.unlock-said { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* the achievements (src/achievements/panel.js), in the launcher's look: Monocraft, its light or dark tokens and
+   its 2 px pixel frames with the corner pixels left out; each trophy at two screen pixels to one of its own */
+.achievements {
+  --paper: #fff; --hover: #eef7ff; --line: #cde3f8; --blue: #1a4fb0; --ink: #0a1738; --dim: rgba(10, 23, 56, .68);
+  --faint: rgba(10, 23, 56, .46); --veil: rgba(255, 255, 255, .82);
+  width: min(480px, calc(100vw - 36px)); max-height: calc(100dvh - 36px); margin: auto; padding: 0; border: 0;
+  overflow: visible; background: none; color: var(--ink); color-scheme: light;
+  font: 15px/20px Monocraft, var(--mono); font-variant-ligatures: none; font-synthesis: none; -webkit-font-smoothing: antialiased;
+}
+.achievements[data-look="dark"] {
+  --paper: #0b1240; --hover: #121b4f; --line: #263a66; --blue: #7aa7ff; --ink: #eef4ff; --dim: #a9b8e6;
+  --faint: rgba(169, 184, 230, .6); --veil: rgba(5, 10, 36, .82);
+  color-scheme: dark;
+}
+.achievements::backdrop { background: rgba(5, 10, 36, .55); }
+.achievements[open] { animation: ach-in .22s cubic-bezier(.2, .9, .25, 1); }
+.ach-panel {
+  margin: 2px; max-height: calc(100dvh - 40px); overflow: auto; background: var(--paper);
+  box-shadow: 0 -2px var(--line), 0 2px var(--line), -2px 0 var(--line), 2px 0 var(--line);
+}
+.ach-head { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; border-bottom: 2px solid var(--line); }
+.ach-head h2 { flex: 1; margin: 0; font-size: inherit; font-weight: normal; line-height: inherit; }
+.ach-count { color: var(--dim); font-size: 13.5px; }
+.ach-close { width: 34px; height: 34px; padding: 0; border: 0; background: none; color: var(--dim); font: inherit; cursor: pointer; }
+.ach-close:hover { background: var(--hover); color: var(--ink); }
+.achievements :focus-visible { outline: 2px solid var(--blue); outline-offset: 0; }
+.ach-list { margin: 0; padding: 0; list-style: none; }
+.ach { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; gap: 0 14px; padding: 14px 16px; }
+.ach + .ach { border-top: 2px solid var(--line); }
+.ach canvas { width: 24px; height: 20px; image-rendering: pixelated; image-rendering: crisp-edges; }
+.ach h3 { margin: 0; font-size: inherit; font-weight: normal; line-height: inherit; }
+.ach p { margin: 4px 0 0; color: var(--dim); font-size: 13.5px; line-height: 20px; }
+.ach:not([data-earned]) h3 { color: var(--faint); }
+@keyframes ach-in { from { opacity: 0; transform: translateY(8px) scale(.97); } }
+@media (prefers-reduced-motion: reduce) { .achievements[open] { animation: none; } }

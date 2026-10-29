@@ -317,7 +317,7 @@ Other controllers that your browser maps to the Xbox layout work the same way. P
 
 On a phone or tablet, an Xbox controller's buttons are drawn around the game, partly see-through, and do what the controller column above says: the d-pad bottom left, <kbd>A</kbd> <kbd>B</kbd> <kbd>X</kbd> <kbd>Y</kbd> bottom right, <kbd>LT</kbd> <kbd>LB</kbd> and <kbd>RB</kbd> <kbd>RT</kbd> above them, and *Select* (<kbd>View</kbd>) under the settings button and *Start* (<kbd>Menu</kbd>) top right, or both between the d-pad and the diamond with the screen held upright. <kbd>Y</kbd>, <kbd>LT</kbd> and <kbd>RT</kbd> have nothing to do yet. Slide your thumb around the d-pad to change direction without lifting it; between two arms holds both. The buttons step aside while a controller is connected and come back once it's unplugged. The settings button in the top-left corner always stays: it opens the help panel's settings, each with its switch, plus an *Opacity* slider for how solid the buttons are, and a touch anywhere else closes them. Held sideways, the game fills the screen's height; held upright, it sits above the buttons. Where the screen is too wide or too square for the buttons to fit beside the game, the ones that cover it let more of it show through.
 
-With *BUTTON CONFIG.* set to *REVERSE* in the Options menu, jump and attack swap places in the acts, the Moon Zone and the special stages, as on the cartridge: <kbd>X</kbd> (<kbd>B</kbd> on the controller) jumps and <kbd>Z</kbd> or <kbd>Space</kbd> (<kbd>A</kbd>) attacks. The menus, the continue screen and Chao Hunt keep them as they are.
+With *BUTTON CONFIG.* set to *REVERSE* in the Options menu, jump and attack swap places in the acts, the Moon Zone, the special stages and Chao Hunt, as on the cartridge: <kbd>X</kbd> (<kbd>B</kbd> on the controller) jumps and <kbd>Z</kbd> or <kbd>Space</kbd> (<kbd>A</kbd>) attacks. The menus, the continue screen and Chao Hunt's results screen keep them as they are.
 
 The start screen works with the controller too: the d-pad or left stick moves between its links, buttons and switches, <kbd>A</kbd> presses the one picked, and <kbd>Menu</kbd> starts the game, like <kbd>Enter</kbd> on the keyboard. Browsers open the file list only from the mouse or the keyboard, so add the ROM files that way, or drop them on the page.
 
@@ -332,6 +332,8 @@ To play, add `?level=14` to the game's address, for example [dreamports.net/play
 | **Run**, crouch, look up | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> | <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> | D-pad or left stick |
 | **Jump**, and go on from the results | <kbd>F</kbd> | <kbd>.</kbd> | <kbd>A</kbd> |
 | **Attack** | <kbd>G</kbd> | <kbd>/</kbd> | <kbd>B</kbd> or <kbd>X</kbd> |
+
+With *BUTTON CONFIG.* on *REVERSE*, every player's jump and attack swap in the stage: <kbd>G</kbd>, <kbd>/</kbd> and the controller's <kbd>B</kbd> or <kbd>X</kbd> jump. The results screen still goes on with <kbd>F</kbd>, <kbd>.</kbd> and <kbd>A</kbd>.
 
 Players 1 and 2 share the keyboard. Controllers go to the players without keys first: with 3 or 4 players, the first controller is player 3's and the second player 4's, and any more go to players 1 and 2. With 2 players, the first controller is player 1's and the second player 2's. <kbd>H</kbd> and <kbd>M</kbd> work as usual; the widescreen view and the Rush boost are for single player only.
 

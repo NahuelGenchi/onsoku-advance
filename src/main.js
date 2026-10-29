@@ -400,7 +400,7 @@ function startRound(assets) {
   game = null;
   screen.hidden = true;
   screens.hidden = false;
-  round = startMultiplayer({ container: screens, assets, count: players, sound, seed, chaoPlace, language: save.uiLanguage });
+  round = startMultiplayer({ container: screens, assets, count: players, sound, seed, chaoPlace, language: save.uiLanguage, btnConfig: save.btnConfig });
   fitScreen();
   clearInterval(statsTimer);
   if (debug) globalThis.onsoku = { round, assets, sound };

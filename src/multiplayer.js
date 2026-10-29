@@ -6,7 +6,7 @@ import { createLink } from './engine/link.js';
 import { createGame } from './engine/game.js';
 import { createChaoHunt } from './engine/chaohunt.js';
 import { createResultsScreen } from './engine/mpresults.js';
-import { createInput, PLAYER_KEYS, playerPads } from './engine/input.js';
+import { createInput, playerControls, PLAYER_KEYS, playerPads } from './engine/input.js';
 import { TICK_MS } from './engine/constants.js';
 import { createClock } from './engine/clock.js';
 
@@ -16,9 +16,10 @@ export const DEFAULT_SEED = 0x16AF, DEFAULT_CHAO_PLACE = 2;
 
 /**
  * Starts a round for `count` players on `assets`' multiplayer stage, a screen for each in `container`. Every
- * GBA's save has `language` (uiLanguage: 0 Japanese, 1 English), this page's. Returns { gbas, link, stop }.
+ * GBA's save has this page's `language` (uiLanguage: 0 Japanese, 1 English) and `btnConfig` (1: A and B
+ * swapped). Returns { gbas, link, stop }.
  */
-export function startMultiplayer({ container, assets, count, sound, seed = DEFAULT_SEED, chaoPlace = DEFAULT_CHAO_PLACE, language = 1 }) {
+export function startMultiplayer({ container, assets, count, sound, seed = DEFAULT_SEED, chaoPlace = DEFAULT_CHAO_PLACE, language = 1, btnConfig = 0 }) {
   const link = createLink(count);
   const gbas = [];
   container.replaceChildren();
@@ -39,7 +40,9 @@ export function startMultiplayer({ container, assets, count, sound, seed = DEFAU
         gba.screen = createResultsScreen({ canvas, assets, link, id, count, ranks: mp.ranks.slice(), sound: gbaSound, input, language });
       },
     });
-    gba.game = createGame(canvas, assets, input, gbaSound, { mode });
+    // the round starts as an act does (ApplyGameStageSettingsAndStart), so the stage reads jump and attack as the
+    // save's button setting has them; the results screen reads A as it is
+    gba.game = createGame(canvas, assets, playerControls(input, btnConfig), gbaSound, { mode });
     gba.mode = mode;
     gba.screen = gba.game;
     gbas.push(gba);

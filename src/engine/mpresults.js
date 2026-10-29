@@ -54,7 +54,7 @@ export function createResultsScreen({ canvas, assets, link, id, count, ranks, so
   const send = link.send(id);
   send.bytes.fill(0);
   sound.play(MUSIC[result]);
-  let bldY = 16, frame = 0, phase = 'in', finished = false;
+  let bldY = 16, frame = 0, phase = 'in', finished = false, spritesRun = false;
 
   // the strips move in turn, the first to start being the last to stop; true once all are in place
   function move(out) {
@@ -99,7 +99,10 @@ export function createResultsScreen({ canvas, assets, link, id, count, ranks, so
       if (move(true)) phase = 'white';
     } else if ((bldY & 0x1F) < 16) bldY++;
     else { finished = true; sound.stopAll(); onDone?.(); return; }
-    for (const { s } of sprites) animate(s, anims);
+    // the Chao's and the message's tasks (Task_803C130) are made in the screen's first frame and first run in
+    // the next, so their animations start a frame after the strips move and nothing is drawn before then
+    if (spritesRun) for (const { s } of sprites) animate(s, anims);
+    spritesRun = true;
   }
 
   function draw() {

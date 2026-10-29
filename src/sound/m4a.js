@@ -764,6 +764,8 @@ export function createM4A(rom, layout, io) {
     allStop() { for (const P of players) mplayStop(P); },
     /** m4aMPlayAllContinue: every player that MPlayStop stopped goes on from where it was */
     allContinue() { for (const P of players) P.status = (P.status & ~PAUSE) >>> 0; },
+    /** m4aMPlayContinue: player p goes on from where MPlayStop stopped it */
+    playerContinue(p) { const P = players[p]; P.status = (P.status & ~PAUSE) >>> 0; },
     immInit(p) {
       for (const T of players[p].tracks) if ((T.flags & EXIST) && (T.flags & TRACK_START)) clearTrack(T);
     },

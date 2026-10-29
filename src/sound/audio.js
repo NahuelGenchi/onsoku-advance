@@ -55,6 +55,8 @@ export function createSound() {
       fadeIn(player, speed) { call('fadeIn', player, speed); },
       /** m4aMPlayFadeOut on music player `player`, a step down every `speed` frames */
       fadeOut(player, speed) { call('fadeOut', player, speed); },
+      /** m4aMPlayContinue on music player `player` */
+      continuePlayer(player) { call('playerContinue', player); },
       /** m4aMPlayTempoControl on the music (0x100 is normal speed) */
       tempo(tempo) { call('tempoControl', 0, tempo); },
       /** The music manager's invincibility: its song in place of the music */

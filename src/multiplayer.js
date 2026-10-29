@@ -17,9 +17,9 @@ export const DEFAULT_SEED = 0x16AF, DEFAULT_CHAO_PLACE = 2;
 /**
  * Starts a round for `count` players on `assets`' multiplayer stage, a screen for each in `container`. Every
  * GBA's save has this page's `language` (uiLanguage: 0 Japanese, 1 English) and `btnConfig` (1: A and B
- * swapped). Returns { gbas, link, stop }.
+ * swapped). A player's win calls `achieve(id)`, the page's, for the achievements. Returns { gbas, link, stop }.
  */
-export function startMultiplayer({ container, assets, count, sound, seed = DEFAULT_SEED, chaoPlace = DEFAULT_CHAO_PLACE, language = 1, btnConfig = 0 }) {
+export function startMultiplayer({ container, assets, count, sound, seed = DEFAULT_SEED, chaoPlace = DEFAULT_CHAO_PLACE, language = 1, btnConfig = 0, achieve = () => {} }) {
   const link = createLink(count);
   const gbas = [];
   container.replaceChildren();
@@ -35,8 +35,10 @@ export function startMultiplayer({ container, assets, count, sound, seed = DEFAU
     const gba = { id, canvas, input, sound: gbaSound, screen: null };
     const mode = createChaoHunt({
       link, id, count, stage: assets.stage, anims: assets.sprites.anims, seed, chaoPlace,
-      // the round over, the results screen takes the place of the stage
+      // the round over, the results screen takes the place of the stage; a player who won (rank 0, not a draw's
+      // 4) earns Chao Hunter
       onResults(mp) {
+        if (mp.ranks[id] === 0) achieve('chao-hunt');
         gba.screen = createResultsScreen({ canvas, assets, link, id, count, ranks: mp.ranks.slice(), sound: gbaSound, input, language });
       },
     });

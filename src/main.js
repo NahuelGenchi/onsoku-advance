@@ -175,6 +175,10 @@ achievements.onUnlock(a => {
   showAchievementCount();
   achievementsPanel.refresh();
 });
+// a game counts for them when it starts from the game's start (or is a multiplayer round, which only the level pick
+// reaches): not from ?debug, ?special or another act's ?level
+let counts = false;
+const achieve = id => { if (counts) achievements.unlock(id); };
 achievementsButton.addEventListener('click', () => {
   achievementsPanel.open();
   showSettings(false);
@@ -371,6 +375,7 @@ function start(buffer, assets) {
   wideButton.disabled = rushButton.disabled = boostButton.disabled = tricksButton.disabled = multi;
   stage.classList.toggle('multi', multi);   // its players play with keyboards and controllers
   showSettings(false);
+  counts = !debug && !specialTest && (assets.first === 0 || multi);
   if (multi) { startRound(assets); return; }
   const leaving = specialTest && specialSpringStart(assets, { emeralds: save.chaosEmeralds, continues });
   if (leaving) { enterSpecialStage(assets, leaving); return; }
@@ -394,7 +399,7 @@ function play(assets, resume = null, carry = null) {
     // after the true ending, the staff credits; called from inside a step, so the game changes once that
     // frame is over
     onCredits: () => queueMicrotask(() => endGame(assets, 'credits')),
-    achieve: id => achievements.unlock(id),
+    achieve,
   });
   playing = assets;
   fitScreen();
@@ -456,7 +461,7 @@ async function nextZone({ level, ...carry }) {
 // and the continues it gives are kept
 function enterSpecialStage(assets, handover) {
   game?.stop(); game = null;
-  specialStage = createSpecialStageRun(screen, rom, assets.info.offsets, input, sound, { ...handover, btnConfig: save.btnConfig }, back => {
+  specialStage = createSpecialStageRun(screen, rom, assets.info.offsets, input, sound, { ...handover, btnConfig: save.btnConfig, achieve }, back => {
     specialStage = null;
     save.chaosEmeralds = back.emeralds;
     continues = back.continues;
@@ -472,7 +477,7 @@ function startRound(assets) {
   game = null;
   screen.hidden = true;
   screens.hidden = false;
-  round = startMultiplayer({ container: screens, assets, count: players, sound, seed, chaoPlace, language: save.uiLanguage, btnConfig: save.btnConfig });
+  round = startMultiplayer({ container: screens, assets, count: players, sound, seed, chaoPlace, language: save.uiLanguage, btnConfig: save.btnConfig, achieve });
   fitScreen();
   clearInterval(statsTimer);
   if (debug) globalThis.onsoku = { round, assets, sound };

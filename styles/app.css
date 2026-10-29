@@ -282,16 +282,130 @@ kbd {
 }
 .stats { margin: 10px 0 0; font: 12px/1.4 var(--mono); color: var(--muted); }
 .actions { margin: 8px 0 0; color: var(--muted); }
-.touch { position: fixed; inset: auto 0 16px 0; display: none; justify-content: space-between; align-items: end; padding: 0 16px; pointer-events: none; }
-.touch .pad { display: flex; gap: 8px; }
-.touch button {
-  width: 56px; height: 56px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .45); background: rgba(8, 20, 60, .55);
-  color: #fff; font: 700 18px var(--font); pointer-events: auto; touch-action: none; -webkit-user-select: none; user-select: none;
+/* the touch layout, on phones and tablets: the settings behind a button in the top-left corner, and an Xbox
+   controller's buttons around the game, drawn like dreamports.net (Monocraft and 2 px pixel frames with the corner
+   pixels left out) and a little see-through, until a real one is connected. Held sideways, the game fills the
+   height, with the d-pad and A, B, X and Y in the bottom corners, the shoulder buttons above them, Select under the
+   settings button and Start at the top right; held upright, the game is in the middle of what's between the
+   settings button and the buttons below it. Buttons that cover part of the game are more see-through. */
+.settings-open, .touch { display: none; }
+@media (pointer: coarse) {
+  .stage {
+    --t-frame: #4a5d94; --t-fill: #0b1240; --t-ink: #eef4ff; --t-held: #8fd1ff; --t-held-ink: #0a1738;
+    --pad: clamp(104px, 32vmin, 148px); --edge: 14px;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+  .stage :is(.settings-open, .pill) {
+    box-shadow: 0 -2px var(--t-frame), 0 2px var(--t-frame), -2px 0 var(--t-frame), 2px 0 var(--t-frame);
+  }
+
+  .settings-open {
+    position: fixed; z-index: 3; top: var(--edge); left: var(--edge); display: grid; place-items: center;
+    width: 44px; height: 44px; margin: 2px; padding: 0; border: 0; background: var(--t-fill); color: var(--t-ink);
+    opacity: .78; touch-action: manipulation;
+  }
+  .settings-open[aria-expanded="true"] { opacity: 1; background: var(--t-held); color: var(--t-held-ink); }
+  .settings-open svg { width: 18px; height: 18px; fill: currentColor; }
+
+  /* the settings: a switch for each, as on the start screen, without the on/off words. They open beside the
+     settings button, or under it on a screen held upright. */
+  .help {
+    z-index: 3; top: var(--edge); left: calc(var(--edge) + 60px); width: min(320px, calc(100vw - 2 * var(--edge) - 64px));
+    max-height: calc(100dvh - 2 * var(--edge) - 4px); overflow: auto; margin: 2px; padding: 4px 16px; border: 0; border-radius: 0;
+    background: var(--t-fill); backdrop-filter: none; color: var(--t-ink); font: 15px/20px Monocraft, var(--mono);
+    font-variant-ligatures: none; font-synthesis: none;
+    box-shadow: 0 -2px #263a66, 0 2px #263a66, -2px 0 #263a66, 2px 0 #263a66;
+  }
+  .help :is(dl, .sep, .state), #stats { display: none; }
+  .help .actions { display: grid; margin: 0; }
+  .help .actions :is(button, a) {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0;
+    border: 0; border-top: 2px solid #263a66; background: none; color: inherit; font: inherit; text-align: left;
+    text-decoration: none; touch-action: manipulation;
+  }
+  .help .actions > :first-child { border-top: 0; }
+  .help .actions :disabled { color: rgba(169, 184, 230, .6); }
+  .help .actions [aria-pressed]::after {
+    content: ""; flex: none; width: 32px; height: 16px; margin: 2px;
+    background: linear-gradient(rgba(169, 184, 230, .6), rgba(169, 184, 230, .6)) 2px 2px / 12px 12px no-repeat, #263a66;
+    box-shadow: 0 -2px #263a66, 0 2px #263a66, -2px 0 #263a66, 2px 0 #263a66;
+  }
+  .help .actions [aria-pressed="true"]::after {
+    background: linear-gradient(#0a1738, #0a1738) 18px 2px / 12px 12px no-repeat, var(--t-held);
+    box-shadow: 0 -2px var(--t-held), 0 2px var(--t-held), -2px 0 var(--t-held), 2px 0 var(--t-held);
+  }
+  .help #rom-status { margin: 0 0 12px; color: #a9b8e6; font-size: 13.5px; }
+  .help #rom-status:empty { display: none; }
+
+  /* the buttons: each frame and fill drawn solid, then all of it a little see-through, so the frames don't show
+     through the fills */
+  .touch { position: fixed; inset: 0; display: block; color: var(--t-ink); font: 13.5px/1 Monocraft, var(--mono); pointer-events: none; }
+  .touch[hidden], .stage.multi .touch { display: none; }
+  .touch > * { position: absolute; opacity: .78; }
+  .touch > .covers { opacity: .5; }
+  .touch :is(.dpad, button) { pointer-events: auto; touch-action: none; }
+  .touch button { margin: 0; padding: 0; border: 0; color: inherit; font: inherit; }
+  .touch button.held { background: var(--t-held); color: var(--t-held-ink); }
+
+  /* the d-pad: one cross, its frame and its fill, with the arm or arms held lit */
+  .dpad {
+    left: var(--edge); bottom: var(--edge); isolation: isolate; width: var(--pad); height: var(--pad);
+    display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  }
+  .dpad::before, .dpad::after {
+    content: ""; position: absolute; z-index: -1;
+    clip-path: polygon(33.4% 0, 66.6% 0, 66.6% 33.4%, 100% 33.4%, 100% 66.6%, 66.6% 66.6%, 66.6% 100%, 33.4% 100%, 33.4% 66.6%, 0 66.6%, 0 33.4%, 33.4% 33.4%);
+  }
+  .dpad::before { inset: 0; background: var(--t-frame); }
+  .dpad::after { inset: 2px; background: var(--t-fill); }
+  .arm { display: grid; place-items: center; margin: 4px; }
+  .arm svg { width: 15px; height: 9px; fill: currentColor; }
+  .arm[data-dir="up"] { grid-area: 1 / 2; }
+  .arm[data-dir="right"] { grid-area: 2 / 3; }
+  .arm[data-dir="down"] { grid-area: 3 / 2; }
+  .arm[data-dir="left"] { grid-area: 2 / 1; }
+  .arm[data-dir="right"] svg { transform: rotate(90deg); }
+  .arm[data-dir="down"] svg { transform: rotate(180deg); }
+  .arm[data-dir="left"] svg { transform: rotate(-90deg); }
+  .dpad:is([data-held~="up"]) [data-dir="up"], .dpad:is([data-held~="right"]) [data-dir="right"],
+  .dpad:is([data-held~="down"]) [data-dir="down"], .dpad:is([data-held~="left"]) [data-dir="left"] {
+    background: var(--t-held); color: var(--t-held-ink);
+  }
+
+  /* A, B, X and Y in the Xbox controller's diamond, as pixel circles, their letters in its colours */
+  .face { right: var(--edge); bottom: var(--edge); width: var(--pad); height: var(--pad); }
+  .round {
+    --circle: polygon(25% 0, 75% 0, 75% 12.5%, 87.5% 12.5%, 87.5% 25%, 100% 25%, 100% 75%, 87.5% 75%, 87.5% 87.5%, 75% 87.5%,
+      75% 100%, 25% 100%, 25% 87.5%, 12.5% 87.5%, 12.5% 75%, 0 75%, 0 25%, 12.5% 25%, 12.5% 12.5%, 25% 12.5%);
+    position: absolute; isolation: isolate; width: 38%; aspect-ratio: 1;
+    clip-path: var(--circle);
+  }
+  .touch .round { background: var(--t-frame); font-size: 18px; }
+  .round::before { content: ""; position: absolute; z-index: -1; inset: 3px; clip-path: var(--circle); background: var(--t-fill); }
+  .round.held::before { background: var(--t-held); }
+  .round.y { left: 31%; top: 0; color: #ffd65a; }
+  .round.x { left: 0; top: 31%; color: #74a9ff; }
+  .round.b { right: 0; top: 31%; color: #ff7a6b; }
+  .round.a { left: 31%; bottom: 0; color: #7fdc6a; }
+
+  /* the shoulder buttons above the d-pad and the diamond, the triggers outside */
+  .touch .pill { height: 30px; min-width: 64px; margin: 2px; padding: 0 10px; }
+  .touch .pill:not(.held) { background: var(--t-fill); }
+  .shoulders { bottom: calc(var(--edge) + var(--pad) + 16px); width: var(--pad); display: flex; gap: 8px; }
+  .shoulders.left { left: var(--edge); }
+  .shoulders.right { right: var(--edge); }
+  .touch .shoulders .pill { flex: 1; min-width: 0; padding: 0; }
+  .touch :is(.select, .start) { width: 72px; padding: 0; }
+  .touch .select { top: calc(var(--edge) + 60px); left: var(--edge); }
+  .touch .start { top: var(--edge); right: var(--edge); }
 }
-.touch .buttons { display: flex; gap: 12px; align-items: end; }
-.touch .jump { width: 76px; height: 76px; background: rgba(200, 40, 40, .6); }
-.touch .attack { width: 64px; height: 64px; margin-bottom: 36px; background: rgba(40, 90, 200, .6); }
-@media (pointer: coarse) { .touch { display: flex; } .help dl { display: none; } }
+@media (pointer: coarse) and (orientation: portrait) {
+  .stage { padding-top: calc(var(--edge) + 60px); }
+  .help { top: calc(var(--edge) + 60px); left: var(--edge); width: min(320px, calc(100vw - 2 * var(--edge) - 4px)); max-height: calc(100dvh - 2 * var(--edge) - 64px); }
+  .touch :is(.select, .start) { top: auto; right: auto; left: 50%; transform: translateX(-50%); }
+  .touch .select { bottom: calc(var(--edge) + var(--pad) / 2 + 6px); }
+  .touch .start { bottom: calc(var(--edge) + var(--pad) / 2 - 40px); }
+}
 
 /* asset viewer */
 .viewer { width: min(1100px, 100%); margin: 0 auto; padding: 32px 16px 64px; }

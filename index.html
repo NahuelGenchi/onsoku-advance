@@ -28,7 +28,8 @@
     <canvas id="screen" tabindex="0" aria-label="Sonic Advance: the SEGA and Sonic Team logos and the intro, which Enter, Z or X skips, the title screen, where Enter opens the menu, and the menu, where the arrow keys choose and Z picks Game Start, then Neo Green Hill Zone act 1, or Options, where Left and Right change the setting picked and X goes back. Use the arrow keys to run, Z or Space to jump, X to attack, or a controller: A to jump and pick, B or X to attack, Menu to skip the intro and open the menu. Enter or Menu pauses the act and goes on again."></canvas>
     <div class="screens" id="screens" hidden></div>
 
-    <aside class="help" id="help">
+    <button type="button" class="settings-open" id="settings-open" aria-label="Settings" aria-controls="help" aria-expanded="true"><svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 1h9v1H0zM5 0h2v3H5zM0 4h9v1H0zM1 3h2v3H1zM0 7h9v1H0zM4 6h2v3H4z"/></svg></button>
+    <aside class="help" id="help" aria-label="Controls and settings">
       <dl>
         <dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Run</dd>
         <dt><kbd>Z</kbd> <kbd>Space</kbd></dt><dd>Jump · again in the air: insta-shield</dd>
@@ -54,21 +55,33 @@
         <dt>Multiplayer</dt><dd>Player 1: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>F</kbd> jump · <kbd>G</kbd> attack. Player 2: arrows move · <kbd>.</kbd> jump · <kbd>/</kbd> attack. Players 3 and 4: a controller each (controllers go to players 3 and 4 first, then 1 and 2) · on the results screen, jump to go on</dd>
       </dl>
       <p class="stats" id="stats" aria-live="off"></p>
-      <p class="actions"><button type="button" class="link" id="change-rom">Your ROMs</button> · <button type="button" class="link" id="wide" aria-pressed="false">Widescreen: off</button> · <button type="button" class="link" id="rush" aria-pressed="false">Rush boost: off</button> · <button type="button" class="link" id="boost-mode" aria-pressed="false">Boost Mode: off</button> · <button type="button" class="link" id="tricks" aria-pressed="false">SA2 tricks: off</button> · <a href="viewer.html">Asset viewer</a></p>
+      <p class="actions"><button type="button" class="link" id="change-rom">Your ROMs</button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="wide" aria-pressed="false">Widescreen<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="rush" aria-pressed="false">Rush boost<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="boost-mode" aria-pressed="false">Boost Mode<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="tricks" aria-pressed="false">SA2 tricks<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="sound" aria-pressed="true">Sound<span class="state">: on</span></button><span class="sep" aria-hidden="true"> · </span><a href="viewer.html">Asset viewer</a></p>
       <p class="stats" id="rom-status" role="status" aria-live="polite"></p>
       <input type="file" id="rom-file" hidden>
     </aside>
 
     <div class="touch" id="touch" aria-hidden="true">
-      <div class="pad">
-        <button type="button" data-button="left">◀</button>
-        <button type="button" data-button="down">▼</button>
-        <button type="button" data-button="up">▲</button>
-        <button type="button" data-button="right">▶</button>
+      <div class="dpad" data-pad>
+        <span class="arm" data-dir="up"><svg viewBox="0 0 5 3" shape-rendering="crispEdges"><path d="M2 0h1v1H2zM1 1h3v1H1zM0 2h5v1H0z"/></svg></span>
+        <span class="arm" data-dir="right"><svg viewBox="0 0 5 3" shape-rendering="crispEdges"><path d="M2 0h1v1H2zM1 1h3v1H1zM0 2h5v1H0z"/></svg></span>
+        <span class="arm" data-dir="down"><svg viewBox="0 0 5 3" shape-rendering="crispEdges"><path d="M2 0h1v1H2zM1 1h3v1H1zM0 2h5v1H0z"/></svg></span>
+        <span class="arm" data-dir="left"><svg viewBox="0 0 5 3" shape-rendering="crispEdges"><path d="M2 0h1v1H2zM1 1h3v1H1zM0 2h5v1H0z"/></svg></span>
       </div>
-      <div class="buttons">
-        <button type="button" class="attack" data-button="attack">B</button>
-        <button type="button" class="jump" data-button="jump">A</button>
+      <div class="shoulders left">
+        <button type="button" class="pill" data-pad-button="6" tabindex="-1">LT</button>
+        <button type="button" class="pill" data-pad-button="4" tabindex="-1">LB</button>
+      </div>
+      <div class="shoulders right">
+        <button type="button" class="pill" data-pad-button="5" tabindex="-1">RB</button>
+        <button type="button" class="pill" data-pad-button="7" tabindex="-1">RT</button>
+      </div>
+      <button type="button" class="pill select" data-pad-button="8" tabindex="-1">Select</button>
+      <button type="button" class="pill start" data-pad-button="9" tabindex="-1">Start</button>
+      <div class="face">
+        <button type="button" class="round y" data-pad-button="3" tabindex="-1">Y</button>
+        <button type="button" class="round x" data-pad-button="2" tabindex="-1">X</button>
+        <button type="button" class="round b" data-pad-button="1" tabindex="-1">B</button>
+        <button type="button" class="round a" data-pad-button="0" tabindex="-1">A</button>
       </div>
     </div>
   </section>

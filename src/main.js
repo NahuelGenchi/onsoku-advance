@@ -14,7 +14,7 @@ import { extractRush, isRush } from './rom/rush.js';
 import { openSa2, isSa2 } from './rom/sa2.js';
 import { readBoostArt } from './rom/sa2boost.js';
 import { trickArt } from './rom/sa2tricks.js';
-import { createInput } from './engine/input.js';
+import { createInput, xboxConnected } from './engine/input.js';
 import { createGame, specialSpringStart } from './engine/game.js';
 import { createSpecialStageRun } from './special/run.js';
 import { createNormalEnding } from './engine/normalending.js';
@@ -36,6 +36,9 @@ const boostButton = document.getElementById('boost-mode');
 const tricksButton = document.getElementById('tricks');
 const romFile = document.getElementById('rom-file');
 const romStatus = document.getElementById('rom-status');
+const soundButton = document.getElementById('sound');
+const settingsButton = document.getElementById('settings-open');
+const touch = document.getElementById('touch');
 const params = new URLSearchParams(location.search);
 const debug = params.has('debug'), specialTest = params.has('special');
 // `?level=N` starts the level the ROM's tables number N (2 is Secret Base Zone act 1) instead of the first
@@ -50,8 +53,37 @@ const chaoPlace = params.has('chao') ? (Number(params.get('chao')) | 0) & 7 : DE
 const screens = document.getElementById('screens');
 
 const input = createInput();
-input.bindTouch(document.getElementById('touch'));
+input.bindTouch(touch);
 const sound = createSound();
+
+// a setting's button in the panel: its name, then ": on" or ": off" (on touch screens a switch shows it instead)
+function showSetting(button, on) {
+  button.querySelector('.state').textContent = `: ${on ? 'on' : 'off'}`;
+  button.setAttribute('aria-pressed', String(on));
+}
+
+// On touch screens the panel is the game's settings, behind a button in the top-left corner as on dreamports.net,
+// and an Xbox controller's buttons are drawn around the game. A touch anywhere else closes the settings.
+const touchScreen = matchMedia('(pointer: coarse)'), portrait = matchMedia('(pointer: coarse) and (orientation: portrait)');
+function showSettings(open) {
+  help.hidden = !open;
+  settingsButton.setAttribute('aria-expanded', String(open));
+}
+if (touchScreen.matches) showSettings(false);
+settingsButton.addEventListener('click', () => showSettings(help.hidden));
+stage.addEventListener('pointerdown', e => {
+  if (touchScreen.matches && !help.hidden && !help.contains(e.target) && !settingsButton.contains(e.target)) showSettings(false);
+}, true);
+addEventListener('keydown', e => { if (e.code === 'Escape' && touchScreen.matches && !help.hidden) showSettings(false); });
+// the drawn buttons step aside while a real Xbox controller is connected; the settings button stays
+touch.hidden = xboxConnected();
+for (const type of ['gamepadconnected', 'gamepaddisconnected']) {
+  addEventListener(type, () => { touch.hidden = xboxConnected(); fitScreen(); });
+}
+
+// the sound, also M on a keyboard
+function showSound() { showSetting(soundButton, !sound.muted); }
+soundButton.addEventListener('click', () => { sound.muted = !sound.muted; showSound(); screen.focus(); });
 let game = null, front = null, specialStage = null, round = null, rom = null, statsTimer = 0;
 
 // the widescreen view: off unless chosen, as the original screen is what the game is checked against
@@ -102,8 +134,7 @@ function setRush(on) {
 }
 function showRush() {
   game?.setRushBoost(rush, rushArt);
-  rushButton.textContent = `Rush boost: ${rush ? 'on' : 'off'}`;
-  rushButton.setAttribute('aria-pressed', String(rush));
+  showSetting(rushButton, rush);
 }
 function useRush(buffer) {
   rushArt = extractRush(buffer);
@@ -125,8 +156,7 @@ function setBoostMode(on) {
 }
 function showBoostMode() {
   game?.setBoostMode(boostMode, boostArt);
-  boostButton.textContent = `Boost Mode: ${boostMode ? 'on' : 'off'}`;
-  boostButton.setAttribute('aria-pressed', String(boostMode));
+  showSetting(boostButton, boostMode);
 }
 boostButton.addEventListener('click', () => { setBoostMode(!boostMode); screen.focus(); });
 // Sonic Advance 2's mid-air tricks, an extra on top of the original game: off unless chosen, like the Rush boost.
@@ -142,8 +172,7 @@ function setTricks(on) {
 }
 function showTricks() {
   game?.setSa2Tricks(tricks, tricksArt);
-  tricksButton.textContent = `SA2 tricks: ${tricks ? 'on' : 'off'}`;
-  tricksButton.setAttribute('aria-pressed', String(tricks));
+  showSetting(tricksButton, tricks);
 }
 tricksButton.addEventListener('click', () => { setTricks(!tricks); screen.focus(); });
 // what the extras from Sonic Advance 2 read from its ROM, and its sound engine's tables
@@ -227,6 +256,8 @@ function start(buffer, assets) {
   // the extras are single-player options
   const multi = !!assets.stage.multiplayerSpawns;
   wideButton.disabled = rushButton.disabled = boostButton.disabled = tricksButton.disabled = multi;
+  stage.classList.toggle('multi', multi);   // its players play with keyboards and controllers
+  if (touchScreen.matches) showSettings(false);
   if (multi) { startRound(assets); return; }
   const leaving = specialTest && specialSpringStart(assets, { emeralds: save.chaosEmeralds, continues });
   if (leaving) { enterSpecialStage(assets, leaving); return; }
@@ -342,10 +373,10 @@ document.getElementById('change-rom').addEventListener('click', () => {
 });
 
 addEventListener('keydown', e => {
-  if (e.code === 'KeyH' && !stage.hidden && !e.repeat) help.hidden = !help.hidden;
+  if (e.code === 'KeyH' && !stage.hidden && !e.repeat) showSettings(help.hidden);
   // C shows the terrain collision over the stage, for checking it against the art
   if (e.code === 'KeyC' && game && !stage.hidden && !e.repeat) game.state.showCollision = !game.state.showCollision;
-  if (e.code === 'KeyM' && !stage.hidden && !e.repeat) sound.muted = !sound.muted;
+  if (e.code === 'KeyM' && !stage.hidden && !e.repeat) { sound.muted = !sound.muted; showSound(); }
   // the widescreen view and the extras are single-player options
   if (e.code === 'KeyV' && !round && !stage.hidden && !e.repeat) setWide(!wide);
   if (e.code === 'KeyR' && !round && !stage.hidden && !e.repeat) setRush(!rush);
@@ -361,13 +392,27 @@ function showStats() {
   stats.textContent = `speed ${speed.toFixed(2)} · ${player.state} · ${player.anim.name}`;
 }
 
-// largest whole-number scale the original screen fits at, so every pixel stays square and sharp; the
-// widescreen view then fills what the window has around it at that scale, up to its largest size, in the
-// game's start as in the act
-function fitScreen() {
+// the largest scale that is a whole number of the screen's own pixels, so every pixel of the game stays square
+// and sharp; a tiny window shrinks it instead
+function pixelScale(fit) {
+  const dpr = devicePixelRatio || 1;
+  return fit * dpr >= 1 ? Math.floor(fit * dpr) / dpr : Math.max(fit, 0.25);
+}
+// the room the game has: the whole window, or on a touch screen held upright what's between the settings button
+// and the drawn buttons below the game, with how much is left under it (`below`)
+function gameRoom() {
   const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
-  const fit = Math.min(vw / SCREEN_W, vh / SCREEN_H);
-  const scale = fit >= 1 ? Math.floor(fit) : Math.max(fit, 0.25);
+  if (!portrait.matches || stage.hidden || round || touch.hidden) return { vw, vh, below: 0 };
+  const top = parseFloat(getComputedStyle(stage).paddingTop) || 0;
+  const bottom = touch.querySelector('.shoulders').getBoundingClientRect().top - 16;
+  return { vw, vh: Math.max(SCREEN_H, bottom - top), below: Math.max(0, vh - bottom) };
+}
+// the original screen at the largest sharp scale it fits at; the widescreen view then fills what the room has
+// around it at that scale, up to its largest size, in the game's start as in the act
+function fitScreen() {
+  const { vw, vh, below } = gameRoom();
+  stage.style.paddingBottom = below ? `${below}px` : '';   // so the game is in the middle of its room
+  const scale = pixelScale(Math.min(vw / SCREEN_W, vh / SCREEN_H));
   const size = (room, min, max) => (wide ? Math.max(min, Math.min(max, Math.floor(room / scale) & ~1)) : min);
   const w = size(vw, SCREEN_W, VIEW_MAX_W), h = size(vh, SCREEN_H, VIEW_MAX_H);
   front?.setView(w, h);
@@ -376,8 +421,18 @@ function fitScreen() {
   screen.style.width = `${w * scale}px`;
   screen.style.height = `${h * scale}px`;
   if (round) fitScreens();
-  wideButton.textContent = `Widescreen: ${wide ? 'on' : 'off'}`;
-  wideButton.setAttribute('aria-pressed', String(wide));
+  showSetting(wideButton, wide);
+  markCovers();
+}
+// on a screen too wide or too square for the buttons to fit beside the game, those that cover part of it are
+// more see-through
+function markCovers() {
+  const view = screen.getBoundingClientRect();
+  const covers = el => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.left < view.right && r.right > view.left && r.top < view.bottom && r.bottom > view.top;
+  };
+  for (const group of touch.children) group.classList.toggle('covers', covers(group));
 }
 // the players' screens, side by side or one above the other, whichever fits them larger; four in two rows
 function fitScreens() {
@@ -385,8 +440,7 @@ function fitScreens() {
   const layouts = players === 2 ? [[2, 1], [1, 2]] : [[2, 2], [players, 1]];
   let best = null;
   for (const [cols, rows] of layouts) {
-    const fit = Math.min((vw - gap * (cols - 1)) / (cols * SCREEN_W), (vh - gap * (rows - 1)) / (rows * SCREEN_H));
-    const scale = fit >= 1 ? Math.floor(fit) : Math.max(fit, 0.25);
+    const scale = pixelScale(Math.min((vw - gap * (cols - 1)) / (cols * SCREEN_W), (vh - gap * (rows - 1)) / (rows * SCREEN_H)));
     if (!best || scale > best.scale) best = { cols, scale };
   }
   screens.style.gridTemplateColumns = `repeat(${best.cols}, auto)`;

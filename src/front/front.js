@@ -3,22 +3,25 @@
 // game's canvas. The character select and the screens after it aren't built yet, so the act starts where the
 // character select would: after Game Start on the main menu.
 //
-// The original starts the logos only with a saved game; a new one starts with the language screen first,
-// which isn't built either, so this always starts as with a save. The Options menu (options.js) changes the save
-// and writes it.
+// A new game, with no save yet, starts with the language screen (language.js), which writes the save; with a save,
+// the game starts with the logos. The Options menu (options.js) changes the save and writes it.
 
-import { createVideo, SCREEN_W, SCREEN_H } from '../gba/video.js';
+import { createVideo, REG, SCREEN_W, SCREEN_H } from '../gba/video.js';
 import { createEngine, KEY } from '../gba/engine.js';
 import { spriteTables } from '../rom/sprites.js';
 import { createSegaLogo } from './logos.js';
+import { createLanguageScreen, hasLanguageScreen } from './language.js';
 import { createIntro } from './intro.js';
 import { createTitleScreen } from './title.js';
 import { createClock } from '../engine/clock.js';
 
 // a GBA frame: 280896 cycles of its 16.78 MHz clock, the rate the music plays at
 export const GBA_FRAME_MS = 280896 / 16777216 * 1000;
-// the frames after power-on before the game counts them
-const STARTUP_FRAMES = 6;
+/**
+ * The frames after power-on before the game starts: the GBA (mGBA) is still starting up, the screen white (forced
+ * blank), and gFrameCount isn't counted yet (VBlankIntr, which counts it, starts with GameInit).
+ */
+export const STARTUP_FRAMES = 6;
 
 // what the player holds (engine/input.js), as the GBA's buttons
 export function keysOf(input) {
@@ -27,20 +30,25 @@ export function keysOf(input) {
     | (input.r ? KEY.R : 0) | (input.l ? KEY.L : 0);
 }
 
+/** GameStart: the language screen when there is no save (a new game), else the logos. */
+export function powerOn(ctx) {
+  if (ctx.save.exists || !hasLanguageScreen(ctx.offsets)) createSegaLogo(ctx);
+  else createLanguageScreen(ctx, true);
+}
+
 /**
- * Starts the logos on `canvas`. `rom` is the ROM (rom.js), `offsets` where its tables are (locate.js), `input`
- * the player's buttons, `sound` the sound engine (audio.js) and `save` the save (engine/save.js), which the
- * Options menu changes. `play()` is called once the act is to start.
+ * Starts the front end on `canvas`, from power-on. `rom` is the ROM (rom.js), `offsets` where its tables are
+ * (locate.js), `input` the player's buttons, `sound` the sound engine (audio.js) and `save` the save
+ * (engine/save.js), which the language screen and the Options menu change. `play()` is called once the act is to
+ * start.
  * Returns { stop, step, draw, setView }: setView(w, h) draws a widescreen view of w × h from then on (the
  * original 240 × 160 is the default); step() and draw() are for checking, a frame at a time.
  */
 export function createFrontEnd(canvas, rom, offsets, input, sound, save, play) {
   const video = createVideo();
   const engine = createEngine(video, rom, sound);
-  // gFrameCount: VBlankIntr, which counts it, starts with GameInit, and the GBA (mGBA) is still starting up for the
-  // first 6 frames after power-on
-  engine.frameCount = -STARTUP_FRAMES;
-  let done = false;
+  video.write(REG.DISPCNT, 0x80);   // forced blank, until the game starts
+  let done = false, startingUp = STARTUP_FRAMES;
   const ctx = {
     engine, tilemaps: offsets.tilemaps, sprites: spriteTables(rom, offsets.spriteTables), offsets, save,
     introGraphics: offsets.introGraphics, introTables: offsets.introTables,
@@ -48,7 +56,6 @@ export function createFrontEnd(canvas, rom, offsets, input, sound, save, play) {
     title: playMusic => createTitleScreen(ctx, playMusic),
     play: () => { done = true; },
   };
-  createSegaLogo(ctx);
 
   const out = canvas.getContext('2d', { alpha: false });
   let image, pixels, view = null, drawn = false;
@@ -65,6 +72,10 @@ export function createFrontEnd(canvas, rom, offsets, input, sound, save, play) {
 
   function step() {
     input.poll?.();
+    if (startingUp > 0) {
+      if (--startingUp === 0) powerOn(ctx);
+      return;
+    }
     engine.keys = keysOf(input);
     engine.run();
   }

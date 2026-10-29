@@ -8,8 +8,10 @@
 //
 // What isn't built yet goes nowhere. The original starts a demo after 900 frames on the title screen; here the
 // title screen stays as it is. A on VS, Time Attack or Tiny Chao Garden does nothing, and Game Start goes to the
-// act, where the character select would start. The screens are in English, the language screen's default for a
-// new game; the saved language isn't read yet.
+// act, where the character select would start.
+//
+// The logo, "PRESS START" and the menu's items are in the save's language, Japanese or English; the copyright line
+// is the international release's in both.
 
 import { createSprite, updateSprite, displaySprite } from '../gba/sprite.js';
 import { createBackground, drawBackground, transformBackground } from '../gba/background.js';
@@ -18,9 +20,12 @@ import { SONG } from '../sound/songs.js';
 import { createFade, fadeStep } from './ui.js';
 import { createOptionsMenu } from './options.js';
 
-const UI_LANGUAGE = 1;   // English
-const TM_TITLE_LOGO = 73 + UI_LANGUAGE, TM_TITLE_BG = 75;
-const ANIM_CHAO_HOVER_SIDE = 699, ANIM_PRESS_START = 779, ANIM_TITLE_COPYRIGHT = 780;
+// by the save's language (0 Japanese, 1 English): the logo's tilemap, and "PRESS START"'s and the items' animation
+const TM_TITLE_LOGO = [73, 74], TM_TITLE_BG = 75;
+const ANIM_PRESS_START = [778, 779];
+const ANIM_CHAO_HOVER_SIDE = 699, ANIM_TITLE_COPYRIGHT = 780;
+// the copyright line's variant: the international release's (2002), where 0 is the Japanese one's (2001)
+const COPYRIGHT_VARIANT = 1;
 // the tiles the original gives each sprite: "PRESS START"'s are the Japanese one's, the bigger of the two
 const PRESS_START_TILES = 23 * 2, COPYRIGHT_TILES = 3 * 30;
 const MENU_ITEMS = 5, MENU_TOP = 93, MENU_SPACE = 14;
@@ -38,11 +43,11 @@ const placeLogo = (e, scale) => transformBackground(e.bgAffine[0], 0, scale, sca
 
 /**
  * CreateTitleScreen. `ctx` has the engine (engine.js), the ROM's tilemap table (`tilemaps`), the sprite tables
- * (`sprites`, rom/sprites.js) and `play()`, called where the character select would start. With `playMusic`,
- * the title's music starts.
+ * (`sprites`, rom/sprites.js), the save (`save`, for its language) and `play()`, called where the character
+ * select would start. With `playMusic`, the title's music starts.
  */
 export function createTitleScreen(ctx, playMusic) {
-  const e = ctx.engine, vram = e.video.vram;
+  const e = ctx.engine, vram = e.video.vram, lang = ctx.save.uiLanguage;
   e.dispCnt = 0x41;
   e.bgCnt[2] = 0x568D;
   e.bgCnt[0] = 0x1482;
@@ -60,11 +65,11 @@ export function createTitleScreen(ctx, playMusic) {
 
   const title = {
     ctx, qBlend: BLEND_END, unkE2: 0, unkE4: 0, unkE6: 0,
-    s: sprite(ANIM_PRESS_START, e.vramMalloc(PRESS_START_TILES), { x: 120, y: 113, oamFlags: 0x400, frameFlags: 0x1000 }),
-    s2: sprite(ANIM_TITLE_COPYRIGHT, e.vramMalloc(COPYRIGHT_TILES), { x: 0, y: 134, variant: UI_LANGUAGE, oamFlags: 0x400, frameFlags: 0x1000 }),
+    s: sprite(ANIM_PRESS_START[lang], e.vramMalloc(PRESS_START_TILES), { x: 120, y: 113, oamFlags: 0x400, frameFlags: 0x1000 }),
+    s2: sprite(ANIM_TITLE_COPYRIGHT, e.vramMalloc(COPYRIGHT_TILES), { x: 0, y: 134, variant: COPYRIGHT_VARIANT, oamFlags: 0x400, frameFlags: 0x1000 }),
     bg: createBackground({ layoutVram: 20 * 0x800, tilemapId: TM_TITLE_BG, targetTilesX: 30, targetTilesY: 20, flags: 4 }),
     bg2: createBackground({
-      graphics: { src: 0, dest: 3 * 0x4000, size: 0, anim: 0 }, layoutVram: 22 * 0x800, tilemapId: TM_TITLE_LOGO,
+      graphics: { src: 0, dest: 3 * 0x4000, size: 0, anim: 0 }, layoutVram: 22 * 0x800, tilemapId: TM_TITLE_LOGO[lang],
       targetTilesX: 24, targetTilesY: 10, flags: 4 | 2,
     }),
   };
@@ -144,7 +149,7 @@ function freeTitle(t) {
  * layers drawn again, and the screen fades in from black over 16 frames.
  */
 export function createMainMenu(ctx, back = false) {
-  const e = ctx.engine;
+  const e = ctx.engine, lang = ctx.save.uiLanguage;
   e.dispCnt = 0x1541;
   e.bgCnt[2] = 0x568D;
   e.bgCnt[0] = 0x1482;
@@ -165,7 +170,7 @@ export function createMainMenu(ctx, back = false) {
     e.video.vram.fill(0, 0xFFC0, 0xFFC0 + 0x80);
     drawBackground(e, ctx.tilemaps, createBackground({ layoutVram: 20 * 0x800, tilemapId: TM_TITLE_BG, targetTilesX: 30, targetTilesY: 20, flags: 4 }));
     drawBackground(e, ctx.tilemaps, createBackground({
-      graphics: { src: 0, dest: 3 * 0x4000, size: 0, anim: 0 }, layoutVram: 22 * 0x800, tilemapId: TM_TITLE_LOGO,
+      graphics: { src: 0, dest: 3 * 0x4000, size: 0, anim: 0 }, layoutVram: 22 * 0x800, tilemapId: TM_TITLE_LOGO[lang],
       targetTilesX: 24, targetTilesY: 10, flags: 4 | 2,
     }));
   }
@@ -181,7 +186,7 @@ export function createMainMenu(ctx, back = false) {
 // Task_MainMenuInit: once a fade in has ended, the Chao, which the menu animates but never shows, and the items,
 // shown from the next frame; the key repeat set to 20 frames, then 8, and the windows and the blend off
 function showMenu(t) {
-  const menu = t.data, { ctx } = menu, e = ctx.engine, s = menu.s;
+  const menu = t.data, { ctx } = menu, e = ctx.engine, s = menu.s, lang = ctx.save.uiLanguage;
   if (menu.back && !fadeStep(e, menu.fade)) return;
   if (s.graphics.size === 0) {
     Object.assign(s, { x: 0, y: 0, oamFlags: 0x3C0, variant: 0, animCursor: 0, qAnimDelay: 0, prevVariant: 0xFF, animSpeed: 0x10, palId: 0, frameFlags: 0x400 });
@@ -189,8 +194,8 @@ function showMenu(t) {
     t.main = chooseItem;
   }
   for (let i = 0; i < MENU_ITEMS; i++) {
-    menu.items[i] = sprite(ANIM_PRESS_START, e.vramMalloc(ITEM_TILES[i]), {
-      x: 120, y: i * MENU_SPACE + MENU_TOP, variant: ITEM_VARIANTS[UI_LANGUAGE + i * 2], oamFlags: 0x3C0,
+    menu.items[i] = sprite(ANIM_PRESS_START[lang], e.vramMalloc(ITEM_TILES[i]), {
+      x: 120, y: i * MENU_SPACE + MENU_TOP, variant: ITEM_VARIANTS[lang + i * 2], oamFlags: 0x3C0,
     });
     updateSprite(e, ctx.sprites, menu.items[i]);
   }

@@ -1,9 +1,10 @@
 // The save (SAT-R decompilation, src/game/sa1/save.c, and CreateEmptySaveGame in src/game/game.c): Sonic
 // Advance's one save, struct SaveGame, the 0x430 bytes the cartridge's flash memory keeps. Here the browser
 // keeps them, in its storage (localStorage, as base64). At power-on the game reads the save (SaveGameExists),
-// or starts an empty one (CreateEmptySaveGame); then it changes the save in memory (LOADED_SAVE) as it goes,
-// and writes it at set moments (WriteSaveGame): as an act's results end, as a game over ends, before the
-// congratulations and with the Moon Zone's results.
+// or starts an empty one (CreateEmptySaveGame) and the language screen; then it changes the save in memory
+// (LOADED_SAVE) as it goes, and writes it at set moments (WriteSaveGame): as that language screen ends, as the
+// Options menu ends, as an act's results end, as a game over ends, before the congratulations and with the Moon
+// Zone's results.
 //
 // Its fields, by offset, as the USA ROM has them (the decompilation's struct has a language byte at 0x01A, for the
 // European version's six, which the USA ROM doesn't have, so the three fields after it are a byte earlier):
@@ -89,6 +90,8 @@ export function openSave(storage = browserStorage()) {
   }
   return {
     bytes,
+    /** SaveGameExists: whether the flash holds a save (none before the first write, or once erased). */
+    get exists() { return flash !== null; },
     get unk4() { return view.getUint32(0x04, true); },
     set unk4(v) { view.setUint32(0x04, v >>> 0, true); },
     /** The name's eight bytes, as a view into the save. */

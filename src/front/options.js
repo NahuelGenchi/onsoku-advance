@@ -11,14 +11,13 @@
 // anywhere on the menu, fades it out to black, writes the save (14 frames in which nothing runs) and goes back to
 // the main menu, which fades in with Game Start chosen and no music.
 //
-// The USA version shows the language as a value of the menu's own animation (variant 10, ENGLISH), where the
-// decompilation's European one shows one of its six languages. Its save has no byte for those, so its last two
-// settings are a byte earlier (engine/save.js).
+// The USA version shows the language as variant 10 of the items' animation, にほんご in the Japanese one and ENGLISH
+// in the English one, where the decompilation's European one shows one of its six languages. Its save has no byte
+// for those, so its last two settings are a byte earlier (engine/save.js).
 //
-// A on PLAYER DATA or SOUND TEST fades the menu out to black over 32 frames, the music going on, and opens the
-// player data menu (playerdata.js) or the sound test (soundtest.js); both come back to the menu with the cursor on
-// PLAYER DATA. The language screen isn't built yet: A on LANGUAGE does nothing, where the original fades out to it
-// the same way.
+// A on PLAYER DATA, SOUND TEST or LANGUAGE fades the menu out to black over 32 frames, the music going on, and opens
+// the player data menu (playerdata.js), the sound test (soundtest.js) or the language screen (language.js); all
+// three come back to the menu with the cursor on PLAYER DATA.
 
 import { createSprite, updateSprite, displaySprite } from '../gba/sprite.js';
 import { KEY } from '../gba/engine.js';
@@ -28,18 +27,18 @@ import { createUiTask, uiGfxStackInit, loadUiGfx, createFade, fadeStep } from '.
 import { createMainMenu } from './title.js';
 import { createSoundTest } from './soundtest.js';
 import { createPlayerDataMenu } from './playerdata.js';
+import { createLanguageScreen, hasLanguageScreen } from './language.js';
 
 // by the save's language (0 Japanese, 1 English): the items' and values' animation, and the scrolling title's
 const ANIM_ITEMS = [866, 863], ANIM_TITLE = [865, 864];
 const ANIM_CURSOR = 857, ANIM_BAR = 867, ANIM_PROMPT = 877, ANIM_COLOURS = 863;
 const ITEMS = 8;
-// LANGUAGE (4) is the item whose screen isn't built
-const PLAYER_DATA = 0, LEVEL = 1, TIME_UP = 2, SOUND_TEST = 3, BUTTON_CONFIG = 5, DELETE = 6, END = 7;
-// the items whose screens the menu fades out before: PLAYER DATA, SOUND TEST and LANGUAGE
-const FADES_OUT = new Set([PLAYER_DATA, SOUND_TEST, 4]);
+const PLAYER_DATA = 0, LEVEL = 1, TIME_UP = 2, SOUND_TEST = 3, LANGUAGE = 4, BUTTON_CONFIG = 5, DELETE = 6, END = 7;
+// the items whose screens the menu fades out before
+const FADES_OUT = new Set([PLAYER_DATA, SOUND_TEST, LANGUAGE]);
 const ITEM_TILES = [0x1A, 0x0C, 0x10, 0x18, 0x14, 0x1E, 0x24, 0x08];
 // the values' variants: LEVEL by difficultyLevel (NORMAL, EASY), TIME UP by timeLimitDisabled (ON, OFF), BUTTON
-// CONFIG. by btnConfig (NORMAL, REVERSE), and the USA's language (ENGLISH)
+// CONFIG. by btnConfig (NORMAL, REVERSE), and the language's (にほんご or ENGLISH, as the animation is)
 const LEVEL_VARIANTS = [11, 12], TIME_UP_VARIANTS = [8, 9], BUTTON_VARIANTS = [13, 14], LANGUAGE_VARIANT = 10;
 const COLOURS_VARIANT = 15;
 const NORMAL = 0, EASY = 1;
@@ -116,8 +115,7 @@ export function createOptionsMenu(ctx) {
 }
 
 // Task_OptionsMenuMain: once the fade has come in, Up and Down choose and A picks; B ends the menu. A on PLAYER
-// DATA or SOUND TEST fades the menu out first, and its screen opens once it is black. LANGUAGE's screen, which the
-// original fades out to the same way, isn't built: A does nothing there.
+// DATA, SOUND TEST or LANGUAGE fades the menu out first, and its screen opens once it is black.
 function chooseItem(t) {
   const menu = t.data, e = menu.ctx.engine, fade = menu.fade;
   menu.state = 0;
@@ -132,7 +130,7 @@ function chooseItem(t) {
         e.playSong(SONG.MENU_CURSOR);
         if (++menu.cursor > ITEMS - 1) menu.cursor = 0;
       }
-      if (e.pressed & KEY.A && PICK[menu.cursor]) {
+      if (e.pressed & KEY.A && (menu.cursor !== LANGUAGE || hasLanguageScreen(menu.ctx.offsets))) {
         e.playSong(SONG.SELECT);
         if (FADES_OUT.has(menu.cursor)) {
           fade.unk4 = 1;
@@ -237,6 +235,15 @@ function pickSoundTest(t) {
   e.stopSong(SONG.CHARACTER_SELECTION);
   e.destroyTask(t);
   createSoundTest(ctx);
+}
+
+// OptionsSelectLanguage: once the menu is black, every task ended and the queued copies dropped, and the language
+// screen
+function pickLanguage(t) {
+  const { ctx } = t.data, e = ctx.engine;
+  e.destroyTasks();
+  e.clearQueues();
+  createLanguageScreen(ctx, false);
 }
 
 // OptionsSelectDeleteGameData: DELETE ALL DATA? from the next frame, NO chosen, and the window over NO brightened
@@ -375,8 +382,8 @@ function freeMenu(t) {
   }
 }
 
-// sOptionsSelectFuncs, for the items built
+// sOptionsSelectFuncs
 const PICK = {
   [PLAYER_DATA]: pickPlayerData, [LEVEL]: pickSetting(setLevel), [TIME_UP]: pickSetting(setTimeUp), [SOUND_TEST]: pickSoundTest,
-  [BUTTON_CONFIG]: pickSetting(setButtons), [DELETE]: pickDelete, [END]: pickEnd,
+  [LANGUAGE]: pickLanguage, [BUTTON_CONFIG]: pickSetting(setButtons), [DELETE]: pickDelete, [END]: pickEnd,
 };

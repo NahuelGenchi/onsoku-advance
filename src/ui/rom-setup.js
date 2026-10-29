@@ -46,7 +46,7 @@ const escape = text => String(text).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0
 const drawn = () => new Promise(resolve => { requestAnimationFrame(() => setTimeout(resolve)); setTimeout(resolve, 100); });
 
 /**
- * Renders the screen into `host`. Each of `slots` is { key, store, title, platform, required, accept, claims(buffer),
+ * Renders the screen into `host`. Each of `slots` is { key, store, title, required, accept, claims(buffer),
  * read(buffer, progress), unload(), extras }: `claims` says whether a file's header names this game; `read` reads
  * the ROM and resolves to a line about it (its region), or throws with a message for the player, keeping the ROM
  * it had; `unload` lets go of that one; `extras` are its options, each { label, hint, keys, key, get(), set(on),
@@ -157,7 +157,7 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
     const whole = name => name.replaceAll(' ', '\u00a0').replaceAll('-', '-\u2060');
     if (ready) c.detail.textContent = c.about;
     else if (state === 'empty') {
-      c.detail.textContent = c.slot.required ? line([c.slot.platform, 'required'])
+      c.detail.textContent = c.slot.required ? 'Required'
         : line(['Optional', c.slot.extras.map(e => whole(e.label)).join(', ')]);
     }
     c.extras.forEach((box, i) => { box.disabled = !ready; box.checked = ready && c.slot.extras[i].get(); });

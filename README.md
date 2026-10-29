@@ -502,7 +502,6 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/TRACKING.md](docs/TRACKING.md)
 
 - The [SAT-R](https://github.com/SAT-R) decompilation of Sonic Advance, the reference for the game's data formats, physics and camera behavior. None of its code or data is copied into this repository.
 - [Monocraft](https://github.com/IdreesInc/Monocraft) by Idrees Hassan, the pixel font of the start screen. A subset of it is bundled under the SIL Open Font License 1.1 ([styles/fonts/Monocraft-OFL.txt](styles/fonts/Monocraft-OFL.txt)).
-- [Newsreader](https://github.com/productiontype/Newsreader) by Production Type, the start screen's text font, as on dreamports.net. Its Latin letters are bundled under the SIL Open Font License 1.1 ([styles/fonts/Newsreader-OFL.txt](styles/fonts/Newsreader-OFL.txt)).
 - [Pixelarticons](https://github.com/halfmage/pixelarticons) by Gerrit Halfmann, whose gamepad icon is the start screen's controller badge, under the MIT License ([styles/icons/pixelarticons-LICENSE.txt](styles/icons/pixelarticons-LICENSE.txt)).
 
 ## Legal

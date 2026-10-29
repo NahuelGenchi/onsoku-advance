@@ -58,11 +58,10 @@ button { font: inherit; }
 .busy .drop, .busy .continue { opacity: .55; pointer-events: none; }
 
 /* the game's ROM setup: a row for each of the three ROMs, with their extras under them, then Play. It is drawn
-   like the dreamports.net launcher the game opens from, at its sizes: Monocraft, a pixel font nine of its pixels
-   to the em, for names and buttons at 15 and 13.5 px, Newsreader for what's said about them, and 2 px pixel-art
+   like the dreamports.net launcher the game opens from, at its sizes: all in Monocraft, a pixel font nine of its
+   pixels to the em, with names and buttons at 15 px and what's said about them at 13.5 px, and 2 px pixel-art
    frames with their corner pixels left out. Light or dark, as the launcher is. */
 @font-face { font-family: Monocraft; font-display: swap; src: url(fonts/Monocraft.woff2) format("woff2"); }
-@font-face { font-family: Newsreader; font-weight: 200 800; font-display: swap; src: url(fonts/Newsreader.woff2) format("woff2"); }
 
 .picker:has(> .setup) {
   /* light: white paper, dark blue ink, light blue fills, a deeper blue for what's light blue on paper */
@@ -71,7 +70,7 @@ button { font: inherit; }
   --ink: #0a1738; --dim: rgba(10, 23, 56, .68); --faint: rgba(10, 23, 56, .46);
   --act: #1a4fb0; --on-act: #fff; --on-act-key: rgba(255, 255, 255, .16); --on-act-key-ink: rgba(255, 255, 255, .8);
   --veil: rgba(255, 255, 255, .82);
-  position: relative; align-items: start; padding: 0 max(18px, env(safe-area-inset-right)) 32px max(18px, env(safe-area-inset-left));
+  position: relative; min-height: 100dvh; padding: 64px max(18px, env(safe-area-inset-right)) 64px max(18px, env(safe-area-inset-left));
   background: var(--glow), var(--page); color-scheme: light;
 }
 /* dark: the launcher's night blue, when the device is dark and the launcher wasn't set to light, or it was set to dark */
@@ -99,8 +98,6 @@ button { font: inherit; }
   font: 15px/20px Monocraft, var(--mono); color: var(--ink);
   font-variant-ligatures: none; font-synthesis: none; -webkit-font-smoothing: antialiased;
 }
-/* what's said about the names and buttons: the launcher's Newsreader */
-.setup :is(.setup-intro, .rom-detail, .rom-status, .switch-hint, .play-note, .setup-foot) { font-family: Newsreader, Georgia, serif; font-synthesis: none; }
 .setup :focus-visible, .pad-nav .pad-at { outline: 2px solid var(--blue); outline-offset: 4px; }
 /* a pixel frame, 2 px with the corner pixels left out */
 .setup :is(.setup-back, .roms, .rom-add, .play, kbd, .switch-track, .remember input, .setup-drag > div, .pad) {
@@ -114,15 +111,18 @@ button { font: inherit; }
 }
 
 .setup-head { margin: 0 0 22px; }
-/* the top bar: the way back to dreamports.net, an arrow, and the controller badge */
-.setup-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 56px; margin: 0 0 10px; }
+/* the top bar, in the page's top corners: the way back to dreamports.net, an arrow, and the controller badge */
+.setup-bar {
+  position: absolute; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 56px;
+  padding: 0 max(18px, env(safe-area-inset-right)) 0 max(18px, env(safe-area-inset-left));
+}
 .setup-back { display: grid; place-items: center; width: 34px; height: 34px; margin: 2px; background: var(--paper); color: var(--ink); }
 .setup-back:hover { background: var(--hover); }
 .setup-back:active { transform: translateY(2px); }
 .setup-back svg { width: 14px; height: 14px; }
 .setup-brand { margin: 0; color: var(--blue); font-size: 13.5px; line-height: 20px; }
 .setup h1 { margin: 4px 0 0; font-size: 24px; font-weight: normal; line-height: 32px; }
-.setup-intro { margin: 8px 0 0; color: var(--dim); font-size: 17px; line-height: 1.5; }
+.setup-intro { margin: 8px 0 0; color: var(--dim); }
 
 /* the controller badge: in with a note while an Xbox controller is connected; off, with a note, then out once
    none is */
@@ -153,7 +153,7 @@ button { font: inherit; }
 .rom[data-state="reading"] .rom-mark { animation: setup-blink .6s steps(2, jump-none) infinite alternate; }
 .rom-text { min-width: 0; }
 .rom h2 { margin: 0; font-size: inherit; font-weight: normal; line-height: inherit; text-wrap: balance; }
-.rom-detail { margin: 3px 0 0; color: var(--dim); font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }
+.rom-detail { margin: 4px 0 0; color: var(--dim); font-size: 13.5px; line-height: 20px; overflow-wrap: anywhere; }
 
 /* add, with a plus: filled for the ROM the game needs, framed for the optional ones */
 .rom-add, .rom-actions { display: none; }
@@ -176,10 +176,10 @@ button { font: inherit; }
 .rom[data-state="reading"] .rom-bar { display: block; }
 .rom-bar span { position: absolute; inset: 0 auto 0 -30%; width: 30%; background: var(--blue); animation: setup-sweep 1.2s steps(24) infinite; }
 
-.rom-status { margin: -6px 0 0; padding: 0 16px 12px 42px; font-size: 15px; line-height: 1.4; color: var(--dim); }
+.rom-status { margin: -6px 0 0; padding: 0 16px 12px 42px; font-size: 13.5px; line-height: 20px; color: var(--dim); }
 .rom-status:empty { display: none; }
 .rom-status[data-kind="error"] { color: var(--ink); }
-.rom-status[data-kind="error"]::before { content: "! "; color: var(--blue); font-family: Monocraft, var(--mono); }
+.rom-status[data-kind="error"]::before { content: "! "; color: var(--blue); }
 
 /* an extra: its name and what it does, its key, and the launcher's switch. They show once their ROM is in. */
 .rom[data-state="empty"] .rom-extras { display: none; }
@@ -187,7 +187,7 @@ button { font: inherit; }
 .switch { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0 10px; padding: 6px 0; cursor: pointer; }
 .switch-text { display: grid; }
 .switch-label { font-size: 13.5px; line-height: 20px; }
-.switch-hint { color: var(--dim); font-size: 14px; line-height: 1.3; }
+.switch-hint { color: var(--dim); font-size: 13.5px; line-height: 20px; }
 .switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .switch-track { position: relative; width: 32px; height: 16px; margin: 2px; background: var(--line); }
 .switch-track span { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; background: var(--faint); transition: transform .12s steps(4); }
@@ -211,13 +211,13 @@ button { font: inherit; }
 .play:active:not(:disabled) { transform: translateY(2px); }
 .play:disabled { --frame: var(--line); background: var(--hover); cursor: not-allowed; color: var(--faint); }
 .play:disabled kbd { display: none; }
-.play-note { margin: 10px 0 0; color: var(--dim); font-size: 15px; line-height: 1.4; }
+.play-note { margin: 10px 0 0; color: var(--dim); font-size: 13.5px; line-height: 20px; }
 .play-note:empty { margin: 0; }
 .play-note[data-kind="error"] { color: var(--ink); }
 
 .setup-foot {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 18px 2px 0;
-  color: var(--dim); font-size: 15px; line-height: 1.4;
+  color: var(--dim); font-size: 13.5px; line-height: 20px;
 }
 .setup .remember { display: flex; align-items: center; gap: 12px; margin: 0; color: inherit; font-size: inherit; cursor: pointer; }
 .setup .remember input { --frame: var(--faint); flex: none; appearance: none; width: 14px; height: 14px; margin: 2px; background: var(--paper); cursor: pointer; }
@@ -240,11 +240,8 @@ button { font: inherit; }
 @keyframes setup-sweep { to { left: 100%; } }
 @keyframes setup-blink { to { opacity: .25; } }
 @keyframes pad-on { 0% { transform: scale(.7); } 60% { transform: scale(1.15); } }
-/* from the top of a phone's screen; on a wide screen in the middle, with the top bar in the page's corners, as the
-   launcher's is */
 @media (min-width: 760px) {
-  .picker:has(> .setup) { align-items: center; padding-top: 72px; }
-  .setup-bar { position: absolute; inset: 0 0 auto; margin: 0; padding: 0 max(18px, env(safe-area-inset-right)) 0 max(18px, env(safe-area-inset-left)); }
+  .picker:has(> .setup) { padding-block: 72px; }
 }
 @media (max-width: 520px) {
   .rom-main { padding: 12px; gap: 0 10px; }

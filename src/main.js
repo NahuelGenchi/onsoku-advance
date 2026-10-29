@@ -166,7 +166,7 @@ const setup = createRomSetup(picker, {
   intro: 'Your ROMs stay on this device.',
   slots: [
     {
-      key: 'sa1', store: SA1_ROM, title: 'Sonic Advance', platform: 'Game Boy Advance', required: true,
+      key: 'sa1', store: SA1_ROM, title: 'Sonic Advance', required: true,
       accept: '.gba,.agb,.bin', claims: isSonicAdvance,
       async read(buffer, progress) {
         if (buffer.byteLength > MAX_GBA_BYTES) throw new RomError('This file is too large to be a Game Boy Advance ROM.');
@@ -178,7 +178,7 @@ const setup = createRomSetup(picker, {
       extras: [{ label: 'Widescreen view', hint: 'See more of the stage', key: 'V', get: () => wide, set: setWide }],
     },
     {
-      key: 'sa2', store: SA2_ROM, title: 'Sonic Advance 2', platform: 'Game Boy Advance', required: false,
+      key: 'sa2', store: SA2_ROM, title: 'Sonic Advance 2', required: false,
       accept: '.gba,.agb,.bin', claims: isSa2,
       read: buffer => region(useSa2(buffer)),
       unload() { boostArt = tricksArt = null; },
@@ -188,7 +188,7 @@ const setup = createRomSetup(picker, {
       ],
     },
     {
-      key: 'rush', store: RUSH_ROM, title: 'Sonic Rush', platform: 'Nintendo DS', required: false,
+      key: 'rush', store: RUSH_ROM, title: 'Sonic Rush', required: false,
       accept: '.nds', claims: isRush,
       read: buffer => region(useRush(buffer)),
       unload() { rushArt = null; },

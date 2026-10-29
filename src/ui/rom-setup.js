@@ -59,7 +59,7 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
     <div class="setup">
       <header class="setup-head">
         <div class="setup-bar">
-          <a class="setup-back" href="${DREAMPORTS}" aria-label="Back to dreamports" title="Back to dreamports">${ICONS.back}</a>
+          <a class="setup-back" href="${DREAMPORTS}" aria-label="Back to Dreamports" title="Back to Dreamports">${ICONS.back}</a>
           <div class="pad" data-state="gone"><span class="pad-icon" aria-hidden="true"></span><span class="pad-note" role="status" aria-live="polite"></span></div>
         </div>
         <p class="setup-brand">Sonic Advance Dreamport</p>

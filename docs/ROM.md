@@ -539,12 +539,13 @@ The HUD runs after the rings and objects and before Sonic, so it shows the ring 
 
 ### The game's start
 
-Before the act, this port shows what Sonic Advance shows when it starts with a saved game: the SEGA and Sonic Team logos (`CreateSegaLogo`), the intro (`CreateIntroAnimation`), the title screen (`CreateTitleScreen`) and the main menu (`CreateMainMenu`). They are a port of the original's code ([`src/front/`](../src/front/)) on a port of the engine its screens are built on ([`src/gba/engine.js`](../src/gba/engine.js)): the tasks run once a frame in order of priority, the copies of the display registers they write, the graphics queue copied to VRAM in the V-blank, the heap the sprites' tiles are given room in, the sprites' OAM entries, the H-blank DMA that changes a register from one line to the next, and the keys. [`src/gba/video.js`](../src/gba/video.js) draws the result as the GBA's video hardware does, a line at a time. Everything is read from the ROM as the original reads it: the logos are entries 86 and 87 of the tilemap table, the intro's pictures come from the intro graphics, its sprites from the sprite tables and its names' letters from the intro tables, and the title screen's background and logo are entries 75 and 74 (the English logo; 73 is the Japanese one). They run at the GBA's own 59.73 frames a second.
+Before the act, this port shows what Sonic Advance shows when it starts: with no save, the [language screen](#the-language-screen) (`CreateEditLanguageScreen`), and then, as with a saved game, the SEGA and Sonic Team logos (`CreateSegaLogo`), the intro (`CreateIntroAnimation`), the title screen (`CreateTitleScreen`) and the main menu (`CreateMainMenu`). They are a port of the original's code ([`src/front/`](../src/front/)) on a port of the engine its screens are built on ([`src/gba/engine.js`](../src/gba/engine.js)): the tasks run once a frame in order of priority, the copies of the display registers they write, the graphics queue copied to VRAM in the V-blank, the heap the sprites' tiles are given room in, the sprites' OAM entries, the H-blank DMA that changes a register from one line to the next, and the keys. [`src/gba/video.js`](../src/gba/video.js) draws the result as the GBA's video hardware does, a line at a time. Everything is read from the ROM as the original reads it: the logos are entries 86 and 87 of the tilemap table, the intro's pictures come from the intro graphics, its sprites from the sprite tables and its names' letters from the intro tables, and the title screen's background and logo are entries 75 and 73 or 74 (the Japanese or the English logo, by the save's language). They run at the GBA's own 59.73 frames a second.
 
-Frames are counted as mGBA draws them from power-on, the first being frame 0:
+Frames are counted as mGBA draws them from power-on, the first being frame 0. With a save:
 
 | Frames | What shows |
 | :--- | :--- |
+| 0–6 | The GBA starting up: the screen white (forced blank), nothing running. The game starts on frame 6, its first picture showing on 7. |
 | 7–166 | SEGA's logo wipes in from the bottom, a line more each frame. The lines below the wipe are the logo, the lines above it the logo's first line, stretched (the H-blank DMA scrolls each line). |
 | 167–286 | It holds |
 | 287–446 | It wipes out the same way, its last line stretched up from the bottom. On the last frame Sonic Team's logo is set up. |
@@ -575,8 +576,6 @@ Frames are counted as mGBA draws them from power-on, the first being frame 0:
 - *The demos*, which the original starts after 900 frames on the title screen: the title screen stays as it is, and Start still opens the menu.
 - *VS, Time Attack and Tiny Chao Garden:* A on them does nothing. The original plays the select sound and fades out to them as it does for Game Start.
 - *The character select:* Game Start goes to the act, on the frame the character select would start.
-- *The saved language:* the title screen and the main menu are in English, the language screen's default, whatever the save holds. The Options menu follows the save.
-- *The language screen* that a new game, without a save, starts with before the logos: the game always starts as with a save.
 - *The soft reset:* A, B, Start and Select held together restart the original from Sonic Team's logo on; here they do nothing.
 
 **Lag.** The original skips a frame's keys and tasks when the V-blank's copies run past the V-blank. These screens never do on the recordings, so that isn't modelled. The one frame they do lose is the main menu's first when it comes back from the Options menu, where `CreateMainMenu(1)` itself runs past the V-blank (see [The Options menu](#the-options-menu)); the engine leaves that frame out (`lag`).
@@ -601,13 +600,58 @@ Turning it on or off (<kbd>V</kbd>) re-fits the view at once. It was checked on 
 - *Skipping:* in all three runs the frames match up to the press, and the engine leaves for the title screen on the same frame as the original, the one after the press is read (722, 1502 and 2102).
 - *Sound:* two more runs dumped the sound engine's state too. The original starts SEGA's ring and the intro's music on the same frames as the engine, and on the skip at 1500 the intro's music gives way to the title screen's on the next frame, as the engine stops it. The title screen and menu runs dumped it as well: the original plays the select sound and every cursor sound, the held key's repeats included, on the same frames as the engine, and starts the character select's music (song 3) on the frame the engine leaves the menu. The boss music's start and stop come and go within that frame, so the dumps can't show them.
 
+### The language screen
+
+`CreateEditLanguageScreen` and its two tasks, ported in [`src/front/language.js`](../src/front/language.js). The decompilation builds the European ROM, whose screen lists its six languages. The USA ROM's offers two, Japanese and English, and was ported from its assembly: `CreateEditLanguageScreen` at `0x0806A700`, `Task_EditLanguageScreenInit` at `0x0806A920`, the fade out at `0x0806AA00`, the drawing at `0x0806AB70` and the destructor at `0x0806AC6C`.
+
+**When.** At power-on, if `SaveGameExists` finds no save, `GameStart` makes a new one (`CreateEmptySaveGame`, English) and opens the screen instead of the logos. The Options menu's LANGUAGE opens it too, once the menu has faded out: `OptionsSelectLanguage` ends every task and drops the queued copies first.
+
+**The screen.** Layer 0 is a picture in 256 colours: its colours, 37 tiles of 8 bits a pixel and a 32 × 20 map, one block in the ROM (`0x6C7BD0` in the USA ROM, found by its map's shape in other versions). The original copies `0x1140` bytes as its tiles, on past their end through the map and beyond, and the port does the same. Over it are six sprites in OAM order 18, each in the language the cursor is on:
+
+| Sprite | Animation (Japanese, English) | Variant | Where |
+| :--- | :--- | :--- | :--- |
+| LANGUAGE | 865, 864 | 2 | (120, 17) |
+| にほんご | 866 | 10 | (141, 70) |
+| ENGLISH | 863 | 10 | (147, 98) |
+| ✚ SELECT | 862, 861 | 0 | (56, 140) |
+| Ⓐ OK | 862, 861 | 1 | (124, 140) |
+| Ⓑ BACK | 862, 861 | 2 | (196, 140) |
+
+At power-on there is no going back: the fifth sprite is Ⓐ/START OK (variant 3, at (164, 140)) and the sixth Ⓐ OK, which the screen loads but never draws. The cursor (animation 857) points at the language, at (81, 62) for Japanese and (73, 91) for English. Every frame each sprite takes its animation and variant again and starts it over.
+
+**The keys.** The screen fades in from black over 32 frames. Once it is in, Down or Up moves the cursor to the other language with the cursor sound (song 108), and the whole screen changes language with it. Held, they repeat 20 frames after the press and every 8 after that. A, or at power-on Start too, plays the select sound (106), puts the language in the save in memory (`uiLanguage`, 0 Japanese, 1 English) and turns the fade round. From the Options menu B plays the return sound (107) and turns it round with the save as it was. The screen then fades to black over 32 frames.
+
+**After it.** From the Options menu, the menu opens again with its cursor on PLAYER DATA and its song started over; the menu writes the save as it closes. At power-on every sound stops, the save is written (14 frames with the interrupts off, see [The save](#the-save)) and the SEGA logo starts. A new game chosen with A on frame 120 fades out on 121–152, writes on 153–166, and its SEGA logo wipes in from frame 168 rather than 7.
+
+**Kept from the original.** A and Start are read from the screen's first frame, before the fade in has ended. Pressed then, the fade turns round from full brightness: the screen flashes bright and fades out from there. The fade out ends the screen's task and then reads the screen's own memory, now freed, to choose where to go; nothing has used that memory yet, so it goes the right way.
+
+**Other versions.** On a ROM without the USA screen's picture, such as the European one with its six-language screen, which isn't built, the game starts with the logos as with a save, and LANGUAGE in the Options menu does nothing.
+
+**The language elsewhere.** The title screen's logo (tilemap 73 or 74), "PRESS START" (animation 778 or 779) and the main menu's items (the same animation's variants) follow the save's language. The copyright line is the international release's (variant 1) in both. The Options menu, the player data menu, the name input and the VS record follow it too. Nothing in an act reads it.
+
+**Not built yet.** The normal ending's last message (animation 784, or 787 in Japanese), the true ending's "A few days later" (783, or 786) and Chao Hunt's results message are always in English; they are the next part of [#140](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/140).
+
+**How it was checked.** mGBA 0.10.5 recorded three runs of the USA ROM from power-on, dumping VRAM, palette RAM, OAM, the display registers, the picture, IWRAM and the music players' memory after every frame, and the flash at the end:
+
+- *Run 1,* an empty flash: Up, Down and Up on the language screen and A on Japanese on 120, so the save is written; Start skips the intro on 1000 and opens the Japanese main menu on 1160; Options, down to LANGUAGE and A. On the screen from the Options menu Down, Up and Down, Start (which does nothing there) and B, so Japanese stays. LANGUAGE again, Down to English and A, so the Options menu comes back in English. B closes it, which writes the save, and A on Game Start on 2000.
+- *Run 2,* an empty flash: B and Down while the screen fades in, which do nothing, and Start on 14, still in the fade in, choosing English. Start skips the intro on 860 and opens the menu on 1020, and A on Game Start on 1100.
+- *Run 3,* with a Japanese save: the logos straight away, the intro skipped on 800, the Japanese title screen and menu, the Options menu in Japanese, B, and A on Game Start on 1300.
+
+The engine's VRAM, palette RAM, OAM, display registers and picture match the recording's on every frame of the three runs, from frame 0 to the character select (2050, 1150 and 1350), the white start-up frames included. The exceptions are frames where the next screen writes VRAM straight rather than in the V-blank, which mGBA catches a frame early, as under [The game's start](#the-games-start): the SEGA logo's first tiles on the frame before it is set up after the write (166 and 60), Sonic Team's logo's (606, 500 and 445), the skipped intro's last frame (1001, 861 and 801), where the emerald in view shows 6 of its pixels already cleared, and the main menu's first two frames back from the Options menu (1946–1947 and 1232–1233). The logos' scroll registers, which the H-blank DMA writes line by line, differ in the dumps, which catch them mid-frame; the picture doesn't. The save in memory matches on every frame from the game's first, every sound starts and stops on the same frame as in the recording, and the port's last write is byte for byte the flash's latest sector. Run 3 writes nothing, as mGBA doesn't.
+
+The player data menu's four runs ([Player data](#player-data)) match on every frame as before with the new start-up, and the Japanese one now through its Japanese main menu too.
+
+Two more runs, a Japanese and an English save from power-on with the same keys into act 1 (2400 frames, about 1100 of them in the act), show the act doesn't depend on the language: their pictures differ only on the title screen and the main menu. One black frame between the character select and the act differs only in a byte of mGBA's picture that isn't a colour.
+
+In Chrome 156 and Firefox 159 (headless, a new profile each), the page played the three runs' keys from power-on, runs 1 and 2 with no save stored and run 3 with the same Japanese one. At 29 frames, among them the white start-up, the fades, both languages on the language screen from power-on and from the Options menu, the logos, the title screens and the menus, both browsers drew the screen pixel for pixel as mGBA did. Each stored the save mGBA wrote, byte for byte, and neither console showed an error from the game.
+
 ### The Options menu
 
 `CreateOptionsMenu` and its tasks (`src/game/sa1/menus/options.c`), ported in [`src/front/options.js`](../src/front/options.js). In the USA ROM each function sits `0x4C` bytes before the decompilation's European one: `CreateOptionsMenu` at `0x080105EC`, `Task_OptionsMenuMain` at `0x08010B20`.
 
 **Opening.** A on Options in the main menu plays the select sound (song 106) and darkens the screen over 49 frames, as Game Start does. On the next frame the main menu starts and stops the boss music (song 29), which stops the title's, and the Options menu is set up, black, and starts its music (song 11, the decompilation's Scrap Brain Zone remix). It fades in from black over the next 32 frames, a sixteenth every second frame.
 
-**The screen.** Layer 0 is the background, grey and white checks: its colours, 5 tiles and 32 × 20 map are one block in the ROM (`0x6C5650` in the USA ROM, found by its map's first entries in other versions). On top of it OPTIONS scrolls left along a blue bar at the top, a pixel a frame, and under that come the eight items, 16 lines apart from line 38: PLAYER DATA, LEVEL, TIME UP, SOUND TEST, LANGUAGE, BUTTON CONFIG., DELETE GAME DATA and END. The cursor (animation 857) points at the chosen item, which is drawn 5 px further right, lit (sprite palette row 1) while it is in use. The values are at x 220: LEVEL's NORMAL or EASY, TIME UP's ON or OFF, the language, and BUTTON CONFIG.'s NORMAL or REVERSE. The items and the values are animation 863 in English and 866 in Japanese, and the title 864 or 865, by the save's language. The USA ROM shows the language as variant 10 of that animation, ENGLISH, where the European one shows one of its six languages.
+**The screen.** Layer 0 is the background, grey and white checks: its colours, 5 tiles and 32 × 20 map are one block in the ROM (`0x6C5650` in the USA ROM, found by its map's first entries in other versions). On top of it OPTIONS scrolls left along a blue bar at the top, a pixel a frame, and under that come the eight items, 16 lines apart from line 38: PLAYER DATA, LEVEL, TIME UP, SOUND TEST, LANGUAGE, BUTTON CONFIG., DELETE GAME DATA and END. The cursor (animation 857) points at the chosen item, which is drawn 5 px further right, lit (sprite palette row 1) while it is in use. The values are at x 220: LEVEL's NORMAL or EASY, TIME UP's ON or OFF, the language, and BUTTON CONFIG.'s NORMAL or REVERSE. The items and the values are animation 863 in English and 866 in Japanese, and the title 864 or 865, by the save's language. The USA ROM shows the language as variant 10 of that animation, にほんご in Japanese and ENGLISH in English, where the European one shows one of its six languages.
 
 **Choosing.** Up and Down move the cursor, wrapping round at both ends, with the cursor sound (song 108) and the main menu's key repeat. A on LEVEL, TIME UP or BUTTON CONFIG. plays the select sound and lights the item. Left and Right then set it with the cursor sound, straight into the save in memory: Left gives EASY, OFF and NORMAL, Right NORMAL, ON and REVERSE. A or B plays the select sound and puts the item down. A on PLAYER DATA plays the select sound and fades the menu out to black over 32 frames; then the [player data menu](#player-data) starts. A on SOUND TEST does the same, its music going on. Then `OptionsSelectSoundTest` stops song 3, the character select's music, which isn't playing, so the Options music plays on into the [sound test](#the-sound-test).
 
@@ -626,7 +670,6 @@ Turning it on or off (<kbd>V</kbd>) re-fits the view at once. It was checked on 
 
 **Not built yet.**
 
-- *LANGUAGE:* A on it does nothing. The original plays the select sound and fades out to the language screen, as it does for SOUND TEST.
 - *Chao Hunt* doesn't read the button setting.
 
 **How it was checked.** mGBA 0.10.5 recorded two runs from power-on with a save, dumping VRAM, palette RAM, OAM, the display registers and the picture after every frame, and the flash at the end. Two more, with the same keys, dumped the sound engine's state.
@@ -726,7 +769,7 @@ Three screens from the Options menu's PLAYER DATA. The menu is `CreatePlayerData
 - *The glow:* the grid's colours (UI graphics `0x25`) are dimmed and brightened every frame, between 18 and 31 thirty-seconds of their own, along a sine that goes round in 47 frames.
 - *The end.* On the 61st frame after END, the bar's characters go into the save's `playerName`. If the name changed, `unk4` takes the game's frame count (`gFrameCount`), every sound stops and the save is written, which takes 14 frames (see [The save](#the-save)). Then layers 1 and 2 are cleared in the next V-blank and the player data menu starts, with its song from the start. With the game in mode 2, which only the multiplayer menu sets, the original goes to the multiplayer menu instead; that menu isn't built.
 
-**The frame count.** The original counts `gFrameCount` in its V-blank interrupt (`VBlankIntr`), which `GameInit` turns on. In mGBA 0.10.5 the count is 0 up to frame 6 and counts every frame from frame 6's V-blank, so frame f (f ≥ 6) runs with f − 6. That includes the title screen's late frame on the way back from a menu, whose V-blank comes while the main loop is still busy. Only flash writes, with the interrupts off, stop it. The engine leaves the front end's first 6 frames uncounted and counts late frames.
+**The frame count.** The original counts `gFrameCount` in its V-blank interrupt (`VBlankIntr`), which `GameInit` turns on. In mGBA 0.10.5 the count is 0 up to frame 6 and counts every frame from frame 6's V-blank, so frame f (f ≥ 6) runs with f − 6. That includes the title screen's late frame on the way back from a menu, whose V-blank comes while the main loop is still busy. Only flash writes, with the interrupts off, stop it. The front end starts the game on frame 6, as mGBA does, with nothing run or counted before, and counts late frames.
 
 **How it was checked.** mGBA 0.10.5 recorded four runs of the USA ROM from power-on with a save. Each dumped VRAM, palette RAM, OAM, the display registers, the picture and IWRAM after every frame, and the flash at the end. Start on 800 skips the intro, Start on 960 opens the main menu, A on Options on 1080 and A on PLAYER DATA on 1200.
 
@@ -735,7 +778,7 @@ Three screens from the Options menu's PLAYER DATA. The menu is `CreatePlayerData
 - *Run 3,* with a blank name: the name input, Start and A on END with the name still blank, characters added after moves, Right and Down held with their repeats and wrap, a sixth character taking the cursor to END, END and the save written; then the name input again, Start and END with the name unchanged, so no write, and B out to the main menu.
 - *Run 4,* with a blank name: B with nothing to take out, Start, A on END with a blank name, A on → twice and on ← past the start, L and R past both ends, B, each direction held round the grid, two characters after a gap, END and the save written.
 
-The engine's VRAM, palette RAM, OAM, display registers, picture and save match the recording's on every frame of the four runs, from 1150 to their ends, the frame count written into `unk4` included. The port's last write is byte for byte the flash's latest sector. The exceptions are the ones the Options menu's checks already show: the main menu's first two frames back from the Options menu, and 341 bytes of sprite tiles nothing draws (see [The sound test](#the-sound-test)). Run 2 was compared up to the main menu, which the port draws in English (see [The game's start](#the-games-start)). Before it, VRAM differs where the Japanese main menu left tiles (from `0xC00F`, and sprite tiles from `0x13280`), which nothing in these screens draws.
+The engine's VRAM, palette RAM, OAM, display registers, picture and save match the recording's on every frame of the four runs, from 1150 to their ends, the frame count written into `unk4` included. The port's last write is byte for byte the flash's latest sector. The exceptions are the ones the Options menu's checks already show: the main menu's first two frames back from the Options menu, and 341 bytes of sprite tiles nothing draws (see [The sound test](#the-sound-test)). Run 2 at first matched up to the main menu, which the port drew in English then; with the [language screen](#the-language-screen)'s part it matches on every frame, the Japanese main menu included.
 
 In Chrome 156 and Firefox 159 (headless, a new profile each), the page played runs 1, 2 and 4 from power-on with the same saves stored, run 4's L and R on the keyboard's <kbd>Q</kbd> and <kbd>E</kbd>. At 21 frames across the three screens, both browsers drew the screen pixel for pixel as mGBA did, and neither console showed an error from the game.
 
@@ -819,13 +862,14 @@ The decompilation builds the European ROM, whose struct has one more byte, `lang
 - `CreateExtraStageResults`, the Moon Zone's end: `unlockedLevels[0]` becomes 15 and `unk424` 1.
 - The [Options menu](#the-options-menu) sets the difficulty, the time limit and the button setting, and its Delete Game Data makes the save a new one, keeping the language.
 - The [name input](#player-data) sets `playerName`, and `unk4` when the name changes.
-- The language screen changes its own setting. It isn't built yet ([#140](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/140)).
+- The [language screen](#the-language-screen) sets `uiLanguage`.
 
 **Writing it.** `WriteSaveGame` compares the save in memory with the sector it was read from or last written to, and does nothing when they are the same. Otherwise it erases the next sector but one, sets the security word and the checksum, and writes the next sector. In mGBA 0.10.5 that takes 14 frames with the interrupts off: the screen keeps its last frame, nothing runs, and the game's frame counter (`gFrameCount`) doesn't count them. The game writes it:
 
 - as an act's results end (`GoToNextLevel`), before it starts the next act (see [The next act](#the-next-act)). With the save up to date the next act starts on the results' last frame, 14 frames sooner;
 - as the game over ends (see [Game over and the continue screen](#game-over-and-the-continue-screen));
 - as the congratulations start, and as the Moon Zone ends (see [The Moon Zone](#the-moon-zone));
+- as the language screen ends at power-on (see [The language screen](#the-language-screen));
 - as the Options menu closes (see [The Options menu](#the-options-menu));
 - as the name input closes with the name changed (see [Player data](#player-data)).
 

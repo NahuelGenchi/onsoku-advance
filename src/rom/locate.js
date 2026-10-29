@@ -141,6 +141,27 @@ export function findOptionsBackground(rom) {
   return null;
 }
 
+// the language screen's picture: its 256 colours, its 37 tiles of 8 bits a pixel and its 32 × 20 map, one after the
+// other; the map uses those tiles alone, the last of them too, unflipped or flipped, and every row ends with tile 1
+// twice
+const LANGUAGE_TILE_COUNT = 37, LANGUAGE_MAP = 0x200 + LANGUAGE_TILE_COUNT * 64, LANGUAGE_MAP_ENTRIES = 32 * 20;
+
+/** The language screen's background: where its colours start, its tiles and map after them. */
+export function findLanguageBackground(rom) {
+  for (let at = 0; at + LANGUAGE_MAP + LANGUAGE_MAP_ENTRIES * 2 <= rom.size; at += 4) {
+    const map = at + LANGUAGE_MAP;
+    if (rom.u32(map + 30 * 2) !== 0x00010001) continue;
+    let ok = true, max = 0;
+    for (let i = 0; i < LANGUAGE_MAP_ENTRIES && ok; i++) {
+      const v = rom.u16(map + i * 2), tile = v & 0x3FF;
+      ok = v >> 12 === 0 && tile < LANGUAGE_TILE_COUNT && (i % 32 < 30 || v === 1);
+      max = Math.max(max, tile);
+    }
+    if (ok && max === LANGUAGE_TILE_COUNT - 1) return at;
+  }
+  return null;
+}
+
 // the sound test's songs (sSoundTestSongIds): 42 song numbers, the first 17 of them 2, 3, 4, 10 and 12 to 24; its
 // background's map (gUnknown_0868403C) is 0x703C bytes before them: 32 × 32 entries of its 64 tiles, which load a
 // tile in, so tiles 1 to 64, unflipped, in palette row 0
@@ -260,6 +281,8 @@ export function locateTables(rom, known) {
   const missing = Object.entries(offsets).filter(([, v]) => v === null).map(([k]) => k);
   // only the multiplayer stages need it
   offsets.chaoSpawns = findChaoSpawns(rom);
+  // only the language screen needs it, which the European ROM replaces with one for its six languages
+  offsets.languageBackground = findLanguageBackground(rom);
   if (missing.length) {
     throw new RomError(`This Sonic Advance ROM version is not supported yet (could not find: ${missing.join(', ')}).`);
   }

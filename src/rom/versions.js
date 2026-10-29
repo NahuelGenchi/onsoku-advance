@@ -40,6 +40,7 @@ export const KNOWN_VERSIONS = [
       nameInputChars: 0x681340,
       soundTestSongs: 0x683F74,
       soundTestBackground: 0x67CF38,
+      languageBackground: 0x6C7BD0,
     },
   },
 ];

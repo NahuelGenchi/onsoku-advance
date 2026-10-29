@@ -2,14 +2,15 @@
 // d2 × 8 px wide and d3 × 8 px tall, starting d1 × 8 px below its spawn point (d1 is signed), with a splash
 // drawn at Sonic's feet while his centre is in it.
 //
-// Neo Green Hill's (Task_Waterfall) push him down 16/256 px a frame faster. On the ground the push does
-// nothing, since the walk sets his speed from the ground speed.
+// Neo Green Hill's (Task_Waterfall) push him down 16/256 px a frame faster, unless Knuckles is climbing. On the
+// ground the push does nothing, since the walk sets his speed from the ground speed.
 //
 // Angel Island's (zone 5, Task_WaterfallZone5) hold him on every frame he is in one and not moving up: they
 // put him on his feet in the walk, out of the air (with no ground under him), stop him falling and sink him
 // 0.6875 px a frame. Left adds 4/256 px a frame to his ground speed and right takes it away, the other way
 // round from the d-pad; with neither held, a twentieth of it goes, rounded toward zero. A jump press instead
 // throws him up at 2.4375 px a frame in the jump's animation, without curling him or putting him in the air.
+// Knuckles gliding in stops dead, and an attack press in the air stops him too (his speeds to 0).
 // The first frame one holds him plays SE_201 on the second sound effect player, which fades out once he is
 // out of the area, or when the waterfall leaves. Its splash animates on every frame.
 //
@@ -17,7 +18,7 @@
 // never set.
 
 import { makeSprite, animate, offCam } from './objects.js';
-import { endAttack } from './player.js';
+import { endAttack, KNUCKLES, climbing } from './player.js';
 import { s8 } from './trig.js';
 import { SONG } from '../sound/songs.js';
 
@@ -42,7 +43,7 @@ export function createWaterfall(e, slot, anims, ctx) {
       const p = ctx.player;
       if (offCam(e.x, e.y, ctx.cam)) { slot.live = null; return false; }
       if (!p.dead && inside(p)) {
-        p.ysp += 16 / 256;
+        if (!climbing(p)) p.ysp += 16 / 256;
         // the splash animates only while it is drawn
         animate(splash, anims);
         ctx.draw(splash, Math.floor(p.x), Math.floor(p.y) + 10);
@@ -73,6 +74,14 @@ function angelIsland(slot, anims, splash, e, inside) {
             p.state = 'spin';
             p.ysp = -THROW;
           } else {
+            if (p.character === KNUCKLES) {
+              // a glide stops dead, and of his move state only the way he faces is left
+              if (p.state === 'glide') {
+                p.state = 'walk'; p.gsp = 0; p.xsp = 0;
+                p.air = false; p.onObject = null; p.curled = false; p.jumped = false;
+              }
+              if (p.air && p.attackPressed) { p.gsp = 0; p.xsp = 0; }
+            }
             p.air = false; p.curled = false;   // his hitbox keeps its height
             p.state = 'walk';
             p.y += SINK;

@@ -1,13 +1,14 @@
 // The player's movement and animation state, one call per 1/60 s frame, in the order the original runs it.
 // `state` is the original's character state (charState): it picks the animation, and some animations
 // hand over to the next state when they end. (x, y) is the player's centre; on the ground he moves along the
-// surface's angle (`rotation`, 256 steps per turn) at ground speed `gsp`. Sonic and Tails share the moves but
-// their own: Sonic's mid-air moves and B combo (player_sonic.c), Tails' flight and tail swipe (player_tails.c).
+// surface's angle (`rotation`, 256 steps per turn) at ground speed `gsp`. The characters share the moves but
+// their own: Sonic's mid-air moves and B combo (player_sonic.c), Tails' flight and tail swipe (player_tails.c),
+// Knuckles' glide, climb, punches and float (player_knuckles.c).
 
-import { PHYSICS as K, TAILS as F, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R, BOOST_MODE as B, SA2_TRICKS as T, SCREEN_W, SCREEN_H } from './constants.js';
+import { PHYSICS as K, TAILS as F, KNUCKLES as N, ANIMATION, SPRITE_OFFSET_Y, BALL_SPRITE_OFFSET_Y, RUSH_BOOST as R, BOOST_MODE as B, SA2_TRICKS as T, SCREEN_W, SCREEN_H } from './constants.js';
 import { makeAnimator, setAnim, tickAnim } from './animator.js';
-import { groundSensors, wallPush, airCollision, clearance, setOffsetY, actAngle } from './sensors.js';
-import { LAYER_BACK, scan, PROBE_FLOOR } from './terrain.js';
+import { groundSensors, wallPush, airCollision, glideCollision, clearance, setOffsetY, actAngle, floorUnder, actFloor, actCeiling, wallBeside } from './sensors.js';
+import { LAYER_BACK, scan, PROBE_FLOOR, PROBE_WALL } from './terrain.js';
 import { sin8, cos8, s8 } from './trig.js';
 import { SONG } from '../sound/songs.js';
 import { SA2_SE } from '../rom/sa2tricks.js';
@@ -16,8 +17,8 @@ import { SA2_SE } from '../rom/sa2tricks.js';
 export const LEFT = 1, RIGHT = 2, UP = 4, DOWN = 8;
 const HISTORY = 16;
 const SOX = 6;   // spriteOffsetX, half his width
-// the characters (CHARACTER_SONIC and CHARACTER_TAILS)
-export const SONIC = 0, TAILS = 1;
+// the characters (CHARACTER_SONIC, CHARACTER_TAILS and CHARACTER_KNUCKLES)
+export const SONIC = 0, TAILS = 1, KNUCKLES = 2;
 // the tail swipe's frame whose commands play its sound (animCmd_PlaySoundEffect)
 const SWIPE_SOUND_FRAME = 2;
 
@@ -36,10 +37,14 @@ const SWIPE_SOUND_FRAME = 2;
 //         bound | boundDive | boundRise (Bound)
 // Tails' own: fly | flyTurn | flyTired (in flight, turning, and tired out) | swim | swimTurn (flying under
 //         water) | tailSwipe
+// Knuckles' own (charStates 62–84): glide | glideTurn0–3 (turning round in a glide) | swim (gliding under water) |
+//         glideDrop (falling after letting go) | dropLand | glideSlide (sliding on after landing) | wallGrab |
+//         climb | climbUp | climbDown | ledgeClimb | ledgeTop | punch1 | punch2 | punch3 | uppercut |
+//         waterFloat | waterFloatUp (floating on water, looking up)
 // `stopPropeller()` stops the sound of Tails' flight (game.js).
 export function createPlayer({ x, y, spinDashSpeeds, character = SONIC, stopPropeller = () => {} }) {
   return {
-    character,         // SONIC or TAILS
+    character,         // SONIC, TAILS or KNUCKLES
     x, y, gsp: 0, xsp: 0, ysp: 0, facing: 1, state: 'idle',
     rotation: 0,       // angle of the surface he is on, decaying toward 0 in the air
     rotA: 0, rotB: 0,  // the last angles the two ground sensors saw (the original's unk28/unk29)
@@ -55,9 +60,12 @@ export function createPlayer({ x, y, spinDashSpeeds, character = SONIC, stopProp
     spinDashing: false, dashAccel: 0,
     offsetY: SPRITE_OFFSET_Y,
     midAir: 0,         // mid-air move used this jump (unk61): 1 insta-shield, 2 dash; Tails' flight, 2–31 rising after
-                       // a press and 1 otherwise
+                       // a press and 1 otherwise; Knuckles' 1 glide, 2 drop, 3 slide, 4 climb, 5 onto a ledge, 9 float
     attack: 0, attackNext: 0,   // step of the B-button combo, and the move queued after the somersault (unk62 and
-                                // unk63); 1 in Tails' tail swipe
+                                // unk63); 1 in Tails' tail swipe; Knuckles' punch, and the next one queued
+    glideShift: 0,     // Knuckles' glide heading (w.kf.shift): 0 right, 0x80 left, and between them turning round
+    glideFlags: 0,     // and its flags (w.kf.flags): 0x2 not yet down, 0x20 a wall stopped him (glideCollision)
+    lookEase: '',      // this frame's extra easing of the camera's look, Knuckles' (camera.js)
     flyTime: 0,        // Tails: frames of flight left, counted down every other frame (flyingDuration)
     stopPropeller,
     idleT: K.boredDelay, anim: makeAnimator(), spinDashSpeeds,
@@ -69,6 +77,7 @@ export function createPlayer({ x, y, spinDashSpeeds, character = SONIC, stopProp
     invincible: 0,     // frames of invincibility left (timerInvincibility)
     speedUp: 0,        // frames of speed shoes left (timerSpeedup)
     water: false,      // MOVESTATE_IN_WATER: his centre 4 px or more below the water line
+    waterCrossed: false, // MOVESTATE_1000: he went into the water or out of it this frame
     drownSeconds: K.drownSeconds, drownFrames: 60,   // secondsUntilDrown, framesUntilDrownCountDecrement
     surfaceT: K.surfaceEffectDelay,   // framesUntilWaterSurfaceEffect: frames before the next splash can show
     hidden: false,     // left out of this frame's drawing: blinking, or gone below the screen after dying
@@ -248,7 +257,7 @@ function trySpinDash(p, c, world) {
   if (c.jumpPressed) {
     // each rev replays the spin sound, raised by the decayed charge in semitones
     world.playSoundPitched(SONG.SPIN, a & ~0x7F);
-    if (p.character === SONIC) p.state = 'spinDashRev';
+    if (p.character !== TAILS) p.state = 'spinDashRev';
     a = Math.max(a + K.dashRev, K.dashRevMin);
   }
   p.dashAccel = a;
@@ -291,10 +300,10 @@ function walk(p, dir, world) {
   }
 }
 
-// standing or running, not curled up (Player_8044F7C); the control lock and taking a breath skip left and
-// right, not up and down
+// standing or running, not curled up (Player_8044F7C); the control lock, taking a breath and Knuckles' landing
+// from a drop skip left and right, not up and down
 function walkStep(p, c, world) {
-  if (!p.lock && p.state !== 'breathe') walkInput(p, c, world);
+  if (!p.lock && p.state !== 'breathe' && p.state !== 'dropLand') walkInput(p, c, world);
   lookInput(p, c, world);
   if (!c.sideways) p.gsp = toward0(p.gsp, K.friction);
   capBoostMode(p);
@@ -621,6 +630,10 @@ function groundStep(p, c, world, input) {
     if (tryJump(p, c, world)) return;
     slope(p);
     boostWalkStep(p, c, world);
+  } else if (p.character === KNUCKLES) {
+    const started = knucklesGround(p, c, world);
+    if (started === 'jump') return;
+    if (started === 'spinDash') { bounds(p, world); followGround(p, t); return; }
   } else if (p.attack !== 0) {
     slope(p);
     if (p.character === TAILS) swipeStep(p);
@@ -640,6 +653,7 @@ function groundStep(p, c, world, input) {
 }
 
 function airStep(p, c, world) {
+  if (p.character === KNUCKLES) { knucklesAir(p, c, world); return; }
   // knocked back, he flies on as he was thrown: no moves, no control and no drag (Player_AirInputControls), but
   // his tilt still eases back
   if (p.state === 'hurt') {
@@ -744,6 +758,359 @@ function swimBubbles(p, world) {
   if (world.tick % 8 !== 0 || (world.random() & 0x300) !== 0) return;
   const dx = (world.random() & 0xF00) >> 8, dy = ((world.random() & 0xF00) >> 8) - 8;
   world.airBubble(q8(p.x) - (p.facing > 0 ? -dx : dx), q8(p.y) - dy, q8(p.xsp), (world.random() & 0x100) !== 0);
+}
+
+// Knuckles' states (charState 62 and up), which standing up from a glide ends (sub_8022318)
+const KNUCKLES_STATES = new Set(['glide', 'glideTurn0', 'glideTurn1', 'glideTurn2', 'glideTurn3', 'swim', 'glideDrop', 'dropLand',
+  'glideSlide', 'wallGrab', 'climb', 'climbUp', 'climbDown', 'ledgeClimb', 'ledgeTop', 'punch1', 'punch2', 'punch3', 'uppercut',
+  'waterFloat', 'waterFloatUp']);
+
+// Knuckles on a wall, grabbing it, climbing or pulling himself up its ledge (charStates 70 to 75)
+export const CLIMBING_STATES = new Set(['wallGrab', 'climb', 'climbUp', 'climbDown', 'ledgeClimb', 'ledgeTop']);
+export const climbing = p => p.character === KNUCKLES && CLIMBING_STATES.has(p.state);   // sub_80549FC
+
+// Knuckles on his feet, not rolling (sub_8048CB0): B starts his punches, each slowing him by 96/256 a frame,
+// and the third becomes an uppercut. The frame a punch starts he moves as he did. Returns 'jump' or 'spinDash'
+// when one started.
+function knucklesGround(p, c, world) {
+  if (p.attack === 0) {
+    if (tryPunch(p, c)) return null;
+    if (trySpinDash(p, c, world)) return 'spinDash';
+    if (tryJump(p, c, world)) return 'jump';
+    slope(p);
+    walkStep(p, c, world);
+    return null;
+  }
+  slope(p);
+  // sub_8048C3C: B during the first two punches queues the next; the third tries the uppercut each frame
+  if (p.attack === 3) { uppercut(p, world); return null; }
+  if (c.attackPressed) p.attackNext = 1;
+  p.gsp = toward0(p.gsp, N.punchFriction);
+  alongSurface(p);
+  wallPush(p, world.terrain, true);
+  return null;
+}
+
+// the first punch (sub_8048ADC), not while he revs a spin dash, pushes, or stands on a wall or the ceiling
+function tryPunch(p, c) {
+  if (p.spinDashing || s8(p.rotation + 0x40) <= 0 || p.pushing || !c.attackPressed) return false;
+  p.gsp += N.punchSpeed * sign(p);
+  p.attack = 1; p.state = 'punch1';
+  return true;
+}
+
+// the uppercut (sub_8048B38), if there are at least 4 px of room above him, and otherwise he stops as on landing:
+// up from the surface and forward along it, with its flame
+function uppercut(p, world) {
+  if (clearance(p, world.terrain, actAngle(p) + 0x80) < 4) { land(p); return; }
+  p.air = true; p.grinding = false; p.pushing = false;
+  const push = (speed, a) => {
+    p.xsp = (q8(p.xsp) + ((speed * cos8(a)) >> 8)) / 256;
+    p.ysp = (q8(p.ysp) + ((speed * sin8(a)) >> 8)) / 256;
+  };
+  push(q8(p.water ? N.uppercutWaterUp : N.uppercutUp), p.rotation - 0x40);
+  push(q8(N.uppercutForward) * sign(p), p.rotation);
+  p.state = 'uppercut';
+  world.spawnUppercutFlame();
+}
+
+// Knuckles in the air (sub_8048E34, and Player_Knuckles_8049000's case for a jump), by p.midAir: going into the
+// water not rising floats him; the glide, the drop from it, the slide after it and the climb move first and then
+// run their own step; the ledge climb only waits for its animation
+function knucklesAir(p, c, world) {
+  if (p.curled || p.midAir === 0) {
+    // after the uppercut, none of the jump's control
+    if (p.curled || p.attack === 0) {
+      knucklesJumpCap(p, c);
+      tryFloat(p, world);
+      airInput(p, c);
+    } else tryFloat(p, world);
+    bounds(p, world);
+    move(p);
+    p.ysp += rules(p).gravity;
+    tumble(p);
+    airCollision(p, world.terrain, () => land(p));
+    return;
+  }
+  if (p.midAir === 9) {
+    // a jump off the water goes half as high, and leaves the camera's look as it is this frame
+    if (tryJump(p, c, world)) { p.ysp = (q8(p.ysp) >> 1) / 256; p.midAir = 0; p.lookEase = 'still'; return; }
+    airInput(p, c);
+    bounds(p, world);
+    move(p);
+    floatStep(p, c, world);
+    p.ysp += rules(p).gravity;
+    tumble(p);
+    airCollision(p, world.terrain, () => land(p));
+    return;
+  }
+  if (p.midAir === 2) tryFloat(p, world);
+  glidePhysics(p, c);
+  bounds(p, world);
+  move(p);
+  if (p.midAir === 1) glideStep(p, c, world);
+  else if (p.midAir === 2) dropStep(p, c, world);
+  else if (p.midAir === 3) slideStep(p, c, world);
+  else if (p.midAir === 4) climbStep(p, c, world);
+}
+
+// the jump cap, or once the rise has slowed his glide (Player_8044670)
+function knucklesJumpCap(p, c) {
+  if (p.jumped) {
+    const cap = rules(p).jumpReleaseCap;
+    if (p.ysp < -cap) { if (!c.jump) p.ysp = -cap; }
+    else if (p.midAir === 0 && c.jumpPressed && p.state !== 'hurt') { p.airLock = false; p.midAir = 1; startGlide(p); }
+  } else if (!p.forcedRoll && p.ysp < -K.riseCap) p.ysp = -K.riseCap;
+}
+
+// left or right and the drag in the air (Player_AirInputControls), none while knocked back
+function airInput(p, c) {
+  if (p.state === 'hurt') return;
+  airControl(p, c, p.state !== 'bounce');
+  if (p.ysp < 0) airDrag(p);
+}
+
+// the frame he goes into the water not rising, he floats (MOVESTATE_1000), uncurled with his centre where it is
+function tryFloat(p, world) {
+  if (!p.waterCrossed || !p.water || p.ysp < 0) return;
+  p.midAir = 9; p.curled = false; p.airLock = false;
+  p.state = 'waterFloat';
+  world.spawnFloatSplash();
+}
+
+// floating (Player_Knuckles_SwimFloat_8048D74): down lets him sink; under water he rises by 24/256 a frame up to
+// 1, and at 4 px under the line he stops there, his breath back and the drowning music stopped; up looks up
+function floatStep(p, c, world) {
+  if (c.down) { p.state = 'springPeak'; p.midAir = 0; return; }
+  if (p.water) p.ysp = Math.max(p.ysp - N.floatRise, -N.floatMaxRise);
+  const level = world.waterLevel;
+  if (Math.floor(p.y) - 4 < level) {
+    p.y = level + 4; p.ysp = 0; p.water = true;
+    p.drownFrames = 60; p.drownSeconds = K.drownSeconds;
+    world.stopSound(SONG.DROWNING);
+  }
+  if (c.up) p.state = 'waterFloatUp';
+  else {
+    if (p.state !== 'waterFloat') world.spawnFloatSplash();
+    p.state = 'waterFloat';
+  }
+}
+
+// his glide heads left from a quarter turn round from right
+const glidesLeft = p => s8(p.glideShift + 0x40) <= 0;
+
+// the glide starts (Player_Knuckles_InitGlide): uncurled at 6 px from his centre to his feet, his centre where
+// it is, slowing his fall by 1.5, at 3 the way he faces (1.5 under water)
+function startGlide(p) {
+  p.curled = false; p.offsetY = N.glideOffsetY;
+  p.ysp = Math.max(0, p.ysp + N.glideSlow);
+  let g = q8(N.glideSpeed);
+  if (p.water) g >>= 1;
+  p.gsp = p.xsp = g * sign(p) / 256;
+  p.glideShift = p.facing < 0 ? 0x80 : 0;
+  p.rotation = 0;
+  p.glideFlags = 2;
+}
+
+// a frame of glide (sub_8048980): its speed and heading, held left or right turning him round 2/256 of a turn a
+// frame, a turn begun going on to its end; his X speed follows the heading and his fall eases toward 0.5. On
+// each of these frames the camera's look also eases back (camera.js).
+function glidePhysics(p, c) {
+  p.lookEase = 'glide';
+  if (p.midAir !== 1) return;
+  let g = Math.abs(q8(p.gsp)), s = p.glideShift;
+  const shoes = pace(p) === 2;
+  if (g < q8(N.glideSpeed)) g += q8(N.glideAccel);
+  else if (g < q8(N.glideMax) && (s & 0x7F) === 0) g += q8(N.glideStraightAccel) + (shoes ? q8(N.glideShoesAccel) : 0);
+  if (p.water && g > q8(N.glideSpeed)) {
+    g -= q8(N.glideWaterDecel) + (shoes ? q8(N.glideWaterShoesDecel) : 0);
+    g = Math.max(g, q8(N.glideSpeed));
+  }
+  p.gsp = (glidesLeft(p) ? -g : g) / 256;
+  if (c.left) { if (s !== 0x80) s = (Math.abs(s8(s)) + 2) & 0xFF; }
+  else if (c.right) { if (s !== 0) s = (-Math.abs(s8(s)) + 2) & 0xFF; }
+  else if (s & 0x7F) s = (s + 2) & 0xFF;
+  p.glideShift = s;
+  p.xsp = ((cos8(s) * g) >> 8) / 256;
+  p.ysp = (q8(p.ysp) + (q8(p.ysp) < q8(N.glideFall) ? 1 : -1) * q8(N.glideFallStep)) / 256;
+}
+
+// how he glides (Player_Knuckles_GlideUpdateAnim): straight, or under water swimming and letting bubbles out,
+// facing left only when heading straight left; turning, one of four frames by how far round
+function glideAnim(p, world) {
+  const s = p.glideShift;
+  p.pushing = false; p.facing = 1;
+  if ((s & 0x7F) === 0) {
+    if (p.water) { p.state = 'swim'; swimBubbles(p, world); }
+    else p.state = 'glide';
+    if (s === 0x80) p.facing = -1;
+  } else p.state = 'glideTurn' + ((Math.abs(s8(s)) & 0x7F) >> 5);
+}
+
+// stood up out of the glide or the climb (sub_8022318), his feet 14 px under his centre: curled, he uncurls
+// keeping his feet in place; otherwise his centre stays where it is
+function standFromGlide(p) {
+  if (p.curled) {
+    p.curled = false; p.state = 'idle';
+    let dy = p.offsetY - SPRITE_OFFSET_Y;
+    if (p.inverted) dy = -dy;
+    if (s8(p.rotation + 0x40) <= 0) dy = -dy;
+    p.y += dy;
+  }
+  p.offsetY = SPRITE_OFFSET_Y;
+  p.air = false; p.pushing = false; p.airLock = false; p.jumped = false; p.halfPipe = false;
+  p.chain = 0; p.midAir = 0;
+  if (KNUCKLES_STATES.has(p.state)) p.state = 'idle';
+}
+
+// letting go of the glide or losing the wall: he drops, standing height from his centre
+function startDrop(p) {
+  p.midAir = 2; p.state = 'glideDrop';
+  p.offsetY = SPRITE_OFFSET_Y;
+  p.glideFlags |= 2;
+}
+
+// the glide's frame after it moves (sub_8048230): touching down on a steep slope stands him up, on flatter
+// ground he slides on with the slide's sound; a wall he grabs, if it is flat for his height and the ground under
+// its foot leaves room, and otherwise he drops; letting go of jump drops him with a quarter of his X speed
+function glideStep(p, c, world) {
+  const t = world.terrain;
+  glideCollision(p, t);
+  if (!(p.glideFlags & 2)) {
+    p.facing = p.xsp <= 0 ? -1 : 1;
+    if ((p.rotation + 0x20) & 0xC0) {
+      p.facing = glidesLeft(p) ? -1 : 1;
+      p.ysp = 0;
+      standFromGlide(p);
+      p.state = p.gsp !== 0 ? 'walk' : 'idle';
+    } else {
+      p.midAir = 3; p.state = 'glideSlide';
+      world.playSound(SONG.SLIDE);
+    }
+  } else if (p.glideFlags & 0x20) {
+    const dir = glidesLeft(p) ? -1 : 1, w = wallBeside(p, t, dir);
+    p.facing = dir;
+    if (w.d !== w.out) { startDrop(p); return; }
+    if (w.d !== 0) {
+      // the ground at the wall's foot, a pixel past his feet; not looked at to the right under flipped gravity
+      if (dir < 0 || !p.inverted) {
+        const up = p.inverted ? -1 : 1;
+        const foot = scan(t, Math.floor(p.y) + up * (1 + p.offsetY), Math.floor(p.x) + dir * (1 + SOX), p.layer, 8 * up, PROBE_FLOOR).d;
+        if (foot < 0) { startDrop(p); return; }
+      }
+      p.x += dir * w.d;
+    }
+    p.gsp = 0; p.xsp = 0; p.ysp = 0;
+    p.midAir = 4; p.glideShift = 3; p.state = 'wallGrab';
+  } else if (!c.jump) {
+    p.midAir = 2; p.state = 'glideDrop';
+    p.facing = p.xsp <= 0 ? -1 : 1;
+    p.xsp = (q8(p.xsp) >> 2) / 256;
+    p.offsetY = SPRITE_OFFSET_Y;
+  } else glideAnim(p, world);
+}
+
+// the drop (sub_80484CC): air control and gravity after he moves; landing stops him, and on flat ground he lands
+// into a crouch that holds left and right for 15 frames
+function dropStep(p, c, world) {
+  airInput(p, c);
+  p.ysp += rules(p).gravity;
+  glideCollision(p, world.terrain);
+  if (p.glideFlags & 2) return;
+  p.gsp = 0; p.xsp = 0; p.ysp = 0;
+  p.offsetY = SPRITE_OFFSET_Y;
+  standFromGlide(p);
+  if (!((p.rotation + 0x20) & 0xC0)) { p.lock = N.landLock; p.state = 'dropLand'; }
+}
+
+// the slide after a glide (sub_80485CC): while jump is held and he hasn't stopped he slides on, slowing, and
+// otherwise he gets up at standing height, into the end of a crouch, holding left and right for 15 frames
+function slideStep(p, c, world) {
+  if (c.jump) {
+    if (p.xsp <= 0) { p.xsp += N.slideFriction; if (p.xsp < 0) { slideOn(p, world); return; } }
+    else { p.xsp -= N.slideFriction; if (p.xsp > 0) { slideOn(p, world); return; } }
+  }
+  p.gsp = 0; p.xsp = 0; p.ysp = 0;
+  p.y += (p.inverted ? -1 : 1) * (p.offsetY - SPRITE_OFFSET_Y);
+  standFromGlide(p);
+  p.lock = N.landLock; p.state = 'crouchEnd';
+}
+
+// sliding on (sub_8048524): dust at his feet every 4th frame; he follows the ground less than 12 px under him,
+// and with none, unless he is on an object, he drops at standing height
+function slideOn(p, world) {
+  const t = world.terrain;
+  if (world.tick % 4 === 0) world.brakeDust(Math.floor(p.x), Math.floor(p.y) + (p.inverted ? -p.offsetY : p.offsetY));
+  glideCollision(p, t);
+  const f = floorUnder(p, t);
+  if (f.d < 12) { p.y += p.inverted ? -f.d : f.d; p.rotation = f.rot; }
+  else if (!p.onObject) { p.midAir = 2; setOffsetY(p, SPRITE_OFFSET_Y); p.glideFlags |= 2; }
+}
+
+// the wall he climbs, 2 px past his side at his centre's height (sub_8048650), whose angle he takes (a quarter
+// turn where it has none); the original reads its angle from an unset byte when nothing is there, which here
+// leaves his angle as it was
+function climbWall(p, t) {
+  const dir = p.facing, r = scan(t, Math.floor(p.x) + dir * (2 + SOX), Math.floor(p.y), p.layer, 8 * dir, PROBE_WALL);
+  if (r.rot !== undefined) p.rotation = r.rot & 1 ? (dir < 0 ? 0x40 : 0xC0) : r.rot;
+  return r.d;
+}
+
+// climbing (sub_80486E8), standing on nothing: up climbs while the wall reaches his head, and onto the ledge where
+// it ends, stopped by a ceiling 9 px over him; down climbs while it reaches his feet, until the ground; still, he
+// keeps to it until the ground. Off the wall, or on an object, he drops. Jump leaps off it, 2.625 up and 3 away,
+// curled up.
+function climbStep(p, c, world) {
+  const t = world.terrain, up = p.inverted ? -1 : 1;
+  if (p.onObject) { startDrop(p); return; }
+  p.gsp = 0; p.xsp = 0; p.ysp = 0;
+  if (p.state !== 'wallGrab') p.state = 'climb';
+  let s = q8(p.water ? N.climbWaterSpeed : N.climbSpeed);
+  if (pace(p) === 2) s <<= 1;
+  const stand = f => {
+    p.y += f.d; p.rotation = f.rot;
+    standFromGlide(p);
+    p.state = 'glideDrop';
+  };
+  if (c.up || c.down) {
+    const dy = up * p.offsetY * (c.up ? -1 : 1);
+    p.y += dy;
+    const d = climbWall(p, t);
+    p.y -= dy;
+    if (c.up) {
+      if (d > 2) {
+        p.state = 'ledgeClimb';
+        p.y -= up * p.offsetY;
+        p.midAir = 5; p.glideShift = 0;
+        return;
+      }
+      if (d >= 0) {
+        p.y -= up * 9;
+        const ceiling = actCeiling(p, t).d;
+        p.y += up * 9;
+        p.state = 'climbUp';
+        if (ceiling < 0) p.y -= ceiling;
+        else p.ysp = -s / 256;
+        p.lookEase = 'glide2';
+      }
+    } else {
+      if (d > 0) { startDrop(p); return; }
+      const f = actFloor(p, t);
+      if (f.d < 0) { stand(f); return; }
+      p.state = 'climbDown'; p.ysp = s / 256;
+      p.lookEase = 'glide2';
+    }
+  } else {
+    if (climbWall(p, t) > 0) { startDrop(p); return; }
+    const f = actFloor(p, t);
+    if (f.d < 0) { stand(f); return; }
+  }
+  if (c.jumpPressed) {
+    p.facing = -p.facing;
+    p.ysp = -N.wallJumpY; p.xsp = N.wallJumpX * p.facing;
+    p.curled = true; p.air = true; p.jumped = true; p.offsetY = BALL_SPRITE_OFFSET_Y;
+    p.state = 'spin'; p.midAir = 0;
+  }
 }
 
 // the angle he left the ground at eases back to upright; off a bounce block he tumbles the way he faces
@@ -972,13 +1339,16 @@ export function knockAside(p, xsp, ysp) {
 }
 
 // dead (Task_PlayerMain's death block, then Task_PlayerDied and Task_PlayerHandleDeath): on the first frame he
-// stops moving sideways (his ground speed is left as it was) and the camera and clock stop; then he falls through everything until he is 80 px
-// below the screen (above it under flipped gravity), and the act restarts 61 frames later. Drowned, the death
-// has its own sound, and he sinks as slowly as anything under water.
+// stops moving sideways (his ground speed is left as it was), loses a shield or invincibility, and the camera
+// and clock stop; then he falls through everything until he is 80 px below the screen (above it under flipped
+// gravity), and the act restarts 61 frames later. Drowned, the death has its own sound, and he sinks as slowly
+// as anything under water.
 function deadStep(p, world) {
   if (!p.death) {
     p.death = 'falling'; p.state = 'dead';
     p.xsp = 0; p.invulnerable = 2; p.onObject = null; p.pushing = false;
+    // itemEffect cleared: a shield and invincibility's stars go (the speed shoes' timer is left)
+    p.shield = null; p.invincible = 0;
     endAttack(p);
     world.died(p.drownSeconds < 0);
     return;
@@ -1019,13 +1389,14 @@ export function stepPlayer(p, input, world) {
 
   // holding left or right hides up and down from the movement code
   const c = {
-    dir: left && !right ? -1 : right && !left ? 1 : 0, sideways,
+    dir: left && !right ? -1 : right && !left ? 1 : 0, sideways, left, right,
     up: input.up && !sideways, down: input.down && !sideways,
     jump: input.jump, jumpPressed: input.jumpPressed, attackPressed: input.attackPressed,
     boost: input.boost, boostPressed: input.boostPressed, trickPressed: input.trickPressed,
   };
   input.jumpPressed = false; input.attackPressed = false; input.boostPressed = false; input.trickPressed = false;
   p.jumpPressed = c.jumpPressed; p.attackPressed = c.attackPressed;
+  p.lookEase = '';
 
   if (!world.boostMode) { p.boostMode = false; p.boostMeter = 0; }
   else if (!p.dead) boostModeState(p, world);
@@ -1053,9 +1424,10 @@ const COUNTDOWN = { 12: 5, 10: 4, 8: 3, 6: 2, 4: 1, 2: 0 };
 // bubble out, one time in four. Out of the water the count starts over and the drowning music stops.
 function handleWater(p, world) {
   const level = world.waterLevel;
+  p.waterCrossed = false;
   if (level >= 0 && Math.floor(p.y) - 4 >= level) {
     if (!p.water) {
-      p.water = true;
+      p.water = true; p.waterCrossed = true;
       p.xsp = (q8(p.xsp) >> 1) / 256; p.ysp = (q8(p.ysp) >> 2) / 256;
       surfaceSplash(p, world);
     }
@@ -1069,7 +1441,7 @@ function handleWater(p, world) {
     if (world.tick % 16 === 0 && (world.random() & 0x300) === 0) world.breathOut(p.x + (p.facing < 0 ? -4 : 4), p.y - 4);
   } else {
     if (p.water) {
-      p.water = false;
+      p.water = false; p.waterCrossed = true;
       p.ysp = (((q8(p.ysp) << 17) >> 16)) / 256;
       surfaceSplash(p, world);
     }
@@ -1079,8 +1451,9 @@ function handleWater(p, world) {
   if (p.surfaceT !== 0) p.surfaceT--;
 }
 
+// none while Knuckles floats on the water
 function surfaceSplash(p, world) {
-  if (p.surfaceT >= 1) return;
+  if (p.surfaceT >= 1 || (p.character === KNUCKLES && p.midAir === 9)) return;
   p.surfaceT = K.surfaceEffectDelay;
   world.surfaceSplash(Math.floor(p.x));
 }
@@ -1153,6 +1526,25 @@ function afterAnimation(p, world) {
       p.state = p.gsp !== 0 ? 'walk' : 'idle';
       break;
     case 'spring': case 'springPeak': p.state = 'springFall'; break;
+    // Knuckles' punches: another queued goes on to the next, 3 faster with its sound, and otherwise he stands
+    case 'punch1': case 'punch2':
+      if (p.attackNext !== 0) {
+        p.attack++; p.attackNext = 0;
+        world.playSound(p.state === 'punch2' ? SONG.PUNCH_3 : SONG.PUNCH_2);
+        p.state = p.state === 'punch1' ? 'punch2' : 'punch3';
+        p.gsp += N.punchSpeed * sign(p);
+      } else { p.attack = 0; p.attackNext = 0; p.state = 'idle'; p.chain = 0; p.gsp = 0; }
+      break;
+    // up onto the ledge: 9 px onto it and stood up, 14 px up (down the act under flipped gravity, by his new height)
+    case 'ledgeClimb':
+      p.x += (SOX + 3) * sign(p);
+      p.offsetY = SPRITE_OFFSET_Y;
+      p.y += p.inverted ? p.offsetY : -SPRITE_OFFSET_Y;
+      p.state = 'ledgeTop'; p.attack++;
+      break;
+    case 'ledgeTop': p.rotation = 0; land(p); break;
+    case 'dropLand': land(p); break;
+    case 'wallGrab': p.state = 'climb'; break;
     case 'spinAttack': case 'slideEnd':
       endAttack(p); p.state = p.gsp !== 0 ? 'walk' : 'idle'; break;
     case 'somersault':

@@ -50,9 +50,9 @@ const multiplayer = (() => { try { return levelInfo(firstLevel).multiplayer ?? f
 const players = multiplayer ? Math.min(4, Math.max(2, Number(params.get('players') ?? 2) | 0)) : 1;
 const seed = params.has('seed') ? Number(params.get('seed')) >>> 0 : DEFAULT_SEED;
 const chaoPlace = params.has('chao') ? (Number(params.get('chao')) | 0) & 7 : DEFAULT_CHAO_PLACE;
-// `?character=` plays as Sonic (0, the default) or Tails (1), until the character select is built; the
+// `?character=` plays as Sonic (0, the default), Tails (1) or Knuckles (2), until the character select is built; the
 // multiplayer stage is everyone as Sonic
-const character = multiplayer ? 0 : Math.min(1, Math.max(0, Number(params.get('character') ?? 0) | 0));
+const character = multiplayer ? 0 : Math.min(2, Math.max(0, Number(params.get('character') ?? 0) | 0));
 const screens = document.getElementById('screens');
 
 const input = createInput();

@@ -3,11 +3,12 @@
 // point, it takes him: he holds on, his speed set to 7.5 the way he was going, while it spins faster each frame
 // from as fast as he came and sinks 481 px down its shaft with him. At the bottom it lets him go after 300
 // frames, or as soon as left or right is held, curled up and flying off at what its spin has reached, the way
-// he holds or else the way he came. It stays at the bottom until it is out of range.
+// he holds or else the way he came. It stays at the bottom until it is out of range. While Knuckles climbs it
+// does nothing to him.
 
 import { makeSprite, animate, offCam, offDisplay } from './objects.js';
 import { platformTop } from './collide.js';
-import { endAttack } from './player.js';
+import { endAttack, climbing } from './player.js';
 import { setOffsetY } from './sensors.js';
 import { SPRITE_OFFSET_Y } from './constants.js';
 import { SONG } from '../sound/songs.js';
@@ -31,7 +32,7 @@ export function createCarousel(e, slot, anims) {
       const p = ctx.player, cam = ctx.cam;
       if (phase === 'waiting') {
         if (offDisplay(e.x, e.y, cam) && offCam(e.x, e.y, cam)) { slot.live = null; return false; }
-        if (!p.dead) {
+        if (!p.dead && !climbing(p)) {
           platformTop(top, e.x, e.y, top.boxes[0], p);
           const px = Math.floor(p.x), py = Math.floor(p.y);
           if (px >= e.x - 8 && px <= e.x + 8 && py >= e.y - 48 && py <= e.y + 12) {

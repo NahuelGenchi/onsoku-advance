@@ -49,8 +49,14 @@ function rightPair(p, t) {
 // his floor and his ceiling (sub_8029B88, sub_8029B58): flipped, the act's ceiling and floor, whose distance
 // counts the other way. An odd angle (or none) reads 0, and flipped, an even one is turned over.
 const sensed = (r, flip) => ({ ...r, rot: r.rot === undefined || r.rot & 1 ? 0 : flip ? flipAngle(r.rot) : r.rot });
-const floorUnder = (p, t) => sensed(p.inverted ? ceilingPair(p, t) : floorPair(p, t), p.inverted);
-const ceilingOver = (p, t) => sensed(p.inverted ? floorPair(p, t) : ceilingPair(p, t), p.inverted);
+/** The floor under him and the ceiling over him, as he sees them ({ d, rot, out }; sub_8029B88, sub_8029B58). */
+export const floorUnder = (p, t) => sensed(p.inverted ? ceilingPair(p, t) : floorPair(p, t), p.inverted);
+export const ceilingOver = (p, t) => sensed(p.inverted ? floorPair(p, t) : ceilingPair(p, t), p.inverted);
+/** The act's floor and ceiling under and over him, whichever way gravity pulls (sub_8029B0C, sub_8029AC0). */
+export const actFloor = (p, t) => sensed(floorPair(p, t), p.inverted);
+export const actCeiling = (p, t) => sensed(ceilingPair(p, t), p.inverted);
+/** The wall to his left (dir -1) or right, with its two sensors at his top and bottom (sub_8029A28, sub_8029A74). */
+export const wallBeside = (p, t, dir) => sensed(dir < 0 ? leftPair(p, t) : rightPair(p, t), p.inverted);
 
 /** Room above (or beyond) Sonic in the act's direction `angle` (sub_8022F58); a jump needs at least 4 px. */
 export function clearance(p, t, angle) {
@@ -168,6 +174,54 @@ export function airCollision(p, t, land) {
         land();
         p.ysp = 0; p.gsp = p.xsp;
       }
+    }
+  }
+}
+
+// a wall `reach` px out to one side, which stops him and marks it in the glide's flags (0x20)
+function glideWall(p, t, dir, reach) {
+  const m = p.layer | (p.ysp < 3 ? IGNORE_PLATFORMS : 0), x = Math.floor(p.x), y = Math.floor(p.y);
+  const { d } = scan(t, x + dir * (reach + SOX), y, m, 8 * dir, PROBE_WALL);
+  if (d > 0) return;
+  p.x += dir * d; p.xsp = 0;
+  p.glideFlags |= 0x20;
+}
+// touching down clears the glide's flag 0x2
+function glideFloor(p, t, down) {
+  const f = floorUnder(p, t);
+  if (f.d > 0) return;
+  p.y += down * f.d; p.rotation = f.rot; p.ysp = 0;
+  p.glideFlags &= ~2;
+}
+
+/**
+ * Collision for Knuckles' glide, his drop from it and his slide after it (sub_8022838): by the way he moves,
+ * the walls (3 px further out than his sides moving up or down, 2 moving sideways) stop him and set flag 0x20 of
+ * p.glideFlags, and the ground clears its flag 0x2, as standing on an object does. Moving sideways, a ceiling
+ * stops him rising and he touches down only while not rising.
+ */
+export function glideCollision(p, t) {
+  if (p.onObject) { p.glideFlags &= ~2; p.rotA = p.rotB = 0; return; }
+  const vx = (Math.round(p.xsp * 256) << 16) >> 16, vy = (Math.round(p.ysp * 256) << 16) >> 16, down = p.inverted ? -1 : 1;
+  const a = arcTan2(vx, vy) >> 8;
+  switch (((a - 0x20) & 0xC0) >> 6) {
+    case 0:   // moving down
+      glideWall(p, t, -1, 3); glideWall(p, t, 1, 3);
+      glideFloor(p, t, down);
+      return;
+    case 2: {   // moving up
+      glideWall(p, t, -1, 3); glideWall(p, t, 1, 3);
+      const c = ceilingOver(p, t);
+      if (c.d <= 0) { p.y -= down * c.d; p.ysp = 0; }
+      return;
+    }
+    default: {  // moving left (1) or right (3)
+      glideWall(p, t, a >= 0x60 && a < 0xA0 ? -1 : 1, 2);
+      const c = ceilingOver(p, t);
+      if (c.d <= 0) {
+        p.y -= down * c.d;
+        if (p.ysp < 0) p.ysp = 0;
+      } else if (p.ysp >= 0) glideFloor(p, t, down);
     }
   }
 }

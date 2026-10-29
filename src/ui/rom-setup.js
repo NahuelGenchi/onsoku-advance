@@ -7,6 +7,7 @@
 import { loadRememberedRom, rememberRom, forgetRom } from './rom-store.js';
 import { bindController } from './setup-controller.js';
 import { acceptRoms } from './rom-types.js';
+import { darkDevice, pickedTheme, isDark } from './theme.js';
 
 const MAX_BYTES = 512 * 1024 * 1024;   // the largest Nintendo DS cartridge; a Game Boy Advance one is 32 MB
 
@@ -25,10 +26,6 @@ const ICONS = {
 
 // the game's own page on dreamports.net, where the way back goes when the player didn't come from its menu
 const DREAMPORTS = 'https://dreamports.net/dreamports/sonic-advance-dreamport/';
-// the look picked in the launcher's settings, kept by dreamports.net in this browser: 'light', 'dark', or none,
-// when it follows the device
-const THEME_KEY = 'dreamports:theme';
-const darkDevice = matchMedia('(prefers-color-scheme: dark)');
 // whether the page before this one is the dreamports.net menu: a page of the same site outside the games, which
 // are under /play/
 function cameFromMenu() {
@@ -126,12 +123,10 @@ export function createRomSetup(host, { heading, intro, slots, onPlay }) {
   // night blue again while the game does.
   const barColour = document.querySelector('meta[name="theme-color"]'), gameColour = barColour?.content;
   function paint() {
-    let theme = null;
-    try { theme = localStorage.getItem(THEME_KEY); } catch { /* storage blocked: the device's look */ }
-    if (theme === 'light' || theme === 'dark') host.dataset.theme = theme;
+    const theme = pickedTheme();
+    if (theme) host.dataset.theme = theme;
     else delete host.dataset.theme;
-    const dark = theme ? theme === 'dark' : darkDevice.matches;
-    barColour?.setAttribute('content', host.hidden ? gameColour : dark ? '#050a24' : '#ffffff');
+    barColour?.setAttribute('content', host.hidden ? gameColour : isDark() ? '#050a24' : '#ffffff');
   }
   paint();
   addEventListener('pageshow', paint);

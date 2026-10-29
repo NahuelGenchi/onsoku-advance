@@ -89,7 +89,8 @@ const SILENT = {
  * those { score, lives, seed, continues, frameCount } to start with; levelPick, set when the act is started from
  * the level pick (?level=N);
  * onTitle(), called when a game over sends the game back to its start (the SEGA logo), after which the act does
- * nothing more.
+ * nothing more; achieve(id), called on the frame an achievement's moment comes, for the page to earn it (it
+ * changes nothing in the game).
  *
  * `options.mode` makes it one GBA's game in a multiplayer mode (chaohunt.js): where Sonic starts (`start`), its
  * tasks (`setup(game)`), what ends the title card (`cardEnd()`), his life lost (`lifeLost()`), what he reads of
@@ -549,11 +550,12 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     return true;
   }
 
-  // INCREMENT_RINGS: passing a hundred gives a life
+  // INCREMENT_RINGS: passing a hundred gives a life; holding a hundred earns the achievement
   function addRings(n) {
     const before = state.ringCount;
     state.ringCount = (before + n) & 0xFFFF;
     if (Math.floor(state.ringCount / 100) !== Math.floor(before / 100)) { state.lives = (state.lives + 1) & 0xFF; extraLife = true; }
+    if (state.ringCount >= 100) options.achieve?.('hundred-rings');
   }
   // a ring taken, with CreateCollectRingEffect: it leaves a sparkle with the ring sound, alternating sides with
   // the count's parity: odd ones on the second sound effect player to the left, even ones on the first to

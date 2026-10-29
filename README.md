@@ -290,6 +290,16 @@ compared with the original in [docs/ROM.md](docs/ROM.md#sonic-advance-2-tricks).
 
 </details>
 
+## Achievements
+
+Earn achievements as you play. When you earn one, a popup slides up at the bottom of the game: a gold trophy, then the achievement's name and points, drawn in the game's own pixels. It's dark or light to match your Dreamports look, or your device's when you haven't picked one. Open *Achievements* in the settings to see them all, with the date you earned each one.
+
+| Achievement | How to earn it | Points |
+| :--- | :--- | :--- |
+| Hundred Rings | Hold 100 rings at once | 5 |
+
+Your achievements are kept in this browser for now. Once Dreamports has accounts, you'll be able to claim them there.
+
 ## Controls
 
 | | Keyboard | Xbox controller |
@@ -319,6 +329,7 @@ compared with the original in [docs/ROM.md](docs/ROM.md#sonic-advance-2-tricks).
 | **In the name input:** move over the characters, add the one picked, take one out; move along the name; jump to END, then <kbd>Z</kbd> to finish | Arrows, <kbd>Z</kbd> or <kbd>Space</kbd>, <kbd>X</kbd>; <kbd>Q</kbd> <kbd>E</kbd> (the Game Boy Advance's L and R); <kbd>Enter</kbd> | D-pad or left stick, <kbd>A</kbd>, <kbd>B</kbd>; <kbd>LB</kbd> <kbd>RB</kbd>; <kbd>Menu</kbd> |
 | **Continue screen:** continue, or skip to the next number | <kbd>Z</kbd> or <kbd>Space</kbd>, or <kbd>X</kbd> | <kbd>A</kbd>, or <kbd>B</kbd> or <kbd>X</kbd> |
 | **Select** | <kbd>Backspace</kbd> | <kbd>View</kbd> |
+| Close the achievements | <kbd>Esc</kbd> | <kbd>B</kbd> |
 | Help panel on or off | <kbd>H</kbd> | |
 | Sound on or off | <kbd>M</kbd> | |
 | Widescreen view on or off | <kbd>V</kbd> | |
@@ -524,6 +535,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/TRACKING.md](docs/TRACKING.md)
 
 - The [SAT-R](https://github.com/SAT-R) decompilation of Sonic Advance, the reference for the game's data formats, physics and camera behavior. None of its code or data is copied into this repository.
 - [Monocraft](https://github.com/IdreesInc/Monocraft) by Idrees Hassan, the pixel font of the start screen. A subset of it is bundled under the SIL Open Font License 1.1 ([styles/fonts/Monocraft-OFL.txt](styles/fonts/Monocraft-OFL.txt)).
+- Palmaris, the author's RetroAchievements project for the Nintendo DSi, whose unlock popup's trophy and 5×7 pixel font the achievement popup uses.
 - [Pixelarticons](https://github.com/halfmage/pixelarticons) by Gerrit Halfmann, whose gamepad icon is the start screen's controller badge, under the MIT License ([styles/icons/pixelarticons-LICENSE.txt](styles/icons/pixelarticons-LICENSE.txt)).
 
 ## Legal

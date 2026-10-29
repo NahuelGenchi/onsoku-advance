@@ -297,6 +297,27 @@ Earn achievements as you play. When you earn one, a small popup drops in at the 
 | Achievement | How to earn it |
 | :--- | :--- |
 | Hundred Rings | Hold 100 rings at once |
+| Ring Hoarder | Hold 200 rings at once |
+| Neo Green Hill | Clear Neo Green Hill Zone |
+| Secret Base | Clear Secret Base Zone |
+| Casino Paradise | Clear Casino Paradise Zone |
+| Ice Mountain | Clear Ice Mountain Zone |
+| Angel Island | Clear Angel Island Zone |
+| Egg Rocket | Clear Egg Rocket Zone |
+| Cosmic Angel | Clear Cosmic Angel Zone |
+| Egg X Down | Clear the X Zone |
+| Super Sonic | Beat the Super Egg Robo on the Moon |
+| First Emerald | Win a Chaos Emerald in a special stage |
+| Seven Emeralds | Hold all 7 Chaos Emeralds |
+| Untouched | Beat a boss without being hit |
+| Not a Scratch | Clear an act without being hit |
+| Under a Minute | Clear an act in under 1:00 |
+| Life Collector | Have 10 lives |
+| Two Tails | Clear the X Zone as Tails |
+| Guardian | Clear the X Zone as Knuckles |
+| Chao Hunter | Win a Chao Hunt |
+
+They count in a game started from the beginning, and in Chao Hunt. A game started with `?level`, `?debug` or `?special` earns none.
 
 Your achievements are kept in this browser for now. Once Dreamports has accounts, you'll be able to claim them there.
 

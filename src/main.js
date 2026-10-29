@@ -14,7 +14,7 @@ import { extractRush, isRush } from './rom/rush.js';
 import { openSa2, isSa2 } from './rom/sa2.js';
 import { readBoostArt } from './rom/sa2boost.js';
 import { trickArt } from './rom/sa2tricks.js';
-import { createInput, xboxConnected } from './engine/input.js';
+import { createInput, connectedPads } from './engine/input.js';
 import { createGame, specialSpringStart } from './engine/game.js';
 import { createSpecialStageRun } from './special/run.js';
 import { createNormalEnding } from './engine/normalending.js';
@@ -70,16 +70,58 @@ function showSettings(open) {
   settingsButton.setAttribute('aria-expanded', String(open));
 }
 if (touchScreen.matches) showSettings(false);
-settingsButton.addEventListener('click', () => showSettings(help.hidden));
+// a finger opens and closes them as it lifts: touches on the game's screen are cancelled, but in the settings, so
+// iOS doesn't bring up its magnifier on one held down, and so don't click. The mouse and the keyboard click.
+let tappedAt = -Infinity;
+settingsButton.addEventListener('pointerup', e => {
+  if (e.pointerType !== 'touch') return;
+  tappedAt = e.timeStamp;
+  showSettings(help.hidden);
+});
+settingsButton.addEventListener('click', e => { if (e.timeStamp - tappedAt > 800) showSettings(help.hidden); });
+stage.addEventListener('touchstart', e => { if (!help.contains(e.target)) e.preventDefault(); }, { passive: false });
 stage.addEventListener('pointerdown', e => {
   if (touchScreen.matches && !help.hidden && !help.contains(e.target) && !settingsButton.contains(e.target)) showSettings(false);
 }, true);
 addEventListener('keydown', e => { if (e.code === 'Escape' && touchScreen.matches && !help.hidden) showSettings(false); });
-// the drawn buttons step aside while a real Xbox controller is connected; the settings button stays
-touch.hidden = xboxConnected();
-for (const type of ['gamepadconnected', 'gamepaddisconnected']) {
-  addEventListener(type, () => { touch.hidden = xboxConnected(); fitScreen(); });
+// the drawn buttons step aside while a controller is connected, looked for each frame as browsers don't all say
+// when one comes (and show one only once a button on it is pressed); the settings button stays
+(function watchPads() {
+  const on = connectedPads().length > 0;
+  if (on !== touch.hidden) { touch.hidden = on; fitScreen(); }
+  requestAnimationFrame(watchPads);
+})();
+
+// how solid the drawn buttons are, set in the settings: 20 to 100 %, 60 at first. The settings button and the
+// buttons that cover the game are a step fainter (app.css).
+const OPACITY_KEY = 'onsoku.touchOpacity', opacitySlider = document.getElementById('button-opacity');
+const OPACITY_MIN = Number(opacitySlider.min), OPACITY_MAX = Number(opacitySlider.max);
+function showOpacity(value) {
+  opacitySlider.value = String(value);
+  stage.style.setProperty('--t-opacity', String(value / 100));
 }
+try {
+  const kept = Number(localStorage.getItem(OPACITY_KEY) ?? NaN);
+  if (kept >= OPACITY_MIN && kept <= OPACITY_MAX) opacitySlider.value = String(kept);
+} catch { /* storage blocked: the default stands */ }
+showOpacity(Number(opacitySlider.value));
+function setOpacity(value) {
+  showOpacity(value);
+  try { localStorage.setItem(OPACITY_KEY, String(value)); } catch { /* not remembered */ }
+}
+opacitySlider.addEventListener('input', () => setOpacity(Number(opacitySlider.value)));
+// a finger anywhere along it moves it, where iOS only moves a slider by its knob
+opacitySlider.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+const slideTo = e => {
+  const r = opacitySlider.getBoundingClientRect(), at = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  setOpacity(OPACITY_MIN + Math.round(at * (OPACITY_MAX - OPACITY_MIN) / 5) * 5);
+};
+opacitySlider.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  opacitySlider.setPointerCapture(e.pointerId);
+  slideTo(e);
+});
+opacitySlider.addEventListener('pointermove', e => { if (e.pointerType === 'touch' && opacitySlider.hasPointerCapture(e.pointerId)) slideTo(e); });
 
 // the sound, also M on a keyboard
 function showSound() { showSetting(soundButton, !sound.muted); }

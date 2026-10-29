@@ -284,17 +284,18 @@ kbd {
 .actions { margin: 8px 0 0; color: var(--muted); }
 /* the touch layout, on phones and tablets: the settings behind a button in the top-left corner, and an Xbox
    controller's buttons around the game, drawn like dreamports.net (Monocraft and 2 px pixel frames with the corner
-   pixels left out) and a little see-through, until a real one is connected. Held sideways, the game fills the
+   pixels left out) and see-through as the settings say, until a real controller is connected. Held sideways, the game fills the
    height, with the d-pad and A, B, X and Y in the bottom corners, the shoulder buttons above them, Select under the
    settings button and Start at the top right; held upright, the game is in the middle of what's between the
    settings button and the buttons below it. Buttons that cover part of the game are more see-through. */
-.settings-open, .touch { display: none; }
+.settings-open, .touch, .button-opacity { display: none; }
 @media (pointer: coarse) {
   .stage {
     --t-frame: #4a5d94; --t-fill: #0b1240; --t-ink: #eef4ff; --t-held: #8fd1ff; --t-held-ink: #0a1738;
     --pad: clamp(104px, 32vmin, 148px); --edge: 14px;
-    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    --t-opacity: .6;   /* the settings' Opacity slider sets it */
   }
+  .stage, .stage * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   .stage :is(.settings-open, .pill) {
     box-shadow: 0 -2px var(--t-frame), 0 2px var(--t-frame), -2px 0 var(--t-frame), 2px 0 var(--t-frame);
   }
@@ -302,7 +303,7 @@ kbd {
   .settings-open {
     position: fixed; z-index: 3; top: var(--edge); left: var(--edge); display: grid; place-items: center;
     width: 44px; height: 44px; margin: 2px; padding: 0; border: 0; background: var(--t-fill); color: var(--t-ink);
-    opacity: .78; touch-action: manipulation;
+    opacity: calc(var(--t-opacity) * .7); touch-action: none;
   }
   .settings-open[aria-expanded="true"] { opacity: 1; background: var(--t-held); color: var(--t-held-ink); }
   .settings-open svg { width: 18px; height: 18px; fill: currentColor; }
@@ -318,7 +319,7 @@ kbd {
   }
   .help :is(dl, .sep, .state), #stats { display: none; }
   .help .actions { display: grid; margin: 0; }
-  .help .actions :is(button, a) {
+  .help .actions :is(button, a, label) {
     display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0;
     border: 0; border-top: 2px solid #263a66; background: none; color: inherit; font: inherit; text-align: left;
     text-decoration: none; touch-action: manipulation;
@@ -334,15 +335,23 @@ kbd {
     background: linear-gradient(#0a1738, #0a1738) 18px 2px / 12px 12px no-repeat, var(--t-held);
     box-shadow: 0 -2px var(--t-held), 0 2px var(--t-held), -2px 0 var(--t-held), 2px 0 var(--t-held);
   }
+  .help .button-opacity input {
+    -webkit-appearance: none; appearance: none; flex: none; width: 120px; height: 16px; margin: 2px 2px 2px 0; padding: 0 2px;
+    background: #263a66; box-shadow: 0 -2px #263a66, 0 2px #263a66, -2px 0 #263a66, 2px 0 #263a66; touch-action: none; cursor: pointer;
+  }
+  .help .button-opacity input::-webkit-slider-runnable-track { height: 16px; background: none; }
+  .help .button-opacity input::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: 2px; border: 0; background: var(--t-held); }
+  .help .button-opacity input::-moz-range-track { height: 16px; background: none; }
+  .help .button-opacity input::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 0; background: var(--t-held); }
   .help #rom-status { margin: 0 0 12px; color: #a9b8e6; font-size: 13.5px; }
   .help #rom-status:empty { display: none; }
 
-  /* the buttons: each frame and fill drawn solid, then all of it a little see-through, so the frames don't show
-     through the fills */
+  /* the buttons: each frame and fill drawn solid, then all of it see-through as the settings say, so the frames
+     don't show through the fills */
   .touch { position: fixed; inset: 0; display: block; color: var(--t-ink); font: 13.5px/1 Monocraft, var(--mono); pointer-events: none; }
   .touch[hidden], .stage.multi .touch { display: none; }
-  .touch > * { position: absolute; opacity: .78; }
-  .touch > .covers { opacity: .5; }
+  .touch > * { position: absolute; opacity: var(--t-opacity); }
+  .touch > .covers { opacity: calc(var(--t-opacity) * .65); }
   .touch :is(.dpad, button) { pointer-events: auto; touch-action: none; }
   .touch button { margin: 0; padding: 0; border: 0; color: inherit; font: inherit; }
   .touch button.held { background: var(--t-held); color: var(--t-held-ink); }
@@ -405,6 +414,12 @@ kbd {
   .touch :is(.select, .start) { top: auto; right: auto; left: 50%; transform: translateX(-50%); }
   .touch .select { bottom: calc(var(--edge) + var(--pad) / 2 + 6px); }
   .touch .start { bottom: calc(var(--edge) + var(--pad) / 2 - 40px); }
+}
+/* sideways the settings have room for two columns, not for one long one */
+@media (pointer: coarse) and (orientation: landscape) {
+  .help { width: min(664px, calc(100vw - 2 * var(--edge) - 64px)); }
+  .help .actions { grid-template: repeat(4, auto) / 1fr 1fr; grid-auto-flow: column; column-gap: 24px; }
+  .help .actions > :nth-child(5 of :is(button, a, label)) { border-top: 0; }
 }
 
 /* asset viewer */

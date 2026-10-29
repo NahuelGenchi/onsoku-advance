@@ -13,7 +13,7 @@ const REGION = 256;
 /** The GBA BIOS run-length format (RLUnComp): header 0x30 with the size, then runs and literal blocks. */
 export function rlDecompress(rom, at) {
   const header = rom.u32(at);
-  if ((header & 0xFF) !== 0x30) throw new Error(`unexpected data in the rom: no RL header at 0x${at.toString(16)}.`);
+  if ((header & 0xFF) !== 0x30) throw new Error(`Unexpected data in the ROM: no RL header at 0x${at.toString(16)}.`);
   const out = new Uint8Array(header >>> 8);
   let i = at + 4, n = 0;
   while (n < out.length) {

@@ -29,7 +29,7 @@ export function parseScript(rom, tables, anim, variant = 0) {
     const at = script + cur * 4, id = rom.s32(at);
     if (id >= 0) { steps.push({ op: 'show', delay: id, frame: rom.s32(at + 4), at: cur }); cur += 2; continue; }
     const words = CMD_WORDS[id];
-    if (!words) throw new Error(`unknown animation command ${id} in animation ${anim}.`);
+    if (!words) throw new Error(`Unknown animation command ${id} in animation ${anim}.`);
     if (id === -1) steps.push({ op: 'tiles', tileIndex: rom.s32(at + 4), count: rom.u32(at + 8), at: cur });
     else if (id === -2) steps.push({ op: 'palette', palId: rom.s32(at + 4), count: rom.u16(at + 8), insert: rom.u16(at + 10), at: cur });
     else if (id === -6) {

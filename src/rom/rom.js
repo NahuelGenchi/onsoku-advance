@@ -29,7 +29,7 @@ export class Rom {
   /** Like ptr(), but throws with a readable message when the data is not where the format says it is. */
   requirePtr(at, what) {
     const offset = this.ptr(at);
-    if (offset === null) throw new Error(`unexpected data in the rom: ${what} at 0x${at.toString(16)} is not a pointer.`);
+    if (offset === null) throw new Error(`Unexpected data in the ROM: ${what} at 0x${at.toString(16)} is not a pointer.`);
     return offset;
   }
 

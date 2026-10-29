@@ -436,12 +436,12 @@ const MAX_ATLAS_PALETTES = 16;
 export async function extractAssets(buffer, onProgress = () => {}, { level = 0 } = {}) {
   const info = levelInfo(level);
   const rom = new Rom(buffer);
-  await onProgress('checking the rom…');
+  await onProgress('Checking the ROM…');
   const id = await identify(rom);
-  await onProgress(id.known ? `found ${id.known.name}.` : 'unrecognized version, searching for the data…');
+  await onProgress(id.known ? `Found ${id.known.name}.` : 'Unrecognized version, searching for the data…');
   const offsets = locateTables(rom, id.known);
 
-  await onProgress('decoding Sonic…');
+  await onProgress('Decoding Sonic…');
   const tables = spriteTables(rom, offsets.spriteTables);
   // the zone's acts from `level` on, which share the zone's looks for the objects that differ by level
   // (the extra stage, the Moon Zone, is X Zone's act 2 but only ever comes on its own)
@@ -461,7 +461,7 @@ export async function extractAssets(buffer, onProgress = () => {}, { level = 0 }
   const acts = [];
   for (const [i, l] of levels.entries()) {
     const act = levelInfo(l);
-    await onProgress(`decoding ${act.name}…`);
+    await onProgress(`Decoding ${act.name}…`);
     acts[l] = {
       level: l,
       stage: extractStage(rom, offsets, tables, act),

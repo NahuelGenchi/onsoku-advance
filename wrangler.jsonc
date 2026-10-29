@@ -15,5 +15,8 @@
     { "pattern": "dreamports.net/play/sonic-advance/*", "zone_name": "dreamports.net" }
   ],
   // No sonic-advance-dreamport.<account>.workers.dev copy of the game.
-  "workers_dev": false
+  "workers_dev": false,
+  // Each branch's Preview, which Workers Builds makes with `npx wrangler preview`: nothing differs from production,
+  // but the command needs the block.
+  "previews": {}
 }

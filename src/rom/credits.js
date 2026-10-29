@@ -33,10 +33,10 @@ export const NORMAL_ENDING_SPRITES = {
   cloud0Late: [790, 0, 737], cloud1Late: [791, 0, 737], cloud2Late: [792, 0, 737], cloud3Late: [793, 0, 737],
   congrats0: [785, 0], congrats1: [785, 1], congrats2: [785, 2],
   ...CREDITS_SPRITES,
-  // the closing message: "Hey, go collect all the Chaos Emeralds!" (gUnknown_0868B654 and gUnknown_0868B658,
-  // USA 0x08684550: 787 in Japanese, 784 in English, the language this game has), and Eggman with an emerald
-  // (739, two parts)
-  emeraldText: [784, 0], emeraldEggman0: [739, 0], emeraldEggman1: [739, 1],
+  // the closing message: "Hey, go collect all the Chaos Emeralds!" in the save's language (gUnknown_0868B654 and
+  // gUnknown_0868B658, USA 0x08684550: 787 in Japanese, 784 in English, both variant 0), and Eggman with an
+  // emerald (739, two parts)
+  emeraldTextJapanese: [787, 0], emeraldText: [784, 0], emeraldEggman0: [739, 0], emeraldEggman1: [739, 1],
 };
 
 const ENTRY = 32, ENTRIES = 334;   // CreditsString: length, palette, y offset, 25 letters and a 0, 3 padding

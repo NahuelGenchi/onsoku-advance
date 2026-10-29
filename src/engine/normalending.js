@@ -36,7 +36,7 @@ export function createNormalEnding(canvas, assets, input, sound = SILENT, { from
 
   const credits = () => {
     state.scene = createStaffCredits(anims, sound, art, {
-      emeralds,
+      emeralds, language: save.uiLanguage,
       onEnd() { state.ended = true; onEnd(); },
     });
   };

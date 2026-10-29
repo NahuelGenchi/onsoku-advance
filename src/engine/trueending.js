@@ -52,11 +52,12 @@ export function tallyLength(rings, courseTime) {
 }
 
 /**
- * The ending after the Super Egg Robo, for `rings` and `courseTime` as the stage left them. `stageResults(r)`
- * is where the results' tally comes up (#69's, { rings, courseTime, level }); `onCredits()` is called on the
- * frame the staff credits take over. `step()` runs one frame; `state` is what endingrender.js draws.
+ * The ending after the Super Egg Robo, for `rings` and `courseTime` as the stage left them, in `language` (the
+ * save's uiLanguage: 0 Japanese, 1 English). `stageResults(r)` is where the results' tally comes up (#69's,
+ * { rings, courseTime, level }); `onCredits()` is called on the frame the staff credits take over. `step()` runs
+ * one frame; `state` is what endingrender.js draws.
  */
-export function createTrueEnding(anims, sound, { rings = 0, courseTime = 0, stageResults = () => {}, onCredits = () => {} } = {}) {
+export function createTrueEnding(anims, sound, { rings = 0, courseTime = 0, language = 1, stageResults = () => {}, onCredits = () => {} } = {}) {
   const fade = { mode: FROM_WHITE, level: 0 };
   // sub_80543A4 and sub_805423C: the brightness change across the whole screen (window 1), from `level`
   const display = { scene: 'night', brighten: true, bldY: 0, scroll: [0, 0, 0] };
@@ -86,7 +87,7 @@ export function createTrueEnding(anims, sound, { rings = 0, courseTime = 0, stag
   const tornado = task('tornadoSide', 6, 1, { qx: Q(120), qy: Q(90), still: false });
   const twinkle = task('twinkle', 15, 2);
   const clouds = CLOUDS.map(([name, x, y, dx]) => task(name, 12, 1, { qx: Q(x), qy: Q(y), dx }));
-  const caption = task('fewDaysLater', 0, 0);
+  const caption = task(language ? 'fewDaysLater' : 'fewDaysLaterJapanese', 0, 0);
   let lines = [];
   const tasks = () => [sparkle, face, tornado, twinkle, ...clouds, caption, ...lines];
 

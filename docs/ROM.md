@@ -627,9 +627,15 @@ At power-on there is no going back: the fifth sprite is Ⓐ/START OK (variant 3,
 
 **Other versions.** On a ROM without the USA screen's picture, such as the European one with its six-language screen, which isn't built, the game starts with the logos as with a save, and LANGUAGE in the Options menu does nothing.
 
-**The language elsewhere.** The title screen's logo (tilemap 73 or 74), "PRESS START" (animation 778 or 779) and the main menu's items (the same animation's variants) follow the save's language. The copyright line is the international release's (variant 1) in both. The Options menu, the player data menu, the name input and the VS record follow it too. Nothing in an act reads it.
+**The language elsewhere.** The title screen's logo (tilemap 73 or 74), "PRESS START" (animation 778 or 779) and the main menu's items (the same animation's variants) follow the save's language. The copyright line is the international release's (variant 1) in both. The Options menu, the player data menu, the name input and the VS record follow it too. So do three messages, each read from the save as its screen starts:
 
-**Not built yet.** The normal ending's last message (animation 784, or 787 in Japanese), the true ending's "A few days later" (783, or 786) and Chao Hunt's results message are always in English; they are the next part of [#140](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/140).
+| Message | English | Japanese | Where the USA ROM picks it |
+| :--- | :--- | :--- | :--- |
+| The normal ending's closing message ([The staff credits](#the-staff-credits)) | 784 | 787 | `CreateGetAllChaosEmeraldsMessage` (`0x080696DC`), from the table at `0x08684550` |
+| The true ending's "A few days later" ([The true ending](#the-true-ending)) | 783 | 786 | `CreateExtraStageResults`, at `0x080675C4` |
+| Chao Hunt's results message, variants 2–4 ([Multiplayer: Chao Hunt](#multiplayer-chao-hunt)) | 883 | 897 | `Task_ChaoMessageInit`, at `0x0803B6B6` |
+
+Nothing in an act reads it. In Chao Hunt every player's screen takes the language of the page's one save.
 
 **How it was checked.** mGBA 0.10.5 recorded three runs of the USA ROM from power-on, dumping VRAM, palette RAM, OAM, the display registers, the picture, IWRAM and the music players' memory after every frame, and the flash at the end:
 
@@ -644,6 +650,20 @@ The player data menu's four runs ([Player data](#player-data)) match on every fr
 Two more runs, a Japanese and an English save from power-on with the same keys into act 1 (2400 frames, about 1100 of them in the act), show the act doesn't depend on the language: their pictures differ only on the title screen and the main menu. One black frame between the character select and the act differs only in a byte of mGBA's picture that isn't a colour.
 
 In Chrome 156 and Firefox 159 (headless, a new profile each), the page played the three runs' keys from power-on, runs 1 and 2 with no save stored and run 3 with the same Japanese one. At 29 frames, among them the white start-up, the fades, both languages on the language screen from power-on and from the Options menu, the logos, the title screens and the menus, both browsers drew the screen pixel for pixel as mGBA did. Each stored the save mGBA wrote, byte for byte, and neither console showed an error from the game.
+
+**The three messages** were checked from scratch copies of the USA ROM, kept out of the repository, whose `GameStart` calls the screen instead of `CreateSegaLogo`. mGBA 0.10.5 ran each with a Japanese save:
+
+- `CreateGetAllChaosEmeraldsMessage`, 430 frames;
+- `CreateExtraStageResults` with the level set to the Moon Zone's (13), 3,400 frames;
+- `CreateMultiplayerResultsScreen(1)` with two players linked, once with a win and a loss and once with both drawn, and A on frame 300, 420 frames each.
+
+In Chrome 156 and Firefox 159 (headless), the port ran the same screens from the same start, and both drew the same frames:
+
+- *The closing message:* all 400 of its frames (7–406) match mGBA's pixel for pixel.
+- *The true ending:* every frame matches, "すうじつご・・・" (786) on frames 1786–2385 included. The exception is the night scene's results tally (frames 68–1167), which this test left out.
+- *The results:* the Japanese messages (897 variants 2, 3 and 4) match on every frame. Two things differ: the players' names, which the port leaves out, and, with both drawn, 83 pixels of the second strip's Chao on the frame it first comes into view (15).
+
+In the page, with a Japanese save stored, a two-player Chao Hunt round played without keys ended in a draw. Its results screen showed the Japanese messages as mGBA does, apart from the names. Both browsers drew it the same, with no errors.
 
 ### The Options menu
 
@@ -1710,11 +1730,6 @@ Act 1 has 8 Buzzers and 4 Rhinotanks, which work as in Neo Green Hill, and two k
 | ---: | :--- | ---: | :--- | :--- |
 | 11 | Leon | 5 | `430` | A chameleon that walks its range at 0.625 px a frame and shoots its tongue at Sonic when he is in front of it |
 | 13 | Wamu | 1 | `431` | A flying snake whose head swings on an arc, trailing two body and two tail segments |
-1. **The night scene**, coming in from white. Three 256-colour backgrounds share one palette: BG0 `0x8583`, BG1 `0x9E86` and BG2 `0x9B89`. On the 30th frame `CreateStageResults` puts up the tally (MUS_EXTRA_CLEAR, 36). It returns how long the scene lasts: the larger of the ring bonus and the time bonus ÷ 100, plus 75 + 285 frames. On that frame MUS_CUTSCENE_A_FEW_DAYS_LATER (39) starts, and four twinkles (731) come one after another, 16 frames each. A second later the three layers slide down by 85, 96 and 192 /256 px a frame, to 71, 80 and 160. 540 frames after the tally's end the scene fades to black.
-2. **"A few days later"** (783, semi-transparent) on black for 600 frames, then 64 more frames of black.
-3. **The sky** (BG0 `0x9B83`, scrolled down 296 px), for 822 frames. Four clouds (790–793) drift right. They share sprite palette row 12, and the last of them loads 790's colours over 792's, so the third cloud shows in the others' colours. A sparkle (732) crosses from the fourth second. The Tornado (736) bobs with Tails (805 variant 1; 191 is Tails turning his head, at frames 120 and 480). At frame 700 it turns to face the screen (735, never animated past its first frame) and flies off to the upper right, turning and shrinking from 1.5 times its size.
-4. **Four pictures** (733 variants 0 and 1, then 734 variants 0 and 1), 400 frames each, coming in from black and fading out at 336. As they start, the sky's map is cleared from its top (the first `0xA00` bytes), which leaves black around them. In the third, from frame 179, colours 2–15 of sprite palette row 14 turn from palette 143 into palette 144 (`gUiPaletteSoundTestBox3` and `4`), a step every 16 frames. The third doesn't fade out. Over the fourth, the three lines of 785 scroll up 3 px a frame from y 180, starting 330, 480 and 484 frames on (`gUnknown_0868B4BE`, `0x086843BA`) and stopping at y 16, 128 and 144 (`gUnknown_0868B4B8`, `0x086843B4`). These are three-entry tables; the decompilation declares two.
-5. Then [the staff credits](#the-staff-credits), which go on to the SEGA logo.
 
 **Leon** (`Task_LeonInit`, `0x0806E7C0`) starts walking left and follows the ground, found 3 px below its position. Its range runs from `d0` to `d0 + d2` tiles from its spawn point. At an end, facing out of the range, it turns round and stands still for 14 frames. When Sonic is within 80 px in front of it, and between 32 px above it and 8 px below it, it stands still and shoots its tongue for 31 frames. The tongue's box (slot 1 of its sprite) hurts Sonic; its body's box (slot 0) is the one he attacks or is hurt by. After a shot it has to walk 60 frames before it can shoot again, counted only on frames it walks inside its range. On Easy Angel Island has no Leons (see [The Options menu](#the-options-menu)).
 
@@ -1975,7 +1990,7 @@ The Moon Zone is the extra stage, level 13 (`LEVEL_INDEX(ZONE_7, ACT_THE_MOON)`,
 `CreateExtraStageResults` (`extra_stage_results.c`) sets the save's first unlocked level to 15 and `unk424` to 1 before it writes it. One main task (priority `0x2100`) then counts each scene's frames and runs the fades, and the sprites' tasks (`0x2120`) read its count. A fade (`sub_805423C`) works through window 1 over the whole screen. Its level goes up `0x80` a frame to `0x2000`, so it lasts 64 frames, and the brightness change is its level ÷ 512 sixteenths. A semi-transparent sprite is alpha-blended at full weight (BLDALPHA 16) instead, so the fades leave it alone.
 
 1. **The night scene**, coming in from white. Three 256-colour backgrounds share one palette: BG0 `0x8583`, BG1 `0x9E86` and BG2 `0x9B89`. On the 30th frame `CreateStageResults` puts up the tally (MUS_EXTRA_CLEAR, 36). It returns how long the scene lasts: the larger of the ring bonus and the time bonus ÷ 100, plus 75 + 285 frames. On that frame MUS_CUTSCENE_A_FEW_DAYS_LATER (39) starts, and four twinkles (731) come one after another, 16 frames each. A second later the three layers slide down by 85, 96 and 192 /256 px a frame, to 71, 80 and 160. 540 frames after the tally's end the scene fades to black.
-2. **"A few days later"** (783, semi-transparent) on black for 600 frames, then 64 more frames of black.
+2. **"A few days later"** (783, or 786 "すうじつご・・・" in Japanese, by the save's language; semi-transparent) on black for 600 frames, then 64 more frames of black.
 3. **The sky** (BG0 `0x9B83`, scrolled down 296 px), for 822 frames. Four clouds (790–793) drift right. They share sprite palette row 12, and the last of them loads 790's colours over 792's, so the third cloud shows in the others' colours. A sparkle (732) crosses from the fourth second. The Tornado (736) bobs with Tails (805 variant 1; 191 is Tails turning his head, at frames 120 and 480). At frame 700 it turns to face the screen (735, never animated past its first frame) and flies off to the upper right, turning and shrinking from 1.5 times its size.
 4. **Four pictures** (733 variants 0 and 1, then 734 variants 0 and 1), 400 frames each, coming in from black and fading out at 336. As they start, the sky's map is cleared from its top (the first `0xA00` bytes), which leaves black around them. In the third, from frame 179, colours 2–15 of sprite palette row 14 turn from palette 143 into palette 144 (`gUiPaletteSoundTestBox3` and `4`), a step every 16 frames. The third doesn't fade out. Over the fourth, the three lines of 785 scroll up 3 px a frame from y 180, starting 330, 480 and 484 frames on (`gUnknown_0868B4BE`, `0x086843BA`) and stopping at y 16, 128 and 144 (`gUnknown_0868B4B8`, `0x086843B4`). These are three-entry tables; the decompilation declares two.
 5. Then `CreateStaffCredits`.
@@ -2033,12 +2048,13 @@ In `Task_8066768`, `TransformSprite` runs before `UpdateSpriteAnimation`, so the
 - The lines' task (`Task_805E758`) writes the 7 lines in sight in sprites (`sub_8053370`), one per letter, 8 px apart and centred on x 120. A space only moves on. A small letter (past `0x60`) has its own glyph, number − 17, and is drawn 8 px lower; any other is number − 32. The font is the 8 × 16 one, in sprite palette rows 14 (headings, uiGfx 60's colours) and 15 (names, uiGfx 59's). Each letter's OAM order is (line × 16 + letter) ÷ 8.
 - The logos' task (`Task_805E888`) shows the logo (740 variants 0–3) whose row is in sight. The last one stops at y 80 with the copyright (741 variant 1) 40 px under it.
 
-**The closing message** (`collect_chaos_emeralds_msg.c`), without all seven Chaos Emeralds: "Hey, go collect all the Chaos Emeralds!" (784; 787 in the Japanese version) at (120, 120) under Eggman holding one (739, two parts, at (136, 90)), on BG0's tile from uiGfx 43 in the colours at `0x6C5650`. Its sprites stay on their first frames. It comes in from black through window 1 at `0x100` a frame, starts going out to black on its 340th frame, and after its 400th the SEGA logo comes up. The port starts the game again from Neo Green Hill there.
+**The closing message** (`collect_chaos_emeralds_msg.c`), without all seven Chaos Emeralds: "Hey, go collect all the Chaos Emeralds!" (784, or 787 "すべてのカオスエメラルドをそろえろ。" in Japanese, by the save's language, from the table at `0x08684550`) at (120, 120) under Eggman holding one (739, two parts, at (136, 90)), on BG0's tile from uiGfx 43 in the colours at `0x6C5650`. Its sprites stay on their first frames. It comes in from black through window 1 at `0x100` a frame, starts going out to black on its 340th frame, and after its 400th the SEGA logo comes up. The port starts the game again from Neo Green Hill there.
 
 **How it was checked.** mGBA 0.10.5 recorded the normal ending from a ROM patched to boot straight into `CreateCongratulationsAnimation`: every frame of the congratulations (2,500 frames) and every fifth of the credits and the message (to frame 11,300). The port matches on 2,493 of the 2,495 congratulations frames; the other one differs by 16 pixels, two columns of the Tornado's propeller on the frame it comes in (402). Every credits and message frame matches, and the SEGA logo comes up on the same frame. Only read in the code, not recorded:
 
-- the hand-over from a real X Zone run: how long the save takes there (the port uses the Moon Zone's 16 frames), and what the streak and Flicky tasks' memory holds (the recording had zeros);
-- the Japanese message (787).
+- the hand-over from a real X Zone run: how long the save takes there (the port uses the Moon Zone's 16 frames), and what the streak and Flicky tasks' memory holds (the recording had zeros).
+
+The Japanese message was recorded on its own later (see [The language screen](#the-language-screen)).
 
 ## Multiplayer: Chao Hunt
 
@@ -2077,7 +2093,7 @@ The other types need rings (4, ring loss), which this stage has none of, or Tail
 
 **The HUD.** The clock (animation 905, red in the last minute) and each player's Chao count (animation 606). The count and the arrows toward players off screen (animation 767) skip their animations' palettes (sprite flag 18) and use the OBJ palette slot of their player's character, so with everyone Sonic they are drawn in Sonic's palette.
 
-**The results screen.** Its background is tilemap 88 over the colour (0, 27, 30). Each player's strip slides in from alternate sides as the screen fades in from white, with a Chao (animation 885) and a message (883) for how they did, and this GBA's music for its own result: song 7 won, 8 lost, 9 drew. 45 frames into the screen, sound 157, 158 or 159 plays. It holds until a player presses A, or until 0x707 frames into it, and every GBA follows the first to press it (a packet of kind `0xB0`). The strips slide out and the screen whitens. The players' names on the strips come from each GBA's save data and are left out, and the screen after it isn't built.
+**The results screen.** Its background is tilemap 88 over the colour (0, 27, 30). Each player's strip slides in from alternate sides as the screen fades in from white, with a Chao (animation 885) and a message (883, or 897 in Japanese, by the save's language) for how they did, and this GBA's music for its own result: song 7 won, 8 lost, 9 drew. 45 frames into the screen, sound 157, 158 or 159 plays. It holds until a player presses A, or until 0x707 frames into it, and every GBA follows the first to press it (a packet of kind `0xB0`). The strips slide out and the screen whitens. The players' names on the strips come from each GBA's save data and are left out, and the screen after it isn't built.
 
 **How it was checked.** The reference is mGBA 0.10.5 running 2 and 4 linked copies of the tested ROM in lockstep, dumping each one's IWRAM, OAM, palettes and link registers after every frame. The recorded players are Sonic, Tails, Knuckles and Amy, as the original doesn't allow two players the same character. The port's GBAs were given the same buttons and compared every frame on every GBA: Sonic's position and speeds, the clock, the shared random number, the Chao's position and players, each player's Chao count, the camera and the packets sent.
 

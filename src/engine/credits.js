@@ -19,13 +19,15 @@ const STOP = 8334, FADE_AT = 8520, END_AT = 8550;   // Task_805E698
 const SPEED = Math.trunc(0x143000 / 0x201C) + 1;
 const ROWS = 7;                                      // the lines Task_805E758 looks at
 const MESSAGE = 400, MESSAGE_FADE = 340;             // Task_80698F4
+const MESSAGE_TEXT = ['emeraldTextJapanese', 'emeraldText'];   // by the save's language
 
 /**
  * The staff credits, from `art` (normalEndingArt's `credits`), then the message unless `emeralds` (all seven
- * collected), then `onEnd()` on the frame the SEGA logo would come up. `step()` runs one frame; `state` is what
- * the ending's renderer draws: { display, sprites, done }, the letters as sprites with `glyph` [row, code].
+ * collected), in `language` (the save's uiLanguage: 0 Japanese, 1 English), then `onEnd()` on the frame the SEGA
+ * logo would come up. `step()` runs one frame; `state` is what the ending's renderer draws: { display, sprites,
+ * done }, the letters as sprites with `glyph` [row, code].
  */
-export function createStaffCredits(anims, sound, art, { emeralds = false, onEnd = () => {} } = {}) {
+export function createStaffCredits(anims, sound, art, { emeralds = false, language = 1, onEnd = () => {} } = {}) {
   const { lines, logoRows } = art;
   // CreateStaffCredits: BG1 (the black tiles) and the sprites, the two windows and their darkening
   const display = {
@@ -103,14 +105,15 @@ export function createStaffCredits(anims, sound, art, { emeralds = false, onEnd 
     show(logo, 120, y);
   }
 
-  // CreateGetAllChaosEmeraldsMessage: BG0's tiles, the text and Eggman (two sprites), in from black
+  // CreateGetAllChaosEmeraldsMessage: BG0's tiles, the text in the save's language and Eggman (two sprites), in
+  // from black
   function createMessage() {
     Object.assign(display, plainDisplay(), { scene: 'message' });
     const sprite = (name, x, y) => { const s = makeSprite(name, { order: 18, prio: 2 }); animate(s, anims); return { s, x, y }; };
     message = {
       count: 0,
       fade: createFade({ win1: true, mode: FROM_BLACK, speed: 0x100, targets: 8 }),
-      sprites: [sprite('emeraldText', 120, 120), sprite('emeraldEggman0', 136, 90), sprite('emeraldEggman1', 136, 90)],
+      sprites: [sprite(MESSAGE_TEXT[language], 120, 120), sprite('emeraldEggman0', 136, 90), sprite('emeraldEggman1', 136, 90)],
     };
     runFade(message.fade, display);
   }

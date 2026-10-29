@@ -3,9 +3,8 @@
 // stick moves between them, A presses the one picked and Menu presses Play. Browsers only show a controller to the
 // page once one of its buttons is pressed.
 
-import { connectedPads } from '../engine/input.js';
+import { connectedPads, xboxConnected } from '../engine/input.js';
 
-const XBOX = /xbox|xinput|045e|microsoft/i;   // the names browsers give Microsoft's controllers
 const DEAD_ZONE = 0.5;
 const REPEAT_AFTER = 380, REPEAT_EVERY = 130;   // ms: a held direction moves again, then keeps moving
 const PRESSABLE = 'a[href], button:not([hidden]):not(:disabled), input:not([type=file]):not(:disabled)';
@@ -21,7 +20,7 @@ export function bindController(host, { blocked }) {
 
   // the badge: on with a note while an Xbox controller is in, off with a note, then gone, once none is
   function showBadge() {
-    const on = connectedPads().some(p => XBOX.test(p.id));
+    const on = xboxConnected();
     const was = badge.dataset.state;
     if (on === (was === 'on')) return;
     clearTimeout(timer);

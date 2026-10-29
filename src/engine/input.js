@@ -18,7 +18,9 @@ const BUTTONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'boost', 'tric
 const PAD_BUTTONS = { jump: [0], attack: [1, 2], up: [12], down: [13], left: [14], right: [15], boost: [], trick: [], start: [9], select: [8], l: [4], r: [5] };
 const RUSH_PAD_BUTTONS = { ...PAD_BUTTONS, attack: [1], boost: [2] };
 const TRICK_PAD_BUTTONS = [5];
+const DPAD = { up: 12, down: 13, left: 14, right: 15 };
 const DEAD_ZONE = 0.5;
+const XBOX = /xbox|xinput|045e|microsoft/i;   // the names browsers give Microsoft's controllers
 
 // the multiplayer modes' two players on one keyboard: the first on WASD with F to jump and G to attack, the
 // second on the arrows with . to jump and / to attack; the players after them play with controllers
@@ -46,6 +48,9 @@ export function playerControls(input, btnConfig) {
 /** The connected controllers in the browser's order. */
 export const connectedPads = () => [...(navigator.getGamepads?.() ?? [])].filter(p => p?.connected);
 
+/** Whether an Xbox controller is connected. */
+export const xboxConnected = () => connectedPads().some(p => XBOX.test(p.id));
+
 /**
  * The controllers player `player` of `count` plays with: they go to the players without keys first, the
  * third and the fourth, then to the first and the second.
@@ -69,11 +74,12 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
   };
   // the buttons of an extra that is off do nothing
   const off = button => (button === 'boost' && !input.rush) || (button === 'trick' && !input.tricks);
-  const held = { keys: {}, pad: {} };   // what each source holds; the pad's is read once a step by poll()
+  const held = { keys: {}, pad: {}, touch: {} };   // what each source holds; the pad's is read once a step by poll()
+  const touched = new Set();            // the on-screen controller's buttons a finger is on, by their standard numbers
   let padFresh = true;                  // after a release, what the pad still holds comes back without a press
 
   function set(button, quiet) {
-    const down = !!(held.keys[button] || held.pad[button]);
+    const down = !!(held.keys[button] || held.pad[button] || held.touch[button]);
     if (!quiet && button === 'jump' && down && !input.jump) input.jumpPressed = true;
     if (!quiet && button === 'attack' && down && !input.attack) input.attackPressed = true;
     if (!quiet && button === 'boost' && down && !input.boost) input.boostPressed = true;
@@ -86,7 +92,7 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
     held.keys[button] = down; set(button);
   };
   input.release = () => {
-    held.keys = {}; held.pad = {}; padFresh = true;
+    held.keys = {}; held.pad = {}; held.touch = {}; touched.clear(); padFresh = true;
     for (const b of BUTTONS) input[b] = false;
     input.jumpPressed = input.attackPressed = input.boostPressed = input.trickPressed = false;
   };
@@ -95,7 +101,7 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
   input.setRush = on => {
     input.rush = on;
     if (on) return;
-    held.keys.boost = held.pad.boost = false;
+    held.keys.boost = held.pad.boost = held.touch.boost = false;
     set('boost', true);
     input.boostPressed = false;
   };
@@ -104,20 +110,36 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
   input.setTricks = on => {
     input.tricks = on;
     if (on) return;
-    held.keys.trick = held.pad.trick = false;
+    held.keys.trick = held.pad.trick = held.touch.trick = false;
     set('trick', true);
     input.trickPressed = false;
   };
+
+  // the game's buttons a controller holds, `on(i)` telling whether its button i (standard layout) is down
+  function padHolds(on, now = {}) {
+    const map = input.rush ? RUSH_PAD_BUTTONS : PAD_BUTTONS;
+    for (const b of BUTTONS) if (map[b].some(on)) now[b] = true;
+    if (input.tricks && TRICK_PAD_BUTTONS.some(on)) now.trick = true;
+    return now;
+  }
+  // the on-screen controller, read like a real one; again each step, for an extra turned on or off under a finger
+  function touchSync() {
+    const now = padHolds(i => touched.has(i));
+    for (const b of BUTTONS) {
+      if (!!held.touch[b] === !!now[b]) continue;
+      held.touch[b] = !!now[b];
+      set(b);
+    }
+  }
 
   /** Reads the connected gamepads; the game calls it at the start of each step, as the original reads its keys.
    *  A controller plugged in mid-game is read from then on; one unplugged lets go of its buttons. */
   input.poll = () => {
     if (!input.enabled) return;
+    touchSync();
     const now = {};
     for (const pad of pads()) {
-      const on = i => pad.buttons[i]?.pressed, map = input.rush ? RUSH_PAD_BUTTONS : PAD_BUTTONS;
-      for (const b of BUTTONS) if (map[b].some(on)) now[b] = true;
-      if (input.tricks && TRICK_PAD_BUTTONS.some(on)) now.trick = true;
+      padHolds(i => pad.buttons[i]?.pressed, now);
       // the left stick, and the d-pad of a pad the browser doesn't map to the standard layout (axes 6 and 7)
       for (const [x, y] of pad.mapping === 'standard' ? [[0, 1]] : [[0, 1], [6, 7]]) {
         const ax = pad.axes[x] ?? 0, ay = pad.axes[y] ?? 0;
@@ -154,13 +176,19 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
   document.addEventListener('visibilitychange', () => { if (document.hidden) input.release(); });
 
   /**
-   * On-screen buttons: any element with data-button="left|right|up|down|jump|attack|boost|trick|start|select",
-   * marked `held` while a finger is on it, and a d-pad (data-pad) whose directions follow the finger as it slides.
+   * The on-screen controller: any element with data-pad-button set to an Xbox controller's button by its number in
+   * the standard layout (0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 LT, 7 RT, 8 View, 9 Menu), marked `held` while a finger is
+   * on it, and a d-pad (data-pad) whose directions follow the finger as it slides. They do what the controller's
+   * buttons do.
    */
   input.bindTouch = root => {
-    for (const el of root.querySelectorAll('[data-button]')) {
-      const button = el.dataset.button;
-      const hold = down => { el.classList.toggle('held', down); input.press(button, down); };
+    for (const el of root.querySelectorAll('[data-pad-button]')) {
+      const button = Number(el.dataset.padButton);
+      const hold = down => {
+        el.classList.toggle('held', down);
+        if (down) touched.add(button); else touched.delete(button);
+        touchSync();
+      };
       el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); hold(true); });
       for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(type, () => hold(false));
       el.addEventListener('contextmenu', e => e.preventDefault());
@@ -172,12 +200,11 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
   // The straight ways are 60° wide and the diagonals 30°, so running doesn't roll or look up by a slip of the
   // finger; the very middle holds nothing. It marks the ways held in data-held.
   function bindPad(pad) {
-    let finger = null, held = [];
+    let finger = null;
     const hold = ways => {
-      for (const way of held) if (!ways.includes(way)) input.press(way, false);
-      for (const way of ways) if (!held.includes(way) || !input[way]) input.press(way, true);   // again after a release
-      held = ways;
+      for (const [way, i] of Object.entries(DPAD)) if (ways.includes(way)) touched.add(i); else touched.delete(i);
       pad.dataset.held = ways.join(' ');
+      touchSync();
     };
     const follow = e => {
       const r = pad.getBoundingClientRect();

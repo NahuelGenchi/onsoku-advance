@@ -282,11 +282,12 @@ kbd {
 }
 .stats { margin: 10px 0 0; font: 12px/1.4 var(--mono); color: var(--muted); }
 .actions { margin: 8px 0 0; color: var(--muted); }
-/* the touch layout, on phones and tablets: the settings behind a button in the top-left corner, and the Game Boy
-   Advance's buttons around the game, drawn like dreamports.net (Monocraft and 2 px pixel frames with the corner
-   pixels left out) and a little see-through. Held sideways, the game fills the height, with the d-pad and A and B
-   in the bottom corners and Start and Select at the top right; held upright, the game is in the middle of what's
-   between the settings button and the buttons below it. Buttons that cover part of the game are more see-through. */
+/* the touch layout, on phones and tablets: the settings behind a button in the top-left corner, and an Xbox
+   controller's buttons around the game, drawn like dreamports.net (Monocraft and 2 px pixel frames with the corner
+   pixels left out) and a little see-through, until a real one is connected. Held sideways, the game fills the
+   height, with the d-pad and A, B, X and Y in the bottom corners, the shoulder buttons above them, Select under the
+   settings button and Start at the top right; held upright, the game is in the middle of what's between the
+   settings button and the buttons below it. Buttons that cover part of the game are more see-through. */
 .settings-open, .touch { display: none; }
 @media (pointer: coarse) {
   .stage {
@@ -339,7 +340,7 @@ kbd {
   /* the buttons: each frame and fill drawn solid, then all of it a little see-through, so the frames don't show
      through the fills */
   .touch { position: fixed; inset: 0; display: block; color: var(--t-ink); font: 13.5px/1 Monocraft, var(--mono); pointer-events: none; }
-  .stage.multi .touch { display: none; }
+  .touch[hidden], .stage.multi .touch { display: none; }
   .touch > * { position: absolute; opacity: .78; }
   .touch > .covers { opacity: .5; }
   .touch :is(.dpad, button) { pointer-events: auto; touch-action: none; }
@@ -371,32 +372,39 @@ kbd {
     background: var(--t-held); color: var(--t-held-ink);
   }
 
-  /* A and B as on the Game Boy Advance, A up to the right of B, as pixel circles; Boost and Trick above them,
-     with their extras on */
+  /* A, B, X and Y in the Xbox controller's diamond, as pixel circles, their letters in its colours */
   .face { right: var(--edge); bottom: var(--edge); width: var(--pad); height: var(--pad); }
   .round {
     --circle: polygon(25% 0, 75% 0, 75% 12.5%, 87.5% 12.5%, 87.5% 25%, 100% 25%, 100% 75%, 87.5% 75%, 87.5% 87.5%, 75% 87.5%,
       75% 100%, 25% 100%, 25% 87.5%, 12.5% 87.5%, 12.5% 75%, 0 75%, 0 25%, 12.5% 25%, 12.5% 12.5%, 25% 12.5%);
-    position: absolute; isolation: isolate; width: calc(var(--pad) * .5); aspect-ratio: 1;
-    clip-path: var(--circle); font-size: 20px;
+    position: absolute; isolation: isolate; width: 38%; aspect-ratio: 1;
+    clip-path: var(--circle);
   }
-  .touch .round { background: var(--t-frame); }
+  .touch .round { background: var(--t-frame); font-size: 18px; }
   .round::before { content: ""; position: absolute; z-index: -1; inset: 3px; clip-path: var(--circle); background: var(--t-fill); }
   .round.held::before { background: var(--t-held); }
-  .round.a { right: 0; top: 6%; }
-  .round.b { left: 0; bottom: 6%; }
-  .extras { position: absolute; left: 0; right: 0; bottom: calc(100% + 16px); display: flex; gap: 8px; }
-  .extras .pill { flex: 1; min-width: 0; padding: 0 4px; }
-  .touch:not([data-rush]) .boost, .touch:not([data-tricks]) .trick { visibility: hidden; }
+  .round.y { left: 31%; top: 0; color: #ffd65a; }
+  .round.x { left: 0; top: 31%; color: #74a9ff; }
+  .round.b { right: 0; top: 31%; color: #ff7a6b; }
+  .round.a { left: 31%; bottom: 0; color: #7fdc6a; }
 
-  .pill { height: 30px; min-width: 64px; margin: 2px; padding: 0 10px; }
+  /* the shoulder buttons above the d-pad and the diamond, the triggers outside */
+  .touch .pill { height: 30px; min-width: 64px; margin: 2px; padding: 0 10px; }
   .touch .pill:not(.held) { background: var(--t-fill); }
-  .system { top: var(--edge); right: var(--edge); display: flex; flex-direction: column; gap: 12px; }
+  .shoulders { bottom: calc(var(--edge) + var(--pad) + 16px); width: var(--pad); display: flex; gap: 8px; }
+  .shoulders.left { left: var(--edge); }
+  .shoulders.right { right: var(--edge); }
+  .touch .shoulders .pill { flex: 1; min-width: 0; padding: 0; }
+  .touch :is(.select, .start) { width: 72px; padding: 0; }
+  .touch .select { top: calc(var(--edge) + 60px); left: var(--edge); }
+  .touch .start { top: var(--edge); right: var(--edge); }
 }
 @media (pointer: coarse) and (orientation: portrait) {
   .stage { padding-top: calc(var(--edge) + 60px); }
   .help { top: calc(var(--edge) + 60px); left: var(--edge); width: min(320px, calc(100vw - 2 * var(--edge) - 4px)); max-height: calc(100dvh - 2 * var(--edge) - 64px); }
-  .system { top: auto; right: auto; left: 50%; bottom: calc(var(--edge) + var(--pad) / 2); transform: translate(-50%, 50%); }
+  .touch :is(.select, .start) { top: auto; right: auto; left: 50%; transform: translateX(-50%); }
+  .touch .select { bottom: calc(var(--edge) + var(--pad) / 2 + 6px); }
+  .touch .start { bottom: calc(var(--edge) + var(--pad) / 2 - 40px); }
 }
 
 /* asset viewer */

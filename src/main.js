@@ -14,7 +14,7 @@ import { extractRush, isRush } from './rom/rush.js';
 import { openSa2, isSa2 } from './rom/sa2.js';
 import { readBoostArt } from './rom/sa2boost.js';
 import { trickArt } from './rom/sa2tricks.js';
-import { createInput } from './engine/input.js';
+import { createInput, xboxConnected } from './engine/input.js';
 import { createGame, specialSpringStart } from './engine/game.js';
 import { createSpecialStageRun } from './special/run.js';
 import { createNormalEnding } from './engine/normalending.js';
@@ -63,7 +63,7 @@ function showSetting(button, on) {
 }
 
 // On touch screens the panel is the game's settings, behind a button in the top-left corner as on dreamports.net,
-// and the Game Boy Advance's buttons are drawn around the game. A touch anywhere else closes the settings.
+// and an Xbox controller's buttons are drawn around the game. A touch anywhere else closes the settings.
 const touchScreen = matchMedia('(pointer: coarse)'), portrait = matchMedia('(pointer: coarse) and (orientation: portrait)');
 function showSettings(open) {
   help.hidden = !open;
@@ -75,6 +75,11 @@ stage.addEventListener('pointerdown', e => {
   if (touchScreen.matches && !help.hidden && !help.contains(e.target) && !settingsButton.contains(e.target)) showSettings(false);
 }, true);
 addEventListener('keydown', e => { if (e.code === 'Escape' && touchScreen.matches && !help.hidden) showSettings(false); });
+// the drawn buttons step aside while a real Xbox controller is connected; the settings button stays
+touch.hidden = xboxConnected();
+for (const type of ['gamepadconnected', 'gamepaddisconnected']) {
+  addEventListener(type, () => { touch.hidden = xboxConnected(); fitScreen(); });
+}
 
 // the sound, also M on a keyboard
 function showSound() { showSetting(soundButton, !sound.muted); }
@@ -130,7 +135,6 @@ function setRush(on) {
 function showRush() {
   game?.setRushBoost(rush, rushArt);
   showSetting(rushButton, rush);
-  touch.toggleAttribute('data-rush', rush && !!rushArt);   // the Boost button
 }
 function useRush(buffer) {
   rushArt = extractRush(buffer);
@@ -169,7 +173,6 @@ function setTricks(on) {
 function showTricks() {
   game?.setSa2Tricks(tricks, tricksArt);
   showSetting(tricksButton, tricks);
-  touch.toggleAttribute('data-tricks', tricks && !!tricksArt);   // the Trick button
 }
 tricksButton.addEventListener('click', () => { setTricks(!tricks); screen.focus(); });
 // what the extras from Sonic Advance 2 read from its ROM, and its sound engine's tables
@@ -396,12 +399,12 @@ function pixelScale(fit) {
   return fit * dpr >= 1 ? Math.floor(fit * dpr) / dpr : Math.max(fit, 0.25);
 }
 // the room the game has: the whole window, or on a touch screen held upright what's between the settings button
-// and the buttons below the game, with how much is left under it (`below`)
+// and the drawn buttons below the game, with how much is left under it (`below`)
 function gameRoom() {
   const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
-  if (!portrait.matches || stage.hidden || round) return { vw, vh, below: 0 };
+  if (!portrait.matches || stage.hidden || round || touch.hidden) return { vw, vh, below: 0 };
   const top = parseFloat(getComputedStyle(stage).paddingTop) || 0;
-  const bottom = touch.querySelector('.extras').getBoundingClientRect().top - 16;
+  const bottom = touch.querySelector('.shoulders').getBoundingClientRect().top - 16;
   return { vw, vh: Math.max(SCREEN_H, bottom - top), below: Math.max(0, vh - bottom) };
 }
 // the original screen at the largest sharp scale it fits at; the widescreen view then fills what the room has
@@ -429,7 +432,7 @@ function markCovers() {
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.left < view.right && r.right > view.left && r.top < view.bottom && r.bottom > view.top;
   };
-  for (const group of touch.children) group.classList.toggle('covers', [group, ...group.querySelectorAll('.extras')].some(covers));
+  for (const group of touch.children) group.classList.toggle('covers', covers(group));
 }
 // the players' screens, side by side or one above the other, whichever fits them larger; four in two rows
 function fitScreens() {

@@ -314,7 +314,7 @@ compared with the original in [docs/ROM.md](docs/ROM.md#sonic-advance-2-tricks).
 
 Other controllers that your browser maps to the Xbox layout work the same way. Press a button once after the page loads so the browser notices the controller; on the start screen, a small controller badge lights up while an Xbox controller is connected, and fades and leaves when it's unplugged.
 
-On a phone or tablet, the Game Boy Advance's buttons are drawn around the game, a little see-through: the d-pad bottom left, <kbd>B</kbd> and <kbd>A</kbd> bottom right, and <kbd>Start</kbd> and <kbd>Select</kbd> top right, or between the d-pad and <kbd>B</kbd> with the screen held upright. *Boost* and *Trick* sit above <kbd>B</kbd> and <kbd>A</kbd> while the Rush boost or the tricks are on. Slide your thumb around the d-pad to change direction without lifting it; between two arms holds both. The settings button in the top-left corner opens the help panel's settings, each with its switch, and a touch anywhere else closes them. Held sideways, the game fills the screen's height; held upright, it sits above the buttons. Where the screen is too wide or too square for the buttons to fit beside the game, the ones that cover it let more of it show through.
+On a phone or tablet, an Xbox controller's buttons are drawn around the game, a little see-through, and do what the controller column above says: the d-pad bottom left, <kbd>A</kbd> <kbd>B</kbd> <kbd>X</kbd> <kbd>Y</kbd> bottom right, <kbd>LT</kbd> <kbd>LB</kbd> and <kbd>RB</kbd> <kbd>RT</kbd> above them, and *Select* (<kbd>View</kbd>) under the settings button and *Start* (<kbd>Menu</kbd>) top right, or both between the d-pad and the diamond with the screen held upright. <kbd>Y</kbd>, <kbd>LT</kbd> and <kbd>RT</kbd> have nothing to do yet. Slide your thumb around the d-pad to change direction without lifting it; between two arms holds both. The buttons step aside while an Xbox controller is connected and come back once it's unplugged. The settings button in the top-left corner always stays: it opens the help panel's settings, each with its switch, and a touch anywhere else closes them. Held sideways, the game fills the screen's height; held upright, it sits above the buttons. Where the screen is too wide or too square for the buttons to fit beside the game, the ones that cover it let more of it show through.
 
 With *BUTTON CONFIG.* set to *REVERSE* in the Options menu, jump and attack swap places in the acts, the Moon Zone and the special stages, as on the cartridge: <kbd>X</kbd> (<kbd>B</kbd> on the controller) jumps and <kbd>Z</kbd> or <kbd>Space</kbd> (<kbd>A</kbd>) attacks. The menus, the continue screen and Chao Hunt keep them as they are.
 
@@ -426,7 +426,7 @@ Besides the save, it remembers which extras you've switched on and whether the w
 <summary><b>Can I play on a phone or tablet?</b></summary>
 <br>
 
-Yes, in a current browser. The Game Boy Advance's buttons appear around the game, and the settings are behind the button in the top-left corner; [Controls](#controls) shows where everything is.
+Yes, in a current browser. An Xbox controller's buttons appear around the game, stepping aside while a real one is connected, and the settings are behind the button in the top-left corner; [Controls](#controls) shows where everything is.
 
 On an iPhone or iPad, *Add* opens Files with all your files to choose from, not only ROMs, because iOS doesn't know the `.gba` and `.nds` file types. Choose the ROM there; the page checks which game it is.
 

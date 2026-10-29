@@ -29,6 +29,7 @@ import { createUnlockPopup } from './achievements/popup.js';
 import { createAchievementsPanel } from './achievements/panel.js';
 import { createDialog } from './ui/dialog.js';
 import { holdClocks } from './engine/clock.js';
+import { bindSettingsPad } from './ui/settings-pad.js';
 
 const picker = document.getElementById('picker');
 const stage = document.getElementById('stage');
@@ -79,16 +80,20 @@ function showSettings(open) {
   settingsButton.setAttribute('aria-expanded', String(open));
   holdGame();
 }
-// while the settings, or a dialog opened from them, are open the game waits: its clocks hold (clock.js), its sound
-// stops where it is and what was held is let go, so it goes on from the same frame once they close
-let holding = false;
+// while the settings, or a dialog opened from them, are open, or the start screen is over the game (`behind`), the
+// game waits: its clocks hold (clock.js), its sound stops where it is and what was held is let go, so it goes on
+// from the same frame once they close. Its keys wait too, so the page's own work as they do on any page.
+let holding = false, behind = false, keysWere = false;
+const running = () => !!(front || game || specialStage || round);
 function holdGame() {
-  const on = !stage.hidden && (!help.hidden || !!stage.querySelector('dialog[open]'));
+  const on = behind || (!stage.hidden && (!help.hidden || !!stage.querySelector('dialog[open]')));
   if (on === holding) return;
   holding = on;
   holdClocks(on);
   sound.held = on;
   input.release();
+  if (on) { keysWere = input.enabled; input.enabled = false; }
+  else if (keysWere && running()) input.enabled = true;
 }
 // the settings and the dialogs opened from them take touches as they come
 const inSettings = target => help.contains(target) || !!target.closest?.('dialog');
@@ -106,13 +111,20 @@ stage.addEventListener('pointerdown', e => {
   if (!help.hidden && !help.contains(e.target) && !settingsButton.contains(e.target)) showSettings(false);
 }, true);
 addEventListener('keydown', e => { if (e.code === 'Escape' && !help.hidden && !stage.querySelector('dialog[open]')) showSettings(false); });
+// a controller's Y, or the arrow keys once they are open (settings-pad.js)
+bindSettingsPad(help, {
+  canOpen: () => !stage.hidden,
+  show: showSettings,
+  dialog: () => stage.querySelector('dialog[open]'),
+});
 // the drawn buttons step aside while a controller is connected, looked for each frame as browsers don't all say
 // when one comes (and show one only once a button on it is pressed); the settings button stays
-(function watchPads() {
+// (from the first frame, once the page is set up: a controller the browser already shows needs fitScreen)
+requestAnimationFrame(function watchPads() {
   const on = connectedPads().length > 0;
   if (on !== touch.hidden) { touch.hidden = on; fitScreen(); }
   requestAnimationFrame(watchPads);
-})();
+});
 
 // how solid the drawn buttons are, set in the settings: 20 to 100 %, 60 at first. The settings button and the
 // buttons that cover the game are a step fainter (app.css).
@@ -297,7 +309,10 @@ const setup = createRomSetup(picker, {
         sa1 = { buffer, assets };
         return `${assets.info.region} · ${assets.info.version ? 'tested version' : 'untested version'}`;
       },
-      unload() { sa1 = null; },
+      unload() {
+        sa1 = null;
+        if (behind) { stopAll(); holdGame(); setup.backTo(false); }   // the game waiting behind went with it
+      },
       extras: [{ label: 'Widescreen view', hint: 'See more of the stage', key: 'V', get: () => wide, set: setWide }],
     },
     {
@@ -318,6 +333,7 @@ const setup = createRomSetup(picker, {
       extras: [{ label: 'Rush boost', hint: 'A burst of speed', keys: 'with Shift or L (X on a controller)', key: 'R', get: () => rush, set: setRush, auto: true }],
     },
   ],
+  onBack: () => backToGame(),
   onPlay() {
     sound.load(sa1.buffer, sa1.assets.sound, players).catch(err => console.warn('No sound:', err));
     start(sa1.buffer, sa1.assets);
@@ -335,6 +351,7 @@ showBoostMode();
 showTricks();
 
 function stopAll() {
+  behind = false;
   front?.stop(); front = null;
   specialStage?.stop(); specialStage = null;
   game?.stop(); game = null;
@@ -345,6 +362,7 @@ function stopAll() {
 function start(buffer, assets) {
   stopAll();
   rom = new Rom(buffer);
+  setup.backTo(false);
   picker.hidden = true;
   stage.hidden = false;
   // the extras are single-player options
@@ -459,14 +477,29 @@ function startRound(assets) {
   if (debug) globalThis.onsoku = { round, assets, sound };
 }
 
+// the start screen, over the game, which waits behind it: its way back goes back to the game, and Play starts again
 document.getElementById('change-rom').addEventListener('click', () => {
-  stopAll();
+  showSettings(false);
+  behind = running();
   stage.hidden = true;
   holdGame();
   picker.hidden = false;
+  setup.backTo(behind);
   setup.refresh();
   setup.focus();
 });
+function backToGame() {
+  if (!behind) return false;
+  picker.hidden = true;
+  stage.hidden = false;
+  behind = false;
+  setup.backTo(false);
+  holdGame();
+  fitScreen();
+  screen.focus();
+  return true;
+}
+addEventListener('keydown', e => { if (e.code === 'Escape' && behind && !picker.hidden) backToGame(); });
 
 addEventListener('keydown', e => {
   if (e.code === 'KeyH' && !stage.hidden && !e.repeat) showSettings(help.hidden);

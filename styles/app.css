@@ -305,6 +305,8 @@ button { font: inherit; }
 .help .actions > :first-child, .help .actions > :nth-child(6 of :is(button, a, label)) { border-top: 0; }
 .help .actions :disabled { color: rgba(169, 184, 230, .6); cursor: default; }
 .help .actions .count { color: #a9b8e6; }
+/* the one picked with a controller or the arrow keys, or with Tab */
+.help .actions > .pad-at, .help .actions :is(button, a, input):focus-visible { outline: 2px solid var(--t-held); outline-offset: 2px; }
 .help .actions [aria-pressed]::after {
   content: ""; flex: none; width: 32px; height: 16px; margin: 2px;
   background: linear-gradient(rgba(169, 184, 230, .6), rgba(169, 184, 230, .6)) 2px 2px / 12px 12px no-repeat, #263a66;

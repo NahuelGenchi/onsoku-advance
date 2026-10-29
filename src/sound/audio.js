@@ -10,7 +10,7 @@ export function createSound() {
   let ctx = null, node = null, muted = false, held = false, songPlayers = null, rushSound = null, sa2Sound = null, count = 1;
   const waiting = [];
   const post = msg => (node ? node.port.postMessage(msg) : waiting.push(msg));
-  const resume = () => { if (ctx?.state === 'suspended' && !held) ctx.resume(); };
+  const resume = () => { if (ctx?.state === 'suspended' && !held) ctx.resume().catch(() => {}); };   // closed meanwhile: nothing to resume
   addEventListener('pointerdown', resume);
   addEventListener('keydown', resume);
 
@@ -114,7 +114,7 @@ export function createSound() {
     set muted(value) { muted = value; post({ type: 'gain', value: muted ? 0 : GAIN }); },
     /** Stops the sound where it is while the game is held (its settings are open), and goes on with it after */
     get held() { return held; },
-    set held(value) { held = value; if (held) ctx?.suspend(); else resume(); },
+    set held(value) { held = value; if (held) ctx?.suspend().catch(() => {}); else resume(); },
     /** The page's AudioContext once the engine has started, for sounds of the page's own (the unlock chime) */
     get context() { return ctx; },
   };

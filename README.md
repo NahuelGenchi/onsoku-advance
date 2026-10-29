@@ -330,7 +330,7 @@ Your achievements are kept in this browser for now. Once Dreamports has accounts
 | **Continue screen:** continue, or skip to the next number | <kbd>Z</kbd> or <kbd>Space</kbd>, or <kbd>X</kbd> | <kbd>A</kbd>, or <kbd>B</kbd> or <kbd>X</kbd> |
 | **Select** | <kbd>Backspace</kbd> | <kbd>View</kbd> |
 | Close the achievements or the controls | <kbd>Esc</kbd> | <kbd>B</kbd> |
-| Settings open or closed | <kbd>H</kbd>, <kbd>Esc</kbd> closes them | |
+| Settings open or closed; move between them, pick one | <kbd>H</kbd>, <kbd>Esc</kbd> closes them; arrows, <kbd>Enter</kbd> | <kbd>Y</kbd>, <kbd>B</kbd> closes them; d-pad or left stick, <kbd>A</kbd> |
 | Sound on or off | <kbd>M</kbd> | |
 | Widescreen view on or off | <kbd>V</kbd> | |
 | Rush boost on or off | <kbd>R</kbd> | |
@@ -346,7 +346,7 @@ On a phone or tablet, an Xbox controller's buttons are drawn around the game, pa
 
 With *BUTTON CONFIG.* set to *REVERSE* in the Options menu, jump and attack swap places in the acts, the Moon Zone, the special stages and Chao Hunt, as on the cartridge: <kbd>X</kbd> (<kbd>B</kbd> on the controller) jumps and <kbd>Z</kbd> or <kbd>Space</kbd> (<kbd>A</kbd>) attacks. The menus, the continue screen and Chao Hunt's results screen keep them as they are.
 
-The start screen works with the controller too: the d-pad or left stick moves between its links, buttons and switches, <kbd>A</kbd> presses the one picked, and <kbd>Menu</kbd> starts the game, like <kbd>Enter</kbd> on the keyboard. Browsers open the file list only from the mouse or the keyboard, so add the ROM files that way, or drop them on the page.
+The start screen works with the controller too: the d-pad or left stick moves between its links, buttons and switches, <kbd>A</kbd> presses the one picked, <kbd>Menu</kbd> starts the game, like <kbd>Enter</kbd> on the keyboard, and <kbd>B</kbd> goes back. Opened from *Your ROMs* in the settings, the start screen's back arrow, <kbd>Esc</kbd> or <kbd>B</kbd> goes back to the game where you left it, and *Play* starts a new one. Browsers open the file list only from the mouse or the keyboard, so add the ROM files that way, or drop them on the page.
 
 ## Multiplayer: Chao Hunt
 

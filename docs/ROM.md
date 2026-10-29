@@ -609,7 +609,7 @@ Turning it on or off (<kbd>V</kbd>) re-fits the view at once. It was checked on 
 
 **The screen.** Layer 0 is the background, grey and white checks: its colours, 5 tiles and 32 × 20 map are one block in the ROM (`0x6C5650` in the USA ROM, found by its map's first entries in other versions). On top of it OPTIONS scrolls left along a blue bar at the top, a pixel a frame, and under that come the eight items, 16 lines apart from line 38: PLAYER DATA, LEVEL, TIME UP, SOUND TEST, LANGUAGE, BUTTON CONFIG., DELETE GAME DATA and END. The cursor (animation 857) points at the chosen item, which is drawn 5 px further right, lit (sprite palette row 1) while it is in use. The values are at x 220: LEVEL's NORMAL or EASY, TIME UP's ON or OFF, the language, and BUTTON CONFIG.'s NORMAL or REVERSE. The items and the values are animation 863 in English and 866 in Japanese, and the title 864 or 865, by the save's language. The USA ROM shows the language as variant 10 of that animation, ENGLISH, where the European one shows one of its six languages.
 
-**Choosing.** Up and Down move the cursor, wrapping round at both ends, with the cursor sound (song 108) and the main menu's key repeat. A on LEVEL, TIME UP or BUTTON CONFIG. plays the select sound and lights the item. Left and Right then set it with the cursor sound, straight into the save in memory: Left gives EASY, OFF and NORMAL, Right NORMAL, ON and REVERSE. A or B plays the select sound and puts the item down.
+**Choosing.** Up and Down move the cursor, wrapping round at both ends, with the cursor sound (song 108) and the main menu's key repeat. A on LEVEL, TIME UP or BUTTON CONFIG. plays the select sound and lights the item. Left and Right then set it with the cursor sound, straight into the save in memory: Left gives EASY, OFF and NORMAL, Right NORMAL, ON and REVERSE. A or B plays the select sound and puts the item down. A on SOUND TEST plays the select sound and fades the menu out to black over 32 frames, its music going on. Then `OptionsSelectSoundTest` stops song 3, the character select's music, which isn't playing, so the Options music plays on into the [sound test](#the-sound-test).
 
 **Delete Game Data.** A on it plays the select sound and asks DELETE ALL DATA? (animation 877) over the menu, with NO chosen. Left and Right choose YES or NO with the cursor sound. Window 1 covers the choice, and inside it the brightness goes up by 12 sixteenths (`BLDCNT` `0x3FBF`). A on NO, or B, plays the return sound (song 107) and goes back to the menu. A on YES plays the select sound and asks REALLY?, NO chosen again, and there A on NO or B goes back to the first question. A on YES stops all sound and erases the flash (`sub_8012F6C`). In mGBA that takes one frame with the interrupts off, in which nothing runs and the screen keeps its last frame. On the next frame the save in memory is a new one (`CreateEmptySaveGame`) with the old language kept, the question goes, and the menu plays the select sound and starts its music again.
 
@@ -626,7 +626,7 @@ Turning it on or off (<kbd>V</kbd>) re-fits the view at once. It was checked on 
 
 **Not built yet.**
 
-- *PLAYER DATA, SOUND TEST and LANGUAGE:* A on them does nothing. The original plays the select sound and fades out to their screens.
+- *PLAYER DATA and LANGUAGE:* A on them does nothing. The original plays the select sound and fades out to their screens, as it does for SOUND TEST.
 - *Chao Hunt* doesn't read the button setting.
 
 **How it was checked.** mGBA 0.10.5 recorded two runs from power-on with a save, dumping VRAM, palette RAM, OAM, the display registers and the picture after every frame, and the flash at the end. Two more, with the same keys, dumped the sound engine's state.
@@ -650,6 +650,54 @@ The port matches each enemy recording and each Easy fight on every frame: the cl
 - the Egg Spider's underwater colours, which slip on single frames, and its splash at the surface.
 
 The Egg Snake's run was compared up to the frame it left for X Zone, and Egg X's up to X Zone's results, which the port draws differently (see X Zone's own check).
+
+### The sound test
+
+`CreateSoundTest` and its tasks (`src/game/sa1/ui/sound_test.c`), ported in [`src/front/soundtest.js`](../src/front/soundtest.js). In the USA ROM `CreateSoundTest` is at `0x0805EAB4` and `Task_SoundTestInit` at `0x0805F254`.
+
+**Opening.** A on SOUND TEST in the [Options menu](#the-options-menu) fades the menu out, and the sound test is set up black, with the Options music still playing. Each of the four music players fades out over 16 frames (`m4aMPlayFadeOut`, speed 1), and the screen fades in from black over 32 frames, a sixteenth every second frame. On its second frame `m4aMPlayContinue` lets each player go on, which changes nothing while they fade.
+
+**The screen.** Layer 0 is the background, light and dark green checks with rings, scrolling up and to the left a pixel a frame: UI graphics `0x3D`'s 64 tiles and colours, and a 32 × 32 map `0x703C` bytes before the song list (`0x67CF38` in the USA ROM). Over it are:
+
+- SOUND TEST (animation 871) on a red corner (874);
+- the song's number, from 1, in the UI font's digits (UI graphics 0 from tile 32, in sprite palette row 15) on a star (876);
+- arrows either side of the number (870, variant 2), a pixel further out every 8 frames and back;
+- Amy (853–856) on a stand (875, its left half drawn twice, the second mirrored);
+- A PLAY B EXIT along the bottom (873, and 870's EXIT or STOP).
+
+The star is four quarters turned through the rotation hardware, with matrices 7, 8, 9 and 27.
+
+**The songs.** Left and Right choose a song, wrapping round at both ends, with no sound. Held, they repeat 20 frames after the press and every 9 after that. The list is 42 song numbers in the ROM (`sSoundTestSongIds`, `0x683F74` in the USA ROM, found by its first 17 in other versions), of which the screen offers the first 39, or all 42 once the Moon Zone is cleared (the save's `unk424`):
+
+> 2, 3, 4, 10, 12–24, 42, 6, 11, 28, 48, 49, 50, 29–35, 44, 304, 305, 306, 307, 1, 40, 38, then 26, 36 and 39.
+
+Songs 38, 39 and 40 play on player 1, the rest on player 0.
+
+**Playing.** Amy waves until the 119th frame, then stands. From the 121st frame A plays the chosen song: every player fades out over 16 frames and the song starts in its own player, cutting off what played there. An A between the end of the fade-in and the 121st frame skips the count to the 121st frame and plays the song at once. While a song plays:
+
+- Amy dances: 120 frames to the left (x 164), 5 in the middle, 120 to the right facing left (x 196) and 5 in the middle;
+- the star swells and shrinks with the sine of an angle that goes round in 64 frames, from three quarters of its size to one and a quarter;
+- EXIT turns to STOP.
+
+A again starts the song chosen then.
+
+**Stopping.** B while a song plays fades out the players that are playing, and B does nothing for the next 10 frames. The code fades player 3 for player 2, which never matters: nothing plays on player 2 here. When a player that was playing goes quiet after the 100th frame, because the song ended or was stopped, Amy blows a kiss for 120 frames, then stands. The star finishes its swell, back to its size, and stops.
+
+**Leaving.** From the 121st frame, B with nothing playing plays the return sound (song 107), Amy waves goodbye, and the screen fades out to black over 43 frames. On the next frame its tasks end, and on the one after that the Options menu starts again as it does from the main menu, with its music, the cursor on PLAYER DATA.
+
+**Reading the players.** The screen reads the four music players' status every frame, to tell whether a song plays. In Sonic Advance Dreamport the sound engine runs on its own thread, so the screen keeps a copy of the engine on the game's thread. The copy gets the same calls and runs a frame as the game's frame starts, as `SoundMain` does at the top of `EngineMainLoop`. It starts with nothing playing. The game's players aren't empty then, since the Options music still plays, but their fade-outs empty them by the 16th frame. Nothing reads them before the 32nd: until the fade-in has finished A starts no song, and Amy's kiss and the STOP need the 101st and 121st frames.
+
+**The first frame.** `CreateSoundTest` turns the star's quarters (`TransformSprite`) before they have a frame. `TransformSprite` then reads the frame's size from whatever an earlier screen left in the sprites' memory. On the way from the Options menu that puts the quarters far off the screen (22328, −5626 in mGBA), so on that frame, a black one, only their matrices count. The port writes the matrices and leaves the quarters out of the frame.
+
+**How it was checked.** mGBA 0.10.5 recorded three runs of the USA ROM from power-on with a save. Each dumped VRAM, palette RAM, OAM, the display registers, the picture, IWRAM and the music players' memory after every frame. Start on 800 skips the intro, Start on 960 opens the main menu, A on Options on 1080, and Down three times and A on SOUND TEST on 1240. The sound test is set up on frame 1272, so its 60th frame is 1332.
+
+- *Run A:* B and A in the fade-in, which do nothing, then A on the 60th frame, which plays song 1 at once. Left round to 39 (song 38) and A, Right round to 1 and A, Left and A again, B to stop and B again in the rest. Right held for 100 frames, A, Right while it plays and B. A and B together, then B to leave, and B in the Options menu back to the main menu.
+- *Run B:* the save with `unk424` set: Left round to 42 (song 39), A, Right twice, B to stop and B to leave.
+- *Run C:* the Options menu and B back to the main menu, without the sound test.
+
+The engine's VRAM, palette RAM, OAM, display registers and picture match the recording's on every frame from the sound test's first to the end of runs A and B. The exceptions are the main menu's first two frames back from the Options menu (see [The Options menu](#the-options-menu)), which run C shows without the sound test. From the 16th frame on, the screen's own state matches mGBA's IWRAM on every frame: its frame count, the song, whether one plays, the players it saw playing, B's rest and the fade. So does every player's status. On the first 16 frames the copy of the engine differs only in player 0's status, the Options music fading out, and the screen's record of it. Before the sound test, some of the sprites' tiles differ from the title screen on (341 bytes from `0x180` in the menus), the same as before this screen was built. Nothing draws them: they are left from the intro, which these runs skip earlier (frame 800) than the Options menu's did. Which songs sound, and how, was read in the code and the players' status, not compared with mGBA's audio.
+
+In Chrome 156 and Firefox 159 (headless, a new profile each), the page played run A's keys from power-on with the same save stored. At five frames, the waving, song 1, the kiss after 39, the menu back and the main menu, both browsers drew the screen pixel for pixel as mGBA did, and neither console showed an error from the game.
 
 ### Title card
 
@@ -714,7 +762,7 @@ Sonic Advance keeps one save, `struct SaveGame` (`src/game/sa1/save.c`, and `Cre
 | `0x020` | `timeRecords` | the three best course times by character and level, 36000 (10:00) when none |
 | `0x380` | `multiplayerScores[10]` | 16 bytes each: a player id, a name, wins, losses and draws |
 | `0x420` | `unk420` | a best score, 50000 in a new save |
-| `0x424` | `unk424` | 1 once the Moon Zone is cleared |
+| `0x424` | `unk424` | 1 once the Moon Zone is cleared, which adds three songs to the [sound test](#the-sound-test) |
 | `0x428` | `score` | the rings every act's results have counted, which the Tiny Chao Garden spends |
 | `0x42C` | `checksum` | the sum of the 32-bit words before it |
 
@@ -1047,10 +1095,11 @@ SA1 uses Nintendo's standard sound engine, MusicPlayer2000 (also called m4a or "
 | Intro | 1 | 0 | The intro starts; it stops when the intro is skipped, and otherwise ends on its own on the title screen |
 | SEGA's ring | 102 | 3 | Sonic Team's logo has closed up |
 | Title screen | 2 | 0 | The title screen opens after the logos' fade or the intro is skipped |
-| Select | 106 | 2 | Start on the title screen, A on Game Start or Options; in the Options menu, A on a setting, on Delete Game Data or on END, A or B putting a setting down, A on YES, and the menu again after the delete |
+| Select | 106 | 2 | Start on the title screen, A on Game Start or Options; in the Options menu, A on a setting, on Delete Game Data, on SOUND TEST or on END, A or B putting a setting down, A on YES, and the menu again after the delete |
 | Menu cursor | 108 | 2 | Up or Down in the main menu and the Options menu, and each repeat; Left or Right on a setting or a question |
-| Options | 11 | 0 | The Options menu opens, and starts again after Delete Game Data |
-| Return | 107 | 2 | B or END in the Options menu, and A on NO or B at its questions |
+| Options | 11 | 0 | The Options menu opens, again after Delete Game Data, and again back from the sound test |
+| Return | 107 | 2 | B or END in the Options menu, A on NO or B at its questions, and B leaving the sound test |
+| The sound test's songs | its list | 0, 1 | A in the [sound test](#the-sound-test) |
 | Boss fight | 29 | 0 | Started and stopped at once as Game Start or Options leaves the menu, which stops the title's music |
 | Neo Green Hill Zone act 1 | 12 | 0 | The act starts, and starts over after a life is lost |
 | Neo Green Hill Zone act 2 | 13 | 0 | Act 2 starts, and starts over |

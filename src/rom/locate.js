@@ -140,10 +140,31 @@ export function findOptionsBackground(rom) {
   return null;
 }
 
+// the sound test's songs (sSoundTestSongIds): 42 song numbers, the first 17 of them 2, 3, 4, 10 and 12 to 24; its
+// background's map (gUnknown_0868403C) is 0x703C bytes before them: 32 × 32 entries of its 64 tiles, which load a
+// tile in, so tiles 1 to 64, unflipped, in palette row 0
+const SOUND_TEST_FIRST_SONGS = [2, 3, 4, 10, ...Array.from({ length: 13 }, (_, i) => 12 + i)];
+const SOUND_TEST_MAP_BEFORE = 0x703C, SOUND_TEST_MAP_ENTRIES = 32 * 32, SOUND_TEST_TILE_COUNT = 64;
+
+/** The sound test's song list and its background's map, or nulls. */
+export function findSoundTest(rom) {
+  for (let at = SOUND_TEST_MAP_BEFORE; at + SOUND_TEST_FIRST_SONGS.length * 2 <= rom.size; at += 4) {
+    if (!SOUND_TEST_FIRST_SONGS.every((n, i) => rom.u16(at + i * 2) === n)) continue;
+    const map = at - SOUND_TEST_MAP_BEFORE;
+    for (let i = 0; i < SOUND_TEST_MAP_ENTRIES; i++) {
+      const v = rom.u16(map + i * 2);
+      if (v === 0 || v > SOUND_TEST_TILE_COUNT) return { songs: at, map: null };
+    }
+    return { songs: at, map };
+  }
+  return { songs: null, map: null };
+}
+
 /** Offsets for this ROM: the known ones when the checksum matches, otherwise a search. */
 export function locateTables(rom, known) {
   if (known) return { ...known.offsets, searched: false };
   const tilemaps = findTilemaps(rom), collision = findCollision(rom, tilemaps), interactables = findInteractables(rom);
+  const soundTest = findSoundTest(rom);
   const offsets = {
     spriteTables: findSpriteTables(rom),
     tilemaps, collision,
@@ -169,6 +190,8 @@ export function locateTables(rom, known) {
     specialIntro: findSpecialIntro(rom),
     specialClouds: findSpecialClouds(rom),
     optionsBackground: findOptionsBackground(rom),
+    soundTestSongs: soundTest.songs,
+    soundTestBackground: soundTest.map,
   };
   const missing = Object.entries(offsets).filter(([, v]) => v === null).map(([k]) => k);
   // only the multiplayer stages need it

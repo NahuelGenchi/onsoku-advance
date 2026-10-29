@@ -34,6 +34,8 @@ export const KNOWN_VERSIONS = [
       credits: 0x6815B4,
       emeraldMessage: 0x6C5650,
       optionsBackground: 0x6C5650,
+      soundTestSongs: 0x683F74,
+      soundTestBackground: 0x67CF38,
     },
   },
 ];

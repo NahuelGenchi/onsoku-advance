@@ -3,6 +3,8 @@
 // frame it is shown puts its frame's OAM pieces into the engine's OAM, flipped, placed and given its tiles,
 // palette, priority and order. The scripts and frames are the ROM's sprite tables (rom/sprites.js).
 
+import { SINE } from '../engine/trig.js';
+
 const OBJ_SIZES = [[8, 8], [16, 16], [32, 32], [64, 64], [16, 8], [32, 8], [32, 16], [64, 32], [8, 16], [8, 32], [16, 32], [32, 64]];
 export const SPRITE = {
   ROT_SCALE: 0x1F, ROT_SCALE_ENABLE: 0x20, DOUBLE_SIZE: 0x40, OBJ_MODE: 0x180, X_FLIP: 0x400, Y_FLIP: 0x800,
@@ -107,6 +109,39 @@ function command(e, tables, s, at, background) {
     case -12: s.animCursor += 2; s.oamFlags = (rom.u32(at + 4) << 6) & 0xFFFF; return RUNNING;
     default: throw new Error(`Unknown animation command ${id}.`);
   }
+}
+
+/**
+ * TransformSprite's rotation matrix: `tf` = { rotation (0–1023 a turn), qScaleX, qScaleY (8.8) } into the sprite's
+ * affine parameters (its frameFlags' ROT_SCALE) in the OAM buffer.
+ */
+export function rotateSprite(e, s, tf) {
+  const angle = tf.rotation & 1023, cos = SINE[angle + 256] >> 6, sin = SINE[angle] >> 6;
+  const index = s.frameFlags & SPRITE.ROT_SCALE;
+  const put = (k, v) => { e.oamBuffer[(index * 4 + k) * 4 + 3] = v & 0xFFFF; };
+  const rx = s16(Math.trunc(0x10000 / s16(tf.qScaleX))), ry = s16(Math.trunc(0x10000 / s16(tf.qScaleY)));
+  put(0, (cos * rx) >> 8);
+  put(1, (sin * rx) >> 8);
+  put(2, (-sin * ry) >> 8);
+  put(3, (cos * ry) >> 8);
+}
+
+/**
+ * TransformSprite: `tf` = { rotation, qScaleX, qScaleY, x, y } as the sprite's rotation matrix (rotateSprite), and the
+ * sprite placed so that its frame's anchor stays at (x, y) once turned and scaled. It reads the frame the sprite last
+ * showed; without one it does nothing.
+ */
+export function transformSprite(e, s, tf) {
+  if (s.dimensions === -1) return;
+  rotateSprite(e, s, tf);
+  const rom = e.rom, d = s.dimensions;
+  const w = rom.u16(d + 4), h = rom.u16(d + 6), offsetX = rom.s16(d + 8), offsetY = rom.s16(d + 10);
+  const angle = tf.rotation & 1023, cos = SINE[angle + 256] >> 6, sin = SINE[angle] >> 6;
+  const kx = Math.abs(s16(tf.qScaleX)), ky = Math.abs(s16(tf.qScaleY));
+  const u0 = s16((cos * kx) >> 8), u1 = s16((-sin * kx) >> 8), u2 = s16((sin * ky) >> 8), u3 = s16((cos * ky) >> 8);
+  const ax = (tf.qScaleX > 0 ? offsetX : w - offsetX) - (w >> 1), ay = (tf.qScaleY > 0 ? offsetY : h - offsetY) - (h >> 1);
+  s.x = s16(tf.x - ((u0 * ax + u1 * ay + ((w >> 1) << 8)) >> 8));
+  s.y = s16(tf.y - ((u2 * ax + u3 * ay + ((h >> 1) << 8)) >> 8));
 }
 
 /**

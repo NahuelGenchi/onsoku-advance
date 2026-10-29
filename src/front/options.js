@@ -15,8 +15,10 @@
 // decompilation's European one shows one of its six languages. Its save has no byte for those, so its last two
 // settings are a byte earlier (engine/save.js).
 //
-// What isn't built yet goes nowhere: A on PLAYER DATA, SOUND TEST or LANGUAGE does nothing, where the original
-// fades out to their screens (CreatePlayerDataMenu, CreateSoundTest and the language screen).
+// A on SOUND TEST fades the menu out to black over 32 frames, the music going on, and opens the sound test
+// (soundtest.js), which comes back to the menu with the cursor on PLAYER DATA. What isn't built yet goes nowhere:
+// A on PLAYER DATA or LANGUAGE does nothing, where the original fades out to their screens the same way
+// (CreatePlayerDataMenu and the language screen).
 
 import { createSprite, updateSprite, displaySprite } from '../gba/sprite.js';
 import { KEY } from '../gba/engine.js';
@@ -24,13 +26,16 @@ import { SONG } from '../sound/songs.js';
 import { WRITE_FRAMES, ERASE_FRAMES } from '../engine/save.js';
 import { createUiTask, uiGfxStackInit, loadUiGfx, createFade, fadeStep } from './ui.js';
 import { createMainMenu } from './title.js';
+import { createSoundTest } from './soundtest.js';
 
 // by the save's language (0 Japanese, 1 English): the items' and values' animation, and the scrolling title's
 const ANIM_ITEMS = [866, 863], ANIM_TITLE = [865, 864];
 const ANIM_CURSOR = 857, ANIM_BAR = 867, ANIM_PROMPT = 877, ANIM_COLOURS = 863;
 const ITEMS = 8;
-// PLAYER DATA (0), SOUND TEST (3) and LANGUAGE (4) are the items whose screens aren't built
-const LEVEL = 1, TIME_UP = 2, BUTTON_CONFIG = 5, DELETE = 6, END = 7;
+// PLAYER DATA (0) and LANGUAGE (4) are the items whose screens aren't built
+const LEVEL = 1, TIME_UP = 2, SOUND_TEST = 3, BUTTON_CONFIG = 5, DELETE = 6, END = 7;
+// the items whose screens the menu fades out before: PLAYER DATA, SOUND TEST and LANGUAGE
+const FADES_OUT = new Set([0, SOUND_TEST, 4]);
 const ITEM_TILES = [0x1A, 0x0C, 0x10, 0x18, 0x14, 0x1E, 0x24, 0x08];
 // the values' variants: LEVEL by difficultyLevel (NORMAL, EASY), TIME UP by timeLimitDisabled (ON, OFF), BUTTON
 // CONFIG. by btnConfig (NORMAL, REVERSE), and the USA's language (ENGLISH)
@@ -109,8 +114,9 @@ export function createOptionsMenu(ctx) {
   e.playSong(SONG.OPTIONS);
 }
 
-// Task_OptionsMenuMain: once the fade has come in, Up and Down choose and A picks; B ends the menu. The original
-// fades out before PLAYER DATA's, SOUND TEST's and LANGUAGE's screens, which aren't built: A does nothing there.
+// Task_OptionsMenuMain: once the fade has come in, Up and Down choose and A picks; B ends the menu. A on SOUND
+// TEST fades the menu out first, and the sound test opens once it is black. PLAYER DATA's and LANGUAGE's screens,
+// which the original fades out to the same way, aren't built: A does nothing there.
 function chooseItem(t) {
   const menu = t.data, e = menu.ctx.engine, fade = menu.fade;
   menu.state = 0;
@@ -127,14 +133,23 @@ function chooseItem(t) {
       }
       if (e.pressed & KEY.A && PICK[menu.cursor]) {
         e.playSong(SONG.SELECT);
-        menu.state = 1;
-        PICK[menu.cursor](t);
-        return;
+        if (FADES_OUT.has(menu.cursor)) {
+          fade.unk4 = 1;
+          fade.unk6 = 0;
+        } else {
+          menu.state = 1;
+          PICK[menu.cursor](t);
+          return;
+        }
       } else if (!(e.pressed & KEY.A) && e.pressed & KEY.B) {
         e.playSong(SONG.RETURN);
         pickEnd(t);
         return;
       }
+    } else if (FADES_OUT.has(menu.cursor)) {
+      menu.state = 1;
+      PICK[menu.cursor](t);
+      return;
     }
   }
   drawMenu(menu);
@@ -206,6 +221,15 @@ const setButtons = setting('btnConfig', 0, 1);
 
 // OptionsSelectDifficulty, OptionsSelectTimeUp and OptionsSelectButtonConfig
 const pickSetting = task => t => { t.main = task; drawMenu(t.data); };
+
+// OptionsSelectSoundTest: once the menu is black, the character select's music stopped (song 3, which isn't
+// playing: the menu's own goes on until the sound test fades it out), and the sound test
+function pickSoundTest(t) {
+  const { ctx } = t.data, e = ctx.engine;
+  e.stopSong(SONG.CHARACTER_SELECTION);
+  e.destroyTask(t);
+  createSoundTest(ctx);
+}
 
 // OptionsSelectDeleteGameData: DELETE ALL DATA? from the next frame, NO chosen, and the window over NO brightened
 function pickDelete(t) {
@@ -345,6 +369,6 @@ function freeMenu(t) {
 
 // sOptionsSelectFuncs, for the items built
 const PICK = {
-  [LEVEL]: pickSetting(setLevel), [TIME_UP]: pickSetting(setTimeUp), [BUTTON_CONFIG]: pickSetting(setButtons),
-  [DELETE]: pickDelete, [END]: pickEnd,
+  [LEVEL]: pickSetting(setLevel), [TIME_UP]: pickSetting(setTimeUp), [SOUND_TEST]: pickSoundTest,
+  [BUTTON_CONFIG]: pickSetting(setButtons), [DELETE]: pickDelete, [END]: pickEnd,
 };

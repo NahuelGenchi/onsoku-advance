@@ -4,10 +4,10 @@
 import { connectedPads } from '../engine/input.js';
 
 const DEAD_ZONE = 0.5;
-const BUTTONS = { a: 0, b: 1, y: 3, menu: 9, up: 12, down: 13, left: 14, right: 15 };
+const BUTTONS = { a: 0, b: 1, menu: 9, up: 12, down: 13, left: 14, right: 15 };
 export const REPEAT_AFTER = 380, REPEAT_EVERY = 130;   // ms: a held direction moves again, then keeps moving
 
-/** What the connected pads hold, as a set of 'a', 'b', 'y', 'menu', 'up', 'down', 'left' and 'right'. */
+/** What the connected pads hold, as a set of 'a', 'b', 'menu', 'up', 'down', 'left' and 'right'. */
 export function padsHeld(pads = connectedPads()) {
   const now = new Set();
   for (const pad of pads) {

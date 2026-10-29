@@ -194,6 +194,8 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
       el.addEventListener('contextmenu', e => e.preventDefault());
     }
     for (const pad of root.querySelectorAll('[data-pad]')) bindPad(pad);
+    // iOS brings up its magnifier on a finger held down unless the touch itself is cancelled
+    root.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
   };
 
   // the d-pad: the direction from its middle to the finger, two at once on a diagonal, as a real one presses two.

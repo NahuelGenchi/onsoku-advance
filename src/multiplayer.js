@@ -15,10 +15,10 @@ import { createClock } from './engine/clock.js';
 export const DEFAULT_SEED = 0x16AF, DEFAULT_CHAO_PLACE = 2;
 
 /**
- * Starts a round for `count` players on `assets`' multiplayer stage, a screen for each in `container`.
- * Returns { gbas, link, stop }.
+ * Starts a round for `count` players on `assets`' multiplayer stage, a screen for each in `container`. Every
+ * GBA's save has `language` (uiLanguage: 0 Japanese, 1 English), this page's. Returns { gbas, link, stop }.
  */
-export function startMultiplayer({ container, assets, count, sound, seed = DEFAULT_SEED, chaoPlace = DEFAULT_CHAO_PLACE }) {
+export function startMultiplayer({ container, assets, count, sound, seed = DEFAULT_SEED, chaoPlace = DEFAULT_CHAO_PLACE, language = 1 }) {
   const link = createLink(count);
   const gbas = [];
   container.replaceChildren();
@@ -36,7 +36,7 @@ export function startMultiplayer({ container, assets, count, sound, seed = DEFAU
       link, id, count, stage: assets.stage, anims: assets.sprites.anims, seed, chaoPlace,
       // the round over, the results screen takes the place of the stage
       onResults(mp) {
-        gba.screen = createResultsScreen({ canvas, assets, link, id, count, ranks: mp.ranks.slice(), sound: gbaSound, input });
+        gba.screen = createResultsScreen({ canvas, assets, link, id, count, ranks: mp.ranks.slice(), sound: gbaSound, input, language });
       },
     });
     gba.game = createGame(canvas, assets, input, gbaSound, { mode });

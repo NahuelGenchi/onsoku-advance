@@ -1,10 +1,10 @@
 // The multiplayer round's results screen, for one GBA of the link (SAT-R decompilation,
 // src/game/sa1/multiplayer/chao_message.c, CreateMultiplayerResultsScreen(1)): a strip for each player,
-// sliding in from alternate sides out of white, with a Chao and a message for how the player did, the
-// winner's, the loser's or the draw music, and a sound 45 frames in. It holds until a player presses A, or
-// 30 seconds, and every GBA follows the first to press it (a packet of kind 0xB0); then the strips slide
-// out and the screen whitens. The players' names on the strips come from the save data, which this game
-// doesn't have, and the continue screen that follows isn't built (`onDone`).
+// sliding in from alternate sides out of white, with a Chao and a message (in the save's language) for how
+// the player did, the winner's, the loser's or the draw music, and a sound 45 frames in. It holds until a
+// player presses A, or 30 seconds, and every GBA follows the first to press it (a packet of kind 0xB0); then
+// the strips slide out and the screen whitens. The players' names on the strips come from the save data,
+// which this game doesn't have, and the continue screen that follows isn't built (`onDone`).
 
 import { SONG } from '../sound/songs.js';
 import { makeSprite, animate } from './objects.js';
@@ -37,9 +37,9 @@ function outcome(ranks, count, id) {
 
 /**
  * GBA `id`'s results screen, drawn on `canvas`. `ranks` are the round's (gMultiplayerRanks), `input` this
- * GBA's buttons.
+ * GBA's buttons and `language` its save's (uiLanguage: 0 Japanese, 1 English).
  */
-export function createResultsScreen({ canvas, assets, link, id, count, ranks, sound, input, onDone }) {
+export function createResultsScreen({ canvas, assets, link, id, count, ranks, sound, input, language = 1, onDone }) {
   const { atlas, frames, anims } = assets.sprites, { background, backdrop } = assets.results;
   const g = canvas.getContext('2d');
   const top = count === 2 ? 40 : count === 3 ? 20 : 0;      // unk50
@@ -47,7 +47,8 @@ export function createResultsScreen({ canvas, assets, link, id, count, ranks, so
   const { chao, msg, result } = outcome(ranks, count, id);
   const sprites = [];
   for (let i = 0; i < count; i++) {
-    const c = makeSprite(`resultChao${chao[i]}`, { order: 16, prio: 3 }), m = makeSprite(`resultMessage${msg[i]}`, { order: 16, prio: 3 });
+    const c = makeSprite(`resultChao${chao[i]}`, { order: 16, prio: 3 });
+    const m = makeSprite(`resultMessage${language ? '' : 'Japanese'}${msg[i]}`, { order: 16, prio: 3 });
     sprites.push({ s: c, x: 45, y: i * STRIP + 2, i }, { s: m, x: 169, y: i * STRIP + 20, i });
   }
   const send = link.send(id);

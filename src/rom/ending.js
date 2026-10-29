@@ -11,11 +11,12 @@ import { animationFrames, renderFrame } from './sprites.js';
 export const ENDING_SPRITES = {
   // the twinkles over the night scene (731), the sparkle that crosses the sky (732), Tails in the Tornado's
   // cockpit (805 variant 1) and turning his head (191), the Tornado from the side and then from the front
-  // (736, 735), the four clouds (790–793) and "A few days later" (783)
+  // (736, 735), the four clouds (790–793) and "A few days later" (783, or 786 in Japanese)
   twinkle: [731, 0], skySparkle: [732, 0], tailsFace: [805, 1], tailsTurn: [191, 0], tailsTurned: [191, 1],
   tornadoSide: [736, 0], tornadoFront: [735, 0],
   // (the four clouds share a sprite palette row, and the last of them loads 790's colours over 792's)
-  cloudXS: [790, 0], cloudS: [791, 0], cloudM: [792, 0, 790], cloudL: [793, 0], fewDaysLater: [783, 0],
+  cloudXS: [790, 0], cloudS: [791, 0], cloudM: [792, 0, 790], cloudL: [793, 0],
+  fewDaysLater: [783, 0], fewDaysLaterJapanese: [786, 0],
   // the last pictures (733, 734) and the three congratulation lines over the last (785)
   artA0: [733, 0], artA1: [733, 1], artB0: [734, 0], artB1: [734, 1],
   congrats0: [785, 0], congrats1: [785, 1], congrats2: [785, 2],

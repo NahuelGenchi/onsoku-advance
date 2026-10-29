@@ -385,7 +385,8 @@ const YELLOW_SPRING_PALETTE = 36;
 // when it jumps to another player and landing, hovering, facing the player, turning, sitting), the HUD's Chao
 // counter (606) and clock digits (905: 0–9 and ':', then the same in red), the round's result over each
 // player (902: win, lose, draw), the confusion bubble (794), the arrow toward an opponent off screen (767),
-// and the results screen's Chao (885) and messages (883), each in the variants the round can end with
+// and the results screen's Chao (885) and messages (883, or 897 in Japanese), each in the variants the round
+// can end with
 export const MULTIPLAYER_ANIMATIONS = {
   mysteryBox: [705, 0], icon13: [706, 13], icon14: [706, 14], icon16: [706, 16],
   chaoShocked: [698, 0], chaoLand: [698, 2], chaoHover: [699, 0], chaoFront: [700, 0], chaoDiagonalL: [701, 0],
@@ -394,7 +395,8 @@ export const MULTIPLAYER_ANIMATIONS = {
   ...Object.fromEntries(Array.from({ length: 22 }, (_, v) => [`mpDigit${v}`, [905, v]])),
   vsWin: [902, 0], vsLose: [902, 1], vsDraw: [902, 2],
   confusion: [794, 0], indicator: [767, 0],
-  ...Object.fromEntries([2, 3, 4].flatMap(v => [[`resultChao${v}`, [885, v]], [`resultMessage${v}`, [883, v]]])),
+  ...Object.fromEntries([2, 3, 4].flatMap(v => [[`resultChao${v}`, [885, v]], [`resultMessage${v}`, [883, v]],
+    [`resultMessageJapanese${v}`, [897, v]]])),
 };
 // the Chao counter and the arrows skip their animations' palettes (sprite flag 18) and are drawn in the OBJ
 // palette slot of their player's character, so with everyone Sonic in Sonic's

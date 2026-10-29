@@ -180,7 +180,7 @@ export function createExtraStage(canvas, assets, buttons, sound = SILENT, { stag
       const written = save.write();
       if (!stage.extra.ending) { onCredits(); return; }
       const results = r => { saveActCleared(save, { ...r, startLevel }); stageResults?.(r); };
-      state.ending = createTrueEnding(anims, sound, { rings: state.ringCount, courseTime: state.courseTime, stageResults: results, onCredits });
+      state.ending = createTrueEnding(anims, sound, { rings: state.ringCount, courseTime: state.courseTime, language: save.uiLanguage, stageResults: results, onCredits });
       state.saving = written ? SAVE_FRAMES : SAVE_FRAMES - WRITE_FRAMES;
     },
   };

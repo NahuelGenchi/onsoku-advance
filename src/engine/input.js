@@ -150,14 +150,55 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
   addEventListener('blur', input.release);
   document.addEventListener('visibilitychange', () => { if (document.hidden) input.release(); });
 
-  /** On-screen buttons: any element with data-button="left|right|up|down|jump|attack|boost|trick". */
+  /**
+   * On-screen buttons: any element with data-button="left|right|up|down|jump|attack|boost|trick|start|select",
+   * marked `held` while a finger is on it, and a d-pad (data-pad) whose directions follow the finger as it slides.
+   */
   input.bindTouch = root => {
     for (const el of root.querySelectorAll('[data-button]')) {
       const button = el.dataset.button;
-      el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); input.press(button, true); });
-      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(type, () => input.press(button, false));
+      const hold = down => { el.classList.toggle('held', down); input.press(button, down); };
+      el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); hold(true); });
+      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(type, () => hold(false));
       el.addEventListener('contextmenu', e => e.preventDefault());
     }
+    for (const pad of root.querySelectorAll('[data-pad]')) bindPad(pad);
   };
+
+  // the d-pad: the direction from its middle to the finger, two at once on a diagonal, as a real one presses two.
+  // The straight ways are 60° wide and the diagonals 30°, so running doesn't roll or look up by a slip of the
+  // finger; the very middle holds nothing. It marks the ways held in data-held.
+  function bindPad(pad) {
+    let finger = null, held = [];
+    const hold = ways => {
+      for (const way of held) if (!ways.includes(way)) input.press(way, false);
+      for (const way of ways) if (!held.includes(way) || !input[way]) input.press(way, true);   // again after a release
+      held = ways;
+      pad.dataset.held = ways.join(' ');
+    };
+    const follow = e => {
+      const r = pad.getBoundingClientRect();
+      const x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);
+      if (Math.hypot(x, y) < r.width * 0.1) return hold([]);
+      const a = Math.atan2(y, x) * 180 / Math.PI;   // 0 is right, 90 down
+      const ways = [];
+      if (Math.abs(a) < 60) ways.push('right');
+      if (Math.abs(a) > 120) ways.push('left');
+      if (a > 30 && a < 150) ways.push('down');
+      if (a < -30 && a > -150) ways.push('up');
+      hold(ways);
+    };
+    pad.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      pad.setPointerCapture(e.pointerId);
+      finger = e.pointerId;
+      follow(e);
+    });
+    pad.addEventListener('pointermove', e => { if (e.pointerId === finger) follow(e); });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      pad.addEventListener(type, e => { if (e.pointerId === finger) { finger = null; hold([]); } });
+    }
+    pad.addEventListener('contextmenu', e => e.preventDefault());
+  }
   return input;
 }

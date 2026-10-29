@@ -2,7 +2,7 @@
 // a Dreamports account (NahuelGenchi/dreamports#16). Each new unlock is also handed to the Dreamports script's
 // unlock(id) when the page has it.
 
-import { ACHIEVEMENTS, achievement } from './list.js';
+import { ACHIEVEMENTS, achievement, statusOf } from './list.js';
 
 const KEY = 'onsoku.achievements';
 
@@ -16,24 +16,31 @@ function read() {
 }
 
 /**
- * Returns { unlock(id), earned(id), list(), onUnlock(fn) }: unlock earns `id` once, and returns the achievement
- * if it is new (else null); earned says when it was earned (ms since the epoch) or null; list gives every
- * achievement with its `earned`; onUnlock calls `fn(achievement)` on each new one.
+ * Returns { unlock(id), earned(id), list(), status(), onUnlock(fn), onStatus(fn) }: unlock earns `id` once, and
+ * returns the achievement if it is new (else null); earned says when it was earned (ms since the epoch) or null;
+ * list gives every achievement with its `earned`; status is the game's, 'beaten', 'mastered' or null (list.js);
+ * onUnlock calls `fn(achievement)` on each new one, and onStatus `fn(status)` when an unlock changes the status.
  */
 export function openAchievements() {
-  const earnedAt = read(), listeners = [];
+  const earnedAt = read(), listeners = [], statusListeners = [];
+  const status = () => statusOf(id => !!earnedAt[id]);
   return {
     unlock(id) {
       const a = achievement(id);
       if (!a || earnedAt[id]) return null;
+      const before = status();
       earnedAt[id] = Date.now();
       try { localStorage.setItem(KEY, JSON.stringify(earnedAt)); } catch { /* kept for this visit only */ }
       try { globalThis.dreamports?.unlock?.(id); } catch (err) { console.warn('Dreamports unlock:', err); }
       for (const fn of listeners) fn(a);
+      const after = status();
+      if (after !== before) for (const fn of statusListeners) fn(after);
       return a;
     },
     earned: id => earnedAt[id] ?? null,
     list: () => ACHIEVEMENTS.map(a => ({ ...a, earned: earnedAt[a.id] ?? null })),
+    status,
     onUnlock(fn) { listeners.push(fn); },
+    onStatus(fn) { statusListeners.push(fn); },
   };
 }

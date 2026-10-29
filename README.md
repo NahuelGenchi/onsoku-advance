@@ -294,28 +294,44 @@ compared with the original in [docs/ROM.md](docs/ROM.md#sonic-advance-2-tricks).
 
 Earn achievements as you play. When you earn one, a small popup drops in at the top right of the game, the way RetroAchievements' do, and unfolds to show a gold trophy and the achievement's name in pixel art, with a short chime (off while the sound is). It's dark or light to match your Dreamports look, or your device's when you haven't picked one. Open *Achievements* in the settings to see them all, with the date you earned each one.
 
-| Achievement | How to earn it |
-| :--- | :--- |
-| Hundred Rings | Hold 100 rings at once |
-| Ring Hoarder | Hold 200 rings at once |
-| Neo Green Hill | Clear Neo Green Hill Zone |
-| Secret Base | Clear Secret Base Zone |
-| Casino Paradise | Clear Casino Paradise Zone |
-| Ice Mountain | Clear Ice Mountain Zone |
-| Angel Island | Clear Angel Island Zone |
-| Egg Rocket | Clear Egg Rocket Zone |
-| Cosmic Angel | Clear Cosmic Angel Zone |
-| Egg X Down | Clear the X Zone |
-| Super Sonic | Beat the Super Egg Robo on the Moon |
-| First Emerald | Win a Chaos Emerald in a special stage |
-| Seven Emeralds | Hold all 7 Chaos Emeralds |
-| Untouched | Beat a boss without being hit |
-| Not a Scratch | Clear an act without being hit |
-| Under a Minute | Clear an act in under 1:00 |
-| Life Collector | Have 10 lives |
-| Two Tails | Clear the X Zone as Tails |
-| Guardian | Clear the X Zone as Knuckles |
-| Chao Hunter | Win a Chao Hunt |
+| Achievement | How to earn it | Beaten |
+| :--- | :--- | :---: |
+| Hundred Rings | Hold 100 rings at once |  |
+| Ring Hoarder | Hold 200 rings at once |  |
+| Neo Green Hill | Clear Neo Green Hill Zone | ✓ |
+| Secret Base | Clear Secret Base Zone | ✓ |
+| Casino Paradise | Clear Casino Paradise Zone | ✓ |
+| Ice Mountain | Clear Ice Mountain Zone | ✓ |
+| Angel Island | Clear Angel Island Zone | ✓ |
+| Egg Rocket | Clear Egg Rocket Zone | ✓ |
+| Cosmic Angel | Clear Cosmic Angel Zone | ✓ |
+| Egg Wrecker | Beat Egg Wrecker in the X Zone |  |
+| Egg Drillster | Beat Egg Drillster in the X Zone |  |
+| Egg X Down | Clear the X Zone | ✓ |
+| Super Sonic | Beat the Super Egg Robo on the Moon |  |
+| First Emerald | Win a Chaos Emerald in a special stage |  |
+| Seven Emeralds | Hold all 7 Chaos Emeralds |  |
+| Untouched | Beat a boss without being hit |  |
+| Flawless Hammer Tank | Beat the Egg Hammer Tank without being hit |  |
+| Flawless Egg Press | Beat the Egg Press without being hit |  |
+| Flawless Egg Ball | Beat the Egg Ball without being hit |  |
+| Flawless Egg Spider | Beat the Egg Spider without being hit |  |
+| Flawless Mecha Knuckles | Beat Mecha Knuckles without being hit |  |
+| Flawless Egg Snake | Beat the Egg Snake without being hit |  |
+| Flawless Egg Wrecker | Beat Egg Wrecker without being hit |  |
+| Flawless Egg Drillster | Beat Egg Drillster without being hit |  |
+| Flawless Egg X | Beat Egg X without being hit |  |
+| Flawless Egg Robo | Beat the Super Egg Robo without being hit |  |
+| Not a Scratch | Clear an act without being hit |  |
+| Under a Minute | Clear an act in under 1:00 |  |
+| Life Collector | Have 10 lives |  |
+| Two Tails | Clear the X Zone as Tails |  |
+| Guardian | Clear the X Zone as Knuckles |  |
+| Chao Hunter | Win a Chao Hunt |  |
+
+The game is **Beaten** once you have the 8 marked ✓, every zone and the X Zone, with any character, and **Mastered** once you have all 32. Each gets its own popup, and the achievements list shows how close you are.
+
+A no-hit achievement counts from the moment the boss's arena closes in, and starts over if you lose a life and fight it again.
 
 They count in a game started from the beginning, and in Chao Hunt. A game started with `?level`, `?debug` or `?special` earns none.
 

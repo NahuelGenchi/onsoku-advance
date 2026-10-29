@@ -281,7 +281,7 @@ export function eggSnake(e, slot, anims, ctx0) {
     ctx.player.onObject = null;
     cam.maxY = 2208; cam.arena.maxY = cam.maxY + SCREEN_H;
     ctx.world.musicState(MUSIC_BOSS_OVER);
-    ctx.world.bossBeaten();
+    ctx.world.bossBeaten('egg-snake');
     b.baseX = s16(x0 + I(b.qx)); b.baseY = s16(y0 + I(b.qy));
     b.qx = 0; b.qy = 0; b.vx = 0; b.vy = -0x80; b.phase = 0;
     b.s = variantSprite(EGG_MOBILE, 0, { order: 19 }); b.s2 = variantSprite(FLEEING, 4, { order: 18 });

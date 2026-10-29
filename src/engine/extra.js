@@ -62,7 +62,7 @@ const SILENT = {
  * carries over from X Zone (GameStageStart keeps the score, the lives and the random numbers; without it, the
  * course select's start: no score, three lives, the random numbers from 0), and what a game over without a
  * continue does once it is done. `achieve(id)` is createGame's too: the robot's defeat earns Super Sonic, and
- * Untouched without a hit since the stage last started.
+ * Untouched and Flawless Egg Robo without a hit since the stage last started.
  */
 export function createExtraStage(canvas, assets, buttons, sound = SILENT, { stageResults, onCredits = () => {}, save = openSave(null), startLevel = 0, continues = 0, carry = null, onTitle = () => {}, achieve = () => {} } = {}) {
   const difficulty = save.difficultyLevel;
@@ -183,7 +183,7 @@ export function createExtraStage(canvas, assets, buttons, sound = SILENT, { stag
       saveMoonCleared(save);
       const written = save.write();
       achieve('true-ending');
-      if (hits === 0) achieve('flawless-boss');
+      if (hits === 0) { achieve('flawless-boss'); achieve('flawless-egg-robo'); }
       if (!stage.extra.ending) { onCredits(); return; }
       const results = r => { saveActCleared(save, { ...r, startLevel }); stageResults?.(r); };
       state.ending = createTrueEnding(anims, sound, { rings: state.ringCount, courseTime: state.courseTime, language: save.uiLanguage, stageResults: results, onCredits });

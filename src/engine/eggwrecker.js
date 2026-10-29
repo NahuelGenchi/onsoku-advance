@@ -198,7 +198,7 @@ export function eggWrecker(e, slot) {
           const cam = ctx.world.cam;
           setCamBounds(cam, { minY: 0, maxY: cam.height, maxX: cam.width });
           ctx.world.musicState(MUSIC_END);
-          ctx.world.bossBeaten();
+          ctx.world.bossBeaten('egg-wrecker');
           slot.gone = true;
           return false;
         }

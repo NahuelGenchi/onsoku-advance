@@ -1,6 +1,7 @@
 // The achievements, opened from the settings: each with its trophy, gold once earned, its name, what earns it,
-// and when it was earned, drawn like the dreamports.net launcher, light or dark as it is. The close
-// button, Esc, a click outside it or B on a controller closes it.
+// and when it was earned, those the game needs to be Beaten marked, and how far the game is from Beaten and
+// Mastered at the top; drawn like the dreamports.net launcher, light or dark as it is. The close button, Esc, a
+// click outside it or B on a controller closes it.
 
 import { drawTrophy } from './popup.js';
 import { TROPHY_W, TROPHY_H } from './pixels.js';
@@ -26,20 +27,31 @@ export function createAchievementsPanel(host, store, onClose = () => {}) {
       <h2 id="achievements-title">Achievements</h2>
       <span class="ach-count"></span>
       <button type="button" class="ach-close" aria-label="Close" title="Close">×</button>
+      <p class="ach-status"><span data-status="beaten"></span><span data-status="mastered"></span></p>
     </header>
     <ul class="ach-list"></ul>
     </div>`;
   host.append(dialog);
   const list = dialog.querySelector('.ach-list'), count = dialog.querySelector('.ach-count');
+  const statuses = [...dialog.querySelectorAll('[data-status]')];
+
+  // a status reached shows its name alone; one to go, how many of its achievements are earned
+  function showStatus(el, name, all) {
+    const got = all.filter(a => a.earned).length, done = got === all.length;
+    el.textContent = done ? name : `${name} ${got}/${all.length}`;
+    el.toggleAttribute('data-done', done);
+  }
 
   function fill() {
     const all = store.list(), earned = all.filter(a => a.earned);
     count.textContent = `${earned.length}/${all.length}`;
+    showStatus(statuses[0], 'Beaten', all.filter(a => a.beaten));
+    showStatus(statuses[1], 'Mastered', all);
     list.innerHTML = all.map(a => `
       <li class="ach"${a.earned ? ' data-earned' : ''}>
         <canvas width="${TROPHY_W}" height="${TROPHY_H}" aria-hidden="true"></canvas>
         <div class="ach-text">
-          <h3>${escape(a.title)}</h3>
+          <h3>${escape(a.title)}${a.beaten ? ' <span class="ach-tag">To beat</span>' : ''}</h3>
           <p>${escape(a.description)}${a.earned ? `<span class="ach-when"> · ${day.format(a.earned)}</span>` : ''}</p>
         </div>
       </li>`).join('');

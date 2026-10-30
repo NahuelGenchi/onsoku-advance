@@ -335,7 +335,7 @@ A no-hit achievement counts from the moment the boss's arena closes in, and star
 
 They count in a game started from the beginning, and in Chao Hunt. A game started with `?level`, `?debug` or `?special` earns none.
 
-Your achievements are kept in this browser for now. Once Dreamports has accounts, you'll be able to claim them there.
+Your achievements are kept in this browser. On dreamports.net, sign in to a [Dreamports profile](https://dreamports.net/profile/) and they're saved there too, so you keep them on any device: the ones you earned before are added when you sign in, and each new one is saved as you earn it. With nobody signed in, they stay in this browser until someone does.
 
 ## Controls
 
@@ -559,6 +559,8 @@ Two addresses skip ahead for testing: <http://localhost:8000/?debug> starts the 
 To see everything the extractor decodes, open *Asset viewer* in the game's settings: the ROM's tables, Sonic's, the springs' and the rings' animations playing with their original timing, the sprite atlas, the act being played with its collision, and the zone's background. It opens over the game, which waits, and its back arrow, <kbd>Esc</kbd> or <kbd>B</kbd> goes back to it. On its own, <http://localhost:8000/viewer.html> shows the same for the ROM kept in this browser (Neo Green Hill Zone act 1, or `?level=N`), and asks for the ROM when none is kept.
 
 [`wrangler.jsonc`](wrangler.jsonc) sets up the copy that Cloudflare serves at `dreamports.net/play/sonic-advance/`. Its build copies only the committed pages, `src/`, `styles/` and the social preview picture into `dist/play/sonic-advance/`. To try that copy on your computer, commit your changes, run `npx wrangler dev` and open <http://localhost:8787/play/sonic-advance/>.
+
+The page also loads `/dreamports.js` from the site's root, which saves achievements to the player's Dreamports profile. Only dreamports.net serves it, so on your own computer and on this repository's Cloudflare previews it isn't found, and achievements stay in the browser.
 
 ## Contributing
 

@@ -479,7 +479,19 @@ button { font: inherit; }
 .dialog-close:hover { background: var(--hover); color: var(--ink); }
 .dialog :focus-visible { outline: 2px solid var(--blue); outline-offset: 0; }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(.97); } }
-/* the achievements (src/achievements/panel.js), each trophy at two screen pixels to one of its own */
+/* the achievements (src/achievements/panel.js), each trophy at two screen pixels to one of its own; Beaten and
+   Mastered under the title, framed buttons that filter the list, with the line saying what the one pressed needs */
+.dialog:has(.ach-list) .dialog-head { flex-wrap: wrap; row-gap: 0; }
+.ach-status { flex-basis: 100%; display: flex; gap: 10px; margin: 2px 0 6px 2px; }
+.ach-status button {
+  padding: 2px 8px; border: 0; background: none; color: var(--dim); font: inherit; font-size: 13.5px; line-height: 20px; cursor: pointer;
+  box-shadow: 0 -2px var(--line), 0 2px var(--line), -2px 0 var(--line), 2px 0 var(--line);
+}
+.ach-status button:hover { background: var(--hover); color: var(--ink); }
+.ach-status [data-done] { color: var(--blue); }
+.ach-status [aria-pressed="true"] { background: var(--hover); color: var(--ink); box-shadow: 0 -2px var(--blue), 0 2px var(--blue), -2px 0 var(--blue), 2px 0 var(--blue); }
+.ach-note { flex-basis: 100%; margin: 4px 0 4px 2px; color: var(--dim); font-size: 13.5px; line-height: 20px; }
+.ach-tag { margin-left: 6px; color: var(--dim); font-size: 12px; white-space: nowrap; }
 .ach-list { margin: 0; padding: 0; list-style: none; }
 .ach { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; gap: 0 14px; padding: 14px 16px; }
 .ach + .ach { border-top: 2px solid var(--line); }

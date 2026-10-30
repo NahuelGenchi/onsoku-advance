@@ -357,7 +357,7 @@ export function eggX(e, slot, anims, ctx) {
       case 1:
         if (--b.timer === 0) {
           ctx.world.musicState(MUSIC_END);
-          ctx.world.bossBeaten();
+          ctx.world.bossBeaten('egg-x');
           for (const [dx, dy] of [[0, -24], [-16, 0], [16, 0], [0, 24]]) {
             const ex = explosion(ctx, (b.x + dx) << 8, (b.y + dy) << 8);
             ctx.add(ex, ex.priority);

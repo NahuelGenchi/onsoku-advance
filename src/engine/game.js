@@ -61,6 +61,10 @@ const ZONE_CLEARS = {
   11: 'cosmic-angel', [X_ZONE]: 'x-zone',
 };
 const X_ZONE_CLEARS = { [TAILS]: 'tails-clear', [KNUCKLES]: 'knuckles-clear' };
+// the bosses that leave a capsule, by their act; each boss's no-hit achievement is `flawless-<boss>`, and the X Zone's
+// first two bosses have one for being beaten too
+const CAPSULE_BOSSES = { 1: 'egg-hammer-tank', 3: 'egg-press', 5: 'egg-ball', 7: 'egg-spider', 9: 'mecha-knuckles' };
+const BEATEN_BOSSES = ['egg-wrecker', 'egg-drillster'];
 const FAST_ACT = 3600;   // under a minute on the clock
 const MANY_LIVES = 10;
 // what an act's stage init (StageInit_ZoneNActM) sets up besides its music (levels.js): in single player how
@@ -427,9 +431,17 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
       if (Math.trunc(state.score / 50000) !== Math.trunc(before / 50000)) state.lives = (state.lives + 1) & 0xFF;
     },
     // a boss is beaten at (x, y): it leaves the capsule that ends the act (CreateBossCapsule)
-    bossDefeated(x, y) { tasks.add(createBossCapsule(x, y, anims, state.level >> 1), 0x2000); world.bossBeaten(); },
-    // a boss is beaten, for the achievements: without a hit since its arena closed in, Untouched
-    bossBeaten() { if (arenaHits === state.hits) options.achieve?.('flawless-boss'); },
+    bossDefeated(x, y) { tasks.add(createBossCapsule(x, y, anims, state.level >> 1), 0x2000); world.bossBeaten(CAPSULE_BOSSES[state.level]); },
+    // `boss` is beaten, for the achievements: Egg Wrecker and Egg Drillster earn their own, and without a hit since
+    // its arena closed in, Untouched and the boss's no-hit one
+    bossBeaten(boss) {
+      const earn = options.achieve;
+      if (!earn) return;
+      if (BEATEN_BOSSES.includes(boss)) earn(boss);
+      if (arenaHits !== state.hits) return;
+      earn('flawless-boss');
+      if (boss) earn(`flawless-${boss}`);
+    },
     // the capsule opens: the clock and the rings stop as at the goal (STAGE_FLAG__ACT_START and STAGE_FLAG__2)
     stopStage() { state.clockStopped = true; state.ringsStopped = true; },
     // Mecha Knuckles' arena: rising scattered rings bounce off ceilings too, until the act starts over

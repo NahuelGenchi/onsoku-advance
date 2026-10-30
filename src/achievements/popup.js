@@ -56,7 +56,8 @@ const canvasOf = (cls, w, h) => {
 };
 
 /**
- * Returns { show(achievement) } for popups over `screen` (the game's canvas, its pixels `screen.width` across),
+ * Returns { show(achievement) } for popups over `screen` (the game's canvas, its pixels `screen.width` across), each
+ * showing the achievement's `title` and telling screen readers its `said`, if it has one;
  * in a layer added to `host` that covers the game's screen, so they come in from its edge; `sound()` gives the
  * game's sound (audio.js) for the chime.
  */
@@ -99,7 +100,7 @@ export function createUnlockPopup(host, screen, sound = () => null) {
     const dot = place();
     addEventListener('resize', place);
     layer.append(el);
-    said.textContent = `Achievement unlocked: ${a.title}`;
+    said.textContent = a.said ?? `Achievement unlocked: ${a.title}`;
     playChime(sound());
 
     const at = ms => ms / SHOWN, timing = { duration: SHOWN, fill: 'both' };

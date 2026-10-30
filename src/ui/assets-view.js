@@ -15,6 +15,7 @@ const hex = n => '0x' + n.toString(16).toUpperCase().padStart(6, '0');
 const escape = text => String(text).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const BACK = '<svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 0h1v1H3zM2 1h1v1H2zM1 2h1v1H1zM0 3h7v1H0zM1 4h1v1H1zM2 5h1v1H2zM3 6h1v1H3z" fill="currentColor"/></svg>';
 const SCROLL = 60;   // px a step of the d-pad scrolls
+const NOTE = 'Decoded in this browser from your Sonic Advance ROM.';
 const CHEVRON = '<svg class="chev" viewBox="0 0 3 5" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h1v1h1v1h1v1H2v1H1v1H0z"/></svg>';
 
 /**
@@ -177,18 +178,19 @@ export function createAssetsSheetView(sheet, assets) {
   body.innerHTML = `
     <div class="split">
       <aside class="side sheet-rise">
-        <p class="side-note">Decoded in this browser from your Sonic Advance ROM.</p>
+        <p class="side-note">${NOTE}</p>
         <ul class="navs"></ul>
       </aside>
       <section class="main"></section>
     </div>`;
   const navs = el.querySelector('.navs'), main = el.querySelector('.main');
+  const note = Object.assign(document.createElement('p'), { className: 'main-note', textContent: NOTE });
   function pick(i) {
     at = i;
     for (const b of navs.querySelectorAll('[data-part]')) b.setAttribute('aria-current', String(+b.dataset.part === at));
     const part = shown?.parts[at]?.el;
     if (!part) { main.innerHTML = '<p class="assets-empty">Add your Sonic Advance ROM to see what it holds.</p>'; return; }
-    main.replaceChildren(part);
+    main.replaceChildren(part, note);
     main.scrollTop = 0;
   }
   navs.addEventListener('click', e => {

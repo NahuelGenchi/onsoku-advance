@@ -60,6 +60,9 @@ export function createAchievementsPanel(sheet, store, tile) {
     </div>`;
   const $ = sel => el.querySelector(sel);
   const main = $('.main'), list = $('.cards'), note = $('.ach-note');
+  // the filters stay at the top of the list as it scrolls, so a card picked with the arrows or a controller stops under
+  // them, its ring and all
+  new ResizeObserver(() => { main.style.scrollPaddingTop = `${$('.tools').offsetHeight + 6}px`; }).observe($('.tools'));
   let status = null;   // the status whose achievements alone are shown, or null for all of them
   let shown = 'all';   // all of those, the earned or the locked
 

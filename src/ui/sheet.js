@@ -106,9 +106,9 @@ export function createSheet(stage, wrap, { onOpen = () => {}, onClose = () => {}
     isOpen = true;
     wrap.dataset.look = isDark() ? 'dark' : 'light';
     const v = views.get(name);
-    v.show();
     show(v);
     wrap.hidden = false;
+    v.show();   // once it's showing, so it can scroll back to its top
     stage.classList.add('sheet-open');
     setInert(true);
     onOpen();
@@ -167,8 +167,8 @@ export function createSheet(stage, wrap, { onOpen = () => {}, onClose = () => {}
     const pin = (el, r) => { el.style.cssText = `position: absolute; top: 0; left: 0; width: ${r.width}px; height: ${r.height}px`; };
     const a = sheet.getBoundingClientRect();
     pin(out.el, a);
-    into.show();
     show(into);
+    into.show();   // once it's showing, so it can scroll back to its top
     out.el.hidden = false;   // still there, fading, until the sheet has grown
     const quick = still.matches, d = quick ? 240 : 520;
     const anims = [];
@@ -225,11 +225,11 @@ export function createSheet(stage, wrap, { onOpen = () => {}, onClose = () => {}
     if (marked) ring(el).scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
-  // the nearest box around `el` that scrolls up and down, or else the first in the view showing
+  // the nearest box around `el` that scrolls up and down, or else the view's list, or its whole, if it scrolls
   const scrolls = p => ['auto', 'scroll'].includes(getComputedStyle(p).overflowY) && p.scrollHeight > p.clientHeight + 1;
   function scroller(el) {
     for (let p = el?.parentElement; p && p !== wrap; p = p.parentElement) if (scrolls(p)) return p;
-    return [...current.el.querySelectorAll('.sheet-body, .split, .main, .side')].find(scrolls) ?? null;
+    return ['.main', '.sheet-body', '.split', '.side'].map(s => current.el.querySelector(s)).find(p => p && scrolls(p)) ?? null;
   }
   // a picked box that scrolls (the asset viewer's sheets) scrolls toward `dir` while it can
   function scrollBox(el, dir) {

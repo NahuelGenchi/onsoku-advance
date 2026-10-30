@@ -107,6 +107,7 @@ export function createControlsView(sheet) {
           <h3></h3>
           <ul class="ctl-list sheet-rise"></ul>
         </div>
+        <p class="main-note">${NOTE}</p>
       </section>
     </div>`;
   const main = el.querySelector('.main'), list = el.querySelector('.ctl-list');

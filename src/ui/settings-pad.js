@@ -1,7 +1,8 @@
 // The game's settings with a controller, or the arrow keys: View + Menu (Select + Start) held together open and close
 // them, as H does, and the game sees neither button meanwhile (input.js); while they are open the d-pad, the left
 // stick or the arrows move between them, A presses the one picked, left and right move the Opacity slider, and B
-// closes them. In a dialog opened from them the d-pad scrolls it, and B or View + Menu close it (B in dialog.js).
+// closes them. In a dialog opened from them up and down scroll it, left and right move between its own buttons
+// (the achievements' Beaten and Mastered), A presses the one picked, and B or View + Menu close it (B in dialog.js).
 
 import { connectedPads, holdsSettingsCombo } from '../engine/input.js';
 import { padsHeld, toward, REPEAT_AFTER, REPEAT_EVERY } from './pad-nav.js';
@@ -41,10 +42,18 @@ export function bindSettingsPad(panel, { canOpen, show, dialog }) {
   function scroll(box, dir) {
     if (dir === 'up' || dir === 'down') box.scrollBy({ top: dir === 'up' ? -SCROLL : SCROLL });
   }
+  // a dialog's own buttons, beside its close button
+  const dialogItems = d => [...d.querySelectorAll('.dialog-head button:not(.dialog-close)')];
+  function across(d, dir) {
+    const all = dialogItems(d), from = all.find(el => el === document.activeElement);
+    const to = from ? toward(all, from, dir) ?? from : all[0];
+    to?.focus({ focusVisible: true });
+  }
   function open() { show(true); pick(items()[0]); }
   function step(dir) {
     const d = dialog();
-    if (d) scroll(d.querySelector('.dialog-panel'), dir);
+    if (d && (dir === 'left' || dir === 'right')) across(d, dir);
+    else if (d) scroll(d.querySelector('.dialog-panel'), dir);
     else if (!panel.hidden) move(dir);
   }
 
@@ -74,6 +83,11 @@ export function bindSettingsPad(panel, { canOpen, show, dialog }) {
     const d = dialog();
     if (d) {
       if (toggle) d.close();
+      if (down('a')) armedA = true;
+      if (!now.has('a') && armedA) {
+        armedA = false;
+        dialogItems(d).find(el => el === document.activeElement)?.click();
+      }
     } else if (!panel.hidden) {
       if (down('b') || toggle) show(false);
       if (down('a')) armedA = true;
@@ -88,7 +102,7 @@ export function bindSettingsPad(panel, { canOpen, show, dialog }) {
         else if (time >= since[dir]) { since[dir] = time + REPEAT_EVERY; step(dir); }
       }
     }
-    if (panel.hidden) armedA = false;
+    if (panel.hidden && !d) armedA = false;
     held.clear();
     now.forEach(b => held.add(b));
   }

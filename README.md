@@ -367,6 +367,7 @@ Your achievements are kept in this browser for now. Once Dreamports has accounts
 | **Continue screen:** continue, or skip to the next number | <kbd>Z</kbd> or <kbd>Space</kbd>, or <kbd>X</kbd> | <kbd>A</kbd>, or <kbd>B</kbd> or <kbd>X</kbd> |
 | **Select** | <kbd>Backspace</kbd> | <kbd>View</kbd> |
 | Close the achievements or the controls | <kbd>Esc</kbd> | <kbd>B</kbd> |
+| In the achievements: show only what Beaten or Mastered needs, then all of them again | <kbd>←</kbd> <kbd>→</kbd> to it, <kbd>Enter</kbd>, then <kbd>Enter</kbd> again | Left or right to it, <kbd>A</kbd>, then <kbd>A</kbd> again |
 | Settings open or closed; move between them, pick one | <kbd>H</kbd>, <kbd>Esc</kbd> closes them; arrows, <kbd>Enter</kbd> | <kbd>View</kbd> + <kbd>Menu</kbd> held together (the game sees neither then), <kbd>B</kbd> closes them; d-pad or left stick, <kbd>A</kbd> |
 | Sound on or off | <kbd>M</kbd> | |
 | Widescreen view on or off | <kbd>V</kbd> | |

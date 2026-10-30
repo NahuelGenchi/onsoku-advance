@@ -29,12 +29,14 @@ The act's three checkpoints (kind 7) have no post and no sprite. `d0` numbers th
 
 ## The end of the act
 
-The act ends at the rocket's top through the stage goal (kind 0, `stage_goal.c`), the same entity as the other acts' goal post, with three Egg Rocket branches. This game doesn't build it here yet: it is left to the act clear's work ([#69](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/69)), and until then the goals stay stand-ins.
+The act ends at the rocket's top through the stage goal (kind 0, `stage_goal.c`), the same entity as the other acts' goal post, with three Egg Rocket branches (`src/engine/goal.js`).
 
 - Three goals sit on the act's top edge, at (2144, 0), (2160, 0) and (2176, 0), with `d1` = 1. A fourth at (2080, 168) has `d1` = 0, so only multiplayer makes it; in Egg Rocket, multiplayer skips the `d1` = 1 ones instead.
 - A goal fires once Sonic's centre is right of its point and his body's box (hitbox 0) holds the point. Elsewhere being right of it is enough.
 - No goal sound plays (`SE_GOAL` is skipped, there is no post), and Sonic isn't made to run right. He is held where he is (`MOVESTATE_IA_OVERRIDE`) and the camera's `shiftY` isn't touched.
 - 121 frames later the goal's task ends and `CreateStageResults` runs, without waiting for Sonic's goal pose (`CHARSTATE_28`) as the other acts do. There is no early `Task_ShowResults` either.
+- `CreateStageResults` stops the background (bit `0x2000` of the camera's halfword at `0x030059F6`, `unk50` in the decompilation). The time bonus doesn't go by the countdown: it goes by `gCheckpointTime` (`0x03004FE4`, which counts up whenever the clock runs) less 3:00, or by 1 frame when that clock is at 3:00 or less (literals at `0x080574F0`). So 5:30 gives the 2:30 bonus, 3000, and anything up to 3:00 gives the top one, 80000.
+- After the results, Cosmic Angel (level 11) starts as any next act does (`GameStageStart`): its clock counts up from 0, `gCheckpointTime` starts at 0 too, and `CreateGameStage` turns the countdown off (`STAGE_FLAG__TIMER_REVERSED`). None of Egg Rocket's own rules come with it: no left wall at 1058 and no 5:00 countdown after a death there.
 
 ## The background
 
@@ -74,4 +76,6 @@ Each case was recorded in mGBA 0.10.5 with the course select's start, Sonic and 
 - flipped gravity through two toggles onto the ceiling (420), square platforms and whirlwinds (400), a ferris wheel with a Mole that hits Sonic (400), the conveyor belts and their rollers (200), the Mirror (400), a wall bumper (360), a breakable wall broken by a spin dash (360),
 - an Oct defeat (360), a death after the launch with the restart in the launched rocket (1250 frames, pixels identical), and the countdown running out after the launch, through the TIME OVER screen and the restart (1700 frames; all but the lights of the launch tower's capsule, which differ from the launch on).
 
-Not checked: the end of the act ([above](#the-end-of-the-act), read in the code only).
+- the end of the act (three runs): Sonic held at (2150, 10) under the goals with the camera at (2022, 0) and `gCheckpointTime` set on the same frame. With 5:30 and with 1:23 (5000 frames) before the launch, the goal, the 3000 and 80000 bonuses' tallies and Cosmic Angel's start come on the same frames as in the original. With 5:30 after a real launch (Sonic put past the first checkpoint), the sky's scroll, the background stopping on the results' first frame, the tally (3000) and Cosmic Angel's start match too, and so do the stage clock and the random numbers on every frame compared. Frames match pixel for pixel but the capsule's lights and the zero-ring flash. The goal's view shows no sky, so the background's stop was checked by its flag only.
+
+Not checked: reaching the goal by playing, and a game that goes on from Cosmic Angel's start after Egg Rocket in the original (read in the code only).

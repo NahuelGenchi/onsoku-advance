@@ -54,6 +54,7 @@ const ITEM_TIME = 1200;   // invincibility and speed shoes last 20 seconds
 const RANDOM_RING_PRIZES = [1, 5, 10, 20, 30, 40];   // ItemBox_RingAmountTable
 const SPEED_UP_TEMPO = 0x200, NORMAL_TEMPO = 0x100;
 const MAX_COURSE_TIME = 10 * 3600;
+const EGG_ROCKET_TIME = 3 * 3600;   // what CreateStageResults takes off Egg Rocket's gCheckpointTime for its time bonus
 // the achievements an act's results earn (achievements/list.js): a zone's, on its last act's, and the X Zone's
 // for the character that clears it
 const ZONE_CLEARS = {
@@ -372,7 +373,9 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     // the goal (goal.js): the clock and the rings stop (STAGE_FLAG__ACT_START and STAGE_FLAG__2), and it holds
     // the camera and, once Sonic is in his act-clear run, hands over to the results (CreateStageResults): the
     // act's rings to the save's ring bank and the act cleared, the act-clear jingle and no more music manager,
-    // and the results' task, which first runs this frame
+    // and the results' task, which first runs this frame. In Egg Rocket the background stops (the camera's unk50
+    // 0x2000), and the time bonus goes by gCheckpointTime less the 3:00 (1 frame if it is no more than that), not
+    // by the countdown
     get goalReached() { return state.goalReached; },
     reachGoal() { state.goalReached = true; state.clockStopped = true; state.ringsStopped = true; },
     // the act's end has Sonic now (STAGE_FLAG__2: past the goal, or a beaten boss), for the optional Boost Mode
@@ -381,7 +384,12 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
       state.noPause = true;
       saveActCleared(save, { level: state.level, rings: state.ringCount, character, startLevel: options.startLevel ?? 0 });
       actCleared();
-      state.results = createResults(act.results, { rings: state.ringCount, courseTime: state.courseTime, level: state.level });
+      let courseTime = state.courseTime;
+      if (state.level === EGG_ROCKET) {
+        extras.stopBackground();
+        courseTime = state.checkpointTime > EGG_ROCKET_TIME ? state.checkpointTime - EGG_ROCKET_TIME : 1;
+      }
+      state.results = createResults(act.results, { rings: state.ringCount, courseTime, level: state.level });
       sound.play(state.level & 1 ? SONG.BOSS_CLEAR : SONG.ACT_CLEAR);
       sound.musicOff();
       tasks.add(resultsTask, 0x2100);
@@ -802,7 +810,9 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   };
 
   // GameStageStart: the next act, with everything in it new and the score, the lives and the game's random
-  // numbers carried over, and its music (its stage init)
+  // numbers carried over, and its music and its own tasks (its stage init). The clock counts up from 0 again
+  // (gCheckpointTime too), and CreateGameStage turns the countdown off (STAGE_FLAG__TIMER_REVERSED): after
+  // Egg Rocket, Cosmic Angel's clock would otherwise start at 0:00 counting down
   function startNextAct() {
     state.level++;
     act = assets.acts[state.level]; stage = act.stage; Object.assign(anims, act.anims);
@@ -816,6 +826,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
       clockStopped: false, hud: createHud(), animal: 0, palettes: palettes.map(a => a.shown), checkpointIndex: 0,
       checkpoint: null, goalReached: false, ringsStopped: false, card: null, results: null, rushFx: createRushFx(), shake: -1, display: noEffects(),
       boostFx: createBoostFx(player), trail: createTrail(), water: createWater(stage.water), cardOver: false, hits: 0,
+      checkpointTime: 0, timerReversed: false, bg: null, backLines: null,
     });
     arenaHits = -1;
     ctx.view = state.view = viewOf(state.cam, viewW, viewH);
@@ -823,6 +834,8 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     addStageTasks();
     startCard();
     sound.playStageMusic(stage.music);
+    extras = makeExtras();
+    extras?.init();
   }
 
   // the stage's own tasks, made in the original's order: the rings manager and the entities manager first
@@ -930,7 +943,8 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   if (options.carry) Object.assign(state, options.carry);
   addStageTasks();
   startCard();
-  const extras = LEVEL_EXTRAS[stage.level]?.({ state, world, ctx, player }) ?? null;
+  const makeExtras = () => LEVEL_EXTRAS[stage.level]?.({ state, world, ctx, player }) ?? null;
+  let extras = makeExtras();
   extras?.init();
 
   // the stage clock (the end of Task_GameStage): the course time passing 10:00 (MAX_COURSE_TIME), or counting

@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> **Sonic Advance Dreamport has moved.** On 30 October 2026 it moved into [NahuelGenchi/dreamports](https://github.com/NahuelGenchi/dreamports), in [`games/sonic-advance/`](https://github.com/NahuelGenchi/dreamports/tree/main/games/sonic-advance), with its whole history. Its open issues moved there too, with the [`sonic-advance` label](https://github.com/NahuelGenchi/dreamports/issues?q=is%3Aissue%20label%3Asonic-advance), and new ones go [there](https://github.com/NahuelGenchi/dreamports/issues/new/choose). This repository is archived and read-only, and keeps its closed issues and pull requests. The game still plays at the same address, [dreamports.net/play/sonic-advance](https://dreamports.net/play/sonic-advance/).
+
 <div align="center">
 
 # Sonic Advance Dreamport

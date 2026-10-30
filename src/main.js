@@ -499,7 +499,7 @@ const romsView = sheet.view('roms', {
   first: () => romsView.el.querySelector('[data-back]'),
 });
 romsView.body.innerHTML = `
-  <div class="split">
+  <div class="split whole">
     <aside class="side sheet-rise">
       <div class="sum"><p class="sum-num"><b></b><span></span></p><span class="cells" aria-hidden="true"></span></div>
       <p class="side-note">Your ROMs stay on this device.</p>

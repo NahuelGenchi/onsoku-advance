@@ -367,7 +367,7 @@ On a phone or tablet, an Xbox controller's buttons are drawn around the game, pa
 
 With *BUTTON CONFIG.* set to *REVERSE* in the Options menu, jump and attack swap places in the acts, the Moon Zone, the special stages and Chao Hunt, as on the cartridge: <kbd>X</kbd> (<kbd>B</kbd> on the controller) jumps and <kbd>Z</kbd> or <kbd>Space</kbd> (<kbd>A</kbd>) attacks. The menus, the continue screen and Chao Hunt's results screen keep them as they are.
 
-The start screen works with the controller too: the d-pad or left stick moves between its links, buttons and switches, <kbd>A</kbd> presses the one picked, <kbd>Menu</kbd> starts the game, like <kbd>Enter</kbd> on the keyboard, and <kbd>B</kbd> goes back. Opened from *Your ROMs* in the settings, the start screen's back arrow, <kbd>Esc</kbd> or <kbd>B</kbd> goes back to the game where you left it, and *Play* starts a new one. Browsers open the file list only from the mouse or the keyboard, so add the ROM files that way, or drop them on the page.
+The start screen works with the controller too: the d-pad or left stick moves between its links, buttons and switches, <kbd>A</kbd> presses the one picked, <kbd>Menu</kbd> starts the game, like <kbd>Enter</kbd> on the keyboard, and <kbd>B</kbd> goes back. Opened from *Your ROMs* in the settings, the start screen's back arrow, *Back to the game* (where *Play* was), <kbd>Esc</kbd>, <kbd>Enter</kbd>, <kbd>Menu</kbd> or <kbd>B</kbd> goes back to the game where you left it. Removing or changing the Sonic Advance ROM there ends that game, and *Play* starts a new one. Browsers open the file list only from the mouse or the keyboard, so add the ROM files that way, or drop them on the page.
 
 ## Multiplayer: Chao Hunt
 

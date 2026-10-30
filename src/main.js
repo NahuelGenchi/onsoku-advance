@@ -27,6 +27,10 @@ import { startMultiplayer, DEFAULT_SEED, DEFAULT_CHAO_PLACE } from './multiplaye
 import { openAchievements } from './achievements/store.js';
 import { createUnlockPopup } from './achievements/popup.js';
 import { createAchievementsPanel } from './achievements/panel.js';
+import { createDialog } from './ui/dialog.js';
+import { holdClocks } from './engine/clock.js';
+import { bindSettingsPad } from './ui/settings-pad.js';
+import { createAssetsView } from './ui/assets-view.js';
 
 const picker = document.getElementById('picker');
 const stage = document.getElementById('stage');
@@ -57,25 +61,43 @@ const chaoPlace = params.has('chao') ? (Number(params.get('chao')) | 0) & 7 : DE
 // multiplayer stage is everyone as Sonic
 const character = multiplayer ? 0 : Math.min(2, Math.max(0, Number(params.get('character') ?? 0) | 0));
 const screens = document.getElementById('screens');
+stage.classList.toggle('debug', debug);   // the panel shows the player's speed and state then
 
 const input = createInput();
 input.bindTouch(touch);
 const sound = createSound();
 
-// a setting's button in the panel: its name, then ": on" or ": off" (on touch screens a switch shows it instead)
+// a setting's button in the panel: its name and its switch, with ": on" or ": off" for screen readers
 function showSetting(button, on) {
   button.querySelector('.state').textContent = `: ${on ? 'on' : 'off'}`;
   button.setAttribute('aria-pressed', String(on));
 }
 
-// On touch screens the panel is the game's settings, behind a button in the top-left corner as on dreamports.net,
-// and an Xbox controller's buttons are drawn around the game. A touch anywhere else closes the settings.
-const touchScreen = matchMedia('(pointer: coarse)'), portrait = matchMedia('(pointer: coarse) and (orientation: portrait)');
+// The game's settings are behind a button in the top-left corner as on dreamports.net; on touch screens an Xbox
+// controller's buttons are drawn around the game too. A click or touch anywhere else closes the settings.
+const portrait = matchMedia('(pointer: coarse) and (orientation: portrait)');
 function showSettings(open) {
   help.hidden = !open;
   settingsButton.setAttribute('aria-expanded', String(open));
+  holdGame();
 }
-if (touchScreen.matches) showSettings(false);
+// while the settings, or a dialog opened from them, are open, or the start screen is over the game (`behind`), the
+// game waits: its clocks hold (clock.js), its sound stops where it is and what was held is let go, so it goes on
+// from the same frame once they close. Its keys wait too, so the page's own work as they do on any page.
+let holding = false, behind = false, keysWere = false;
+const running = () => !!(front || game || specialStage || round);
+function holdGame() {
+  const on = behind || (!stage.hidden && (!help.hidden || !!stage.querySelector('dialog[open]')));
+  if (on === holding) return;
+  holding = on;
+  holdClocks(on);
+  sound.held = on;
+  input.release();
+  if (on) { keysWere = input.enabled; input.enabled = false; }
+  else if (keysWere && running()) input.enabled = true;
+}
+// the settings and the dialogs opened from them take touches as they come
+const inSettings = target => help.contains(target) || !!target.closest?.('dialog');
 // a finger opens and closes them as it lifts: touches on the game's screen are cancelled, but in the settings, so
 // iOS doesn't bring up its magnifier on one held down, and so don't click. The mouse and the keyboard click.
 let tappedAt = -Infinity;
@@ -85,18 +107,25 @@ settingsButton.addEventListener('pointerup', e => {
   showSettings(help.hidden);
 });
 settingsButton.addEventListener('click', e => { if (e.timeStamp - tappedAt > 800) showSettings(help.hidden); });
-stage.addEventListener('touchstart', e => { if (!help.contains(e.target)) e.preventDefault(); }, { passive: false });
+stage.addEventListener('touchstart', e => { if (!inSettings(e.target)) e.preventDefault(); }, { passive: false });
 stage.addEventListener('pointerdown', e => {
-  if (touchScreen.matches && !help.hidden && !help.contains(e.target) && !settingsButton.contains(e.target)) showSettings(false);
+  if (!help.hidden && !help.contains(e.target) && !settingsButton.contains(e.target)) showSettings(false);
 }, true);
-addEventListener('keydown', e => { if (e.code === 'Escape' && touchScreen.matches && !help.hidden) showSettings(false); });
+addEventListener('keydown', e => { if (e.code === 'Escape' && !help.hidden && !stage.querySelector('dialog[open]')) showSettings(false); });
+// a controller's Y, or the arrow keys once they are open (settings-pad.js)
+bindSettingsPad(help, {
+  canOpen: () => !stage.hidden,
+  show: showSettings,
+  dialog: () => stage.querySelector('dialog[open]'),
+});
 // the drawn buttons step aside while a controller is connected, looked for each frame as browsers don't all say
 // when one comes (and show one only once a button on it is pressed); the settings button stays
-(function watchPads() {
+// (from the first frame, once the page is set up: a controller the browser already shows needs fitScreen)
+requestAnimationFrame(function watchPads() {
   const on = connectedPads().length > 0;
   if (on !== touch.hidden) { touch.hidden = on; fitScreen(); }
   requestAnimationFrame(watchPads);
-})();
+});
 
 // how solid the drawn buttons are, set in the settings: 20 to 100 %, 60 at first. The settings button and the
 // buttons that cover the game are a step fainter (app.css).
@@ -134,7 +163,8 @@ opacitySlider.addEventListener('pointermove', e => { if (e.pointerType === 'touc
 const achievements = openAchievements();
 const unlockPopup = createUnlockPopup(stage, screen, () => sound);
 const achievementsButton = document.getElementById('achievements-open');
-const achievementsPanel = createAchievementsPanel(stage, achievements, () => screen.focus());
+const closed = () => { holdGame(); screen.focus(); };
+const achievementsPanel = createAchievementsPanel(stage, achievements, closed);
 function showAchievementCount() {
   const all = achievements.list();
   achievementsButton.querySelector('.count').textContent = ` ${all.filter(a => a.earned).length}/${all.length}`;
@@ -156,8 +186,16 @@ achievements.onStatus(status => { if (STATUS_POPUPS[status]) queueMicrotask(() =
 let counts = false;
 const achieve = id => { if (counts) achievements.unlock(id); };
 achievementsButton.addEventListener('click', () => {
-  if (touchScreen.matches) showSettings(false);
   achievementsPanel.open();
+  showSettings(false);
+});
+
+// the keys, with a keyboard: the list of them, in a dialog like the achievements'
+const controls = createDialog(stage, { id: 'controls', title: 'Controls' }, closed);
+controls.body.append(document.getElementById('controls'));
+document.getElementById('controls-open').addEventListener('click', () => {
+  controls.open();
+  showSettings(false);
 });
 
 // the sound, also M on a keyboard
@@ -282,7 +320,10 @@ const setup = createRomSetup(picker, {
         sa1 = { buffer, assets };
         return `${assets.info.region} · ${assets.info.version ? 'tested version' : 'untested version'}`;
       },
-      unload() { sa1 = null; },
+      unload() {
+        sa1 = null;
+        if (behind) { stopAll(); holdGame(); setup.backTo(false); }   // the game waiting behind went with it
+      },
       extras: [{ label: 'Widescreen view', hint: 'See more of the stage', key: 'V', get: () => wide, set: setWide }],
     },
     {
@@ -303,6 +344,7 @@ const setup = createRomSetup(picker, {
       extras: [{ label: 'Rush boost', hint: 'A burst of speed', keys: 'with Shift or L (X on a controller)', key: 'R', get: () => rush, set: setRush, auto: true }],
     },
   ],
+  onBack: () => backToGame(),
   onPlay() {
     sound.load(sa1.buffer, sa1.assets.sound, players).catch(err => console.warn('No sound:', err));
     start(sa1.buffer, sa1.assets);
@@ -320,6 +362,7 @@ showBoostMode();
 showTricks();
 
 function stopAll() {
+  behind = false;
   front?.stop(); front = null;
   specialStage?.stop(); specialStage = null;
   game?.stop(); game = null;
@@ -330,13 +373,14 @@ function stopAll() {
 function start(buffer, assets) {
   stopAll();
   rom = new Rom(buffer);
+  setup.backTo(false);
   picker.hidden = true;
   stage.hidden = false;
   // the extras are single-player options
   const multi = !!assets.stage.multiplayerSpawns;
   wideButton.disabled = rushButton.disabled = boostButton.disabled = tricksButton.disabled = multi;
   stage.classList.toggle('multi', multi);   // its players play with keyboards and controllers
-  if (touchScreen.matches) showSettings(false);
+  showSettings(false);
   counts = !debug && !specialTest && (assets.first === 0 || multi);
   if (multi) { startRound(assets); return; }
   const leaving = specialTest && specialSpringStart(assets, { emeralds: save.chaosEmeralds, continues });
@@ -445,13 +489,46 @@ function startRound(assets) {
   if (debug) globalThis.onsoku = { round, assets, sound };
 }
 
-document.getElementById('change-rom').addEventListener('click', () => {
-  stopAll();
+// the start screen, or the asset viewer, over the game, which waits behind it: their way back goes back to the game,
+// and the start screen's Play starts again
+function leaveGame(to) {
+  showSettings(false);
+  behind = running();
   stage.hidden = true;
-  picker.hidden = false;
+  holdGame();
+  to.hidden = false;
+  scrollTo(0, 0);
+}
+document.getElementById('change-rom').addEventListener('click', () => {
+  leaveGame(picker);
+  setup.backTo(behind);
   setup.refresh();
   setup.focus();
 });
+// the asset viewer shows what was decoded for the act being played, or the first one before it starts; with a
+// modifier, the link opens it on its own page
+const assetsHost = document.getElementById('assets');
+const assetsView = createAssetsView(assetsHost, { back: { label: 'Back to the game', go: () => backToGame() } });
+document.getElementById('assets-open').addEventListener('click', e => {
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !sa1) return;
+  e.preventDefault();
+  leaveGame(assetsHost);
+  assetsView.show(playing ?? sa1.assets);
+  assetsHost.querySelector('.setup-back').focus();
+});
+function backToGame() {
+  if (!behind && assetsHost.hidden) return false;
+  if (!assetsHost.hidden) { assetsView.clear(); assetsHost.hidden = true; document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#050a24'); }
+  picker.hidden = true;
+  stage.hidden = false;
+  behind = false;
+  setup.backTo(false);
+  holdGame();
+  fitScreen();
+  screen.focus();
+  return true;
+}
+addEventListener('keydown', e => { if (e.code === 'Escape' && behind && !picker.hidden) backToGame(); });
 
 addEventListener('keydown', e => {
   if (e.code === 'KeyH' && !stage.hidden && !e.repeat) showSettings(help.hidden);

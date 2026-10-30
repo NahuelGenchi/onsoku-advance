@@ -24,13 +24,15 @@
 <main>
   <section class="picker" id="picker" aria-label="Your ROMs"></section>
 
+  <section class="assets" id="assets" aria-label="Asset viewer" hidden></section>
+
   <section class="stage" id="stage" hidden>
     <canvas id="screen" tabindex="0" aria-label="Sonic Advance: the first time, the language screen, where Up and Down choose and Z keeps the language; then the SEGA and Sonic Team logos and the intro, which Enter, Z or X skips, the title screen, where Enter opens the menu, and the menu, where the arrow keys choose and Z picks Game Start, then Neo Green Hill Zone act 1, or Options, where Left and Right change the setting picked and X goes back. Use the arrow keys to run, Z or Space to jump, X to attack, or a controller: A to jump and pick, B or X to attack, Menu to skip the intro and open the menu. Enter or Menu pauses the act and goes on again."></canvas>
     <div class="screens" id="screens" hidden></div>
 
-    <button type="button" class="settings-open" id="settings-open" aria-label="Settings" aria-controls="help" aria-expanded="true"><svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 1h9v1H0zM5 0h2v3H5zM0 4h9v1H0zM1 3h2v3H1zM0 7h9v1H0zM4 6h2v3H4z"/></svg></button>
-    <aside class="help" id="help" aria-label="Controls and settings">
-      <dl>
+    <button type="button" class="settings-open" id="settings-open" aria-label="Settings" aria-controls="help" aria-expanded="false"><svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 1h9v1H0zM5 0h2v3H5zM0 4h9v1H0zM1 3h2v3H1zM0 7h9v1H0zM4 6h2v3H4z"/></svg></button>
+    <aside class="help" id="help" aria-label="Settings" hidden>
+      <dl class="controls-list" id="controls">
         <dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Run</dd>
         <dt><kbd>Z</kbd> <kbd>Space</kbd></dt><dd>Jump · again in the air: insta-shield</dd>
         <dt><kbd>←</kbd><kbd>←</kbd> <kbd>→</kbd><kbd>→</kbd></dt><dd>In a jump: mid-air dash</dd>
@@ -44,8 +46,8 @@
         <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>L and R · in the name input, move along the name</dd>
         <dt><kbd>Z</kbd> / <kbd>X</kbd></dt><dd>Continue screen: continue / skip to the next number</dd>
         <dt>Buttons</dt><dd>With BUTTON CONFIG. on REVERSE in Options, jump and attack swap places in the act, the special stage and Chao Hunt</dd>
-        <dt>Achievements</dt><dd>In the settings below · <kbd>Esc</kbd> closes them, <kbd>B</kbd> on a controller</dd>
-        <dt><kbd>H</kbd></dt><dd>Hide this panel</dd>
+        <dt>Achievements</dt><dd>In the settings · <kbd>Esc</kbd> closes them, <kbd>B</kbd> on a controller</dd>
+        <dt><kbd>H</kbd></dt><dd>Open or close the settings, which hold the game · the arrows move between them · <kbd>Esc</kbd> closes them · on a controller, <kbd>View</kbd> + <kbd>Menu</kbd> held together open or close them, the d-pad moves, <kbd>A</kbd> picks and <kbd>B</kbd> closes them</dd>
         <dt><kbd>C</kbd></dt><dd>Show the collision</dd>
         <dt><kbd>M</kbd></dt><dd>Sound on or off</dd>
         <dt><kbd>V</kbd></dt><dd>Widescreen: more of the game around the original screen</dd>
@@ -54,11 +56,11 @@
         <dt><kbd>B</kbd></dt><dd>Boost Mode: Sonic Advance 2's Boost Mode and its afterimages, on top of the original game (with your Sonic Advance 2 ROM). Keep running at top speed to enter it</dd>
         <dt><kbd>T</kbd></dt><dd>SA2 tricks: Sonic Advance 2's mid-air tricks, on top of the original game (with your Sonic Advance 2 ROM)</dd>
         <dt><kbd>E</kbd> <kbd>I</kbd></dt><dd>With the SA2 tricks on, once in the air: trick · with <kbd>↑</kbd> Hop Jump, <kbd>↓</kbd> Bound, forward Humming Top, alone or back Back Star</dd>
-        <dt>Controller</dt><dd>D-pad or left stick: move · <kbd>A</kbd> jump · <kbd>B</kbd> or <kbd>X</kbd> attack · with the Rush boost on, <kbd>X</kbd> boosts · on the continue screen, <kbd>A</kbd> continues and <kbd>B</kbd> or <kbd>X</kbd> skips · with the SA2 tricks on, <kbd>RB</kbd> tricks · in Options, the d-pad changes the setting picked and <kbd>B</kbd> goes back · on the language screen, the d-pad chooses, <kbd>A</kbd> keeps it and <kbd>B</kbd> goes back · <kbd>LB</kbd> <kbd>RB</kbd> L and R · <kbd>Menu</kbd> Start, which also pauses · <kbd>View</kbd> Select</dd>
+        <dt>Controller</dt><dd>D-pad or left stick: move · <kbd>A</kbd> jump · <kbd>B</kbd> or <kbd>X</kbd> attack · with the Rush boost on, <kbd>X</kbd> boosts · on the continue screen, <kbd>A</kbd> continues and <kbd>B</kbd> or <kbd>X</kbd> skips · with the SA2 tricks on, <kbd>RB</kbd> tricks · in Options, the d-pad changes the setting picked and <kbd>B</kbd> goes back · on the language screen, the d-pad chooses, <kbd>A</kbd> keeps it and <kbd>B</kbd> goes back · <kbd>LB</kbd> <kbd>RB</kbd> L and R · <kbd>Menu</kbd> Start, which also pauses · <kbd>View</kbd> Select · <kbd>View</kbd> + <kbd>Menu</kbd> together the settings</dd>
         <dt>Multiplayer</dt><dd>Player 1: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>F</kbd> jump · <kbd>G</kbd> attack. Player 2: arrows move · <kbd>.</kbd> jump · <kbd>/</kbd> attack. Players 3 and 4: a controller each (controllers go to players 3 and 4 first, then 1 and 2) · on the results screen, <kbd>F</kbd>, <kbd>.</kbd> or <kbd>A</kbd> goes on</dd>
       </dl>
       <p class="stats" id="stats" aria-live="off"></p>
-      <p class="actions"><button type="button" class="link" id="change-rom">Your ROMs</button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="achievements-open">Achievements<span class="count"></span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="wide" aria-pressed="false">Widescreen<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="rush" aria-pressed="false">Rush boost<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="boost-mode" aria-pressed="false">Boost Mode<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="tricks" aria-pressed="false">SA2 tricks<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="sound" aria-pressed="true">Sound<span class="state">: on</span></button><span class="sep" aria-hidden="true"> · </span><label class="button-opacity">Opacity <input type="range" id="button-opacity" min="20" max="100" step="5" value="60"><span class="sep" aria-hidden="true"> · </span></label><a href="viewer.html">Asset viewer</a></p>
+      <p class="actions"><button type="button" class="link" id="change-rom">Your ROMs</button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="achievements-open">Achievements<span class="count"></span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="wide" aria-pressed="false">Widescreen<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="rush" aria-pressed="false">Rush boost<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="boost-mode" aria-pressed="false">Boost Mode<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="tricks" aria-pressed="false">SA2 tricks<span class="state">: off</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link" id="sound" aria-pressed="true">Sound<span class="state">: on</span></button><span class="sep" aria-hidden="true"> · </span><button type="button" class="link controls-open" id="controls-open">Controls</button><span class="sep controls-open" aria-hidden="true"> · </span><label class="button-opacity">Opacity <input type="range" id="button-opacity" min="20" max="100" step="5" value="60"><span class="sep" aria-hidden="true"> · </span></label><a href="viewer.html" id="assets-open">Asset viewer</a></p>
       <p class="stats" id="rom-status" role="status" aria-live="polite"></p>
       <input type="file" id="rom-file" hidden>
     </aside>

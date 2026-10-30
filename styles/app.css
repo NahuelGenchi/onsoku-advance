@@ -25,37 +25,11 @@ a { color: #9cc3ff; }
 button { font: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-/* ROM picker */
+/* the start screen's section */
 .picker { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
 .picker[hidden] { display: none; }
-.picker-card {
-  width: min(520px, 100%); padding: 32px 28px; border-radius: var(--radius);
-  background: var(--panel); border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
-  backdrop-filter: blur(6px);
-}
-.eyebrow { margin: 0 0 6px; font: 600 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
-.picker-card h1 { margin: 0 0 8px; font-size: clamp(26px, 5vw, 34px); line-height: 1.15; }
-.intro { margin: 0 0 22px; color: var(--muted); }
-.continue {
-  display: block; width: 100%; margin-bottom: 12px; padding: 14px 18px; border: 0; border-radius: 12px; cursor: pointer;
-  background: var(--accent); color: #1a1300; font-weight: 700; text-align: center;
-}
-.continue[hidden] { display: none; }
-.continue:hover { filter: brightness(1.06); }
-.drop {
-  display: grid; justify-items: center; gap: 4px; padding: 26px 16px; border-radius: 12px; cursor: pointer; text-align: center;
-  border: 2px dashed var(--line); background: rgba(5, 10, 36, .45); color: var(--ink); transition: border-color .15s, background .15s;
-}
-.drop svg { color: var(--blue); }
-.drop span { color: var(--muted); font-size: 14px; }
-.drop:hover, .drop.over { border-color: var(--accent); background: rgba(255, 210, 63, .07); }
-.remember { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; color: var(--muted); font-size: 14px; }
-.status { min-height: 1.5em; margin: 14px 0 0; font-size: 14px; color: var(--muted); }
-.status[data-kind="error"] { color: var(--error); }
-.privacy { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .link { padding: 0; border: 0; background: none; color: #9cc3ff; text-decoration: underline; cursor: pointer; }
 .link[hidden] { display: none; }
-.busy .drop, .busy .continue { opacity: .55; pointer-events: none; }
 
 /* the game's ROM setup: a row for each of the three ROMs, with their extras under them, then Play. It is drawn
    like the dreamports.net launcher the game opens from, at its sizes: all in Monocraft, a pixel font nine of its
@@ -63,7 +37,7 @@ button { font: inherit; }
    frames with their corner pixels left out. Light or dark, as the launcher is. */
 @font-face { font-family: Monocraft; font-display: swap; src: url(fonts/Monocraft.woff2) format("woff2"); }
 
-.picker:has(> .setup) {
+.picker:has(> .setup), .assets {
   /* light: white paper, dark blue ink, light blue fills, a deeper blue for what's light blue on paper */
   --page: #fff; --glow: radial-gradient(900px 560px at 50% 0, #ddefff, rgba(221, 239, 255, 0) 80%);
   --paper: #fff; --hover: #eef7ff; --line: #cde3f8; --sky: #8fd1ff; --blue: #1a4fb0;
@@ -75,7 +49,7 @@ button { font: inherit; }
 }
 /* dark: the launcher's night blue, when the device is dark and the launcher wasn't set to light, or it was set to dark */
 @media (prefers-color-scheme: dark) {
-  .picker:not([data-theme="light"]):has(> .setup) {
+  .picker:not([data-theme="light"]):has(> .setup), .assets:not([data-theme="light"]) {
     --page: #050a24; --glow: radial-gradient(1200px 600px at 50% -10%, #1a3cb8 0%, rgba(26, 60, 184, 0) 60%);
     --paper: #0b1240; --hover: #121b4f; --line: #263a66; --blue: #7aa7ff;
     --ink: #eef4ff; --dim: #a9b8e6; --faint: rgba(169, 184, 230, .6);
@@ -84,7 +58,7 @@ button { font: inherit; }
     color-scheme: dark;
   }
 }
-.picker[data-theme="dark"]:has(> .setup) {
+.picker[data-theme="dark"]:has(> .setup), .assets[data-theme="dark"] {
   --page: #050a24; --glow: radial-gradient(1200px 600px at 50% -10%, #1a3cb8 0%, rgba(26, 60, 184, 0) 60%);
   --paper: #0b1240; --hover: #121b4f; --line: #263a66; --blue: #7aa7ff;
   --ink: #eef4ff; --dim: #a9b8e6; --faint: rgba(169, 184, 230, .6);
@@ -100,7 +74,8 @@ button { font: inherit; }
 }
 .setup :focus-visible, .pad-nav .pad-at { outline: 2px solid var(--blue); outline-offset: 4px; }
 /* a pixel frame, 2 px with the corner pixels left out */
-.setup :is(.setup-back, .roms, .rom-add, .play, kbd, .switch-track, .remember input, .setup-drag > div, .pad) {
+.setup :is(.setup-back, .roms, .rom-add, .play, kbd, .switch-track, .remember input, .setup-drag > div, .pad),
+.assets :is(.setup-back, .assets-part, .switch-track, .assets-choose) {
   box-shadow: 0 -2px var(--frame), 0 2px var(--frame), -2px 0 var(--frame), 2px 0 var(--frame);
 }
 /* a key, as the launcher draws one; touch screens have none to press, so it shows only with a mouse */
@@ -121,7 +96,7 @@ button { font: inherit; }
 .setup-back:active { transform: translateY(2px); }
 .setup-back svg { width: 14px; height: 14px; }
 .setup-brand { margin: 0; color: var(--blue); font-size: 13.5px; line-height: 20px; }
-.setup h1 { margin: 4px 0 0; font-size: 24px; font-weight: normal; line-height: 32px; }
+.setup h1, .assets h1 { margin: 4px 0 0; font-size: 24px; font-weight: normal; line-height: 32px; }
 .setup-intro { margin: 8px 0 0; color: var(--dim); }
 
 /* the controller badge: in with a note while an Xbox controller is connected; off, with a note, then out once
@@ -268,74 +243,74 @@ button { font: inherit; }
 .screens { display: grid; gap: 8px; justify-content: center; align-content: center; }
 .screens[hidden] { display: none; }
 .screens .screen { display: block; image-rendering: pixelated; image-rendering: crisp-edges; outline: none; }
+/* the settings, behind a button in the top-left corner, drawn like dreamports.net (Monocraft and 2 px pixel
+   frames with the corner pixels left out): a switch for each, as on the start screen, without the on/off words.
+   They open beside the settings button, in two columns, or in one under it on a touch screen held upright. */
+.stage {
+  --t-frame: #4a5d94; --t-fill: #0b1240; --t-ink: #eef4ff; --t-held: #8fd1ff; --t-held-ink: #0a1738;
+  --pad: clamp(104px, 32vmin, 148px); --edge: 14px;
+  --t-opacity: .6;   /* the settings' Opacity slider sets it */
+}
+.settings-open {
+  position: fixed; z-index: 3; top: var(--edge); left: var(--edge); display: grid; place-items: center;
+  width: 44px; height: 44px; margin: 2px; padding: 0; border: 0; background: var(--t-fill); color: var(--t-ink);
+  opacity: calc(var(--t-opacity) * .7); touch-action: none; cursor: pointer;
+  box-shadow: 0 -2px var(--t-frame), 0 2px var(--t-frame), -2px 0 var(--t-frame), 2px 0 var(--t-frame);
+}
+.settings-open[aria-expanded="true"] { opacity: 1; background: var(--t-held); color: var(--t-held-ink); }
+.settings-open svg { width: 18px; height: 18px; fill: currentColor; }
 .help {
-  position: fixed; left: 12px; top: 12px; max-width: calc(100vw - 24px); padding: 12px 14px; border-radius: 12px;
-  background: rgba(8, 20, 60, .78); border: 1px solid var(--line); font-size: 13px; backdrop-filter: blur(4px);
+  position: fixed; z-index: 3; top: var(--edge); left: calc(var(--edge) + 60px); width: min(664px, calc(100vw - 2 * var(--edge) - 64px));
+  max-height: calc(100dvh - 2 * var(--edge) - 4px); overflow: auto; margin: 2px; padding: 4px 16px;
+  background: var(--t-fill); color: var(--t-ink); font: 15px/20px Monocraft, var(--mono);
+  font-variant-ligatures: none; font-synthesis: none;
+  box-shadow: 0 -2px #263a66, 0 2px #263a66, -2px 0 #263a66, 2px 0 #263a66;
 }
 .help[hidden] { display: none; }
-.help dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
-.help dt { white-space: nowrap; }
-.help dd { margin: 0; color: var(--muted); }
-kbd {
-  display: inline-block; min-width: 1.6em; margin-right: 2px; padding: 1px 5px; border-radius: 5px; text-align: center;
-  border: 1px solid var(--line); background: rgba(255, 255, 255, .06); font: 600 12px/1.4 var(--mono); color: var(--ink);
+.help :is(.sep, .state), #stats { display: none; }
+.stage.debug #stats { display: block; margin: 12px 0 0; color: #a9b8e6; font-size: 13.5px; }
+.help .actions {
+  display: grid; margin: 0; grid-template: repeat(5, auto) / 1fr 1fr; grid-auto-flow: column; column-gap: 24px;
 }
-.stats { margin: 10px 0 0; font: 12px/1.4 var(--mono); color: var(--muted); }
-.actions { margin: 8px 0 0; color: var(--muted); }
-/* the touch layout, on phones and tablets: the settings behind a button in the top-left corner, and an Xbox
-   controller's buttons around the game, drawn like dreamports.net (Monocraft and 2 px pixel frames with the corner
-   pixels left out) and see-through as the settings say, until a real controller is connected. Held sideways, the game fills the
-   height, with the d-pad and A, B, X and Y in the bottom corners, the shoulder buttons above them, Select under the
-   settings button and Start at the top right; held upright, the game is in the middle of what's between the
-   settings button and the buttons below it. Buttons that cover part of the game are more see-through. */
-.settings-open, .touch, .button-opacity { display: none; }
+.help .actions :is(button, a, label) {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0;
+  border: 0; border-top: 2px solid #263a66; background: none; color: inherit; font: inherit; text-align: left;
+  text-decoration: none; touch-action: manipulation; cursor: pointer;
+}
+.help .actions > :first-child, .help .actions > :nth-child(6 of :is(button, a, label)) { border-top: 0; }
+.help .actions :disabled { color: rgba(169, 184, 230, .6); cursor: default; }
+.help .actions .count { color: #a9b8e6; }
+/* the one picked with a controller or the arrow keys, or with Tab */
+.help .actions > .pad-at, .help .actions :is(button, a, input):focus-visible { outline: 2px solid var(--t-held); outline-offset: 2px; }
+.help .actions [aria-pressed]::after {
+  content: ""; flex: none; width: 32px; height: 16px; margin: 2px;
+  background: linear-gradient(rgba(169, 184, 230, .6), rgba(169, 184, 230, .6)) 2px 2px / 12px 12px no-repeat, #263a66;
+  box-shadow: 0 -2px #263a66, 0 2px #263a66, -2px 0 #263a66, 2px 0 #263a66;
+}
+.help .actions [aria-pressed="true"]::after {
+  background: linear-gradient(#0a1738, #0a1738) 18px 2px / 12px 12px no-repeat, var(--t-held);
+  box-shadow: 0 -2px var(--t-held), 0 2px var(--t-held), -2px 0 var(--t-held), 2px 0 var(--t-held);
+}
+.help #rom-status { margin: 0 0 12px; color: #a9b8e6; font-size: 13.5px; }
+.help #rom-status:empty { display: none; }
+@media (hover: hover) {
+  .settings-open:hover { opacity: 1; }
+  .help .actions :is(button, a):not(:disabled):hover { color: var(--t-held); }
+}
+
+/* the touch layout, on phones and tablets: an Xbox controller's buttons around the game, drawn like the settings
+   button and see-through as the settings say, until a real controller is connected, and the Opacity slider for
+   them in the settings in place of the keys. Held sideways, the game fills the height, with the d-pad and A, B, X
+   and Y in the bottom corners, the shoulder buttons above them, Select under the settings button and Start at the
+   top right; held upright, the game is in the middle of what's between the settings button and the buttons below
+   it. Buttons that cover part of the game are more see-through. */
+.touch, .help .actions .button-opacity { display: none; }
 @media (pointer: coarse) {
-  .stage {
-    --t-frame: #4a5d94; --t-fill: #0b1240; --t-ink: #eef4ff; --t-held: #8fd1ff; --t-held-ink: #0a1738;
-    --pad: clamp(104px, 32vmin, 148px); --edge: 14px;
-    --t-opacity: .6;   /* the settings' Opacity slider sets it */
-  }
   .stage, .stage * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-  .stage :is(.settings-open, .pill) {
-    box-shadow: 0 -2px var(--t-frame), 0 2px var(--t-frame), -2px 0 var(--t-frame), 2px 0 var(--t-frame);
-  }
-
-  .settings-open {
-    position: fixed; z-index: 3; top: var(--edge); left: var(--edge); display: grid; place-items: center;
-    width: 44px; height: 44px; margin: 2px; padding: 0; border: 0; background: var(--t-fill); color: var(--t-ink);
-    opacity: calc(var(--t-opacity) * .7); touch-action: none;
-  }
-  .settings-open[aria-expanded="true"] { opacity: 1; background: var(--t-held); color: var(--t-held-ink); }
-  .settings-open svg { width: 18px; height: 18px; fill: currentColor; }
-
-  /* the settings: a switch for each, as on the start screen, without the on/off words. They open beside the
-     settings button, or under it on a screen held upright. */
-  .help {
-    z-index: 3; top: var(--edge); left: calc(var(--edge) + 60px); width: min(320px, calc(100vw - 2 * var(--edge) - 64px));
-    max-height: calc(100dvh - 2 * var(--edge) - 4px); overflow: auto; margin: 2px; padding: 4px 16px; border: 0; border-radius: 0;
-    background: var(--t-fill); backdrop-filter: none; color: var(--t-ink); font: 15px/20px Monocraft, var(--mono);
-    font-variant-ligatures: none; font-synthesis: none;
-    box-shadow: 0 -2px #263a66, 0 2px #263a66, -2px 0 #263a66, 2px 0 #263a66;
-  }
-  .help :is(dl, .sep, .state), #stats { display: none; }
-  .help .actions { display: grid; margin: 0; }
-  .help .actions :is(button, a, label) {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0;
-    border: 0; border-top: 2px solid #263a66; background: none; color: inherit; font: inherit; text-align: left;
-    text-decoration: none; touch-action: manipulation;
-  }
-  .help .actions > :first-child { border-top: 0; }
-  .help .actions :disabled { color: rgba(169, 184, 230, .6); }
-  .help .actions .count { color: #a9b8e6; }
-  .help .actions [aria-pressed]::after {
-    content: ""; flex: none; width: 32px; height: 16px; margin: 2px;
-    background: linear-gradient(rgba(169, 184, 230, .6), rgba(169, 184, 230, .6)) 2px 2px / 12px 12px no-repeat, #263a66;
-    box-shadow: 0 -2px #263a66, 0 2px #263a66, -2px 0 #263a66, 2px 0 #263a66;
-  }
-  .help .actions [aria-pressed="true"]::after {
-    background: linear-gradient(#0a1738, #0a1738) 18px 2px / 12px 12px no-repeat, var(--t-held);
-    box-shadow: 0 -2px var(--t-held), 0 2px var(--t-held), -2px 0 var(--t-held), 2px 0 var(--t-held);
-  }
+  .stage .pill { box-shadow: 0 -2px var(--t-frame), 0 2px var(--t-frame), -2px 0 var(--t-frame), 2px 0 var(--t-frame); }
+  .settings-open { cursor: auto; }
+  .help .actions .controls-open { display: none; }
+  .help .actions .button-opacity { display: flex; }
   .help .button-opacity input {
     -webkit-appearance: none; appearance: none; flex: none; width: 120px; height: 16px; margin: 2px 2px 2px 0; padding: 0 2px;
     background: #263a66; box-shadow: 0 -2px #263a66, 0 2px #263a66, -2px 0 #263a66, 2px 0 #263a66; touch-action: none; cursor: pointer;
@@ -344,8 +319,6 @@ kbd {
   .help .button-opacity input::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: 2px; border: 0; background: var(--t-held); }
   .help .button-opacity input::-moz-range-track { height: 16px; background: none; }
   .help .button-opacity input::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 0; background: var(--t-held); }
-  .help #rom-status { margin: 0 0 12px; color: #a9b8e6; font-size: 13.5px; }
-  .help #rom-status:empty { display: none; }
 
   /* the buttons: each frame and fill drawn solid, then all of it see-through as the settings say, so the frames
      don't show through the fills */
@@ -412,35 +385,47 @@ kbd {
 @media (pointer: coarse) and (orientation: portrait) {
   .stage { padding-top: calc(var(--edge) + 60px); }
   .help { top: calc(var(--edge) + 60px); left: var(--edge); width: min(320px, calc(100vw - 2 * var(--edge) - 4px)); max-height: calc(100dvh - 2 * var(--edge) - 64px); }
+  .help .actions { grid-template: none; grid-auto-flow: row; }
+  .help .actions > :nth-child(6 of :is(button, a, label)) { border-top: 2px solid #263a66; }
   .touch :is(.select, .start) { top: auto; right: auto; left: 50%; transform: translateX(-50%); }
   .touch .select { bottom: calc(var(--edge) + var(--pad) / 2 + 6px); }
   .touch .start { bottom: calc(var(--edge) + var(--pad) / 2 - 40px); }
 }
-/* sideways the settings have room for two columns, not for one long one */
-@media (pointer: coarse) and (orientation: landscape) {
-  .help { width: min(664px, calc(100vw - 2 * var(--edge) - 64px)); }
-  .help .actions { grid-template: repeat(5, auto) / 1fr 1fr; grid-auto-flow: column; column-gap: 24px; }
-  .help .actions > :nth-child(6 of :is(button, a, label)) { border-top: 0; }
-}
 
-/* asset viewer */
-.viewer { width: min(1100px, 100%); margin: 0 auto; padding: 32px 16px 64px; }
-.viewer[hidden] { display: none; }
-.viewer header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 20px; }
-.viewer h1 { margin: 0; font-size: 28px; }
-.viewer h2 { margin: 32px 0 12px; font-size: 18px; }
-.viewer .note { color: var(--muted); font-size: 14px; }
-.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; padding: 18px 20px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
-.facts dt { color: var(--muted); }
-.facts dd { margin: 0; font-family: var(--mono); font-size: 14px; overflow-wrap: anywhere; }
-.sheet { max-width: 100%; overflow-x: auto; padding: 12px; border-radius: 12px; background: #6aa384; border: 1px solid var(--line); }
-.sheet canvas { display: block; image-rendering: pixelated; }
-.toggle { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; }
-.anims { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-.anim { padding: 10px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); text-align: center; }
-.anim canvas { display: block; margin: 0 auto 6px; image-rendering: pixelated; background: #6aa384; border-radius: 8px; }
-.anim b { display: block; font-size: 14px; }
-.anim small { display: block; white-space: nowrap; color: var(--muted); font-family: var(--mono); }
+/* the asset viewer (src/ui/assets-view.js), drawn like the start screen: each part on the launcher's paper in a
+   pixel frame, the sprites and the act on its sky blue, the wide ones in boxes that scroll */
+.assets[hidden] { display: none; }
+.assets-page {
+  --frame: var(--line);
+  width: min(1100px, 100%); margin: 0 auto; font: 15px/20px Monocraft, var(--mono); color: var(--ink);
+  font-variant-ligatures: none; font-synthesis: none; -webkit-font-smoothing: antialiased;
+}
+.assets-body { display: grid; gap: 22px; }
+.assets-part { min-width: 0; margin: 2px; padding: 14px 16px 16px; background: var(--paper); }
+.assets-part h2 { margin: 0 0 12px; font-size: inherit; font-weight: normal; line-height: inherit; }
+.assets-note, .assets-status { margin: 0 0 12px; color: var(--dim); font-size: 13.5px; line-height: 20px; }
+.assets-status:empty { display: none; }
+.assets-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-size: 13.5px; }
+.assets-facts dt { color: var(--dim); }
+.assets-facts dd { margin: 0; overflow-wrap: anywhere; }
+.assets-anims { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 2px; background: var(--line); border: 2px solid var(--line); }
+.assets-anim { margin: 0; padding: 10px; background: var(--paper); text-align: center; }
+.assets-anim canvas { display: block; width: 100%; max-width: 128px; margin: 0 auto 8px; aspect-ratio: 1; background: var(--sky); image-rendering: pixelated; }
+.assets-anim b { display: block; font-weight: normal; font-size: 13.5px; overflow-wrap: anywhere; }
+.assets-anim small { display: block; color: var(--dim); font-size: 12px; }
+.assets-sheet { max-width: 100%; max-height: 70vh; overflow: auto; background: var(--sky); }
+.assets-sheet canvas { display: block; image-rendering: pixelated; }
+.assets .switch { grid-template-columns: minmax(0, 1fr) auto; margin: 0 0 12px; }
+.assets-choose {
+  --frame: var(--sky); display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; margin: 2px 0 0;
+  border: 0; background: var(--sky); color: #0a1738; font: inherit; cursor: pointer;
+}
+.assets-choose:hover { --frame: var(--act); background: var(--act); color: var(--on-act); }
+.assets :focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+@media (max-width: 520px) {
+  .assets-facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .assets-facts dd { margin-bottom: 8px; }
+}
 
 /* the unlock popup (src/achievements/popup.js) in a layer over the game's screen, which it comes in from the edge of:
    its pixels are `--dot` CSS px each, and its sizes and places (`--h`, `--margin`, `--trophy-x` …) come from popup.js;
@@ -464,32 +449,39 @@ kbd {
 }
 .unlock-said { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-/* the achievements (src/achievements/panel.js), in the launcher's look: Monocraft, its light or dark tokens and
-   its 2 px pixel frames with the corner pixels left out; each trophy at two screen pixels to one of its own */
-.achievements {
+/* the dialogs opened from the settings (src/ui/dialog.js), the achievements and the keys, in the launcher's look:
+   Monocraft, its light or dark tokens and its 2 px pixel frames with the corner pixels left out */
+.dialog {
   --paper: #fff; --hover: #eef7ff; --line: #cde3f8; --blue: #1a4fb0; --ink: #0a1738; --dim: rgba(10, 23, 56, .68);
   --faint: rgba(10, 23, 56, .46); --veil: rgba(255, 255, 255, .82);
   width: min(480px, calc(100vw - 36px)); max-height: calc(100dvh - 36px); margin: auto; padding: 0; border: 0;
   overflow: visible; background: none; color: var(--ink); color-scheme: light;
   font: 15px/20px Monocraft, var(--mono); font-variant-ligatures: none; font-synthesis: none; -webkit-font-smoothing: antialiased;
 }
-.achievements[data-look="dark"] {
+.dialog[data-look="dark"] {
   --paper: #0b1240; --hover: #121b4f; --line: #263a66; --blue: #7aa7ff; --ink: #eef4ff; --dim: #a9b8e6;
   --faint: rgba(169, 184, 230, .6); --veil: rgba(5, 10, 36, .82);
   color-scheme: dark;
 }
-.achievements::backdrop { background: rgba(5, 10, 36, .55); }
-.achievements[open] { animation: ach-in .22s cubic-bezier(.2, .9, .25, 1); }
-.ach-panel {
+.dialog::backdrop { background: rgba(5, 10, 36, .55); }
+.dialog[open] { animation: dialog-in .22s cubic-bezier(.2, .9, .25, 1); }
+.dialog-panel {
   margin: 2px; max-height: calc(100dvh - 40px); overflow: auto; background: var(--paper);
   box-shadow: 0 -2px var(--line), 0 2px var(--line), -2px 0 var(--line), 2px 0 var(--line);
 }
-.ach-head {
-  position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; padding: 10px 10px 10px 16px;
+.dialog-head {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px;
   border-bottom: 2px solid var(--line); background: var(--paper);
 }
-.ach-head h2 { flex: 1; margin: 0; font-size: inherit; font-weight: normal; line-height: inherit; }
-.ach-count { color: var(--dim); font-size: 13.5px; }
+.dialog-head h2 { flex: 1; margin: 0; font-size: inherit; font-weight: normal; line-height: inherit; }
+.dialog-note { color: var(--dim); font-size: 13.5px; }
+.dialog-close { width: 34px; height: 34px; padding: 0; border: 0; background: none; color: var(--dim); font: inherit; cursor: pointer; }
+.dialog-close:hover { background: var(--hover); color: var(--ink); }
+.dialog :focus-visible { outline: 2px solid var(--blue); outline-offset: 0; }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(.97); } }
+/* the achievements (src/achievements/panel.js), each trophy at two screen pixels to one of its own; Beaten and
+   Mastered under the title, framed buttons that filter the list, with the line saying what the one pressed needs */
+.dialog:has(.ach-list) .dialog-head { flex-wrap: wrap; row-gap: 0; }
 .ach-status { flex-basis: 100%; display: flex; gap: 10px; margin: 2px 0 6px 2px; }
 .ach-status button {
   padding: 2px 8px; border: 0; background: none; color: var(--dim); font: inherit; font-size: 13.5px; line-height: 20px; cursor: pointer;
@@ -500,9 +492,6 @@ kbd {
 .ach-status [aria-pressed="true"] { background: var(--hover); color: var(--ink); box-shadow: 0 -2px var(--blue), 0 2px var(--blue), -2px 0 var(--blue), 2px 0 var(--blue); }
 .ach-note { flex-basis: 100%; margin: 4px 0 4px 2px; color: var(--dim); font-size: 13.5px; line-height: 20px; }
 .ach-tag { margin-left: 6px; color: var(--dim); font-size: 12px; white-space: nowrap; }
-.ach-close { width: 34px; height: 34px; padding: 0; border: 0; background: none; color: var(--dim); font: inherit; cursor: pointer; }
-.ach-close:hover { background: var(--hover); color: var(--ink); }
-.achievements :focus-visible { outline: 2px solid var(--blue); outline-offset: 0; }
 .ach-list { margin: 0; padding: 0; list-style: none; }
 .ach { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; gap: 0 14px; padding: 14px 16px; }
 .ach + .ach { border-top: 2px solid var(--line); }
@@ -510,5 +499,14 @@ kbd {
 .ach h3 { margin: 0; font-size: inherit; font-weight: normal; line-height: inherit; }
 .ach p { margin: 4px 0 0; color: var(--dim); font-size: 13.5px; line-height: 20px; }
 .ach:not([data-earned]) h3 { color: var(--faint); }
-@keyframes ach-in { from { opacity: 0; transform: translateY(8px) scale(.97); } }
-@media (prefers-reduced-motion: reduce) { .achievements[open] { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .dialog[open] { animation: none; } }
+/* the keys (index.html's list, in a dialog): each key as the launcher draws one, then what it does */
+.dialog:has(.controls-list) { width: min(720px, calc(100vw - 36px)); }
+.controls-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 16px; margin: 0; padding: 14px 16px; font-size: 13.5px; }
+.controls-list dt { white-space: nowrap; }
+.controls-list dd { margin: 0; color: var(--dim); }
+.controls-list kbd {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; margin: 2px; padding: 0 4px;
+  background: var(--line); box-shadow: 0 -2px var(--line), 0 2px var(--line), -2px 0 var(--line), 2px 0 var(--line);
+  font: 11px/1 Monocraft, var(--mono); color: var(--ink);
+}

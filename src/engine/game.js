@@ -802,7 +802,9 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   };
 
   // GameStageStart: the next act, with everything in it new and the score, the lives and the game's random
-  // numbers carried over, and its music (its stage init)
+  // numbers carried over, and its music and its own tasks (its stage init). The clock counts up from 0 again
+  // (gCheckpointTime too), and CreateGameStage turns the countdown off (STAGE_FLAG__TIMER_REVERSED): after
+  // Egg Rocket, Cosmic Angel's clock would otherwise start at 0:00 counting down
   function startNextAct() {
     state.level++;
     act = assets.acts[state.level]; stage = act.stage; Object.assign(anims, act.anims);
@@ -816,6 +818,7 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
       clockStopped: false, hud: createHud(), animal: 0, palettes: palettes.map(a => a.shown), checkpointIndex: 0,
       checkpoint: null, goalReached: false, ringsStopped: false, card: null, results: null, rushFx: createRushFx(), shake: -1, display: noEffects(),
       boostFx: createBoostFx(player), trail: createTrail(), water: createWater(stage.water), cardOver: false, hits: 0,
+      checkpointTime: 0, timerReversed: false, bg: null, backLines: null,
     });
     arenaHits = -1;
     ctx.view = state.view = viewOf(state.cam, viewW, viewH);
@@ -823,6 +826,8 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
     addStageTasks();
     startCard();
     sound.playStageMusic(stage.music);
+    extras = makeExtras();
+    extras?.init();
   }
 
   // the stage's own tasks, made in the original's order: the rings manager and the entities manager first
@@ -930,7 +935,8 @@ export function createGame(canvas, assets, buttons, sound = SILENT, options = {}
   if (options.carry) Object.assign(state, options.carry);
   addStageTasks();
   startCard();
-  const extras = LEVEL_EXTRAS[stage.level]?.({ state, world, ctx, player }) ?? null;
+  const makeExtras = () => LEVEL_EXTRAS[stage.level]?.({ state, world, ctx, player }) ?? null;
+  let extras = makeExtras();
   extras?.init();
 
   // the stage clock (the end of Task_GameStage): the course time passing 10:00 (MAX_COURSE_TIME), or counting

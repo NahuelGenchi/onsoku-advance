@@ -29,12 +29,13 @@ The act's three checkpoints (kind 7) have no post and no sprite. `d0` numbers th
 
 ## The end of the act
 
-The act ends at the rocket's top through the stage goal (kind 0, `stage_goal.c`), the same entity as the other acts' goal post, with three Egg Rocket branches. This game doesn't build it here yet: it is left to the act clear's work ([#69](https://github.com/NahuelGenchi/sonic-advance-dreamport/issues/69)), and until then the goals stay stand-ins.
+The act ends at the rocket's top through the stage goal (kind 0, `stage_goal.c`), the same entity as the other acts' goal post, with three Egg Rocket branches (`src/engine/goal.js`).
 
 - Three goals sit on the act's top edge, at (2144, 0), (2160, 0) and (2176, 0), with `d1` = 1. A fourth at (2080, 168) has `d1` = 0, so only multiplayer makes it; in Egg Rocket, multiplayer skips the `d1` = 1 ones instead.
 - A goal fires once Sonic's centre is right of its point and his body's box (hitbox 0) holds the point. Elsewhere being right of it is enough.
 - No goal sound plays (`SE_GOAL` is skipped, there is no post), and Sonic isn't made to run right. He is held where he is (`MOVESTATE_IA_OVERRIDE`) and the camera's `shiftY` isn't touched.
 - 121 frames later the goal's task ends and `CreateStageResults` runs, without waiting for Sonic's goal pose (`CHARSTATE_28`) as the other acts do. There is no early `Task_ShowResults` either.
+- After the results, Cosmic Angel (level 11) starts as any next act does (`GameStageStart`): its clock counts up from 0, `gCheckpointTime` starts at 0 too, and `CreateGameStage` turns the countdown off (`STAGE_FLAG__TIMER_REVERSED`). None of Egg Rocket's own rules come with it: no left wall at 1058 and no 5:00 countdown after a death there.
 
 ## The background
 

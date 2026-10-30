@@ -160,7 +160,7 @@ export function createInput({ keys = KEYS, pads = connectedPads } = {}) {
     }
     const quiet = padFresh;
     padFresh = false;
-    // View + Menu are the settings' (settings-pad.js), so a pad's Start or Select reaches the game a few steps late,
+    // View + Menu are the settings' (sheet.js), so a pad's Start or Select reaches the game a few steps late,
     // in case the other is on its way; held together, neither reaches it until let go
     for (const b of ['start', 'select']) {
       if (combo) { spent.add(b); delete waiting[b]; }

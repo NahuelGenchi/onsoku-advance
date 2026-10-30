@@ -2,7 +2,8 @@
 // optional extras take from, with the switches for those extras under it. A ROM is chosen on its row or dropped
 // on it, or dropped anywhere on the page, where it goes to the row of the game its header names. Each is read as
 // soon as it is chosen, and kept in this browser if the player wants, so Play starts the game straight away.
-// It is drawn like the dreamports.net launcher the game is opened from, light or dark as the launcher is.
+// It is drawn like the dreamports.net launcher the game is opened from, light or dark as the launcher is. While the
+// game runs, its rows are lent to the settings' Your ROMs (sheet.js), where they work the same.
 
 import { loadRememberedRom, rememberRom, forgetRom } from './rom-store.js';
 import { bindController } from './setup-controller.js';
@@ -49,10 +50,9 @@ const drawn = () => new Promise(resolve => { requestAnimationFrame(() => setTime
  * it had; `unload` lets go of that one; `extras` are its options, each { label, hint, keys, key, get(), set(on),
  * auto }, where `hint` says what it does, `keys` (if any) the keys that use it, shown only to a keyboard, `key` is
  * the key that switches it in the game and `auto` turns it on when the ROM is chosen. `onPlay()` starts the game
- * once every required ROM is read. `onBack()` takes the way back first, and says whether it did (while the game
- * waits behind the screen, it goes back to the game, and so does the Play button, named for it).
+ * once every required ROM is read, and `onChange()` is told whenever a ROM comes in or goes.
  */
-export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = () => false }) {
+export function createRomSetup(host, { heading, intro, slots, onPlay, onChange = () => {} }) {
   host.innerHTML = `
     <div class="setup">
       <header class="setup-head">
@@ -86,9 +86,9 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
             <h2 id="${id}-title">${s.title}</h2>
             <p class="rom-detail" id="${id}-detail"></p>
           </div>
-          <button type="button" class="rom-add${s.required ? ' needed' : ''}" aria-describedby="${id}-title ${id}-detail">${ICONS.add}<span>Add</span></button>
+          <button type="button" class="rom-add${s.required ? ' needed' : ''}" data-file aria-describedby="${id}-title ${id}-detail">${ICONS.add}<span>Add</span></button>
           <div class="rom-actions">
-            <button type="button" class="rom-change" aria-describedby="${id}-title">Change</button>
+            <button type="button" class="rom-change" data-file aria-describedby="${id}-title">Change</button>
             <button type="button" class="rom-remove" aria-label="Remove ${s.title}" title="Remove">×</button>
           </div>
           <span class="rom-bar" role="progressbar" aria-label="Reading ${s.title}"><span></span></span>
@@ -106,9 +106,9 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
   }
 
   const $ = sel => host.querySelector(sel);
-  const play = $('.play'), note = $('.play-note');
-  let resume = false;   // a game waits behind the screen: Play goes back to it rather than starting another
-  const go = () => (resume ? onBack() : onPlay());
+  const play = $('.play'), list = $('.roms'), foot = $('.setup-foot');
+  let note = $('.play-note');
+  let lent = null;   // where the rows are lent: { list, foot, note, drop } in the settings, or null
   const remember = $('.remember input'), forget = $('.forget');
   const rows = Object.fromEntries(slots.map(s => {
     const el = host.querySelector(`.rom[data-slot="${s.key}"]`);
@@ -136,12 +136,9 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
   darkDevice.addEventListener('change', paint);
   new MutationObserver(paint).observe(host, { attributes: true, attributeFilter: ['hidden'] });
 
-  // back to dreamports.net: from its menu, back in the browser's history, so the menu comes back as it was left;
-  // or back to the game, when it waits behind the screen
-  const back = $('.setup-back');
-  back.addEventListener('click', e => {
+  // back to dreamports.net: from its menu, back in the browser's history, so the menu comes back as it was left
+  $('.setup-back').addEventListener('click', e => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    if (onBack()) { e.preventDefault(); return; }
     if (!cameFromMenu()) return;
     e.preventDefault();
     history.back();
@@ -179,9 +176,10 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
     play.disabled = missing.length > 0 || reading;
     forget.hidden = !all.some(c => c.saved);
     note.textContent = reading ? 'Reading…'
-      : missing.length ? `Add your ${list(missing.map(c => c.slot.title))} ROM to play.` : '';
+      : missing.length ? `Add your ${listed(missing.map(c => c.slot.title))} ROM to play.` : '';
+    onChange();
   }
-  const list = items => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`);
+  const listed = items => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`);
 
   // reads `buffer` into the row's game, resolving to null or what's wrong with it; `store` keeps it in this
   // browser, `auto` turns its extras on. A ROM it can't read leaves the one it had.
@@ -226,9 +224,10 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
     return { key: c.slot.key, error };
   }
   function showNote(text) {
-    note.textContent = text;
-    note.dataset.kind = 'error';
-    setTimeout(() => { delete note.dataset.kind; update(); }, 5000);
+    const el = note;
+    el.textContent = text;
+    el.dataset.kind = 'error';
+    setTimeout(() => { delete el.dataset.kind; update(); }, 5000);
   }
 
   /**
@@ -266,24 +265,27 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
     c.el.addEventListener('dragleave', e => { if (!c.el.contains(e.relatedTarget)) c.el.classList.remove('over'); });
   }
 
-  // files dragged over the page: the overlay, and on a drop each file to its game's row
+  // files dragged over the page: the overlay (or, lent, the settings' place to drop them), and on a drop each file
+  // to its game's row
   let depth = 0;
+  const showing = () => !!lent || !host.hidden;
+  const dragging = on => (lent ? lent.drop?.classList.toggle('over', on) : host.classList.toggle('dragging', on));
   const hasFiles = e => [...(e.dataTransfer?.types ?? [])].includes('Files');
-  addEventListener('dragenter', e => { if (host.hidden || !hasFiles(e)) return; depth++; host.classList.add('dragging'); });
-  addEventListener('dragleave', () => { if (depth && --depth === 0) host.classList.remove('dragging'); });
-  addEventListener('dragover', e => { if (!host.hidden && hasFiles(e)) e.preventDefault(); });
+  addEventListener('dragenter', e => { if (!showing() || !hasFiles(e)) return; depth++; dragging(true); });
+  addEventListener('dragleave', () => { if (depth && --depth === 0) dragging(false); });
+  addEventListener('dragover', e => { if (showing() && hasFiles(e)) e.preventDefault(); });
   addEventListener('drop', e => {
-    if (host.hidden || !hasFiles(e)) return;
+    if (!showing() || !hasFiles(e)) return;
     e.preventDefault();
     depth = 0;
-    host.classList.remove('dragging');
-    host.querySelectorAll('.rom.over').forEach(el => el.classList.remove('over'));
+    dragging(false);
+    list.querySelectorAll('.rom.over').forEach(el => el.classList.remove('over'));
     add([...e.dataTransfer.files], e.target.closest?.('.rom')?.dataset.slot ?? null);
   });
 
-  play.addEventListener('click', () => { if (!play.disabled) go(); });
+  play.addEventListener('click', () => { if (!play.disabled) onPlay(); });
   host.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !play.disabled && !e.target.closest('button, input, label, a')) { e.preventDefault(); go(); }
+    if (e.key === 'Enter' && !play.disabled && !e.target.closest('button, input, label, a')) { e.preventDefault(); onPlay(); }
   });
   forget.addEventListener('click', async () => {
     for (const c of Object.values(rows)) {
@@ -294,9 +296,9 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
     note.textContent = 'The saved ROMs were removed from this browser. The ones above stay until you leave the page.';
   });
 
-  bindController(host, {
-    blocked: el => say(rows[el.closest('.rom').dataset.slot], 'Your browser opens the file list only from the mouse or the keyboard. You can also drop the file here.'),
-  });
+  // a controller's A on a button that opens the file list, which browsers open only from the mouse or the keyboard
+  const blocked = el => say(rows[el.closest('.rom').dataset.slot], 'Your browser opens the file list only from the mouse or the keyboard. You can also drop the file here.');
+  bindController(host, { blocked });
 
   for (const c of Object.values(rows)) setState(c, 'empty');
   // the ROMs kept from an earlier visit, each read again
@@ -309,13 +311,21 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
     add, restored,
     /** Shows the extras as they are now (they can also be changed in the game). */
     refresh() { for (const c of Object.values(rows)) setState(c, c.el.dataset.state); },
-    /** Names the way back, and the Play button with it: to the game waiting behind the screen (`game`), or to Dreamports. */
-    backTo(game) {
-      const label = game ? 'Back to the game' : 'Back to Dreamports';
-      back.setAttribute('aria-label', label);
-      back.title = label;
-      resume = game;
-      $('.play-label').textContent = game ? 'Back to the game' : 'Play';
+    blocked,
+    /** How many of the ROMs are in, and how many there are. */
+    count: () => ({ ready: Object.values(rows).filter(c => c.el.dataset.state === 'ready').length, all: slots.length }),
+    /**
+     * Lends the rows to the settings: into `to.list`, with the box to remember them into `to.foot`, what's said
+     * about them in `to.note`, and `to.drop` lit while a file is dragged over the page. `null` takes them back.
+     */
+    lend(to) {
+      lent = to;
+      depth = 0;
+      host.classList.remove('dragging');
+      if (to) { to.list.append(list); to.foot.append(foot); } else { $('.setup-play').before(list); $('.setup-drag').before(foot); }
+      note = to?.note ?? $('.play-note');
+      delete note.dataset.kind;
+      update();
     },
     focus() { (play.disabled ? host.querySelector('.rom[data-state="empty"] .rom-add') : play)?.focus(); },
   };

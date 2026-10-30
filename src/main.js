@@ -27,15 +27,14 @@ import { startMultiplayer, DEFAULT_SEED, DEFAULT_CHAO_PLACE } from './multiplaye
 import { openAchievements } from './achievements/store.js';
 import { createUnlockPopup } from './achievements/popup.js';
 import { createAchievementsPanel } from './achievements/panel.js';
-import { createDialog } from './ui/dialog.js';
 import { holdClocks } from './engine/clock.js';
-import { bindSettingsPad } from './ui/settings-pad.js';
-import { createAssetsView } from './ui/assets-view.js';
+import { createSheet } from './ui/sheet.js';
+import { createControlsView } from './ui/controls-view.js';
+import { createAssetsSheetView } from './ui/assets-view.js';
 
 const picker = document.getElementById('picker');
 const stage = document.getElementById('stage');
 const screen = document.getElementById('screen');
-const help = document.getElementById('help');
 const stats = document.getElementById('stats');
 const wideButton = document.getElementById('wide');
 const rushButton = document.getElementById('rush');
@@ -67,27 +66,37 @@ const input = createInput();
 input.bindTouch(touch);
 const sound = createSound();
 
-// a setting's button in the panel: its name and its switch, with ": on" or ": off" for screen readers
-function showSetting(button, on) {
-  button.querySelector('.state').textContent = `: ${on ? 'on' : 'off'}`;
-  button.setAttribute('aria-pressed', String(on));
+// an extra's switch in the settings, with the line under it: what it does, or the ROM it still needs (`needs`), for
+// which it opens the file list
+function showSetting(button, on, needs = null) {
+  button.setAttribute('aria-checked', String(on));
+  const hint = button.querySelector('.row-hint');
+  hint.textContent = needs ? `Needs your ${needs} ROM` : hint.dataset.hint;
+  button.toggleAttribute('data-file', !!needs);
 }
 
-// The game's settings are behind a button in the top-left corner as on dreamports.net; on touch screens an Xbox
-// controller's buttons are drawn around the game too. A click or touch anywhere else closes the settings.
+// The game's settings are behind a button in the top-left corner as on dreamports.net, and open as a sheet in the
+// middle of the screen, over the game (sheet.js); on touch screens an Xbox controller's buttons are drawn around the
+// game too. H, or View + Menu on a controller, opens and closes them as well.
 const portrait = matchMedia('(pointer: coarse) and (orientation: portrait)');
-function showSettings(open) {
-  help.hidden = !open;
-  settingsButton.setAttribute('aria-expanded', String(open));
-  holdGame();
-}
-// while the settings, or a dialog opened from them, are open, or the start screen is over the game (`behind`), the
-// game waits: its clocks hold (clock.js), its sound stops where it is and what was held is let go, so it goes on
-// from the same frame once they close. Its keys wait too, so the page's own work as they do on any page.
-let holding = false, behind = false, keysWere = false;
+const sheet = createSheet(stage, document.getElementById('sheet-wrap'), {
+  onOpen() { settingsButton.setAttribute('aria-expanded', 'true'); holdGame(); },
+  onClose() { settingsButton.setAttribute('aria-expanded', 'false'); holdGame(); if (!stage.hidden) screen.focus(); },
+  canOpen: () => !stage.hidden,
+  blocked(el) {
+    if (el.closest('.rom')) setup.blocked(el);
+    else romStatus.textContent = 'Your browser opens the file list only from the mouse or the keyboard. You can drop the ROM in Your ROMs instead.';
+  },
+});
+const settingsView = document.getElementById('settings');
+sheet.view('settings', { el: settingsView, show: () => { romStatus.textContent = ''; }, first: () => settingsView.querySelector('.resume') });
+// while the settings are open the game waits: its clocks hold (clock.js), its sound stops where it is and what was
+// held is let go, so it goes on from the same frame once they close. Its keys wait too, so the page's own work as
+// they do on any page.
+let holding = false, keysWere = false;
 const running = () => !!(front || game || specialStage || round);
 function holdGame() {
-  const on = behind || (!stage.hidden && (!help.hidden || !!stage.querySelector('dialog[open]')));
+  const on = !stage.hidden && sheet.isOpen;
   if (on === holding) return;
   holding = on;
   holdClocks(on);
@@ -96,28 +105,16 @@ function holdGame() {
   if (on) { keysWere = input.enabled; input.enabled = false; }
   else if (keysWere && running()) input.enabled = true;
 }
-// the settings and the dialogs opened from them take touches as they come
-const inSettings = target => help.contains(target) || !!target.closest?.('dialog');
-// a finger opens and closes them as it lifts: touches on the game's screen are cancelled, but in the settings, so
-// iOS doesn't bring up its magnifier on one held down, and so don't click. The mouse and the keyboard click.
+// a finger opens them as it lifts: touches on the game's screen are cancelled, but in the settings, so iOS doesn't
+// bring up its magnifier on one held down, and so don't click. The mouse and the keyboard click.
 let tappedAt = -Infinity;
 settingsButton.addEventListener('pointerup', e => {
   if (e.pointerType !== 'touch') return;
   tappedAt = e.timeStamp;
-  showSettings(help.hidden);
+  sheet.open();
 });
-settingsButton.addEventListener('click', e => { if (e.timeStamp - tappedAt > 800) showSettings(help.hidden); });
-stage.addEventListener('touchstart', e => { if (!inSettings(e.target)) e.preventDefault(); }, { passive: false });
-stage.addEventListener('pointerdown', e => {
-  if (!help.hidden && !help.contains(e.target) && !settingsButton.contains(e.target)) showSettings(false);
-}, true);
-addEventListener('keydown', e => { if (e.code === 'Escape' && !help.hidden && !stage.querySelector('dialog[open]')) showSettings(false); });
-// a controller's Y, or the arrow keys once they are open (settings-pad.js)
-bindSettingsPad(help, {
-  canOpen: () => !stage.hidden,
-  show: showSettings,
-  dialog: () => stage.querySelector('dialog[open]'),
-});
+settingsButton.addEventListener('click', e => { if (e.timeStamp - tappedAt > 800) sheet.open(); });
+stage.addEventListener('touchstart', e => { if (!sheet.isOpen) e.preventDefault(); }, { passive: false });
 // the drawn buttons step aside while a controller is connected, looked for each frame as browsers don't all say
 // when one comes (and show one only once a button on it is pressed); the settings button stays
 // (from the first frame, once the page is set up: a controller the browser already shows needs fitScreen)
@@ -127,8 +124,8 @@ requestAnimationFrame(function watchPads() {
   requestAnimationFrame(watchPads);
 });
 
-// how solid the drawn buttons are, set in the settings: 20 to 100 %, 60 at first. The settings button and the
-// buttons that cover the game are a step fainter (app.css).
+// how solid the drawn buttons are, set in the settings' Button opacity: 20 to 100 %, 60 at first. The settings
+// button and the buttons that cover the game are a step fainter (app.css).
 const OPACITY_KEY = 'onsoku.touchOpacity', opacitySlider = document.getElementById('button-opacity');
 const OPACITY_MIN = Number(opacitySlider.min), OPACITY_MAX = Number(opacitySlider.max);
 function showOpacity(value) {
@@ -159,20 +156,13 @@ opacitySlider.addEventListener('pointerdown', e => {
 opacitySlider.addEventListener('pointermove', e => { if (e.pointerType === 'touch' && opacitySlider.hasPointerCapture(e.pointerId)) slideTo(e); });
 
 // the achievements, kept in this browser (store.js): each new one shows its popup over the game, and so does the
-// game's status once it changes (Beaten, Mastered); the settings open the list of them
+// game's status once it changes (Beaten, Mastered); the settings show how many are earned and open the list of them
 const achievements = openAchievements();
 const unlockPopup = createUnlockPopup(stage, screen, () => sound);
 const achievementsButton = document.getElementById('achievements-open');
-const closed = () => { holdGame(); screen.focus(); };
-const achievementsPanel = createAchievementsPanel(stage, achievements, closed);
-function showAchievementCount() {
-  const all = achievements.list();
-  achievementsButton.querySelector('.count').textContent = ` ${all.filter(a => a.earned).length}/${all.length}`;
-}
-showAchievementCount();
+const achievementsPanel = createAchievementsPanel(sheet, achievements, achievementsButton);
 achievements.onUnlock(a => {
   unlockPopup.show(a);
-  showAchievementCount();
   achievementsPanel.refresh();
 });
 const STATUS_POPUPS = {
@@ -185,22 +175,15 @@ achievements.onStatus(status => { if (STATUS_POPUPS[status]) queueMicrotask(() =
 // reaches): not from ?debug, ?special or another act's ?level
 let counts = false;
 const achieve = id => { if (counts) achievements.unlock(id); };
-achievementsButton.addEventListener('click', () => {
-  achievementsPanel.open();
-  showSettings(false);
-});
+achievementsButton.addEventListener('click', () => sheet.go('achievements'));
 
-// the keys, with a keyboard: the list of them, in a dialog like the achievements'
-const controls = createDialog(stage, { id: 'controls', title: 'Controls' }, closed);
-controls.body.append(document.getElementById('controls'));
-document.getElementById('controls-open').addEventListener('click', () => {
-  controls.open();
-  showSettings(false);
-});
+// every key and every controller button, and what each does
+createControlsView(sheet);
+document.getElementById('controls-open').addEventListener('click', () => sheet.go('controls'));
 
 // the sound, also M on a keyboard
 function showSound() { showSetting(soundButton, !sound.muted); }
-soundButton.addEventListener('click', () => { sound.muted = !sound.muted; showSound(); screen.focus(); });
+soundButton.addEventListener('click', () => { sound.muted = !sound.muted; showSound(); });
 let game = null, front = null, specialStage = null, round = null, rom = null, statsTimer = 0;
 
 // the widescreen view: off unless chosen, as the original screen is what the game is checked against
@@ -212,7 +195,7 @@ function setWide(on) {
   try { localStorage.setItem(WIDE_KEY, on ? '1' : '0'); } catch { /* not remembered */ }
   fitScreen();
 }
-wideButton.addEventListener('click', () => { setWide(!wide); screen.focus(); });
+wideButton.addEventListener('click', () => setWide(!wide));
 
 // An extra turned on in the game without its ROM asks for the ROM there, and is turned on once it is read.
 let asked = null;
@@ -229,7 +212,6 @@ romFile.addEventListener('change', async () => {
   const [{ key, error }] = await setup.add(files, wanted.slot, { auto: false });
   romStatus.textContent = error ?? (key === wanted.slot ? '' : 'That ROM went to its own game; this extra needs another.');
   if (!error && key === wanted.slot) wanted.then(true);
-  screen.focus();
 });
 
 // the save (save.js), read as the GBA is switched on and kept in this browser, which the game changes and writes
@@ -251,14 +233,14 @@ function setRush(on) {
 }
 function showRush() {
   game?.setRushBoost(rush, rushArt);
-  showSetting(rushButton, rush);
+  showSetting(rushButton, rush, rushArt ? null : 'Sonic Rush');
 }
 function useRush(buffer) {
   rushArt = extractRush(buffer);
   sound.loadRush(rushArt.sound);
   return rushArt.code;
 }
-rushButton.addEventListener('click', () => { setRush(!rush); screen.focus(); });
+rushButton.addEventListener('click', () => setRush(!rush));
 
 // Sonic Advance 2's Boost Mode, another extra: off unless chosen. Its afterimages, particles and sound come from
 // the player's own Sonic Advance 2 ROM.
@@ -273,9 +255,9 @@ function setBoostMode(on) {
 }
 function showBoostMode() {
   game?.setBoostMode(boostMode, boostArt);
-  showSetting(boostButton, boostMode);
+  showSetting(boostButton, boostMode, boostArt ? null : 'Sonic Advance 2');
 }
-boostButton.addEventListener('click', () => { setBoostMode(!boostMode); screen.focus(); });
+boostButton.addEventListener('click', () => setBoostMode(!boostMode));
 // Sonic Advance 2's mid-air tricks, an extra on top of the original game: off unless chosen, like the Rush boost.
 // Their sprites and sounds come from the player's own Sonic Advance 2 ROM too.
 const TRICKS_KEY = 'onsoku.sa2Tricks';
@@ -289,9 +271,9 @@ function setTricks(on) {
 }
 function showTricks() {
   game?.setSa2Tricks(tricks, tricksArt);
-  showSetting(tricksButton, tricks);
+  showSetting(tricksButton, tricks, tricksArt ? null : 'Sonic Advance 2');
 }
-tricksButton.addEventListener('click', () => { setTricks(!tricks); screen.focus(); });
+tricksButton.addEventListener('click', () => setTricks(!tricks));
 // what the extras from Sonic Advance 2 read from its ROM, and its sound engine's tables
 function useSa2(buffer) {
   const sa2 = openSa2(buffer), boost = readBoostArt(sa2), trick = trickArt(sa2);
@@ -318,20 +300,25 @@ const setup = createRomSetup(picker, {
         if (buffer.byteLength > MAX_GBA_BYTES) throw new RomError('This file is too large to be a Game Boy Advance ROM.');
         const assets = await extractAssets(buffer, progress, { level: firstLevel, character });
         sa1 = { buffer, assets };
-        endGameBehind();   // another Sonic Advance ROM: Play starts it, rather than going back to the old one's game
+        quitToStart();   // another Sonic Advance ROM: the game being played ends, and Play starts the new one's
         return `${assets.info.region} · ${assets.info.version ? 'tested version' : 'untested version'}`;
       },
       unload() {
         sa1 = null;
-        endGameBehind();   // the game waiting behind went with it
+        quitToStart();   // the game being played went with it
       },
       extras: [{ label: 'Widescreen view', hint: 'See more of the stage', key: 'V', get: () => wide, set: setWide }],
     },
     {
       key: 'sa2', store: SA2_ROM, title: 'Sonic Advance 2', required: false,
       accept: '.gba,.agb,.bin', claims: isSa2,
-      read: buffer => region(useSa2(buffer)),
-      unload() { boostArt = tricksArt = null; },
+      read(buffer) {
+        const code = useSa2(buffer);
+        showBoostMode();
+        showTricks();
+        return region(code);
+      },
+      unload() { boostArt = tricksArt = null; showBoostMode(); showTricks(); },
       extras: [
         { label: 'Boost Mode', hint: 'Keep running at top speed', key: 'B', get: () => boostMode, set: setBoostMode, auto: true },
         { label: 'Mid-air tricks', hint: 'Flips and dives in the air', keys: 'with E or I (RB on a controller)', key: 'T', get: () => tricks, set: setTricks, auto: true },
@@ -340,12 +327,16 @@ const setup = createRomSetup(picker, {
     {
       key: 'rush', store: RUSH_ROM, title: 'Sonic Rush', required: false,
       accept: '.nds', claims: isRush,
-      read: buffer => region(useRush(buffer)),
-      unload() { rushArt = null; },
+      read(buffer) {
+        const code = useRush(buffer);
+        showRush();
+        return region(code);
+      },
+      unload() { rushArt = null; showRush(); },
       extras: [{ label: 'Rush boost', hint: 'A burst of speed', keys: 'with Shift or L (X on a controller)', key: 'R', get: () => rush, set: setRush, auto: true }],
     },
   ],
-  onBack: () => backToGame(),
+  onChange: () => queueMicrotask(showRomCount),   // once the page is set up
   onPlay() {
     sound.load(sa1.buffer, sa1.assets.sound, players).catch(err => console.warn('No sound:', err));
     start(sa1.buffer, sa1.assets);
@@ -362,16 +353,18 @@ showRush();
 showBoostMode();
 showTricks();
 
-// the game waiting behind the start screen, ended: the way back goes to Dreamports again, and Play starts a new one
-function endGameBehind() {
-  if (!behind) return;
+// the game being played, ended from the settings: back to the start screen, where Play starts a new one
+function quitToStart() {
+  if (stage.hidden) return;
   stopAll();
-  holdGame();
-  setup.backTo(false);
+  sheet.close({ now: true });
+  stage.hidden = true;
+  picker.hidden = false;
+  scrollTo(0, 0);
+  setup.focus();
 }
 
 function stopAll() {
-  behind = false;
   front?.stop(); front = null;
   specialStage?.stop(); specialStage = null;
   game?.stop(); game = null;
@@ -382,14 +375,13 @@ function stopAll() {
 function start(buffer, assets) {
   stopAll();
   rom = new Rom(buffer);
-  setup.backTo(false);
   picker.hidden = true;
   stage.hidden = false;
   // the extras are single-player options
   const multi = !!assets.stage.multiplayerSpawns;
   wideButton.disabled = rushButton.disabled = boostButton.disabled = tricksButton.disabled = multi;
   stage.classList.toggle('multi', multi);   // its players play with keyboards and controllers
-  showSettings(false);
+  sheet.close({ now: true });
   counts = !debug && !specialTest && (assets.first === 0 || multi);
   if (multi) { startRound(assets); return; }
   const leaving = specialTest && specialSpringStart(assets, { emeralds: save.chaosEmeralds, continues });
@@ -498,49 +490,44 @@ function startRound(assets) {
   if (debug) globalThis.onsoku = { round, assets, sound };
 }
 
-// the start screen, or the asset viewer, over the game, which waits behind it: their way back, and the start
-// screen's Play button, go back to the game
-function leaveGame(to) {
-  showSettings(false);
-  behind = running();
-  stage.hidden = true;
-  holdGame();
-  to.hidden = false;
-  scrollTo(0, 0);
-}
-document.getElementById('change-rom').addEventListener('click', () => {
-  leaveGame(picker);
-  setup.backTo(behind);
-  setup.refresh();
-  setup.focus();
+// Your ROMs, in the settings: the start screen's rows (rom-setup.js), lent to them while they show, how many of the
+// ROMs are in and a place to drop one
+const romsView = sheet.view('roms', {
+  title: 'Your ROMs',
+  show: () => setup.lend({ list: romsView.el.querySelector('.roms-list'), foot: romsView.el.querySelector('.roms-foot'), note: romsView.el.querySelector('.play-note'), drop: romsView.el.querySelector('.drop') }),
+  hide: () => setup.lend(null),
+  first: () => romsView.el.querySelector('[data-back]'),
 });
+romsView.body.innerHTML = `
+  <div class="split">
+    <aside class="side sheet-rise">
+      <div class="sum"><p class="sum-num"><b></b><span></span></p><span class="cells" aria-hidden="true"></span></div>
+      <p class="side-note">Your ROMs stay on this device.</p>
+      <div class="setup roms-foot"></div>
+      <div class="drop"><svg viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 0h1v5H3zM1 2h1v1H1zM5 2h1v1H5zM2 3h1v1H2zM4 3h1v1H4zM0 5h1v1H0zM6 5h1v1H6zM0 6h7v1H0z"/></svg>Drop a ROM anywhere here<small>It goes to its own game</small></div>
+    </aside>
+    <section class="main"><div class="setup roms-list sheet-rise"></div><p class="play-note" aria-live="polite"></p></section>
+  </div>`;
+function showRomCount() {
+  const { ready, all } = setup.count();
+  document.getElementById('roms-count').textContent = `${ready} of ${all} in`;
+  romsView.el.querySelector('.sum-num b').textContent = ready;
+  romsView.el.querySelector('.sum-num span').textContent = `/${all} ROMs in`;
+  romsView.el.querySelector('.sum .cells').innerHTML = Array.from({ length: all }, (_, i) => `<i${i < ready ? ' class="on"' : ''}></i>`).join('');
+}
+showRomCount();
+document.getElementById('change-rom').addEventListener('click', () => sheet.go('roms'));
 // the asset viewer shows what was decoded for the act being played, or the first one before it starts; with a
 // modifier, the link opens it on its own page
-const assetsHost = document.getElementById('assets');
-const assetsView = createAssetsView(assetsHost, { back: { label: 'Back to the game', go: () => backToGame() } });
+createAssetsSheetView(sheet, () => playing ?? sa1?.assets);
 document.getElementById('assets-open').addEventListener('click', e => {
   if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !sa1) return;
   e.preventDefault();
-  leaveGame(assetsHost);
-  assetsView.show(playing ?? sa1.assets);
-  assetsHost.querySelector('.setup-back').focus();
+  sheet.go('assets');
 });
-function backToGame() {
-  if (!behind && assetsHost.hidden) return false;
-  if (!assetsHost.hidden) { assetsView.clear(); assetsHost.hidden = true; document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#050a24'); }
-  picker.hidden = true;
-  stage.hidden = false;
-  behind = false;
-  setup.backTo(false);
-  holdGame();
-  fitScreen();
-  screen.focus();
-  return true;
-}
-addEventListener('keydown', e => { if (e.code === 'Escape' && behind && !picker.hidden) backToGame(); });
 
 addEventListener('keydown', e => {
-  if (e.code === 'KeyH' && !stage.hidden && !e.repeat) showSettings(help.hidden);
+  if (e.code === 'KeyH' && !stage.hidden && !e.repeat) { if (sheet.isOpen) sheet.close(); else sheet.open(); }
   // C shows the terrain collision over the stage, for checking it against the art
   if (e.code === 'KeyC' && game && !stage.hidden && !e.repeat) game.state.showCollision = !game.state.showCollision;
   if (e.code === 'KeyM' && !stage.hidden && !e.repeat) { sound.muted = !sound.muted; showSound(); }

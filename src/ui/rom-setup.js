@@ -50,7 +50,7 @@ const drawn = () => new Promise(resolve => { requestAnimationFrame(() => setTime
  * auto }, where `hint` says what it does, `keys` (if any) the keys that use it, shown only to a keyboard, `key` is
  * the key that switches it in the game and `auto` turns it on when the ROM is chosen. `onPlay()` starts the game
  * once every required ROM is read. `onBack()` takes the way back first, and says whether it did (while the game
- * waits behind the screen, it goes back to the game).
+ * waits behind the screen, it goes back to the game, and so does the Play button, named for it).
  */
 export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = () => false }) {
   host.innerHTML = `
@@ -66,7 +66,7 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
       </header>
       <ul class="roms" aria-label="Your ROMs">${slots.map(row).join('')}</ul>
       <div class="setup-play">
-        <button type="button" class="play" disabled><kbd>Enter</kbd>${ICONS.play}<span>Play</span></button>
+        <button type="button" class="play" disabled><kbd>Enter</kbd>${ICONS.play}<span class="play-label">Play</span></button>
         <p class="play-note" aria-live="polite"></p>
       </div>
       <footer class="setup-foot">
@@ -107,6 +107,8 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
 
   const $ = sel => host.querySelector(sel);
   const play = $('.play'), note = $('.play-note');
+  let resume = false;   // a game waits behind the screen: Play goes back to it rather than starting another
+  const go = () => (resume ? onBack() : onPlay());
   const remember = $('.remember input'), forget = $('.forget');
   const rows = Object.fromEntries(slots.map(s => {
     const el = host.querySelector(`.rom[data-slot="${s.key}"]`);
@@ -279,9 +281,9 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
     add([...e.dataTransfer.files], e.target.closest?.('.rom')?.dataset.slot ?? null);
   });
 
-  play.addEventListener('click', () => { if (!play.disabled) onPlay(); });
+  play.addEventListener('click', () => { if (!play.disabled) go(); });
   host.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !play.disabled && !e.target.closest('button, input, label, a')) { e.preventDefault(); onPlay(); }
+    if (e.key === 'Enter' && !play.disabled && !e.target.closest('button, input, label, a')) { e.preventDefault(); go(); }
   });
   forget.addEventListener('click', async () => {
     for (const c of Object.values(rows)) {
@@ -307,11 +309,13 @@ export function createRomSetup(host, { heading, intro, slots, onPlay, onBack = (
     add, restored,
     /** Shows the extras as they are now (they can also be changed in the game). */
     refresh() { for (const c of Object.values(rows)) setState(c, c.el.dataset.state); },
-    /** Names the way back: to the game waiting behind the screen (`game`), or to Dreamports. */
+    /** Names the way back, and the Play button with it: to the game waiting behind the screen (`game`), or to Dreamports. */
     backTo(game) {
       const label = game ? 'Back to the game' : 'Back to Dreamports';
       back.setAttribute('aria-label', label);
       back.title = label;
+      resume = game;
+      $('.play-label').textContent = game ? 'Back to the game' : 'Play';
     },
     focus() { (play.disabled ? host.querySelector('.rom[data-state="empty"] .rom-add') : play)?.focus(); },
   };

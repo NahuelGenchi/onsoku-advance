@@ -318,11 +318,12 @@ const setup = createRomSetup(picker, {
         if (buffer.byteLength > MAX_GBA_BYTES) throw new RomError('This file is too large to be a Game Boy Advance ROM.');
         const assets = await extractAssets(buffer, progress, { level: firstLevel, character });
         sa1 = { buffer, assets };
+        endGameBehind();   // another Sonic Advance ROM: Play starts it, rather than going back to the old one's game
         return `${assets.info.region} · ${assets.info.version ? 'tested version' : 'untested version'}`;
       },
       unload() {
         sa1 = null;
-        if (behind) { stopAll(); holdGame(); setup.backTo(false); }   // the game waiting behind went with it
+        endGameBehind();   // the game waiting behind went with it
       },
       extras: [{ label: 'Widescreen view', hint: 'See more of the stage', key: 'V', get: () => wide, set: setWide }],
     },
@@ -360,6 +361,14 @@ setup.restored.then(() => {
 showRush();
 showBoostMode();
 showTricks();
+
+// the game waiting behind the start screen, ended: the way back goes to Dreamports again, and Play starts a new one
+function endGameBehind() {
+  if (!behind) return;
+  stopAll();
+  holdGame();
+  setup.backTo(false);
+}
 
 function stopAll() {
   behind = false;
@@ -489,8 +498,8 @@ function startRound(assets) {
   if (debug) globalThis.onsoku = { round, assets, sound };
 }
 
-// the start screen, or the asset viewer, over the game, which waits behind it: their way back goes back to the game,
-// and the start screen's Play starts again
+// the start screen, or the asset viewer, over the game, which waits behind it: their way back, and the start
+// screen's Play button, go back to the game
 function leaveGame(to) {
   showSettings(false);
   behind = running();

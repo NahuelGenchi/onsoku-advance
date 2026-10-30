@@ -30,6 +30,7 @@ import { createAchievementsPanel } from './achievements/panel.js';
 import { createDialog } from './ui/dialog.js';
 import { holdClocks } from './engine/clock.js';
 import { bindSettingsPad } from './ui/settings-pad.js';
+import { createAssetsView } from './ui/assets-view.js';
 
 const picker = document.getElementById('picker');
 const stage = document.getElementById('stage');
@@ -482,19 +483,36 @@ function startRound(assets) {
   if (debug) globalThis.onsoku = { round, assets, sound };
 }
 
-// the start screen, over the game, which waits behind it: its way back goes back to the game, and Play starts again
-document.getElementById('change-rom').addEventListener('click', () => {
+// the start screen, or the asset viewer, over the game, which waits behind it: their way back goes back to the game,
+// and the start screen's Play starts again
+function leaveGame(to) {
   showSettings(false);
   behind = running();
   stage.hidden = true;
   holdGame();
-  picker.hidden = false;
+  to.hidden = false;
+  scrollTo(0, 0);
+}
+document.getElementById('change-rom').addEventListener('click', () => {
+  leaveGame(picker);
   setup.backTo(behind);
   setup.refresh();
   setup.focus();
 });
+// the asset viewer shows what was decoded for the act being played, or the first one before it starts; with a
+// modifier, the link opens it on its own page
+const assetsHost = document.getElementById('assets');
+const assetsView = createAssetsView(assetsHost, { back: { label: 'Back to the game', go: () => backToGame() } });
+document.getElementById('assets-open').addEventListener('click', e => {
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !sa1) return;
+  e.preventDefault();
+  leaveGame(assetsHost);
+  assetsView.show(playing ?? sa1.assets);
+  assetsHost.querySelector('.setup-back').focus();
+});
 function backToGame() {
-  if (!behind) return false;
+  if (!behind && assetsHost.hidden) return false;
+  if (!assetsHost.hidden) { assetsView.clear(); assetsHost.hidden = true; document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#050a24'); }
   picker.hidden = true;
   stage.hidden = false;
   behind = false;

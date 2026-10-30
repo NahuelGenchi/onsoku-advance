@@ -5,29 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Asset viewer · Sonic Advance Dreamport</title>
 <meta name="description" content="See what Sonic Advance Dreamport extracts from your own Sonic Advance ROM.">
+<meta name="theme-color" content="#050a24">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles/app.css">
 </head>
 <body>
 <main>
-  <section class="picker" id="picker" aria-label="Choose a ROM"></section>
-  <section class="viewer" id="viewer" hidden>
-    <header>
-      <h1>Extracted assets</h1>
-      <span class="note">Decoded in this browser from your ROM. Nothing here is stored in the repository.</span>
-    </header>
-    <dl class="facts" id="facts"></dl>
-    <h2>Sonic's animations</h2>
-    <div class="anims" id="anims"></div>
-    <h2>Sprite atlas</h2>
-    <div class="sheet" id="atlas"></div>
-    <h2>Neo Green Hill Zone act 1</h2>
-    <p class="note" id="act"></p>
-    <label class="toggle"><input type="checkbox" id="show-collision"> Show collision (front layer red, back layer blue, jump-through lighter)</label>
-    <div class="sheet" id="map"></div>
-    <h2>Neo Green Hill background</h2>
-    <div class="sheet" id="background"></div>
-  </section>
+  <section class="assets" id="assets" aria-label="Asset viewer"></section>
 </main>
 <script type="module" src="src/viewer.js"></script>
 </body>

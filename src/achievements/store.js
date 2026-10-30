@@ -1,6 +1,7 @@
-// What the player has earned, kept in this browser by id with the time it was earned, until it can be claimed by
-// a Dreamports account (NahuelGenchi/dreamports#16). Each new unlock is also handed to the Dreamports script's
-// unlock(id) when the page has it.
+// What the player has earned, kept in this browser by id with the time it was earned. On dreamports.net the page
+// loads the site's /dreamports.js, which saves each new unlock to the signed-in player's profile through its
+// unlock(id), and claims this map when the player signs in (NahuelGenchi/dreamports#68). Elsewhere it 404s and
+// the unlocks stay here.
 
 import { ACHIEVEMENTS, achievement, statusOf } from './list.js';
 

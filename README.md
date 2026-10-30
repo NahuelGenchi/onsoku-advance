@@ -335,7 +335,7 @@ A no-hit achievement counts from the moment the boss's arena closes in, and star
 
 They count in a game started from the beginning, and in Chao Hunt. A game started with `?level`, `?debug` or `?special` earns none.
 
-Your achievements are kept in this browser. On dreamports.net, sign in to a [Dreamports profile](https://dreamports.net/profile/) and they're saved there too, so you keep them on any device: the ones you earned before are added when you sign in, and each new one is saved as you earn it. With nobody signed in, they stay in this browser until someone does.
+Your achievements are kept in this browser. On dreamports.net, sign in to a [Dreamports profile](https://dreamports.net/profile/) and they're saved there too, so you keep them on any device: the ones you earned before are added when you sign in, and each new one is saved as you earn it. The game shows the ones your profile has from your other devices too, without a popup, and an achievement you already have there isn't earned again. With nobody signed in, they stay in this browser until someone does.
 
 ## Controls
 
@@ -563,7 +563,7 @@ To see everything the extractor decodes, open *Asset viewer* in the game's setti
 
 [`wrangler.jsonc`](wrangler.jsonc) sets up the copy that Cloudflare serves at `dreamports.net/play/sonic-advance/`. Its build copies only the committed pages, `src/`, `styles/` and the social preview picture into `dist/play/sonic-advance/`. To try that copy on your computer, commit your changes, run `npx wrangler dev` and open <http://localhost:8787/play/sonic-advance/>.
 
-The page also loads `/dreamports.js` from the site's root, which saves achievements to the player's Dreamports profile. Only dreamports.net serves it, so on your own computer and on this repository's Cloudflare previews it isn't found, and achievements stay in the browser.
+The page also loads `/dreamports.js` from the site's root, which saves achievements to the player's Dreamports profile and gives the game the ones the profile has. Only dreamports.net serves it, so on your own computer and on this repository's Cloudflare previews it isn't found, and achievements stay in the browser.
 
 ## Contributing
 

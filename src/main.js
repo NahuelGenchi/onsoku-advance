@@ -155,8 +155,9 @@ opacitySlider.addEventListener('pointerdown', e => {
 });
 opacitySlider.addEventListener('pointermove', e => { if (e.pointerType === 'touch' && opacitySlider.hasPointerCapture(e.pointerId)) slideTo(e); });
 
-// the achievements, kept in this browser (store.js): each new one shows its popup over the game, and so does the
-// game's status once it changes (Beaten, Mastered); the settings show how many are earned and open the list of them
+// the achievements, kept in this browser and, on dreamports.net, on the player's profile (store.js): each new one
+// shows its popup over the game, and so does the game's status once it changes (Beaten, Mastered); the settings show
+// how many are earned and open the list of them
 const achievements = openAchievements();
 const unlockPopup = createUnlockPopup(stage, screen, () => sound);
 const achievementsButton = document.getElementById('achievements-open');
@@ -165,12 +166,17 @@ achievements.onUnlock(a => {
   unlockPopup.show(a);
   achievementsPanel.refresh();
 });
+// those the profile has from other devices are counted and listed as they come, without a popup
+achievements.onProfile(() => achievementsPanel.refresh());
 const STATUS_POPUPS = {
   beaten: { title: 'Game Beaten', said: 'Sonic Advance beaten' },
   mastered: { title: 'Game Mastered', said: 'Sonic Advance mastered' },
 };
-// after the achievements the same moment earns (an act's results earn several at once)
-achievements.onStatus(status => { if (STATUS_POPUPS[status]) queueMicrotask(() => unlockPopup.show(STATUS_POPUPS[status])); });
+// after the achievements the same moment earns (an act's results earn several at once); not for a status the
+// profile brings
+achievements.onStatus((status, fromProfile) => {
+  if (!fromProfile && STATUS_POPUPS[status]) queueMicrotask(() => unlockPopup.show(STATUS_POPUPS[status]));
+});
 // a game counts for them when it starts from the game's start (or is a multiplayer round, which only the level pick
 // reaches): not from ?debug, ?special or another act's ?level
 let counts = false;
